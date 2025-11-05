@@ -1,9 +1,7 @@
 # 🪩 Anchor – AI-Powered Job Search Companion  
 > Stay motivated. Stay consistent. Grow with purpose.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Build Status](https://img.shields.io/github/actions/workflow/status/<your-org>/anchor/ci.yml?label=build)
-![Contributors](https://img.shields.io/github/contributors/<your-org>/anchor)
+
 
 ---
 
