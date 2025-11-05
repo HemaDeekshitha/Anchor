@@ -14,45 +14,25 @@ Built with AI, it blends productivity and motivation through personalized plans,
 
 ## 🏗️ Architecture Overview
 
-Users ─▶ Web (Next.js) / iOS (SwiftUI)
-
-                  │
-                  ▼
-                  
-Auth & API Gateway (NextAuth.js / OAuth2)
-
-                  │
-                  ▼
-
-|---------------------------------------------|
-|           Backend Microservices             |
-|--------------------|------------------------|
-|           FastAPI (AI Orchestration)        |
-|      NestJS (User, Tasks, Rewards, Notices) |
-|         Email/Calendar Sync via Celery      |
-|---------------------------------------------|
-
-                  │
-                  ▼
-                  
-Data & Intelligence Layer (PostgreSQL, MongoDB, Redis, Pinecone)
-
-                  │
-                  ▼
-                  
-AI Orchestration (LangChain + GPT-4o / Gemini)
-
-                  │
-                  ▼
-                  
-Analytics & Monitoring (Mixpanel, Grafana, Sentry)
+- **Users**
+  - ⬇️ Web (Next.js) / iOS (SwiftUI)
+    - ⬇️ **Auth & API Gateway** (NextAuth.js / OAuth2)
+      - ⬇️ **Backend Microservices**
+        - FastAPI (AI Orchestration)
+        - NestJS (User, Tasks, Rewards, Notices)
+        - Email/Calendar Sync via Celery
+      - ⬇️ **Data & Intelligence Layer**
+        - PostgreSQL · MongoDB · Redis · Pinecone
+      - ⬇️ **AI Orchestration**
+        - LangChain · GPT-4o / Gemini
+      - ⬇️ **Analytics & Monitoring**
+        - Mixpanel · Grafana · Sentry
 
 
----
 
 ## ⚙️ Tech Stack
 
-|----------------------------|------------------------------------------------------------------------------------------------------|
+
 | Layer                      |                             Technologies                                                             |
 |----------------------------|------------------------------------------------------------------------------------------------------|
 | **Frontend (Web + iOS)**   |   Next.js (TypeScript), SwiftUI, Tailwind CSS, ShadCN/UI, Combine, CoreData, Zustand, TanStack Query |
@@ -60,7 +40,7 @@ Analytics & Monitoring (Mixpanel, Grafana, Sentry)
 | **AI & ML**                |   OpenAI GPT-4o / Gemini, LangChain, Pinecone, Hugging Face, Meilisearch                             |
 | **DevOps / Cloud**         |   AWS (Lambda, ECS, RDS), Vercel, Docker, GitHub Actions, Cloudflare                                 |
 | **Analytics & Monitoring** | Mixpanel, Firebase Analytics, Grafana, Prometheus, Sentry                                            |
-|----------------------------|------------------------------------------------------------------------------------------------------|
+
 ---
 
 ## 🧩 Prerequisites
