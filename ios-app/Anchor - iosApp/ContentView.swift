@@ -8,17 +8,18 @@
 import SwiftUI
 
 struct ContentView: View {
+    var viewModel: OnboardingViewModel
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationStack {
+            OnboardingWelcomeView(viewModel: viewModel)
         }
-        .padding()
+    }
+}
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView(viewModel: OnboardingViewModel())
     }
 }
 
-#Preview {
-    ContentView()
-}
+

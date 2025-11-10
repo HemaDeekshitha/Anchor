@@ -6,6 +6,26 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0C21A0572EC0662200799688 /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C21A0562EC0661600799688 /* LottieView.swift */; };
+		0C21A0592EC0674E00799688 /* Star Loader 2.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C21A0582EC0674E00799688 /* Star Loader 2.json */; };
+		0C21A05C2EC0680300799688 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 0C21A05B2EC0680300799688 /* Lottie */; };
+		0C21A05E2EC06D4E00799688 /* waves.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C21A05D2EC06D4E00799688 /* waves.json */; };
+		0C3469512EC0245B001D513B /* CurrentStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3469502EC02445001D513B /* CurrentStatusView.swift */; };
+		0C3469552EC027A3001D513B /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3469542EC02798001D513B /* PreferencesView.swift */; };
+		0C3469572EC02A20001D513B /* FinalOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3469562EC02A1D001D513B /* FinalOnboardingView.swift */; };
+		0C939CC72EBFF61700476854 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CC22EBFEFA400476854 /* OnboardingViewModel.swift */; };
+		0C939CC82EBFF61F00476854 /* OnboardingWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CBD2EBFEF0300476854 /* OnboardingWelcomeView.swift */; };
+		0C939CCA2EBFFC5C00476854 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CC92EBFFBD600476854 /* Theme.swift */; };
+		0C939CCC2EC0003600476854 /* GradientBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CCB2EBFFFCE00476854 /* GradientBackgroundView.swift */; };
+		0C939CCE2EC000D800476854 /* SignInButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CCD2EC000CA00476854 /* SignInButtonView.swift */; };
+		0C939CCF2EC0014D00476854 /* OnboardingStep2View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CBE2EBFEF5000476854 /* OnboardingStep2View.swift */; };
+		0C939CD12EC0042900476854 /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CD02EC0042100476854 /* SafariView.swift */; };
+		0C939CD32EC00B4800476854 /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CD22EC00B4100476854 /* DocumentPicker.swift */; };
+		0C939CD52EC00B6E00476854 /* ResumeImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CD42EC00B6600476854 /* ResumeImport.swift */; };
+		0C939CD92EC0119100476854 /* PrimaryFocusStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CD82EC0118400476854 /* PrimaryFocusStepView.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0C82DDAC2EBFC5C200637ED7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,9 +44,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0C21A0562EC0661600799688 /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
+		0C21A0582EC0674E00799688 /* Star Loader 2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Star Loader 2.json"; sourceTree = "<group>"; };
+		0C21A05D2EC06D4E00799688 /* waves.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = waves.json; sourceTree = "<group>"; };
+		0C3469502EC02445001D513B /* CurrentStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentStatusView.swift; sourceTree = "<group>"; };
+		0C3469542EC02798001D513B /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		0C3469562EC02A1D001D513B /* FinalOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalOnboardingView.swift; sourceTree = "<group>"; };
 		0C82DD9E2EBFC5C100637ED7 /* Anchor - iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Anchor - iosApp.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C82DDAB2EBFC5C200637ED7 /* Anchor - iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Anchor - iosAppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C82DDB52EBFC5C200637ED7 /* Anchor - iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Anchor - iosAppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C939CBD2EBFEF0300476854 /* OnboardingWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWelcomeView.swift; sourceTree = "<group>"; };
+		0C939CBE2EBFEF5000476854 /* OnboardingStep2View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStep2View.swift; sourceTree = "<group>"; };
+		0C939CC22EBFEFA400476854 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		0C939CC92EBFFBD600476854 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		0C939CCB2EBFFFCE00476854 /* GradientBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradientBackgroundView.swift; sourceTree = "<group>"; };
+		0C939CCD2EC000CA00476854 /* SignInButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInButtonView.swift; sourceTree = "<group>"; };
+		0C939CD02EC0042100476854 /* SafariView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariView.swift; sourceTree = "<group>"; };
+		0C939CD22EC00B4100476854 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
+		0C939CD42EC00B6600476854 /* ResumeImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumeImport.swift; sourceTree = "<group>"; };
+		0C939CD82EC0118400476854 /* PrimaryFocusStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryFocusStepView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +88,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C21A05C2EC0680300799688 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,9 +109,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0C21A05A2EC0680300799688 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		0C82DD952EBFC5C100637ED7 = {
 			isa = PBXGroup;
 			children = (
+				0C21A0582EC0674E00799688 /* Star Loader 2.json */,
 				0C82DDEE2EBFCD4500637ED7 /* Utils 2 */,
 				0C82DDA02EBFC5C100637ED7 /* Anchor - iosApp */,
 				0C82DDAE2EBFC5C200637ED7 /* Anchor - iosAppTests */,
@@ -84,6 +129,8 @@
 				0C82DDEC2EBFCD2600637ED7 /* Views 2 */,
 				0C82DDED2EBFCD3400637ED7 /* ViewModels 2 */,
 				0C82DDEF2EBFCD5F00637ED7 /* Services 2 */,
+				0C21A05A2EC0680300799688 /* Frameworks */,
+				0C21A05D2EC06D4E00799688 /* waves.json */,
 			);
 			sourceTree = "<group>";
 		};
@@ -107,6 +154,7 @@
 		0C82DDEC2EBFCD2600637ED7 /* Views 2 */ = {
 			isa = PBXGroup;
 			children = (
+				0C939CBC2EBFEED600476854 /* Onboarding */,
 			);
 			path = "Views 2";
 			sourceTree = "<group>";
@@ -114,6 +162,7 @@
 		0C82DDED2EBFCD3400637ED7 /* ViewModels 2 */ = {
 			isa = PBXGroup;
 			children = (
+				0C939CC12EBFEF9800476854 /* Onboarding */,
 			);
 			path = "ViewModels 2";
 			sourceTree = "<group>";
@@ -121,6 +170,7 @@
 		0C82DDEE2EBFCD4500637ED7 /* Utils 2 */ = {
 			isa = PBXGroup;
 			children = (
+				0C939CC92EBFFBD600476854 /* Theme.swift */,
 			);
 			path = "Utils 2";
 			sourceTree = "<group>";
@@ -130,6 +180,41 @@
 			children = (
 			);
 			path = "Services 2";
+			sourceTree = "<group>";
+		};
+		0C939CBC2EBFEED600476854 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				0C21A0562EC0661600799688 /* LottieView.swift */,
+				0C3469562EC02A1D001D513B /* FinalOnboardingView.swift */,
+				0C3469542EC02798001D513B /* PreferencesView.swift */,
+				0C3469502EC02445001D513B /* CurrentStatusView.swift */,
+				0C939CD82EC0118400476854 /* PrimaryFocusStepView.swift */,
+				0C939CD42EC00B6600476854 /* ResumeImport.swift */,
+				0C939CC02EBFEF7F00476854 /* Components */,
+				0C939CBE2EBFEF5000476854 /* OnboardingStep2View.swift */,
+				0C939CBD2EBFEF0300476854 /* OnboardingWelcomeView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		0C939CC02EBFEF7F00476854 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				0C939CD22EC00B4100476854 /* DocumentPicker.swift */,
+				0C939CD02EC0042100476854 /* SafariView.swift */,
+				0C939CCB2EBFFFCE00476854 /* GradientBackgroundView.swift */,
+				0C939CCD2EC000CA00476854 /* SignInButtonView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		0C939CC12EBFEF9800476854 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				0C939CC22EBFEFA400476854 /* OnboardingViewModel.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -152,6 +237,7 @@
 			);
 			name = "Anchor - iosApp";
 			packageProductDependencies = (
+				0C21A05B2EC0680300799688 /* Lottie */,
 			);
 			productName = "Anchor - iosApp";
 			productReference = 0C82DD9E2EBFC5C100637ED7 /* Anchor - iosApp.app */;
@@ -235,6 +321,10 @@
 			);
 			mainGroup = 0C82DD952EBFC5C100637ED7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0C21A0422EC05C8A00799688 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
+				0C21A0552EC065C600799688 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0C82DD9F2EBFC5C100637ED7 /* Products */;
 			projectDirPath = "";
@@ -252,6 +342,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C21A05E2EC06D4E00799688 /* waves.json in Resources */,
+				0C21A0592EC0674E00799688 /* Star Loader 2.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,6 +368,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C939CD92EC0119100476854 /* PrimaryFocusStepView.swift in Sources */,
+				0C939CCF2EC0014D00476854 /* OnboardingStep2View.swift in Sources */,
+				0C939CD12EC0042900476854 /* SafariView.swift in Sources */,
+				0C939CCC2EC0003600476854 /* GradientBackgroundView.swift in Sources */,
+				0C939CC82EBFF61F00476854 /* OnboardingWelcomeView.swift in Sources */,
+				0C3469512EC0245B001D513B /* CurrentStatusView.swift in Sources */,
+				0C939CD52EC00B6E00476854 /* ResumeImport.swift in Sources */,
+				0C21A0572EC0662200799688 /* LottieView.swift in Sources */,
+				0C939CCA2EBFFC5C00476854 /* Theme.swift in Sources */,
+				0C939CC72EBFF61700476854 /* OnboardingViewModel.swift in Sources */,
+				0C939CCE2EC000D800476854 /* SignInButtonView.swift in Sources */,
+				0C939CD32EC00B4800476854 /* DocumentPicker.swift in Sources */,
+				0C3469572EC02A20001D513B /* FinalOnboardingView.swift in Sources */,
+				0C3469552EC027A3001D513B /* PreferencesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -598,6 +704,33 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0C21A0422EC05C8A00799688 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImageSwiftUI";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.4;
+			};
+		};
+		0C21A0552EC065C600799688 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0C21A05B2EC0680300799688 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0C21A0552EC065C600799688 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0C82DD962EBFC5C100637ED7 /* Project object */;
 }
