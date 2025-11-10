@@ -54,7 +54,7 @@ struct CurrentStatusView: View {
                         .foregroundColor(.yellow.opacity(0.8))
                         .bold()
                         .padding()
-                        .background(selected == item ? Color.purple.opacity(0.1) : Color.white)
+                        .background(selected == item ? Color.yellow.opacity(0.1) : Color.white)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
                                 .stroke(selected == item ? Color.yellow : Color.gray.opacity(0.2), lineWidth: 2)

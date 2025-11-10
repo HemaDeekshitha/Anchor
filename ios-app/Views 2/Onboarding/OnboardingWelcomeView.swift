@@ -22,6 +22,9 @@ struct OnboardingWelcomeView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @State private var navigateToNext = false //navigation triggering
     @State private var showLogo = true
+    @State private var animateText = false
+    
+
     
     
     
@@ -74,24 +77,42 @@ struct OnboardingWelcomeView: View {
                              Spacer()
                 
                     Text("ANCHOR")
-                        .font(.system(size: 64, weight: .bold, design: .rounded))
+                        .font(.system(size: 64, weight: .bold, design: .monospaced))
                         
                         .foregroundColor(Color(hex: "#FCD343")) // Golden Yellow
                         .shadow(color: Color(hex: "#FCEFAA").opacity(0.8), radius: 4, x: 2, y: 2)
                         .padding(.bottom, 12)
-
-                    Text("Not Just a Job Hunt — A Rewarding Journey")
-                        .font(.subheadline)
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(.yellow.opacity(0.26))
-                        .cornerRadius(16)
+//                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .opacity(animateText ? 1 : 0)
+                            .offset(y: animateText ? 0 : 20) // slight slide-in effect
+                            .animation(.easeOut(duration: 1), value: animateText)
+
+//                    Text("Not Just a Job Hunt — A Rewarding Journey")
+//                        .font(.subheadline)
+//                        .padding(.horizontal, 20)
+//                        .padding(.vertical, 8)
+//                        .background(.yellow.opacity(0.26))
+//                        .cornerRadius(16)
                     //Text
+                // Subtitle
+//                                Text("Not Just a Job Hunt \nA Rewarding Journey")
+//                                    .multilineTextAlignment(.center)
+//                                    .font(.system(size: 18, weight: .medium, design: .rounded))
+//                                    .foregroundColor(.black.opacity(0.7))
+//                                    .padding(.horizontal, 24)
                 
                 Spacer()
                 
                 
-            
+//                FeatureCarouselView(features: [
+//                    "Personalized Job Tracking",
+//                    "AI Resume Optimization",
+//                    "Interview Readiness Toolkit",
+//                    "Networking and Referrals"
+//                ])
+//                .padding(.top, 20)
+
                 
                 Spacer()
                 Button(action: {
@@ -129,6 +150,9 @@ struct OnboardingWelcomeView: View {
             }
             .padding()
         }
+        .onAppear {
+            animateText = true
+        }
 //        .onAppear {
 //                    withAnimation(.easeOut(duration: 1.0)) {
 //                        showLogo = true
@@ -136,3 +160,31 @@ struct OnboardingWelcomeView: View {
 //                }
     }
 }
+//struct FeatureCarouselView: View {
+//    let features: [String]
+//    @State private var currentIndex = 0
+//    let timer = Timer.publish(every: 2.5, on: .main, in: .common).autoconnect()
+//
+//    var body: some View {
+//        TabView(selection: $currentIndex) {
+//            ForEach(features.indices, id: \.self) { index in
+//                Text(features[index])
+//                    .font(.headline)
+//                    .foregroundColor(.black)
+//                    .padding()
+//                    .frame(width: 300, height: 120)
+//                    .background(Color.white.opacity(0.9))
+//                    .cornerRadius(20)
+//                    .shadow(radius: 5)
+//                    .tag(index)
+//            }
+//        }
+//        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+//        .frame(height: 150)
+//        .onReceive(timer) { _ in
+//            withAnimation {
+//                currentIndex = (currentIndex + 1) % features.count
+//            }
+//        }
+//    }
+//}
