@@ -1,0 +1,64 @@
+.landingpageContainer {
+  padding-top: 2rem;
+  padding-bottom: 5rem;
+  padding-left: 4rem;
+  padding-right: 4rem;
+  margin: 1rem;
+  border-radius: 3rem;
+  background: linear-gradient(180deg, #fcfaff 0%, rgb(222, 217, 255) 100%);
+}
+
+.landingpageMain {
+  padding-top: 3rem;
+}
+
+.landingpageContent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 2rem;
+  width: 100%;
+}
+
+.title {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: black;
+  width: 50rem;
+}
+
+.heroImage {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+}
+
+.landingpageBtns {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  gap: 2rem;
+}
+
+.primaryBtn {
+  background-color: white;
+  color: gray;
+  padding: 1rem;
+  border-radius: 1rem;
+  width: 10rem;
+  font-size: medium;
+  cursor: pointer;
+}
+.secondaryBtn {
+  background-color: black;
+  color: white;
+  padding: 1rem;
+  border-radius: 1rem;
+  width: 10rem;
+  font-size: medium;
+  cursor: pointer;
+}
