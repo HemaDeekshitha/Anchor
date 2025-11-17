@@ -4,9 +4,11 @@ import styles from "./Header.module.css";
 export default function Header() {
   return (
     <div className={styles.header}>
-      <h2 className={styles.menuH}>Header</h2>
+      <a href="#" className={styles.menuH}>
+        Anchor
+      </a>
       <div className={styles.menu}>
-        <p className={styles.menuP}>Benfits</p>
+        <p className={styles.menuP}>Benefits</p>
         <p className={styles.menuP}>Get Started</p>
         <p className={styles.menuP}>Features</p>
         <p className={styles.menuP}>Testimonials</p>
@@ -21,7 +23,7 @@ export default function Header() {
         <Image
           src="/assets/appstore.svg"
           alt="Download on the App Store"
-          width={150}
+          width={140}
           height={50}
         />
       </a>

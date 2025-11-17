@@ -5,7 +5,8 @@
   padding-right: 4rem;
   margin: 1rem;
   border-radius: 3rem;
-  background: linear-gradient(180deg, #fcfaff 0%, rgb(222, 217, 255) 100%);
+  background: linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
+  overflow: visible;
 }
 
 .landingpageMain {
@@ -17,8 +18,47 @@
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto auto;
   align-items: center;
-  column-gap: 2rem;
+  column-gap: 7rem;
   width: 100%;
+}
+
+.titledot {
+  width: 0.8rem;
+  height: 0.8rem;
+  background: #5b3aff;
+  display: block;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  animation: pulse 1.4s ease-in-out infinite;
+  align-items: center;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.9); /* shrink */
+  }
+  100% {
+    transform: scale(1); /* back to normal */
+  }
+}
+
+.subtitle {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: black;
+  width: 50rem;
+  background-color: rgba(250, 248, 248, 0.25);
+  padding: 1rem;
+  border-radius: 1.5rem;
+  width: 25rem;
+  display: flex;
+  text-wrap: wrap;
 }
 
 .title {
@@ -28,6 +68,15 @@
   font-weight: bold;
   margin-bottom: 1rem;
   color: black;
+  width: 50rem;
+}
+.titleblur {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: grey;
   width: 50rem;
 }
 
@@ -42,6 +91,7 @@
   grid-row: 2;
   display: flex;
   gap: 2rem;
+  padding-bottom: 4rem;
 }
 
 .primaryBtn {
@@ -52,6 +102,8 @@
   width: 10rem;
   font-size: medium;
   cursor: pointer;
+  border: 2px solid white;
+  font-weight: bold;
 }
 .secondaryBtn {
   background-color: black;
@@ -61,4 +113,45 @@
   width: 10rem;
   font-size: medium;
   cursor: pointer;
+  border: 2px solid black;
+  font-weight: bold;
+}
+
+/* When screen is below 900px → stack items vertically */
+@media (max-width: 1450px) {
+  .landingpageContent {
+    column-gap: 0;
+  }
+  .title {
+    font-size: 3rem;
+    width: 80%;
+  }
+  .titleblur {
+    font-size: 3rem;
+  }
+}
+@media (max-width: 900px) {
+  .landingpageContent {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto;
+    column-gap: 0;
+    row-gap: 2rem;
+  }
+
+  .heroImage {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    justify-self: center;
+  }
+
+  .landingpageBtns {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    justify-content: flex-start;
+  }
+
+  .title,
+  .titleblur {
+    width: 100%;
+  }
 }
