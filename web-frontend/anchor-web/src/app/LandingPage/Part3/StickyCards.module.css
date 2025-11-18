@@ -1,0 +1,99 @@
+.section {
+  /* width: 100%;
+  padding: 100px 20px;
+ background: rgb(244, 240, 240);
+  text-align: center; */
+  padding-top: 7rem;
+  padding-bottom: 7rem;
+  padding-left: 4rem;
+  padding-right: 4rem;
+  margin: 1rem;
+  border-radius: 3rem;
+  background: rgb(244, 240, 240);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.headingGroup {
+  max-width: 700px;
+  margin: 0 auto 60px auto;
+}
+
+.header {
+  background: linear-gradient(90deg, #fefdff 0%, rgb(227, 223, 249) 100%);
+  color: grey;
+  padding: 6px 18px;
+  margin-left:19rem;
+  padding: 0.8rem;
+  border-radius: 2rem;
+  /* text-align: center; */
+  width: 7rem;
+}
+
+.title {
+  font-size: 4rem;
+  font-weight: bold;
+  margin: 16px 30px 8px;
+  color: black;
+  width: min-content;
+  width: 40rem;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  color: grey;
+  width: min-content;
+  width: 60rem;
+  text-align: center;
+ 
+ 
+ 
+}
+
+.stepsWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
+  max-width: 1000px;
+  margin: auto;
+}
+
+.stepRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 60px;
+  flex-wrap: wrap;
+}
+
+.imageBox {
+  background: #e7e6ff;
+  padding: 32px;
+  border-radius: 32px;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.textBox {
+  flex: 1;
+  text-align: left;
+}
+
+.textBox h3 {
+  color: black;
+  font-size: xx-large;
+}
+
+.textBox p {
+  color: grey;
+  width: 15rem;
+  font-size: large;
+  padding-top: 1rem;
+}
