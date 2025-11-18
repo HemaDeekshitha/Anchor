@@ -1,0 +1,21 @@
+.wrapper {
+  opacity: 0;
+  transform: translateX(0);
+  transition: opacity 0.8s ease-out, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+/* Starting positions */
+.left {
+  transform: translateX(-90px);
+}
+
+.right {
+  transform: translateX(90px);
+}
+
+/* When revealed */
+.visible {
+  opacity: 1;
+  transform: translateX(0);
+}

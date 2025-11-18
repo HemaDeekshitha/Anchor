@@ -1,0 +1,72 @@
+.section {
+  /* background: linear-gradient(to bottom, #f2efff 0%, #e7e3fc 100%);
+  padding: 100px 24px;
+  border-top-left-radius: 40px;
+  border-top-right-radius: 40px;
+  text-align: center; */
+  padding-top: 7rem;
+  padding-bottom: 7rem;
+  padding-left: 4rem;
+  padding-right: 4rem;
+  margin: 1rem;
+  border-radius: 3rem;
+  background: linear-gradient(to bottom, #f2efff 0%, #e7e3fc 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.heading {
+  font-size: 5rem;
+  font-weight: bold;
+  margin: 16px 30px 8px;
+  color: black;
+  width: min-content;
+  width: 40rem;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.subheading {
+  font-size: 1.2rem;
+  font-weight: 500;
+   color: grey;
+  margin-bottom: 32px;
+}
+
+.ctaBox {
+  display: inline-flex;
+  align-items: center;
+  background: white;
+  border-radius: 24px;
+  padding: 16px 24px;
+  gap: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+  margin-bottom: 40px;
+}
+
+.qr {
+  width: 48px;
+  height: 48px;
+}
+
+.ctaText {
+  font-size: 20px;
+  font-weight: 600;
+  color: #4b29f0;
+}
+
+.screenshots {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.deviceImage {
+  border-radius: 28px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+}

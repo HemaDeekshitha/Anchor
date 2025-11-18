@@ -4,6 +4,10 @@ import Image from "next/image";
 import Header from "./Header/Header";
 import landingStyles from "./LandingPage.module.css";
 import Box2 from "./Part2/Box2";
+import StickyCards from "./Part3/StickyCards"; 
+import WhyChooseUs from "./Part4/WhyChooseUs";
+import Testimonials from "./Part5/Testimonials";
+import Download from "./Part6/Download";
 import { useEffect } from "react";
 export default function LandingPage() {
   useEffect(() => {
@@ -48,6 +52,10 @@ export default function LandingPage() {
         </div>
       </div>
       <Box2 />
+      <StickyCards />
+      <WhyChooseUs />
+      <Testimonials />
+      <Download />
     </>
   );
 }
