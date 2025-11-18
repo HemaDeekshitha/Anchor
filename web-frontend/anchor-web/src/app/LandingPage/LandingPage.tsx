@@ -2,7 +2,7 @@ import Image from "next/image";
 import Header from "./Header/Header";
 import landingStyles from "./LandingPage.module.css";
 import Box2 from "./Part2/Box2";
-export default function page() {
+export default function LandingPage() {
   return (
     <>
       <div className={landingStyles.landingpageContainer}>
