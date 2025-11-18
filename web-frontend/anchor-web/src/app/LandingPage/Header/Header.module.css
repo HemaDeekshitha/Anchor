@@ -1,15 +1,17 @@
 .header {
   background-color: rgba(255, 255, 255, 0.25);
   padding: 1rem;
-  margin: 0 auto; /* center horizontally */
-  width: calc(100% - 4rem);
-  position: sticky;
+  margin-top: 1rem;
+  width: 80%;
+  margin-left: 10rem;
+  position: fixed;
   border-radius: 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  top: 0;
   z-index: 999;
+  backdrop-filter: blur(5px); /* the blur */
+  -webkit-backdrop-filter: blur(5px); /* Safari support */
 }
 
 .menu {
@@ -29,4 +31,15 @@
   font-size: 1rem;
   cursor: pointer;
   font-weight: bold;
+
+  padding: 1rem;
+  border-radius: 10rem;
+}
+.active {
+  color: #5b3aff !important;
+  font-weight: bold;
+
+  background-color: white;
+  padding: 1rem;
+  border-radius: 10rem;
 }
