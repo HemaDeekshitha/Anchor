@@ -1,45 +1,15 @@
 .revealBase {
+  transition: all 0.8s ease-out;
   opacity: 0;
   transform: translateY(40px);
-  transition: all 0.8s ease-out;
-  width: 100%;
-
-  overflow: visible;
-  display: block;
 }
 
-/* When visible */
 .reveal_up {
   opacity: 1;
   transform: translateY(0);
 }
-/* Scroll from Left */
-.reveal_left {
-  opacity: 1;
-  transform: translateX(0);
-}
-.revealBase.reveal_left {
-  transform: translateX(-40px);
-}
 
-/* Scroll from Right */
-.reveal_right {
-  opacity: 1;
-  transform: translateX(0);
-}
-.revealBase.reveal_right {
-  transform: translateX(40px);
-}
-
-/* Fade only */
-.reveal_fade {
-  opacity: 1;
-  transform: none;
-}
-
-.reveal_up,
-.reveal_left,
-.reveal_right,
-.reveal_fade {
-  overflow: visible !important;
+.hidden {
+  opacity: 0;
+  transform: translateY(40px);
 }

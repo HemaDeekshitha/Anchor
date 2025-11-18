@@ -1,9 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, ReactNode } from "react";
 import styles from "./ScrollReveal.module.css";
-
-import { ReactNode } from "react";
 
 export default function ScrollReveal({
   children,
@@ -13,30 +11,36 @@ export default function ScrollReveal({
   animation?: string;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.unobserve(entry.target); // prevent reload animation
+          setVisible(true);
+
+          // Reset visibility after leaving screen to allow re-animation
+        } else {
+          setVisible(false);
         }
       },
       {
-        threshold: 0.25, // 25% of the element must be in view
-        rootMargin: "0px 0px -100px 0px", // start animation slightly later
+        threshold: 0.3,
       }
     );
 
-    if (ref.current) observer.observe(ref.current);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   return (
     <div
       ref={ref}
       className={`${styles.revealBase} ${
-        isVisible ? styles[`reveal_${animation}`] : ""
+        visible ? styles[`reveal_${animation}`] : styles.hidden
       }`}
     >
       {children}

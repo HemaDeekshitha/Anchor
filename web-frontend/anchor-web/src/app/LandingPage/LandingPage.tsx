@@ -1,12 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import Header from "./Header/Header";
 import landingStyles from "./LandingPage.module.css";
 import Box2 from "./Part2/Box2";
+import { useEffect } from "react";
 export default function LandingPage() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+
   return (
     <>
-      <div className={landingStyles.landingpageContainer}>
-        <Header />
+      <Header />
+      <div id="home" className={landingStyles.landingpageContainer}>
         <div className={landingStyles.landingpageMain}>
           <div className={landingStyles.landingpageContent}>
             <h1 className={landingStyles.title}>
@@ -26,6 +37,7 @@ export default function LandingPage() {
               width={400}
               height={400}
               className={landingStyles.heroImage}
+              priority
             />
 
             <div className={landingStyles.landingpageBtns}>
