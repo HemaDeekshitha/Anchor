@@ -33,7 +33,7 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className={styles.section}>
+    <section id="testimonials" className={styles.section}>
       <div className={styles.heading}>
         <span className={styles.header}>Testimonials</span>
         <h2>Wall Of Love</h2>
