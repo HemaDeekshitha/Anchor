@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import styles from "./StickyCards.module.css";
-// import CardSlideReveal from "@/app/Components/Scroll/CardSlideReveal";
-import Cards from "@/app/Components/Scroll/Cards";
+import CardSlideReveal from "@/app/Components/Scroll/CardSlideReveal";
 // import ScrollInViewMotion from "@/app/Components/Scroll/ScrollInViewMotion";
 const steps = [
   {
@@ -40,7 +39,7 @@ export default function StickyCards() {
       <div className={styles.stepsWrapper}>
         {steps.map((step, i) => (
           <div key={step.id} className={styles.stepRow}>
-            <Cards delay={i * 150}>
+            <CardSlideReveal direction="left" delay={i * 150}>
               <div className={styles.imageBox}>
                 <Image
                   src={step.image}
@@ -49,14 +48,14 @@ export default function StickyCards() {
                   height={300}
                 />
               </div>
-            </Cards>
+            </CardSlideReveal>
 
-            <Cards delay={i * 150 + 100}>
+            <CardSlideReveal direction="right" delay={i * 150 + 100}>
               <div className={styles.textBox}>
                 <h3>{step.title}</h3>
                 <p>{step.desc}</p>
               </div>
-            </Cards>
+            </CardSlideReveal>
             {/* <ScrollInViewMotion direction="left" delay={100}>
   <div className={styles.imageCard}>
     <Image src="/assets/step1.png" alt="Step 1" width={300} height={300} />
