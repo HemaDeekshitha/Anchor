@@ -1,10 +1,11 @@
 .header {
   background-color: rgba(255, 255, 255, 0.25);
-  padding: 1rem;
+  padding: 0.5rem;
   margin-top: 1rem;
-  width: 80%;
-  margin-left: 10rem;
-  position: fixed;
+  width: 70%;
+  margin-left: 18rem;
+  margin-right: 18rem;
+  position:fixed;
   border-radius: 2rem;
   display: flex;
   justify-content: space-between;
@@ -23,6 +24,7 @@
   font-weight: bold;
   cursor: pointer;
   font-size: x-large;
+  margin-left: 2rem;
 }
 
 .menuP {
@@ -38,8 +40,12 @@
 .active {
   color: #5b3aff !important;
   font-weight: bold;
+  
 
   background-color: white;
   padding: 1rem;
-  border-radius: 10rem;
+  border-radius: 2rem;
+}
+.appStoreImage {
+  margin-right: 2rem; /* or any value you want */
 }

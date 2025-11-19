@@ -8,6 +8,7 @@
   padding-left: 4rem;
   padding-right: 4rem;
   margin: 1rem;
+  margin-bottom: 4rem;
   border-radius: 3rem;
   background: rgb(244, 240, 240);
   display: flex;
@@ -96,4 +97,20 @@
   width: 15rem;
   font-size: large;
   padding-top: 1rem;
+}
+.stepsWrapper {
+  position: relative; /* Important */
+  z-index: 1;
+  padding: 2rem;
+}
+
+.lottieBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.3; /* optional fade */
+  pointer-events: none; /* avoids blocking clicks */
 }

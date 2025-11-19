@@ -33,7 +33,7 @@ const features = [
 
 export default function WhyChooseUs() {
   return (
-    <section className={styles.section}>
+    <section id="features" className={styles.section}>
       <div className={styles.heading}>
         <span className={styles.header}>Features</span>
         <h2>Why Choose Fintro?</h2>
