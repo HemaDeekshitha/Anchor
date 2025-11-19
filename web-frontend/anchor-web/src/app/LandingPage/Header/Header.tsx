@@ -14,7 +14,7 @@ export default function Header() {
       { id: "getstarted", label: "Get Started" },
       { id: "features", label: "Features" },
       { id: "testimonials", label: "Testimonials" },
-      { id: "faqs", label: "FAQs" },
+      // { id: "faqs", label: "FAQs" },
     ];
 
     const observers: IntersectionObserver[] = [];
@@ -48,45 +48,50 @@ export default function Header() {
       </a>
 
       <div className={styles.menu}>
-        <p
+        <a
+        href="#benefits"
           className={`${styles.menuP} ${
             active === "benefits" ? styles.active : ""
           }`}
         >
           Benefits
-        </p>
+        </a>
 
-        <p
+        <a
+          href="#getstarted"
           className={`${styles.menuP} ${
             active === "getstarted" ? styles.active : ""
           }`}
         >
           Get Started
-        </p>
+        </a>
 
-        <p
+        <a
+        href="#features"
           className={`${styles.menuP} ${
             active === "features" ? styles.active : ""
           }`}
         >
           Features
-        </p>
+        </a>
 
-        <p
+        <a
+        href="#testimonials"
           className={`${styles.menuP} ${
             active === "testimonials" ? styles.active : ""
           }`}
         >
           Testimonials
-        </p>
+        </a>
 
-        <p
+        {/* <a
+        
           className={`${styles.menuP} ${
             active === "faqs" ? styles.active : ""
           }`}
         >
           FAQs
-        </p>
+        </p> */}
       </div>
 
       <a
@@ -100,6 +105,7 @@ export default function Header() {
           alt="Download on the App Store"
           width={140}
           height={50}
+          className={styles.appStoreImage}
           priority
         />
       </a>
