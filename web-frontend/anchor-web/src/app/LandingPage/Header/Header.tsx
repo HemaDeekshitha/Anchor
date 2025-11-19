@@ -43,7 +43,7 @@ export default function Header() {
 
   return (
     <div className={styles.header}>
-      <a href="#home" className={styles.menuH}>
+      <a href="/LandingPage" className={styles.menuH}>
         Anchor
       </a>
 

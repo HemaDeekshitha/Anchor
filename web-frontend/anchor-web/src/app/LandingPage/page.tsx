@@ -4,12 +4,16 @@ import Image from "next/image";
 import Header from "./Header/Header";
 import landingStyles from "./LandingPage.module.css";
 import Box2 from "./Part2/Box2";
-import StickyCards from "./Part3/StickyCards"; 
+import StickyCards from "./Part3/StickyCards";
 import WhyChooseUs from "./Part4/WhyChooseUs";
 import Testimonials from "./Part5/Testimonials";
 import Download from "./Part6/Download";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 export default function LandingPage() {
+  const router = useRouter();
+
   useEffect(() => {
     window.scrollTo(0, 0);
 
@@ -17,6 +21,10 @@ export default function LandingPage() {
       window.history.scrollRestoration = "manual";
     }
   }, []);
+
+  const ContactPageHandler = () => {
+    router.replace("/ContactPage");
+  };
 
   return (
     <>
@@ -45,7 +53,12 @@ export default function LandingPage() {
             />
 
             <div className={landingStyles.landingpageBtns}>
-              <button className={landingStyles.primaryBtn}>Get Started</button>
+              <button
+                className={landingStyles.primaryBtn}
+                onClick={ContactPageHandler}
+              >
+                Get Started
+              </button>
               <button className={landingStyles.secondaryBtn}>Learn More</button>
             </div>
           </div>

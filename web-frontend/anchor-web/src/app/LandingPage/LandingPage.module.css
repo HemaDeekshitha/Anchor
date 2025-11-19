@@ -102,8 +102,13 @@
   width: 10rem;
   font-size: medium;
   cursor: pointer;
-  border: 2px solid white;
+  border: none;
   font-weight: bold;
+}
+
+.primaryBtn:hover {
+  background: linear-gradient(90deg, #f3d55b, #f1cf4b);
+  color: black;
 }
 .secondaryBtn {
   background-color: black;
@@ -113,8 +118,12 @@
   width: 10rem;
   font-size: medium;
   cursor: pointer;
-  border: 2px solid black;
+  border: none;
   font-weight: bold;
+}
+.secondaryBtn:hover {
+  background: linear-gradient(90deg, #f3d55b, #f1cf4b);
+  color: black;
 }
 
 /* When screen is below 900px → stack items vertically */

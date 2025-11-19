@@ -27,7 +27,7 @@ const steps = [
 
 export default function StickyCards() {
   return (
-    <section className={styles.section}>
+    <section id="getstarted" className={styles.section}>
       <div className={styles.headingGroup}>
         <h4 className={styles.header}>Get started</h4>
         <h1 className={styles.title}>How It Works</h1>
