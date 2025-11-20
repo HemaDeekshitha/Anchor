@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import styles from "./StickyCards.module.css";
-import CardSlideReveal from "@/app/Components/Scroll/CardSlideReveal";
+
+import {IPhoneFrame} from "@/app/Components/IPhoneFrame";
+
 import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 // import ScrollInViewMotion from "@/app/Components/Scroll/ScrollInViewMotion";
 const steps = [
@@ -54,7 +56,7 @@ export default function StickyCards() {
    </ScrollReveal>
 
 
-  {/* ⭐ THIS is the real scroll zone */}
+<div className={styles.scrollPadding}>
   <div className={styles.scrollHolder}>
     <div className={styles.stickyOuter}>
       {steps.map((step, i) => (
@@ -65,8 +67,18 @@ export default function StickyCards() {
 >
   <div className={styles.cardInner}>
     <div className={styles.imageBox}>
-      <Image src={step.image} width={300} height={300} alt="" />
-    </div>
+      <IPhoneFrame width="195px">
+                       <Image 
+                         src={step.image} 
+                         alt={step.title}
+                         fill 
+                         style={{ objectFit:"cover" }}
+                         sizes="(max-width: 768px) 100vw, 280px"
+                       />
+                    </IPhoneFrame>
+                  </div>
+      {/* <Image src={step.image} width={300} height={300} alt="" /> */}
+    
 
     <div className={styles.textBox}>
       <h3>{step.title}</h3>
@@ -77,6 +89,7 @@ export default function StickyCards() {
 
       ))}
     </div>
+  </div>
   </div>
 </section>
 

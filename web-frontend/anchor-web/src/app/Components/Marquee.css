@@ -1,0 +1,41 @@
+/* Marquee.css */
+
+.marquee-container {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 2rem;
+  /* CHANGE: Removed 'var(--speed)' and just put the animation name */
+  animation-name: scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* The duration is now handled by the inline style in React */
+}
+
+.marquee-item {
+  transition: transform 0.3s ease;
+}
+.marquee-item:hover {
+  /* transform: scale(1.08); Slight zoom effect while moving */
+  z-index: 10;
+}
+
+.marquee-track.reverse {
+  animation-direction: reverse;
+}
+
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
