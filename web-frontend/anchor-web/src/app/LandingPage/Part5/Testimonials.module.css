@@ -1,40 +1,67 @@
-.section {
-  /* background: #f9f9fb;
-  padding: 100px 24px;
-  border-top-left-radius: 40px;
-  border-top-right-radius: 40px;
-  text-align: center; */
-padding-top: 7rem;
-  padding-bottom: 7rem;
-  padding-left: 4rem;
-  padding-right: 4rem;
+/* Testimonials.module.css */
+
+.Box4Container {
+  /* Keep your layout settings */
+  padding: 7rem 4rem;
   margin: 1rem;
   margin-bottom: 4rem;
   border-radius: 3rem;
-  background: rgb(244, 240, 240);
+  background: rgb(244, 240, 240); /* Base background color */
+  
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1rem;
+  
+  /* IMPORTANT: Required for the ::before element to sit inside this box */
+  position: relative; 
+  overflow: hidden; 
+  
+}
+
+/* Create the Grid Layer separately */
+.Box4Container::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  
+  /* CONTROL THE GRID HEIGHT HERE */
+  height:300px; /* Change this to 300px, 50%, etc. */
+  
+  /* The Grid Pattern */
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px), 
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px;
+  
+  /* Optional: Makes the grid fade out at the bottom smoothly */
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  
+  /* Ensure it sits behind your text/content */
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Ensure your content sits ON TOP of the grid */
+.title, .header, .subtitle, .scrollContainer {
+  z-index: 1;
+  position: relative;
 }
 
 
-.heading {
-  max-width: 700px;
-  margin: 0 auto 60px auto;
-}
 
 .header {
   background: linear-gradient(90deg, #fefdff 0%, rgb(227, 223, 249) 100%);
   color: grey;
-  padding: 6px 18px;
-  margin-left:18rem;
-  padding: 0.8rem;
-  border-radius: 2rem;
-  /* text-align: center; */
+  padding: 0.9rem;
   width: 7rem;
-  margin-bottom: 12px;
+  border-radius: 2rem;
+  text-align: center;
+  font-size:0.9rem ;
 }
 .subtitle {
   font-size: 1.2rem;
@@ -45,10 +72,10 @@ padding-top: 7rem;
   width: 60rem;
   text-align: center;
 }
-.heading h2 {
- font-size: 4rem;
+.title {
+  font-size: 4rem;
   font-weight: bold;
-  margin: 16px 30px 8px;
+  margin-bottom: 1rem;
   color: black;
   width: min-content;
   width: 40rem;
@@ -69,24 +96,47 @@ padding-top: 7rem;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -ms-overflow-style: none;
+   /* 2. The Grid Logic (Combined into ONE property) */
+ 
 }
 
 .scrollContainer::-webkit-scrollbar {
   display: none;
 }
 
+/* Testimonials.module.css */
+
 .card {
-  flex: 0 0 320px;
-  background: #fff;
-  padding: 24px;
-  border-radius: 20px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.04);
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  /* IMPORTANT: Use a fixed width or min-width for the scrolling to work best */
+  width: 350px; 
+  min-width: 350px; 
+  
+  /* Keep your existing styling below */
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background-color: #f9fafb; /* Example bg */
+  border: 1px solid #e5e7eb; /* Example border */
+
+
+}
+.card {
+  /* Make sure to add a transition so the change is smooth */
+  transition: all 0.3s ease;
 }
 
+/* This applies styles when the mouse is over the card */
+.card:hover {
+  
+box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  border-color: rgba(0, 0, 0, 0.1); /* Slightly darken the border */
+  cursor: pointer; /* Change cursor to hand icon */
+  transform: translateY(-5px);
+  transform: scale(1.05);
+  
+  /* 2. Make sure it sits ON TOP of the other cards */
+  z-index: 10;
+  position: relative;
+}
 .userInfo {
   display: flex;
   align-items: center;

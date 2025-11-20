@@ -2,17 +2,21 @@
 
 import styles from "./Download.module.css";
 import Image from "next/image";
-import ScrollInViewMotion from "@/app/Components/Scroll/ScrollInViewMotion";
+
+import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 
 export default function Download() {
   return (
     <section className={styles.section}>
-      <ScrollInViewMotion direction="up">
+      <ScrollReveal animation="up">
+        
         <h2 className={styles.heading}>Download Fintro</h2>
+        </ScrollReveal>
+         <ScrollReveal animation="up">
         <p className={styles.subheading}>
           Experience a financial app that adapts to your lifestyle and preferences
         </p>
-      </ScrollInViewMotion>
+      </ScrollReveal>
 
       <div className={styles.ctaBox}>
         <Image

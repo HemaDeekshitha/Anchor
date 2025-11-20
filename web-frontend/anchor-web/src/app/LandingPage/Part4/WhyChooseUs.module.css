@@ -1,54 +1,74 @@
-.section {
-  /* background: rgb(244, 240, 240);
-  padding: 100px 24px;
-  text-align: center;
-  
-  border-radius: 3rem; */
-  padding-top: 7rem;
-  padding-bottom: 7rem;
-  padding-left: 4rem;
-  padding-right: 4rem;
+.Box3Container {
+  padding: 7rem 4rem;
   margin: 1rem;
   margin-bottom: 4rem;
   border-radius: 3rem;
-  background: rgb(244, 240, 240);
+  background: rgb(244, 240, 240); /* Base background color */
+  
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1rem;
+  
+  /* IMPORTANT: Required for the ::before element to sit inside this box */
+  position: relative; 
+  overflow: hidden; 
+}
+/* Create the Grid Layer separately */
+.Box3Container::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  
+  /* CONTROL THE GRID HEIGHT HERE */
+  height:300px; /* Change this to 300px, 50%, etc. */
+  
+  /* The Grid Pattern */
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px), 
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px;
+  
+  /* Optional: Makes the grid fade out at the bottom smoothly */
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  
+  /* Ensure it sits behind your text/content */
+  z-index: 0;
+  pointer-events: none;
 }
 
-.heading {
-  max-width: 700px;
-  margin: 0 auto 60px auto;
+/* Ensure your content sits ON TOP of the grid */
+.title, .header, .subtitle, .scrollContainer {
+  z-index: 1;
+  position: relative;
 }
+
 
 .header {
-   background: linear-gradient(90deg, #fefdff 0%, rgb(227, 223, 249) 100%);
+  background: linear-gradient(90deg, #fefdff 0%, rgb(227, 223, 249) 100%);
   color: grey;
   padding: 0.8rem;
   width: 7rem;
   border-radius: 2rem;
   text-align: center;
-
-  
-
-  
-}
+  }
 .subtitle{
 font-size: 1.2rem;
   font-weight: 500;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
   color: grey;
   width: min-content;
   width: 60rem;
   text-align: center;
 }
-.heading h2 {
+.title {
   font-size: 4rem;
   font-weight: bold;
-  margin: 16px 30px 8px;
+  margin-bottom: 1rem;
   color: black;
   width: min-content;
   width: 40rem;

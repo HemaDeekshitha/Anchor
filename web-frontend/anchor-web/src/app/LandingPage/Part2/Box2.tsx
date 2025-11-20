@@ -10,23 +10,23 @@ export default function Box2() {
         <h4 className={styles.header}>Benefits</h4>
       </ScrollReveal>
       <ScrollReveal animation="up">
-        <h1 className={styles.title}>Make Your Finances Truly Yours</h1>
+        <h1 className={styles.title}>Job Search Momentum
+</h1>
       </ScrollReveal>
       <ScrollReveal animation="up">
         <p className={styles.subtitle}>
-          experience a financial app that adapts to your lifestyles and
-          preferences
+          Anchor brings clarity, structure, and daily momentum to your job search.
+
         </p>
       </ScrollReveal>
 
-      <div className={styles.benfitsContainer}>
+      <div className={styles.benefitsContainer}>
         <ScrollReveal animation="up">
           <div className={styles.Items}>
             <div className={styles.ItemBox}>
-              <h2 className={styles.Itemtitle}>Smart Search</h2>
+              <h2 className={styles.Itemtitle}>Aim High, Stand Out</h2>
               <p className={styles.Itemsubtitle}>
-                Fintro learns from your spending habits and financial behavior,
-                offering personalised insights.
+                Target the perfect job and make your application shine.
               </p>
             </div>
             <Image src="/assets/an.png" alt="" width={250} height={250} />
@@ -36,10 +36,9 @@ export default function Box2() {
         <ScrollReveal animation="up">
           <div className={styles.Items}>
             <div className={styles.ItemBox}>
-              <h2 className={styles.Itemtitle}>Smart Search</h2>
+              <h2 className={styles.Itemtitle}>Win the Offer, Take Off</h2>
               <p className={styles.Itemsubtitle}>
-                Fintro learns from your spending habits and financial behavior,
-                offering personalised insights.
+                Secure the reward and launch your career to new heights.
               </p>
             </div>
             <Image src="/assets/an.png" alt="" width={250} height={250} />

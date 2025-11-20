@@ -43,14 +43,48 @@ export default function LandingPage() {
               </span>
             </h1>
 
+          
+            {/* <div className={landingStyles.imageColumn}>
             <Image
               src="/assets/an.png"
               alt="Download on the App Store"
-              width={400}
+              width={400} // Increased size slightly for impact
               height={400}
               className={landingStyles.heroImage}
               priority
             />
+          </div> */}
+          <div className={landingStyles.heroVisuals}>
+  {/* Main Central Image */}
+  <Image
+    src="/assets/hero1.png"
+    alt="Main Hero"
+    width={500}
+    height={500}
+    className={landingStyles.mainImage}
+    priority
+  />
+
+  {/* Floating Element 1 (Top Left) */}
+  <div className={landingStyles.floatIcon1}>
+    <Image src="/assets/icon-star.png" alt="" width={120} height={120} />
+  </div>
+
+  {/* Floating Element 2 (Top Right) */}
+  <div className={landingStyles.floatIcon2}>
+    <Image src="/assets/icon-target.png" alt="" width={120} height={120} />
+  </div>
+
+  {/* Floating Element 3 (Bottom Left) */}
+  <div className={landingStyles.floatIcon3}>
+    <Image src="/assets/icon-trophy.png" alt="" width={120} height={120} />
+  </div>
+
+  {/* Floating Element 4 (Bottom Right) */}
+  <div className={landingStyles.floatIcon4}>
+    <Image src="/assets/icon-rocket.png" alt="" width={120} height={120} />
+  </div>
+</div>
 
             <div className={landingStyles.landingpageBtns}>
               <button

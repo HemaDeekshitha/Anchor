@@ -2,49 +2,54 @@
 
 import styles from "./WhyChooseUs.module.css";
 import Image from "next/image";
-import ScrollInViewMotion from "@/app/Components/Scroll/ScrollInViewMotion";
+
+import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 
 const features = [
   {
     id: 1,
-    title: "Smart Spending",
-    desc: "Track expenses automatically, identify trends, and make informed decisions.",
-    icon: "/assets/icon-spending.png",
+    title: "Goal-Aligned Planning",
+    desc: "Anchor learns your goals and builds a personalized job search path.",
+    icon: "/assets/icon-star.png",
   },
   {
     id: 2,
-    title: "Personal Insights",
-    desc: "Get personalized tips, visualize spending with charts, and track financial goals.",
-    icon: "/assets/icon-insights.png",
+    title: "Smart Daily Tasks",
+    desc: "Stay organized with a clear, adaptive daily task list.",
+    icon: "/assets/icon-target.png",
   },
   {
     id: 3,
-    title: "Easy Budgeting",
-    desc: "Create custom budgets, monitor spending, and get alerts when limits are near.",
-    icon: "/assets/icon-budgeting.png",
+    title: "Track Your Progress",
+    desc: "See your momentum — streaks, tasks completed, applications tracked.",
+    icon: "/assets/icon-.png",
   },
   {
     id: 4,
-    title: "Bank-Grade Security",
-    desc: "Get personalized tips, visualize spending with charts, and track financial goals.",
-    icon: "/assets/icon-security.png",
+    title: "Motivation & Rewards",
+    desc: "Earn points, build streaks, and unlock rewards as you stay consistent.",
+    icon: "/assets/icon-star.png",
   },
 ];
 
 export default function WhyChooseUs() {
   return (
-    <section id="features" className={styles.section}>
-      <div className={styles.heading}>
-        <span className={styles.header}>Features</span>
-        <h2>Why Choose Fintro?</h2>
+    <div id="features" className={styles.Box3Container}>
+      <ScrollReveal animation="up">
+        <h4 className={styles.header}>Features</h4>
+      </ScrollReveal>
+      <ScrollReveal animation="up">
+        <h1 className={styles.title}>Why Choose Fintro?</h1>
+      </ScrollReveal>
+      <ScrollReveal animation="up">
         <p className={styles.subtitle}>
           Seamlessly track, budget, and manage your money—all in one app.
         </p>
-      </div>
+      </ScrollReveal>
 
       <div className={styles.grid}>
-        {features.map((feature, i) => (
-          <ScrollInViewMotion direction="up" delay={i * 150} key={feature.id}>
+        {features.map((feature) => (
+          <ScrollReveal key={feature.id} animation="up">
             <div className={styles.card}>
               <div className={styles.text}>
                 <h3>{feature.title}</h3>
@@ -54,9 +59,9 @@ export default function WhyChooseUs() {
                 <Image src={feature.icon} alt={feature.title} width={50} height={50} />
               </div>
             </div>
-          </ScrollInViewMotion>
+         </ScrollReveal>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
