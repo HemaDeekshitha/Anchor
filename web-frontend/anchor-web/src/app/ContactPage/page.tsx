@@ -2,17 +2,20 @@
 import React, { use, useState } from "react";
 import styles from "./Contact.module.css";
 import Header from "../LandingPage/Header/Header";
+import { useRouter } from "next/navigation";
 
 export default function Contact() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
+  const router = useRouter();
+
   const isFormValid =
     name.trim() !== "" && email.trim() !== "" && message.trim() !== "";
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
-    e.preventDefault();
+    // e.preventDefault();
 
     const res = await fetch("http://localhost:3001/contact", {
       method: "POST",
@@ -25,12 +28,26 @@ export default function Contact() {
     }
   };
 
+  const handleBack = () => {
+    if (document.referrer && document.referrer !== window.location.href) {
+      router.back(); // real browser back
+    } else {
+      router.push("/LandingPage"); // your landing page route
+    }
+  };
+
   return (
     <>
       <Header />
+
       <div id="home" className={styles.ContactPageContainer}>
         <div className={styles.ContactPageMain}>
           <div className={styles.ContactPageContent}>
+            <div className={styles.backButtonContainer}>
+              <button className={styles.backButton} onClick={handleBack}>
+                &larr; Back
+              </button>
+            </div>
             <h1 className={styles.title}>First steps start here.</h1>
             <p className={styles.subtitle}>
               Have questions, need help, or want to discover more about Anchor?
