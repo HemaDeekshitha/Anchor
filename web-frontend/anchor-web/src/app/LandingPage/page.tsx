@@ -88,7 +88,7 @@ export default function LandingPage() {
         style={{ 
           position: 'sticky', 
           top: 0, 
-          height: '100vh', // Ensures it takes full height while stuck
+          // height: '100vh', // Ensures it takes full height while stuck
           zIndex: 1,
           display: 'flex',
           alignItems: 'center', // Optional: centers content vertically
@@ -105,8 +105,10 @@ export default function LandingPage() {
       <div 
         style={{ 
           position: 'relative', 
-          zIndex: 10, 
-          backgroundColor: 'white' // CHANGE THIS to match your app background (e.g., #ffffff or your dark theme color)
+          height:'100vh',
+          zIndex: 20, 
+          backgroundColor: 'white', // CHANGE THIS to match your app background (e.g., #ffffff or your dark theme color)
+          
         }}
       >
         <Download />
