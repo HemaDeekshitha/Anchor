@@ -29,7 +29,7 @@ export default function Box2() {
                 Target the perfect job and make your application shine.
               </p>
             </div>
-            <Image src="/assets/an.png" alt="" width={250} height={250} />
+            <Image src="/assets/benefits1.png" alt="" width={250} height={250} style = {{borderRadius:"20px"}} />
           </div>
         </ScrollReveal>
 
@@ -41,7 +41,7 @@ export default function Box2() {
                 Secure the reward and launch your career to new heights.
               </p>
             </div>
-            <Image src="/assets/an.png" alt="" width={250} height={250} />
+            <Image src="/assets/b2.png" alt="" width={250} height={250} style = {{borderRadius:"20px"}} />
           </div>
         </ScrollReveal>
       </div>
