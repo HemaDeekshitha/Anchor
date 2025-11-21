@@ -30,7 +30,7 @@ struct OnboardingWelcomeView: View {
     
     var body: some View {
         ZStack {
-            LottieView(animationName: "waves") // your .json file name (without .json)
+            LottieView(animationName: "Pulsing Lines") // your .json file name (without .json)
                     
                     
                     .frame(width: 400, height: 900)
@@ -41,12 +41,18 @@ struct OnboardingWelcomeView: View {
 
 
                     // Smooth Yellow Gradient Background
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(red: 1.0, green: 0.976, blue: 0.77),  // #FFF9C4 (light yellow)
-                            Color(red: 1.0, green: 0.909, blue: 0.51),  // #FFE082 (medium)
-                            Color(red: 1.0, green: 0.835, blue: 0.31)   // #FFD54F (warm golden)
-                        ]),
+//                    LinearGradient(
+//                        gradient: Gradient(colors: [
+//                            Color(red: 1.0, green: 0.976, blue: 0.77),  // #FFF9C4 (light yellow)
+//                            Color(red: 1.0, green: 0.909, blue: 0.51),  // #FFE082 (medium)
+//                            Color(red: 1.0, green: 0.835, blue: 0.31)   // #FFD54F (warm golden)
+                        
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 0.86, green: 0.81, blue: 0.94), // #DBD0F0 (Light Lavender)
+                    Color(red: 0.58, green: 0.44, blue: 0.86), // #9570DB (Medium Violet)
+                    Color(red: 0.38, green: 0.24, blue: 0.69)  // #613FAF (Deep Indigo)
+                ]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                         
@@ -65,7 +71,7 @@ struct OnboardingWelcomeView: View {
                                          .frame(maxWidth: .infinity, alignment: .leading)
                                          .cornerRadius(20)
                                          .scaledToFit()
-                                         .frame(width: 40, height:50)
+                                         .frame(width: 60, height:60)
                                          .transition(.move(edge: .leading).combined(with: .opacity))
                                          .animation(.easeOut(duration: 1.0), value: showLogo)
                                  }
@@ -79,8 +85,8 @@ struct OnboardingWelcomeView: View {
                     Text("ANCHOR")
                         .font(.system(size: 64, weight: .bold, design: .monospaced))
                         
-                        .foregroundColor(Color(hex: "#FCD343")) // Golden Yellow
-                        .shadow(color: Color(hex: "#FCEFAA").opacity(0.8), radius: 4, x: 2, y: 2)
+                        .foregroundColor(Color(hex: "#9345FF")) // Golden Yellow-#FCD343
+                        .shadow(color: Color(hex: "#F0F0F5").opacity(0.8), radius: 4, x: 2, y: 2)
                         .padding(.bottom, 12)
                         .padding(.horizontal, 20)
 //                        .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,13 +128,7 @@ struct OnboardingWelcomeView: View {
                         .foregroundColor(.white)
                         .padding()
                         .frame(width: 220, height: 55) // ⬅️ Reduced width and fixed height
-                        .background(
-                            LinearGradient(
-                                gradient: Gradient(colors: [.yellow, .yellow]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .background(Color(hex: "#9345FF"))
                         .cornerRadius(30)
                 }
 

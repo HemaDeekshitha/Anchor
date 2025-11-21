@@ -116,6 +116,7 @@
   border-radius: 1rem;
   background-color: #f9fafb; /* Example bg */
   border: 1px solid #e5e7eb; /* Example border */
+  height:210px;
 
 
 }
@@ -136,6 +137,7 @@ box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   /* 2. Make sure it sits ON TOP of the other cards */
   z-index: 10;
   position: relative;
+  
 }
 .userInfo {
   display: flex;

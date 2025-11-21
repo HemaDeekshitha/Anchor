@@ -1,8 +1,6 @@
 import React from 'react';
 import styles from './IPhoneFrame.module.css';
 
-
-// The interface now accepts 'children' instead of 'imageSrc'
 interface IPhoneFrameProps {
   children: React.ReactNode; 
   width?: string;
@@ -14,12 +12,18 @@ export const IPhoneFrame: React.FC<IPhoneFrameProps> = ({
 }) => {
   return (
     <div className={styles.iphoneFrame} style={{ width }}>
-      {/* The Notch */}
-      <div className={styles.dynamicIsland}></div>
       
-      {/* This renders the Next.js Image you passed in StickyCards */}
+     
+
+      {/* The Notch / Dynamic Island */}
+      {/* <div className={styles.dynamicIsland}></div> */}
+      
+      {/* This renders your app screenshot */}
       {children}
       
+      {/* Bottom Home Indicator */}
+      {/* <div className={styles.homeIndicator}></div> */}
+
     </div>
   );
 };
