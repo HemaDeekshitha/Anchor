@@ -1,56 +1,21 @@
 .section {
-  /* 👇 1. ENABLE STICKY BEHAVIOR */
   position: relative;
-  
-  /* 👇 2. STOPPING POINT */
-  /* This is critical. It tells the card to stop sliding 
-     when it is 50px from the top of the screen. 
-     This allows it to overlap whatever is behind it. */
   top: 0;
-  
-  
-  /* 👇 3. LAYER ORDER */
-  /* High Z-Index ensures this card slides ON TOP of the previous ones */
-  z-index: 500; 
-  
-  /* Sizing */
+  z-index: 500;
   width: 95%;
   max-width: 1200px;
-  height: 90vh; /* Takes up most of the screen height */
-  margin: 0 auto;
-margin-bottom: 4rem; /* Small space at the very end of page */
-margin-top: 0.5rem;
-  
-  /* Styling */
+  height: 90vh;
+  margin: 0 auto 4rem;
+  margin-top: 0.5rem;
   background: linear-gradient(180deg, #F2EFFF 0%, #E7E3FC 100%);
   border-top-left-radius: 48px;
   border-top-right-radius: 48px;
-  
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 5rem;
   overflow: hidden;
-  
-  /* 👇 4. SHADOW IS KEY FOR OVERLAP ILLUSION */
-  /* This dark shadow creates the visual separation between this card 
-     and the one it is covering */
-  box-shadow: 0 -40px 80px rgba(0,0,0,0.15);
-}
-
-/* ... (Keep your other styles for textWrapper, heading, ctaBox, screenshots, etc.) ... */
-
-/* Mobile Fix */
-@media (max-width: 768px) {
-  .section {
-    /* On mobile, sticky often feels weird for footers, 
-       so we usually turn it off or adjust the top value */
-    position: relative;
-    top: 0;
-    height: auto;
-    padding-bottom: 50px;
-    border-radius: 0;
-  }
+  box-shadow: 0 -40px 80px rgba(0, 0, 0, 0.15);
 }
 
 .heading {
@@ -72,15 +37,14 @@ margin-top: 0.5rem;
   line-height: 1.5;
 }
 
-/* The QR Code Pill Button */
 .ctaBox {
   display: flex;
   align-items: center;
   background: white;
-  padding: 12px 32px 12px 20px; /* asymmetric padding */
+  padding: 12px 32px 12px 20px;
   border-radius: 100px;
   gap: 20px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
   margin-bottom: 4rem;
   cursor: pointer;
   transition: transform 0.2s ease;
@@ -91,18 +55,16 @@ margin-top: 0.5rem;
 }
 
 .qr {
-  /* Ensure the QR image is square */
   border-radius: 8px;
 }
 
 .ctaText {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #5E5CE6; /* The specific purple from the video */
+  color: #5E5CE6;
   letter-spacing: -0.02em;
 }
 
-/* Phone Layout */
 .screenshots {
   display: flex;
   justify-content: center;
@@ -110,29 +72,37 @@ margin-top: 0.5rem;
   gap: 40px;
   width: 100%;
   position: relative;
-  /* Push phones down so only top half shows initially if needed */
-  margin-top: auto; 
+  margin-top: auto;
 }
 
 .deviceImage {
   width: auto;
   height: auto;
-  /* Set a max height so they fit nicely */
-  max-height: 500px; 
+  max-height: 500px;
   object-fit: contain;
-  
-  /* Shadow for depth */
-  filter: drop-shadow(0 30px 50px rgba(0,0,0,0.2));
-  
-  /* Round the top corners of the phone images */
+  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.2));
   border-top-left-radius: 40px;
   border-top-right-radius: 40px;
 }
 
-/* Mobile Response */
 @media (max-width: 768px) {
-  .heading { font-size: 2.5rem; }
-  .section { width: 100%; border-radius: 0; top: 0; }
-  .ctaText { font-size: 1.2rem; }
-  .screenshots { gap: 10px; }
+  .heading {
+    font-size: 2.5rem;
+  }
+
+  .section {
+    width: 100%;
+    border-radius: 0;
+    top: 0;
+    height: auto;
+    padding-bottom: 50px;
+  }
+
+  .ctaText {
+    font-size: 1.2rem;
+  }
+
+  .screenshots {
+    gap: 10px;
+  }
 }

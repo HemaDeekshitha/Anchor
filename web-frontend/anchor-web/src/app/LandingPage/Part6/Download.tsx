@@ -2,20 +2,16 @@
 
 import styles from "./Download.module.css";
 import Image from "next/image";
-
 import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 
 export default function Download() {
   return (
     <section className={styles.section}>
       <ScrollReveal animation="up">
-        
         <h2 className={styles.heading}>Download Anchor Today</h2>
-        </ScrollReveal>
-         <ScrollReveal animation="up">
-        <p className={styles.subheading}>
-          Stop burnout, start succeeding. 
-        </p>
+      </ScrollReveal>
+      <ScrollReveal animation="up">
+        <p className={styles.subheading}>Stop burnout, start succeeding.</p>
       </ScrollReveal>
 
       <div className={styles.ctaBox}>
