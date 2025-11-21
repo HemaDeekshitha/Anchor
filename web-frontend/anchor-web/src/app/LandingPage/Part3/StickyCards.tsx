@@ -10,28 +10,28 @@ import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 const steps = [
   {
     id: 1,
-    image: "/assets/step1.png",
+    image: "/assets/s1.png",
     title: "Create Your Account",
-    desc: "Sign up in minutes and start your journey to smarter financial management with Fintro.",
+    desc: "Sign up in minutes and set your job goals so Anchor can personalize your experience.",
   },
   {
     id: 2,
-    image: "/assets/step2.png",
-    title: "Link Your Bank Accounts",
-    desc: "Securely connect all your bank accounts and credit cards for a complete financial overview.",
+    image: "/assets/s2.png",
+    title: " Get Your Smart Daily Plan",
+    desc: "Anchor builds a simple, personalized plan of daily tasks, job applications, interview prep, networking, and skill practice.",
   },
   {
     id: 3,
-    image: "/assets/step3.png",
-    title: "Get Personalized Insights",
-    desc: "Receive smart recommendations to help you optimize spending and reach goals faster.",
+    image: "/assets/s3.png",
+    title: "Track Every Application",
+    desc: "See what’s applied, interviewing, pending, and follow-ups without forgetting anything.",
   },
 
   {
     id: 4,
-    image: "/assets/step3.png",
-    title: "Get Personalized Insights",
-    desc: "Receive smart recommendations to help you optimize spending and reach goals faster.",
+    image: "/assets/s4.png",
+    title: "Earn Rewards & Stay Motivated",
+    desc: "Complete tasks, build streaks, earn points, and redeem them for rewards. All while moving closer to your dream job.",
   },
 
 
@@ -51,7 +51,7 @@ export default function StickyCards() {
    <ScrollReveal animation="up">
 
     <p className={styles.subtitle}>
-      Experience personalised insights and effortless financial management.
+      Experience goal-aligned planning and effortless career acceleration.
     </p>
    </ScrollReveal>
 
@@ -72,7 +72,7 @@ export default function StickyCards() {
                          src={step.image} 
                          alt={step.title}
                          fill 
-                         style={{ objectFit:"cover" }}
+                         style={{ objectFit:"contain" }}
                          sizes="(max-width: 768px) 100vw, 280px"
                        />
                     </IPhoneFrame>

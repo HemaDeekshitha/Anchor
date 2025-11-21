@@ -1,36 +1,91 @@
 /* IPhoneFrame.module.css */
 
 .iphoneFrame {
-  /* 1. The Shape: keeps it looking like a phone at any size */
   aspect-ratio: 9 / 19.5;
-  
-  /* 2. The Bezel (Frame) */
-  border: 4px solid #1c1c1e; 
+  border: 2px solid #1c1c1e; /* Ensure this is thick enough for bezel */
   border-radius: 35px; 
-  
-  /* 3. Background & Positioning */
-  background-color: black;
-  position: relative; /* CRITICAL: This allows the Next.js Image to "fill" the container */
-  overflow: hidden;   /* CRITICAL: This clips the square image to the rounded corners */
-  
-  /* 4. Depth */
+  background-color: white; /* Or black, depending on desired background for 'contain' */
+  position: relative;
+  overflow: hidden;
   box-shadow: 0px 20px 40px rgba(0, 0, 0, 0.2);
+
+  
+  padding-top:120px; /* Adjust this value (e.g., 50px, 70px) until your image is below the notch */
+
 }
 
 .dynamicIsland {
-  /* Placed on top of the image */
   position: absolute;
   top: 20px; 
   left: 50%;
   transform: translateX(-50%);
-  
-  /* Responsive sizing */
   width: 30%;
-  height: 3.8%;
-  
+  height: 2.8%;
   background-color: black;
   border-radius: 20px;
-  
-  /* Ensures the notch sits ON TOP of your image */
-  z-index: 10; 
+  z-index: 10;
+}
+
+/* --- New Styles for Status Bar --- */
+.statusBar {
+  position: absolute;
+  top: 2px; /* Adjust if needed */
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 18px; /* Horizontal padding */
+  color: black; /* Text color */
+  font-size: 0.2em; /* Smaller text */
+  font-weight: 600;
+  z-index: 10; /* Ensure it's above everything */
+  pointer-events: none; /* Allows clicks to pass through */
+}
+
+.time {
+  /* No specific styles needed, inherits from statusBar */
+}
+
+.signalBattery {
+  display: flex;
+  gap: 4px; /* Space between icons */
+  align-items: center;
+}
+
+/* Placeholder styles for signal, wifi, battery icons */
+.signal, .wifi, .battery {
+  width: 14px; /* Icon size */
+  height: 10px;
+  border: 1px solid black;
+  border-radius: 2px;
+  opacity: 0.8;
+  /* Basic representation, you could use actual SVG icons here */
+}
+
+.wifi {
+    width: 16px;
+    height: 12px;
+    border: none;
+    border-top: 2px solid white;
+    border-radius: 0;
+    transform: rotate(45deg);
+    position: relative;
+    top: -2px;
+    clip-path: polygon(0% 100%, 100% 100%, 100% 80%, 0% 80%); /* Example for a basic wifi shape */
+}
+
+
+/* --- New Styles for Home Indicator --- */
+.homeIndicator {
+  position: absolute;
+  bottom:8px; /* Distance from bottom */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%; /* Length of the bar */
+  height: 4px; /* Thickness of the bar */
+  background-color: black; /* Semi-transparent white */
+  border-radius: 10px;
+  z-index: 1; /* Ensure it's above everything */
+  pointer-events: none; /* Allows clicks to pass through */
 }

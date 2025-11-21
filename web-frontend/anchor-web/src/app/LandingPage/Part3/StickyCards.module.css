@@ -1,3 +1,4 @@
+
 .section {
   background-color:  rgb(244, 240, 240);/* White background like the target video */
   padding: 100px 20px;
@@ -59,7 +60,7 @@ padding-left: 4rem;
 /* Left side: Image */
 .imageBox {
   flex: 1;
-  height: 90%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -69,7 +70,7 @@ padding-left: 4rem;
 }
 
 .imageBox img {
-  object-fit: contain;
+  
   max-height: 100%;
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
 }
