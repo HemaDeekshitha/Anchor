@@ -11,6 +11,20 @@ export default function Contact() {
   const isFormValid =
     name.trim() !== "" && email.trim() !== "" && message.trim() !== "";
 
+  const handleSubmit = async (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+
+    const res = await fetch("http://localhost:3001/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, message }),
+    });
+
+    if (res.ok) {
+      alert("Message sent!");
+    }
+  };
+
   return (
     <>
       <Header />
@@ -22,7 +36,7 @@ export default function Contact() {
               Have questions, need help, or want to discover more about Anchor?
               We're here to support you every step of the way.
             </p>
-            <form className={styles.contactForm}>
+            <form className={styles.contactForm} onSubmit={handleSubmit}>
               <label className={styles.label}>
                 Name:
                 <input
