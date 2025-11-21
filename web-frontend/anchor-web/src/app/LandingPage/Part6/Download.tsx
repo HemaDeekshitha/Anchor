@@ -4,18 +4,23 @@ import styles from "./Download.module.css";
 import { useEffect, useState } from "react";
 import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 import Lottie from "lottie-react";
+import { useRouter } from "next/navigation";
 
 
 export default function Download() {
   const [animationData, setAnimationData] = useState(null);
-
+const router = useRouter();
   useEffect(() => {
     fetch("/assets/lottie/2.json")
       .then((res) => res.json())
       .then(setAnimationData);
   }, []);
+  const ContactPageHandler = () => {
+    router.replace("/ContactPage");
+  };
+
   return (
-    <section className={styles.section}>
+    <section id="download" className={styles.section}>
       
       {/* Lottie background animation */}
       {animationData && (
@@ -52,7 +57,7 @@ export default function Download() {
 
         {/* Main CTA Button */}
         <ScrollReveal animation="up">
-          <button className={styles.ctaButton}>
+          <button className={styles.ctaButton} onClick={ContactPageHandler}>
             {/* Keeping your QR code logic, but smaller as an icon */}
             {/* <Image
               src="/assets/qr-code.png"

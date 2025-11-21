@@ -65,7 +65,8 @@ padding-left: 4rem;
   justify-content: center;
   align-items: center;
   border-radius:32px;
-  background-color: #e5e6f2;
+  background-color: #f1effe;
+  /* #e5e6f2; */
   padding: 40px; /* Internal padding for the phone image */
 }
 

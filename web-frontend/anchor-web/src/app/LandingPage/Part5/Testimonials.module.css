@@ -4,15 +4,18 @@
   /* Keep your layout settings */
   padding: 7rem 4rem;
   margin: 1rem;
+  
   margin-bottom: 3rem;
   border-radius: 3rem;
   background: rgb(244, 240, 240); /* Base background color */
-  
+  /* min-height: 100vh; */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.4rem;
+  height:80vh;
+  
   
   /* IMPORTANT: Required for the ::before element to sit inside this box */
   /* position: relative;  */
@@ -62,6 +65,7 @@
   border-radius: 2rem;
   text-align: center;
   font-size:0.9rem ;
+  margin-top:-5rem;
 }
 .subtitle {
   font-size: 1.2rem;
