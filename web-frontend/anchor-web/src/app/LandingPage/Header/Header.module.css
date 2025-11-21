@@ -20,17 +20,47 @@
   backdrop-filter: blur(5px); /* the blur */
   -webkit-backdrop-filter: blur(5px); /* Safari support */
 }
+/* .logo {
+  border-radius: 18px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-left:2rem;
+  height:5%;
+  width: 5%;
+  
+} */
+.logoLink {
+  display: flex;
+  align-items: center;
+  margin-right: 1rem;
+  border-radius: 18px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-left:2rem;
+  height:4%;
+  width: 4%;
+}
 
+.logo {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  
+   border-radius: 18px;
+  
+  
+}
+.logo:hover {
+  transform: scale(1.05);
+}
 .menu {
   display: flex;
   gap: 2rem;
+  
 }
 .menuH {
   color: black;
   font-weight: bold;
   cursor: pointer;
   font-size: x-large;
-  margin-left: 2rem;
+  margin-left: -7rem;
 }
 
 .menuP {

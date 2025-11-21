@@ -4,7 +4,7 @@
   position: relative;
   width: 100%;
   min-height: 100vh; /* Full screen height */
-  background-color: #462b69;
+  background-color: #3c245c;
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -17,17 +17,18 @@
 
 .lottieBackground {
   position: absolute;
-  top: 0;
-  left: 20;
-  width: 50%;
-  height: 50%;
+  
+  left: 9;
+  width: 60%;
+  height: 30%;
   z-index: 0;
   pointer-events: none;
   opacity: 100;
-  
+  bottom:35rem;
 }
 .contentWrapper {
   position: relative;
+  
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -35,6 +36,8 @@
   text-align: center;
   max-width: 800px;
   gap: 2rem;
+    bottom:-5rem;
+    left:-1.3rem;
 }
 
 /* --- The "Available" Pill Tag --- */
@@ -101,7 +104,9 @@
 }
 
 .ctaButton:hover {
-  border-color: rgba(255, 255, 255, 0.4);
+  background: linear-gradient(90deg, #f3d55b, #f1cf4b);
+  color: black;
+
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
 }

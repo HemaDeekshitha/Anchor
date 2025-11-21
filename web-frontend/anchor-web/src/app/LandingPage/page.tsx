@@ -30,6 +30,7 @@ export default function LandingPage() {
     <>
       <Header />
       <div id="home" className={landingStyles.landingpageContainer}>
+        
         <div className={landingStyles.landingpageMain}>
           <div className={landingStyles.landingpageContent}>
             <h1 className={landingStyles.title}>

@@ -15,6 +15,7 @@ export default function Header() {
       { id: "features", label: "Features" },
       { id: "testimonials", label: "Testimonials" },
       // { id: "faqs", label: "FAQs" },
+      { id: "download", label: "Download", noHighlight: true },
     ];
 
     const observers: IntersectionObserver[] = [];
@@ -25,9 +26,14 @@ export default function Header() {
 
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
-            setActive(section.id);
-          }
+        if (entry.isIntersecting) {
+  if (!section.noHighlight) {
+    setActive(section.id);
+  } else {
+    setActive("");
+  }
+}
+
         },
         {
           threshold: 0.5, // when 50% of section is visible
@@ -43,6 +49,18 @@ export default function Header() {
 
   return (
     <div className={styles.header}>
+      <a href="#home" className={styles.logoLink}>
+      <Image
+  src="/assets/anchorLogo.png" // Replace with your logo if different
+  alt="Anchor Logo"
+  width={54}
+  height={54}
+  
+  className={styles.logo}
+  priority
+/>
+</a>
+
       <a href="/LandingPage" className={styles.menuH}>
         Anchor
       </a>
@@ -76,13 +94,12 @@ export default function Header() {
         </a>
 
         <a
-        href="#testimonials"
-          className={`${styles.menuP} ${
-            active === "testimonials" ? styles.active : ""
-          }`}
-        >
-          Testimonials
-        </a>
+  href="#testimonials"
+  className={`${styles.menuP} ${active === "testimonials" ? styles.active : ""}`}
+>
+  Testimonials
+</a>
+
 
         {/* <a
         
