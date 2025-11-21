@@ -52,7 +52,7 @@
 }
 .menu {
   display: flex;
-  gap: 2rem;
+  gap: 5rem;
   
 }
 .menuH {
@@ -60,7 +60,7 @@
   font-weight: bold;
   cursor: pointer;
   font-size: x-large;
-  margin-left: -7rem;
+  margin-left: -15rem;
 }
 
 .menuP {
