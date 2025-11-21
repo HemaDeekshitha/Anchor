@@ -10,11 +10,11 @@ export default function Download() {
     <section className={styles.section}>
       <ScrollReveal animation="up">
         
-        <h2 className={styles.heading}>Download Fintro</h2>
+        <h2 className={styles.heading}>Download Anchor Today</h2>
         </ScrollReveal>
          <ScrollReveal animation="up">
         <p className={styles.subheading}>
-          Experience a financial app that adapts to your lifestyle and preferences
+          Stop burnout, start succeeding. 
         </p>
       </ScrollReveal>
 

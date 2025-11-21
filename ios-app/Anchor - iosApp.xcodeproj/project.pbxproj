@@ -14,6 +14,7 @@
 		0C3469512EC0245B001D513B /* CurrentStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3469502EC02445001D513B /* CurrentStatusView.swift */; };
 		0C3469552EC027A3001D513B /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3469542EC02798001D513B /* PreferencesView.swift */; };
 		0C3469572EC02A20001D513B /* FinalOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3469562EC02A1D001D513B /* FinalOnboardingView.swift */; };
+		0C7E116E2ED00951009D9F85 /* Pulsing Lines.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C7E116D2ED00951009D9F85 /* Pulsing Lines.json */; };
 		0C939CC72EBFF61700476854 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CC22EBFEFA400476854 /* OnboardingViewModel.swift */; };
 		0C939CC82EBFF61F00476854 /* OnboardingWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CBD2EBFEF0300476854 /* OnboardingWelcomeView.swift */; };
 		0C939CCA2EBFFC5C00476854 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C939CC92EBFFBD600476854 /* Theme.swift */; };
@@ -50,6 +51,7 @@
 		0C3469502EC02445001D513B /* CurrentStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentStatusView.swift; sourceTree = "<group>"; };
 		0C3469542EC02798001D513B /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		0C3469562EC02A1D001D513B /* FinalOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalOnboardingView.swift; sourceTree = "<group>"; };
+		0C7E116D2ED00951009D9F85 /* Pulsing Lines.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Pulsing Lines.json"; sourceTree = "<group>"; };
 		0C82DD9E2EBFC5C100637ED7 /* Anchor - iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Anchor - iosApp.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C82DDAB2EBFC5C200637ED7 /* Anchor - iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Anchor - iosAppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C82DDB52EBFC5C200637ED7 /* Anchor - iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Anchor - iosAppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -119,6 +121,7 @@
 		0C82DD952EBFC5C100637ED7 = {
 			isa = PBXGroup;
 			children = (
+				0C7E116D2ED00951009D9F85 /* Pulsing Lines.json */,
 				0C21A0582EC0674E00799688 /* Star Loader 2.json */,
 				0C82DDEE2EBFCD4500637ED7 /* Utils 2 */,
 				0C82DDA02EBFC5C100637ED7 /* Anchor - iosApp */,
@@ -344,6 +347,7 @@
 			files = (
 				0C21A05E2EC06D4E00799688 /* waves.json in Resources */,
 				0C21A0592EC0674E00799688 /* Star Loader 2.json in Resources */,
+				0C7E116E2ED00951009D9F85 /* Pulsing Lines.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

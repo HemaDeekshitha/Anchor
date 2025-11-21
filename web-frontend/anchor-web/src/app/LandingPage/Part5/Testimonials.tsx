@@ -11,40 +11,35 @@ const testimonials = [
     id: 1,
     name: "Mark Thompson",
     username: "@Mark Thompson",
-    message:
-      "Thanks to Fintro, I've been able to save more money and achieve my financial goals faster than ever.",
+    message:"Job hunt was a stressful mess of spreadsheets. Now everything is organized and clear. Total game-changer!",
     avatar: "/assets/mark.png",
   },
   {
     id: 2,
     name: "Alex Kim",
     username: "@Alex Kim",
-    message:
-      "Fintro’s AI-driven tips are spot on. It's like having a personal financial advisor in my pocket!",
-    avatar: "/assets/alex.png",
+    message:"Anchor cut my application time in half. I stopped wasting time and landed my offer faster than I ever thought.",
+        avatar: "/assets/alex.png",
   },
   {
     id: 3,
     name: "Sarah Lee",
     username: "@Sarah Lee",
-    message:
-      "The adaptive budgeting feature is incredible. Fintro makes it so easy to stay on top of my spending!",
-    avatar: "/assets/sarah.png",
+    message:"The goal-tracking system is motivating. Building streaks keeps me consistent, even when the search felt overwhelming.",
+        avatar: "/assets/sarah.png",
   },
   {
   id: 4,
     name: "Sophia Rossi",
     username: "@Sophia12",
-    message:
-      "Fintro’s AI-driven tips are spot on. It's like having a personal financial advisor in my pocket!",
-    avatar: "/assets/sophia.png",
+    message:"Anchor truly anchored my chaotic job search, providing a clear path and eliminating the daily stress. A lifesaver",
+        avatar: "/assets/sophia.png",
   },
   {id: 4,
     name: "Julian Thorne",
     username: "@Julian@19",
-    message:
-      "Fintro’s AI-driven tips are spot on. It's like having a personal financial advisor in my pocket!",
-    avatar: "/assets/julian.png",
+    message:"The personalized path planning is spot-on. It's like having a dedicated career coach guiding me through every single step.",
+        avatar: "/assets/julian.png",
   },
   
 ];
@@ -89,8 +84,7 @@ export default function Testimonials() {
       </ScrollReveal>
       <ScrollReveal animation="up">
         <p className={styles.subtitle}>
-          experience a financial app that adapts to your lifestyles and
-          preferences
+          Here what some of our early users had to say.
         </p>
       </ScrollReveal>
 

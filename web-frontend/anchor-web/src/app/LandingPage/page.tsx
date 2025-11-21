@@ -39,7 +39,7 @@ export default function LandingPage() {
               </p>
               Anchor
               <span className={landingStyles.titleblur}>
-                - Your job search, anchored in clarity
+                - It's the clarity you deserve
               </span>
             </h1>
 
