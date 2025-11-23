@@ -1,0 +1,64 @@
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 14px 18px;
+  border-radius: 12px;
+
+  font-size: 15px;
+  font-weight: 500;
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+
+  position: fixed;
+  top: 20px;
+  right: 20px;
+
+  animation: fadeIn 0.3s ease forwards;
+  z-index: 9999;
+  background-color: #d22626;
+}
+
+.success {
+  background: #e8f8e8;
+  color: #0a8a42;
+}
+
+.error {
+  background: #fde8e8;
+  color: #d22626;
+}
+
+.warning {
+  background: #fff8e6;
+  color: #b97b00;
+}
+
+.successIcon {
+  color: #0a8a42;
+}
+
+.errorIcon {
+  color: #d22626;
+}
+
+.warningIcon {
+  color: #b97b00;
+}
+
+.closeBtn {
+  margin-left: auto;
+  cursor: pointer;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

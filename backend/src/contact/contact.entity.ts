@@ -19,6 +19,9 @@ export class Contact {
   @Column({ nullable: true })
   message: string;
 
+  @Column()
+  resume: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

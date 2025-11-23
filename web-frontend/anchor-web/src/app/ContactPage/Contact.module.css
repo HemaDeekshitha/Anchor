@@ -1,7 +1,6 @@
 .ContactPageContainer {
   background: linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
-
-  /* height: 100vh; */
+  padding-bottom: 4rem;
 }
 
 .ContactPageContent {
@@ -81,6 +80,9 @@
   color: black;
   width: 100%;
 }
+.required {
+  color: red;
+}
 
 .input {
   margin-top: 0.5rem;
@@ -112,6 +114,79 @@
   outline: none;
   border: 2px solid #5b3aff20; /* soft focus ring */
   box-shadow: 0 0 0 2px #5b3aff20; /* optional */
+}
+.customBtn {
+  padding: 12px 20px;
+  background-color: #6c4bff;
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+}
+
+/* Wrapper for label + input */
+.labelWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.labelText {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required {
+  color: red;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.customFileUpload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(90deg, #6b4bff 0%, #9d76ff 100%);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px rgba(107, 75, 255, 0.25);
+}
+
+.customFileUpload:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(107, 75, 255, 0.35);
+  background: linear-gradient(90deg, #5a3bff 0%, #8d65ff 100%);
+}
+
+.iconLeft {
+  color: white;
+}
+
+.iconRight {
+  margin-left: auto;
+  color: white;
+  cursor: pointer;
+}
+
+.iconRight:hover {
+  color: red;
+}
+
+.hiddenFileInput {
+  display: none;
 }
 
 .submitButton {
