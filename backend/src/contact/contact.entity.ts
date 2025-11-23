@@ -19,6 +19,9 @@ export class Contact {
   @Column({ nullable: true })
   message: string;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @Column({ nullable: true })
+  resumeUrl: string;
+
+  @Column({ nullable: true })
+  resumeName: string;
 }

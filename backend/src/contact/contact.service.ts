@@ -1,19 +1,37 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Contact } from './contact.entity';
 import { Repository } from 'typeorm';
-import { CreateContactDto } from './dto/create-contact.dto';
+import { Contact } from './contact.entity';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
-@Injectable()
 @Injectable()
 export class ContactService {
   constructor(
     @InjectRepository(Contact)
-    private repo: Repository<Contact>,
+    private readonly repo: Repository<Contact>, // FIXED: contact repository
+
+    private readonly cloudinary: CloudinaryService, // FIXED: cloudinary service
   ) {}
 
-  async create(data: CreateContactDto) {
-    const contact = this.repo.create(data);
-    return await this.repo.save(contact);
+  async handleContact(body: any, file: Express.Multer.File) {
+    // Upload to Cloudinary
+    const resumeUrl = await this.cloudinary.uploadFile(file);
+
+    // Save to DB
+    const entry = this.repo.create({
+      name: body.name,
+      email: body.email,
+      message: body.message,
+      resumeName: file.originalname,
+      resumeUrl,
+    });
+
+    await this.repo.save(entry);
+
+    return {
+      success: true,
+      message: 'Resume uploaded successfully!',
+      resumeUrl,
+    };
   }
 }
