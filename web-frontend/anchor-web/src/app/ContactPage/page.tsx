@@ -91,6 +91,11 @@ export default function Contact() {
     } else {
       showAlert("error", "Upload failed");
     }
+
+    setName("");
+    setEmail("");
+    setMessage("");
+    setSelectedFile("Upload Resume");
   };
 
   const handleBack = () => {
