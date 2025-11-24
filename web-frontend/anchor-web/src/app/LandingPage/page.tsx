@@ -153,6 +153,7 @@ import Testimonials from "./Part5/Testimonials";
 import Download from "./Part6/Download";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import styles from "./LandingPage.module.css";
 type FloatingIconProps = {
   src: string;
   top?: string;
@@ -237,14 +238,14 @@ export default function LandingPage() {
                 {/* SUBTITLE */}
                 <Box
                   sx={{
-                    fontSize: "0.9rem",
+                    fontSize: "0.7rem",
                     fontWeight: "bold",
                     mb: "1rem",
                     color: "black",
                     padding: "1rem",
                     backgroundColor: "rgba(250, 248, 248, 0.25)",
                     borderRadius: "1.5rem",
-                    width: "25rem",
+                    width: { xs: "100%", sm: "20rem", md: "25rem" },
                     display: "flex",
                     alignItems: "center",
                     gap: "0.5rem",
@@ -265,10 +266,11 @@ export default function LandingPage() {
                 {/* TITLE */}
                 <Box
                   sx={{
-                    fontSize: { xs: "2.5rem", md: "4.5rem" },
+                    fontSize: { xs: "2.2rem", sm: "2.8rem", md: "4.5rem" },
                     fontWeight: "bold",
                     color: "black",
                     width: { xs: "100%", md: "50rem" },
+                    textAlign: { xs: "center", md: "left" },
                     lineHeight: 1.1,
                   }}
                 >
@@ -285,6 +287,11 @@ export default function LandingPage() {
                     gap: "2rem",
                     paddingBottom: "4rem",
                     marginTop: "2rem",
+                    justifyContent: { xs: "center", md: "flex-start" },
+                    flexDirection: { xs: "column", sm: "column", md: "row" },
+
+                    // 🔥 Make container full width on small screens
+                    width: { xs: "100%", md: "auto" },
                   }}
                 >
                   <Button
@@ -294,7 +301,6 @@ export default function LandingPage() {
                       color: "gray",
                       padding: "1rem",
                       borderRadius: "1rem",
-                      width: "10rem",
                       fontSize: "medium",
                       border: "none",
                       fontWeight: "bold",
@@ -303,6 +309,7 @@ export default function LandingPage() {
                       "&:hover": {
                         background: "linear-gradient(90deg, #f3d55b, #f1cf4b)",
                         color: "black",
+                        width: { xs: "100%", md: "10rm" },
                       },
                     }}
                   >
@@ -315,7 +322,7 @@ export default function LandingPage() {
                       color: "white",
                       padding: "1rem",
                       borderRadius: "1rem",
-                      width: "10rem",
+                      width: { xs: "100%", md: "10rem" },
                       fontSize: "medium",
                       border: "none",
                       fontWeight: "bold",
@@ -360,7 +367,7 @@ export default function LandingPage() {
                   width={500}
                   height={500}
                   style={{
-                    width: "75%",
+                    width: "70%",
                     height: "auto",
                     objectFit: "contain",
                     borderRadius: "32px",
@@ -373,41 +380,65 @@ export default function LandingPage() {
                 />
 
                 {/* FLOATING ICONS */}
-                <FloatingIcon
-                  src="/assets/icon-star.png"
-                  top="1%"
-                  left="1%"
-                  delay="0s"
-                  rotate="-15deg"
-                  duration="4s"
-                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: { xs: "-30px", md: "8%" },
+                    left: { xs: "4%", md: "8%" },
+                  }}
+                >
+                  <FloatingIcon
+                    src="/assets/icon-star.png"
+                    delay="0s"
+                    rotate="-15deg"
+                    duration="4s"
+                  />
+                </Box>
 
-                <FloatingIcon
-                  src="/assets/icon-target.png"
-                  top="1%"
-                  right="0%"
-                  delay="1s"
-                  rotate="15deg"
-                  duration="7s"
-                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: { xs: "-30px", md: "10%" },
+                    right: { xs: "25%", md: "30%" },
+                  }}
+                >
+                  <FloatingIcon
+                    src="/assets/icon-target.png"
+                    delay="1s"
+                    rotate="15deg"
+                    duration="7s"
+                  />
+                </Box>
 
-                <FloatingIcon
-                  src="/assets/icon-trophy.png"
-                  bottom="1%"
-                  left="0%"
-                  delay="2s"
-                  rotate="-30deg"
-                  duration="6s"
-                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: { xs: "2%", md: "35%" },
+                    left: { xs: "4%", md: "4%" },
+                  }}
+                >
+                  <FloatingIcon
+                    src="/assets/icon-trophy.png"
+                    delay="2s"
+                    rotate="-30deg"
+                    duration="6s"
+                  />
+                </Box>
 
-                <FloatingIcon
-                  src="/assets/icon-rocket.png"
-                  bottom="1%"
-                  right="0%"
-                  delay="0.5s"
-                  rotate="15deg"
-                  duration="5.5s"
-                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: { xs: "5%", md: "35%" },
+                    right: { xs: "25%", md: "30%" },
+                  }}
+                >
+                  <FloatingIcon
+                    src="/assets/icon-rocket.png"
+                    delay="0.5s"
+                    rotate="15deg"
+                    duration="5.5s"
+                  />
+                </Box>
               </Box>
             </Grid>
           </Grid>
@@ -459,6 +490,7 @@ function FloatingIcon({
 }: FloatingIconProps) {
   return (
     <Box
+      className={styles.iconWrapper}
       sx={{
         position: "absolute",
         top,
@@ -474,7 +506,7 @@ function FloatingIcon({
         transform: `rotate(${rotate})`,
       }}
     >
-      <Image src={src} alt="" width={120} height={120} />
+      <img src={src} alt="" className={styles.floatingIcons} />
     </Box>
   );
 }
