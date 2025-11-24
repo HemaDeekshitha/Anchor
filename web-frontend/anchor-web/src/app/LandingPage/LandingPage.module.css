@@ -1,10 +1,10 @@
 .landingpageContainer {
-  padding-top: 18rem;
+  padding-top: 8rem;
   padding-bottom: 5rem;
   padding-left: 4rem;
   padding-right: 4rem;
   margin: 1rem;
-margin-bottom: 4rem;
+  margin-bottom: 4rem;
   border-radius: 3rem;
   background: linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
   overflow: visible;
@@ -21,7 +21,6 @@ margin-bottom: 4rem;
   align-items: center;
   column-gap: 25rem;
   width: 100%;
- 
 }
 
 .titledot {
@@ -92,23 +91,23 @@ margin-bottom: 4rem;
 .heroImage {
   object-fit: contain;
   /* Optional: Adds the Fintro 'float' animation */
-  /* animation: float 6s ease-in-out infinite;
+/* animation: float 6s ease-in-out infinite;
 } */
 /* Animation Keyframes */
 /* @keyframes float {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-20px); }
   100% { transform: translateY(0px); }
-/* } */ 
+/* } */
 /* 1. The Wrapper: Positions everything in the grid */
 .heroVisuals {
   grid-column: 2;
   grid-row: 1 / span 2; /* Spans across title and buttons */
-  position: relative;   /* Crucial for absolute positioning of icons */
+  position: relative; /* Crucial for absolute positioning of icons */
   justify-self: center;
   width: 100%;
   max-width: 600px;
-  height: 500px;        /* Give it space to breathe */
+  height: 500px; /* Give it space to breathe */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,19 +122,22 @@ margin-bottom: 4rem;
   border-radius: 32px;
   /* Main image floats slowly */
   animation: float 10s ease-in-out infinite;
- 
+
   background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(16px); 
+  backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 /* 3. Shared Styles for Floating Icons */
-.floatIcon1, .floatIcon2, .floatIcon3, .floatIcon4 {
+.floatIcon1,
+.floatIcon2,
+.floatIcon3,
+.floatIcon4 {
   position: absolute;
   z-index: 2; /* Sits on top of main image */
-  filter: drop-shadow(0px 10px 20px rgba(0,0,0,0.15));
-  
-  padding: 10px;      /* Optional: space inside bubble */
+  filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.15));
+
+  padding: 10px; /* Optional: space inside bubble */
   filter: saturate(0.2) brightness(1.1) contrast(0.8);
 }
 
@@ -148,7 +150,6 @@ margin-bottom: 4rem;
   animation: float 4s ease-in-out infinite;
   animation-delay: 0s;
   rotate: -15deg;
-  
 }
 
 /* Top Right */
@@ -180,9 +181,15 @@ margin-bottom: 4rem;
 
 /* The Float Animation */
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 /* Responsive Fix */
@@ -193,13 +200,17 @@ margin-bottom: 4rem;
     height: auto;
     margin-bottom: 2rem;
   }
-  
+
   /* Hide floating elements on mobile to reduce clutter? */
   /* .floatIcon1, .floatIcon2, .floatIcon3, .floatIcon4 { display: none; } */
-  
+
   /* Or just pull them in closer */
-  .floatIcon1 { left: 8%; }
-  .floatIcon3 { left: 5%; }
+  .floatIcon1 {
+    left: 8%;
+  }
+  .floatIcon3 {
+    left: 5%;
+  }
 }
 
 .landingpageBtns {

@@ -1,9 +1,9 @@
-.ContactPageContainer {
+/* .ContactPageContainer {
   background: linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
   padding-bottom: 4rem;
-}
+} */
 
-.ContactPageContent {
+/* .ContactPageContent {
   padding-top: 7rem;
   display: flex;
   flex-direction: column;
@@ -11,12 +11,12 @@
   align-items: center;
   width: 100%;
   min-height: 100vh;
-}
-.backButtonContainer {
+} */
+/* .backButtonContainer {
   width: 100%;
   padding-left: 12rem;
-}
-
+} */
+/* 
 .backButton {
   background: none;
   border: none;
@@ -34,14 +34,14 @@
   gap: 0.3rem;
 
   transition: color 0.2s ease;
-}
+} */
 
-.backButton:hover {
+/* .backButton:hover {
   color: black;
   text-decoration: underline;
-}
+} */
 
-.title {
+/* .title {
   font-size: 4rem;
   font-weight: 600;
   color: black;
@@ -50,8 +50,8 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 1rem;
-}
-.subtitle {
+} */
+/* .subtitle {
   font-size: 1.3rem;
   color: gray;
   display: flex;
@@ -61,8 +61,8 @@
   margin-bottom: 2rem;
   width: 60%;
   text-align: center;
-}
-.contactForm {
+} */
+/* .contactForm {
   display: flex;
   flex-direction: column;
   width: 40%;
@@ -72,19 +72,19 @@
   border-radius: 1rem;
   justify-content: center;
   align-items: start;
-}
-.label {
+} */
+/* .label {
   display: flex;
   flex-direction: column;
   font-weight: bold;
   color: black;
   width: 100%;
-}
-.required {
+} */
+/* .required {
   color: red;
-}
+} */
 
-.input {
+/* .input {
   margin-top: 0.5rem;
   padding: 0.9rem;
   border-radius: 2rem;
@@ -93,8 +93,8 @@
   background-color: rgb(232, 232, 232);
   border: none;
   color: black;
-}
-.textarea {
+} */
+/* .textarea {
   margin-top: 0.7rem;
   padding: 0.8rem;
   border-radius: 1rem;
@@ -104,52 +104,52 @@
   background-color: rgb(232, 232, 232);
   border: none;
   color: black;
-}
-.input:focus {
+} */
+/* .input:focus {
   outline: none;
-  border: 2px solid #5b3aff20; /* soft focus ring */
-  box-shadow: 0 0 0 2px #5b3aff20; /* optional */
-}
-.textarea:focus {
+  border: 2px solid #5b3aff20; 
+  box-shadow: 0 0 0 2px #5b3aff20;
+} */
+/* .textarea:focus {
   outline: none;
-  border: 2px solid #5b3aff20; /* soft focus ring */
-  box-shadow: 0 0 0 2px #5b3aff20; /* optional */
-}
-.customBtn {
+  border: 2px solid #5b3aff20; 
+  box-shadow: 0 0 0 2px #5b3aff20; 
+} */
+/* .customBtn {
   padding: 12px 20px;
   background-color: #6c4bff;
   color: #fff;
   border-radius: 10px;
   cursor: pointer;
   border: none;
-}
+} */
 
 /* Wrapper for label + input */
-.labelWrapper {
+/* .labelWrapper {
   display: flex;
   flex-direction: column;
   gap: 8px;
   font-family: inherit;
-}
+} */
 
-.labelText {
+/* .labelText {
   font-size: 16px;
   font-weight: 500;
   color: #333;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
+} */
 
-.required {
+/* .required {
   color: red;
-}
+} */
 
-.hiddenFileInput {
+/* .hiddenFileInput {
   display: none;
-}
+} */
 
-.customFileUpload {
+/* .customFileUpload {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -163,9 +163,9 @@
   font-size: 14px;
   transition: all 0.25s ease;
   box-shadow: 0 4px 12px rgba(107, 75, 255, 0.25);
-}
+} */
 
-.customFileUpload:hover {
+/* .customFileUpload:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 18px rgba(107, 75, 255, 0.35);
   background: linear-gradient(90deg, #5a3bff 0%, #8d65ff 100%);
@@ -183,13 +183,13 @@
 
 .iconRight:hover {
   color: red;
-}
+} */
 
-.hiddenFileInput {
+/* .hiddenFileInput {
   display: none;
-}
+} */
 
-.submitButton {
+/* .submitButton {
   width: 100%;
   padding: 1rem;
   border-radius: 2rem;
@@ -201,7 +201,21 @@
   cursor: pointer;
 
   background: linear-gradient(90deg, #f3d55b, #f1cf4b);
-  box-shadow: 0 5px 25px #5b3aff20, /* purple glow */ 0 0 40px #5b3aff20; /* outer bloom */
+  box-shadow: 0 5px 25px #5b3aff20,  0 0 40px #5b3aff20; 
 
   transition: all 0.25s ease;
+} */
+
+.backBtn {
+  background: "none";
+  border: "none";
+  padding: 0;
+  font-size: "1rem";
+  font-weight: 600;
+  color: "black";
+  cursor: "pointer";
+  display: "flex";
+  align-items: "center";
+  gap: "0.3rem";
+  text-decoration: "none";
 }
