@@ -1,4 +1,4 @@
-.header {
+/* .header {
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
   padding: 0.5rem;
@@ -6,64 +6,50 @@
   width: 80%;
   margin-left: 10rem;
   position: fixed;
-  /* padding: 0.5rem; */
-  /* margin-top: 1rem; */
-  /* width: 70%; */
-  /* margin-left: 13rem; */
-  /* margin-right: 18rem; */
+
   position: fixed;
   border-radius: 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 999;
-  backdrop-filter: blur(5px); /* the blur */
-  -webkit-backdrop-filter: blur(5px); /* Safari support */
-}
-/* .logo {
-  border-radius: 18px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  margin-left:2rem;
-  height:5%;
-  width: 5%;
-  
+  backdrop-filter: blur(5px); 
+  -webkit-backdrop-filter: blur(5px); 
 } */
-.logoLink {
+
+/* .logoLink {
   display: flex;
   align-items: center;
   margin-right: 1rem;
   border-radius: 18px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  margin-left:2rem;
-  height:4%;
+  margin-left: 2rem;
+  height: 4%;
   width: 4%;
-}
+} */
 
-.logo {
+/* .logo {
   cursor: pointer;
   transition: transform 0.2s ease;
-  
-   border-radius: 18px;
-  
-  
-}
-.logo:hover {
+
+  border-radius: 18px;
+} */
+/* .logo:hover {
   transform: scale(1.05);
-}
-.menu {
+} */
+/* .menu {
   display: flex;
   gap: 5rem;
-  
-}
-.menuH {
+} */
+/* .menuH {
   color: black;
   font-weight: bold;
   cursor: pointer;
   font-size: x-large;
   margin-left: -15rem;
-}
+} */
 
-.menuP {
+/* .menuP {
   color: gray;
   font-weight: 500;
   font-size: 1rem;
@@ -72,15 +58,15 @@
 
   padding: 1rem;
   border-radius: 10rem;
-}
-.active {
+} */
+/* .active {
   color: #5b3aff !important;
   font-weight: bold;
 
   background-color: white;
   padding: 1rem;
   border-radius: 2rem;
-}
-.appStoreImage {
-  margin-right: 2rem; /* or any value you want */
-}
+} */
+/* .appStoreImage {
+  margin-right: 2rem; 
+} */
