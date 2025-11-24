@@ -291,3 +291,35 @@
     width: 100%;
   }
 }
+
+/* mui */
+
+.iconWrapper {
+  position: absolute;
+  padding: 10px;
+  z-index: 2;
+  filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.15)) saturate(0.2)
+    brightness(1.1) contrast(0.8);
+}
+
+/* Default icon size */
+
+.floatingIcons {
+  width: 120px;
+  height: 120px;
+}
+
+/* Make it smaller on mobile */
+@media (max-width: 900px) {
+  .floatingIcons {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+@media (max-width: 600px) {
+  .floatingIcons {
+    width: 45px;
+    height: 45px;
+  }
+}
