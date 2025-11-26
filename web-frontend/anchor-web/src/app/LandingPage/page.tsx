@@ -384,8 +384,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "-30px", md: "2%" },
-                    left: { xs: "4%", md: "5%" },
+                    top: { xs: "-30px", md: "5%" },
+                    left: { xs: "4%", md: "1%" },
                   }}
                 >
                   <FloatingIcon
@@ -399,7 +399,7 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "-30px", md: "2%" },
+                    top: { xs: "-30px", md: "9%" },
                     right: { xs: "25%", md: "23%" },
                   }}
                 >
@@ -414,8 +414,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: { xs: "20%", md: "25%" },
-                    left: { xs: "4%", md: "5%" },
+                    bottom: { xs: "20%", md: "32%" },
+                    left: { xs: "4%", md: "1%" },
                   }}
                 >
                   <FloatingIcon
@@ -429,8 +429,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: { xs: "20%", md: "25%" },
-                    right: { xs: "25%", md: "28%" },
+                    bottom: { xs: "20%", md: "32%" },
+                    right: { xs: "28%", md: "30%" },
                   }}
                 >
                   <FloatingIcon
