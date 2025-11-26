@@ -38,6 +38,9 @@ services:
       DATABASE_USER: postgres
       DATABASE_PASSWORD: anchor
       DATABASE_NAME: anchor
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
     ports:
       - "3001:3001"
     depends_on:

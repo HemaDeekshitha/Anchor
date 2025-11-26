@@ -10,13 +10,13 @@ import { ContactModule } from './contact/contact.module';
     // 📌 Database Connection (TypeORM + PostgreSQL)
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres', // <-- your PostgreSQL username
-      password: 'anchor', // <-- your PostgreSQL password
-      database: 'anchor', // <-- your PostgreSQL DB name
-      autoLoadEntities: true, // automatically load entity files
-      synchronize: true, // auto create & update tables (good for development)
+      host: process.env.DATABASE_HOST,
+      port: Number(process.env.DATABASE_PORT),
+      username: process.env.DATABASE_USER,
+      password: process.env.DATABASE_PASSWORD,
+      database: process.env.DATABASE_NAME,
+      autoLoadEntities: true,
+      synchronize: true,
     }),
   ],
 })
