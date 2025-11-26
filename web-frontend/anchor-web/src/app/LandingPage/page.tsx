@@ -305,11 +305,12 @@ export default function LandingPage() {
                       border: "none",
                       fontWeight: "bold",
                       cursor: "pointer",
+                      width: { xs: "100%", md: "10rem" },
                       textTransform: "none",
                       "&:hover": {
                         background: "linear-gradient(90deg, #f3d55b, #f1cf4b)",
                         color: "black",
-                        width: { xs: "100%", md: "10rm" },
+                       
                       },
                     }}
                   >
@@ -383,8 +384,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "-30px", md: "8%" },
-                    left: { xs: "4%", md: "8%" },
+                    top: { xs: "-30px", md: "2%" },
+                    left: { xs: "4%", md: "5%" },
                   }}
                 >
                   <FloatingIcon
@@ -398,8 +399,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "-30px", md: "10%" },
-                    right: { xs: "25%", md: "30%" },
+                    top: { xs: "-30px", md: "2%" },
+                    right: { xs: "25%", md: "23%" },
                   }}
                 >
                   <FloatingIcon
@@ -413,8 +414,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: { xs: "2%", md: "35%" },
-                    left: { xs: "4%", md: "4%" },
+                    bottom: { xs: "20%", md: "25%" },
+                    left: { xs: "4%", md: "5%" },
                   }}
                 >
                   <FloatingIcon
@@ -428,8 +429,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: { xs: "5%", md: "35%" },
-                    right: { xs: "25%", md: "30%" },
+                    bottom: { xs: "20%", md: "25%" },
+                    right: { xs: "25%", md: "28%" },
                   }}
                 >
                   <FloatingIcon
