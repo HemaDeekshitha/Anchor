@@ -154,7 +154,8 @@ export default function Header() {
     { id: "getstarted", label: "Get Started" },
     { id: "features", label: "Features" },
     { id: "testimonials", label: "Testimonials" },
-    { id: "download", label: "Download" },
+    // { id: "download", label: "Download" },
+    // { id: "download", noHighlight: true, hidden: true },
   ];
   const scrollSections = [
     "home",
@@ -162,6 +163,7 @@ export default function Header() {
     "getstarted",
     "features",
     "testimonials",
+    "download",
   ];
 
   const [active, setActive] = React.useState("home");
@@ -195,23 +197,68 @@ export default function Header() {
     setMobileOpen(!mobileOpen);
   };
 
+  // const drawerContent = (
+  //   <Box sx={{ width: 250, pt: 4 }}>
+  //     <List>
+  //       {sections.map((item) => (
+  //         <ListItem key={item.id} disablePadding>
+  //           <ListItemButton
+  //             component="a"
+  //             href={`#${item.id}`}
+  //             onClick={() => setMobileOpen(false)}
+  //           >
+  //             {item.label}
+  //           </ListItemButton>
+  //         </ListItem>
+  //       ))}
+  //     </List>
+  //   </Box>
+  // );
   const drawerContent = (
-    <Box sx={{ width: 250, pt: 4 }}>
-      <List>
-        {sections.map((item) => (
-          <ListItem key={item.id} disablePadding>
-            <ListItemButton
-              component="a"
-              href={`#${item.id}`}
-              onClick={() => setMobileOpen(false)}
-            >
-              {item.label}
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-    </Box>
-  );
+  <Box
+    sx={{
+     
+      marginTop:"-6rem",
+      width: 220,
+      padding: "14rem 2rem",
+      display: "flex",
+      flexDirection: "column",
+      gap: "5rem",
+      backgroundColor: "#1c1230", 
+      height: "100%",
+      color: "white",
+     
+     
+    }}
+  >
+    {sections.map((item) =>
+      item.hidden ? null : (
+        <ListItemButton
+          key={item.id}
+          component="a"
+          href={`#${item.id}`}
+          onClick={() => setMobileOpen(false)}
+          sx={{
+            padding: "0.8rem 1rem",
+            borderRadius: "12px",
+            background: active === item.id ? "rgba(255,255,255,0.15)" : "transparent",
+            color: active === item.id ? "#f5e9ff" : "#c8bddb",
+            fontWeight: 600,
+            fontSize: "1rem",
+            transition: "0.2s ease",
+            "&:hover": {
+              background: "rgba(255,255,255,0.2)",
+              color: "#ffffff",
+            },
+          }}
+        >
+          {item.label}
+        </ListItemButton>
+      )
+    )}
+  </Box>
+);
+
 
   return (
     <>
@@ -220,7 +267,7 @@ export default function Header() {
         elevation={3}
         className={styles.header}
         sx={{
-          width: { xs: "85%", md: "80%" },
+          width: { xs: "85%", md: "60%" },
           left: "50%",
           transform: "translateX(-50%)",
           top: "3rem",
@@ -266,7 +313,7 @@ export default function Header() {
           {/* MIDDLE: Desktop Menu */}
           <Box
             sx={{
-              display: "flex",
+              display: "flex", gap: "20",
               "@media (max-width:1300px)": {
                 display: "none",
               },
@@ -299,15 +346,15 @@ export default function Header() {
 
           {/* RIGHT: App Store Button (Desktop Only) */}
           <Box sx={{ display: { xs: "none", md: "block" } }}>
-            {/* <a href="#" target="_blank">
-            <Image
-                src="/assets/appstore.svg"
-                alt="Download"
+            <a href="#" target="_blank">
+            <Typography
+                
+               
                 width={140}
                 height={50}
-                // style={{ display: "none" }}
+               
               />
-            </a> */}
+            </a>
           </Box>
 
           {/* MOBILE: Hamburger */}
@@ -328,17 +375,22 @@ export default function Header() {
 
       {/* MOBILE DRAWER */}
       <Drawer
-        anchor="right"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        PaperProps={{
-          sx: {
-            borderRadius: "1rem 0 0 1rem",
-          },
-        }}
-      >
-        {drawerContent}
-      </Drawer>
+  anchor="right"
+  open={mobileOpen}
+  onClose={handleDrawerToggle}
+  PaperProps={{
+    sx: {
+      width: "260px",
+      backgroundColor: "#1c1230",
+      borderRadius: "1rem 0 0 1rem",
+      paddingTop: "-2rem",
+      boxShadow: "0 0 30px rgba(255,255,255,0.15)",
+    },
+  }}
+>
+  {drawerContent}
+</Drawer>
+
 
       {/* Add spacing below header */}
       <Toolbar />
