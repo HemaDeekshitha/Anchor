@@ -209,8 +209,7 @@ export default function LandingPage() {
 
         {/* MAIN WRAPPER */}
         <Box sx={{ paddingBottom: "5rem" }}>
-          <Grid
-            container
+          <Box
             alignItems="center"
             sx={{
               display: "grid",
@@ -222,13 +221,19 @@ export default function LandingPage() {
               "@media (min-width:1300px)": {
                 gridTemplateColumns: "1fr 1fr",
                 gridTemplateRows: "auto auto",
-                columnGap: "25rem",
+                // columnGap: "15rem",
                 rowGap: 0,
               },
             }}
           >
             {/* LEFT COLUMN */}
-            <Grid item xs={12} md={6}>
+            <Box
+              sx={
+                {
+                  // width: { xs: "100%", md: "50%" },
+                }
+              }
+            >
               <Box
                 sx={{
                   gridColumn: 1,
@@ -310,7 +315,6 @@ export default function LandingPage() {
                       "&:hover": {
                         background: "linear-gradient(90deg, #f3d55b, #f1cf4b)",
                         color: "black",
-                       
                       },
                     }}
                   >
@@ -339,26 +343,34 @@ export default function LandingPage() {
                   </Button>
                 </Box>
               </Box>
-            </Grid>
+            </Box>
 
             {/* RIGHT COLUMN — HERO VISUALS */}
-            <Grid item xs={12} md={6}>
+            <Box
+              sx={
+                {
+                  // width: { xs: "100%", md: "50%" },
+                }
+              }
+            >
               <Box
                 sx={{
                   position: "relative",
                   justifySelf: "center",
-                  width: "100%",
+                  width: "80%",
                   maxWidth: "600px",
                   height: "500px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  "@media (max-width:900px)": {
-                    gridColumn: "1 !important",
-                    gridRow: "2 !important",
-                    height: "auto",
-                    mb: "2rem",
-                  },
+                  // "@media (min-width:900px) and (max-width:1299px)": {
+                  //   gridTemplateColumns: "1fr 1fr",
+                  //   gridTemplateRows: "auto",
+                  //   columnGap: "6rem", // much smaller, keeps visuals aligned
+                  //   alignItems: "center",
+                  // },
+
+                  // Large screen desktop layout (as before)
                 }}
               >
                 {/* MAIN FLOATING IMAGE */}
@@ -368,7 +380,7 @@ export default function LandingPage() {
                   width={500}
                   height={500}
                   style={{
-                    width: "70%",
+                    width: "80%",
                     height: "auto",
                     objectFit: "contain",
                     borderRadius: "32px",
@@ -441,8 +453,8 @@ export default function LandingPage() {
                   />
                 </Box>
               </Box>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </Box>
       </Box>
 

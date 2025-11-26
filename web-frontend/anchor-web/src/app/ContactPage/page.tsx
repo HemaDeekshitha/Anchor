@@ -273,10 +273,13 @@ export default function Contact() {
     formData.append("message", message);
     formData.append("resume", fileInput.files![0]); // file
 
-    const res = await fetch("http://localhost:3001/contact/upload", {
-      method: "POST",
-      body: formData,
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/contact/upload`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
 
     if (res.ok) {
       showAlert("success", "Message & resume submitted!");
