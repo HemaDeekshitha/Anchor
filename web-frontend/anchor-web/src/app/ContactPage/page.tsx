@@ -317,7 +317,7 @@ export default function Contact() {
         sx={{
           minHeight: "100vh",
           background:
-            "linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%)",
+            "linear-gradient(to right, #f7f7f7, #E5B526)",
           pb: "4rem",
         }}
       >

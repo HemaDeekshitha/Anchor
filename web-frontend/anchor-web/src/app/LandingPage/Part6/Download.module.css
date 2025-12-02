@@ -45,7 +45,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background:linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
+  background:linear-gradient(to right, #f7f7f7, #E5B526);
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 6px 16px;
   border-radius: 999px;
@@ -90,7 +90,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
+  background: linear-gradient(to right, #f7f7f7, #E5B526);
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 12px 12px;
   border-radius: 12px;

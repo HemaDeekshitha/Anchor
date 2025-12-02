@@ -201,7 +201,7 @@ export default function LandingPage() {
           marginBottom: "4rem",
           borderRadius: "3rem",
           background:
-            "linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%)",
+            "linear-gradient(to right, #f7f7f7, #E5B526)",
           overflow: "visible",
         }}
       >
@@ -255,7 +255,7 @@ export default function LandingPage() {
                     sx={{
                       width: "0.8rem",
                       height: "0.8rem",
-                      background: "#5b3aff",
+                      background: "#E5B526",
                       borderRadius: "50%",
                       animation: "pulse 1.4s ease-in-out infinite",
                     }}

@@ -215,7 +215,7 @@ function TestimonialCard({
 
       <Typography
         sx={{
-          color: "grey",
+          color: "black",
           fontSize: "1rem",
           paddingTop: "1rem",
           width: "100%",
@@ -277,8 +277,8 @@ export default function Testimonials() {
         <Box
           sx={{
             background:
-              "linear-gradient(90deg, #fefdff 0%, rgb(227,223,249) 100%)",
-            color: "grey",
+              "linear-gradient(to right, #f7f7f7, #E5B526)",
+            color: "black",
             p: "0.6rem",
             width: "7rem",
             borderRadius: "2rem",
