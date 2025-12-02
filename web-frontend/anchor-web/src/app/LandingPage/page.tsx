@@ -197,7 +197,7 @@ export default function LandingPage() {
                       },
                     }}
                   >
-                    <span className="btn-text">Get Started</span>
+                    <span className="btn-text">Let's Begin</span>
                   </Button>
 
                   {/* <Button
@@ -230,7 +230,7 @@ export default function LandingPage() {
                 sx={{
                   position: "relative",
                   justifySelf: "center",
-                  width: "80%",
+                  width: { xs: "100%", md: "60%",lg: "110%" },
                   maxWidth: "600px",
                   height: "500px",
                   display: "flex",
@@ -261,8 +261,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "1%", md: "1%" },
-                    left: { xs: "-8%", md: "-8%" },
+                    top: { xs: "1%", md: "1%", xl:"", lg: ""},
+                    left: { xs: "-8%", md: "-8%"},
                     animation: "float 4s ease-in-out infinite",
                   }}
                 >
@@ -273,7 +273,7 @@ export default function LandingPage() {
                   sx={{
                     position: "absolute",
                     top: { xs: "1%", md: "1%" },
-                    right: { xs: "34%", md: "34%" },
+                    right: { xs: "34%", md: "30%", lg:"25%"},
                     animation: "float 4s ease-in-out infinite",
                   }}
                 >
@@ -295,7 +295,7 @@ export default function LandingPage() {
                   sx={{
                     position: "absolute",
                     bottom: { xs: "36%", md: "36%" },
-                    right: { xs: "34%", md: "34%" },
+                    right: { xs: "34%", md: "30%", lg:"25%" },
                     animation: "float 4s ease-in-out infinite",
                   }}
                 >
