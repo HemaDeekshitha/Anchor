@@ -1,11 +1,14 @@
-
 .section {
-  background-color:  rgb(244, 240, 240);/* White background like the target video */
+  background-color: rgb(
+    244,
+    240,
+    240
+  ); /* White background like the target video */
   padding: 100px 20px;
   position: relative;
-padding-top: 7rem;
-padding-bottom: 7rem;
-padding-left: 4rem;
+  padding-top: 7rem;
+  padding-bottom: 7rem;
+  padding-left: 4rem;
   padding-right: 4rem;
   border-radius: 3rem;
   display: flex;
@@ -14,9 +17,8 @@ padding-left: 4rem;
   justify-content: center;
   gap: 1rem;
   margin: 1rem;
-  margin-bottom: 4rem;
+  margin-bottom: 1rem;
 }
-
 
 /* Container for the whole stack */
 .stickyOuter {
@@ -33,16 +35,20 @@ padding-left: 4rem;
 .stickyCard {
   position: sticky;
   top: 200px; /* Stops 100px from top of viewport */
-  
+
   height: 500px; /* Must have fixed height */
-  background-color:  rgb(244, 240, 240); /* Must match section bg to hide card behind it */
-  
+  background-color: rgb(
+    244,
+    240,
+    240
+  ); /* Must match section bg to hide card behind it */
+
   border: 1px solid #eee;
   /* border-radius: 32px; */
   margin-bottom: 20px; /* Space between cards */
   /* box-shadow: 0 -10px 40px rgba(0,0,0,0.05); Shadow on TOP to show depth */
   box-shadow: 0 -15px 30px rgb(244, 240, 240);
-  
+
   overflow: hidden;
 }
 
@@ -64,16 +70,15 @@ padding-left: 4rem;
   display: flex;
   justify-content: center;
   align-items: center;
-  border-radius:32px;
+  border-radius: 32px;
   background-color: #f1effe;
   /* #e5e6f2; */
   padding: 40px; /* Internal padding for the phone image */
 }
 
 .imageBox img {
-  
   max-height: 100%;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.1));
 }
 
 /* Right side: Text */
@@ -99,7 +104,7 @@ padding-left: 4rem;
 
 /* Typography for the section headers */
 .header {
-   background: linear-gradient(to right, #f7f7f7, #E5B526);
+  background: linear-gradient(to right, #f7f7f7, #e5b526);
   color: grey;
   padding: 0.8rem;
   width: 7rem;
@@ -134,6 +139,12 @@ padding-left: 4rem;
     padding: 30px;
     text-align: center;
   }
-  .textBox { text-align: center; }
-  .stickyCard { height: auto; min-height: 500px; top: 80px; }
+  .textBox {
+    text-align: center;
+  }
+  .stickyCard {
+    height: auto;
+    min-height: 500px;
+    top: 80px;
+  }
 }

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 // --- IMPORT THE FILE DIRECTLY ---
 // Make sure animation.json is in the same folder as this file!
-import animationData from "./purple.json"; 
+import animationData from "./purple.json";
 
 export default function Download() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function Download() {
         position: "relative",
         width: "100%",
         minHeight: "100vh",
-        backgroundColor: "#d8b13dc9", 
+        backgroundColor: "#d8b13dc9",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -39,14 +39,18 @@ export default function Download() {
           position: "absolute",
           top: 0,
           left: 0,
-          width: "100%",   // Fill width
-          height: "100%",  // Fill height
-          zIndex: 0,       // Behind text
+          width: "100%", // Fill width
+          height: "100%", // Fill height
+          zIndex: 0, // Behind text
           overflow: "hidden", // Cut off edges that spill out
           pointerEvents: "none",
         }}
       >
-        <Lottie animationData={animationData} loop={true} style={{ width: "100%", height: "100%" }} />
+        <Lottie
+          animationData={animationData}
+          loop={true}
+          style={{ width: "100%", height: "100%" }}
+        />
       </Box>
 
       {/* --- TEXT CONTENT --- */}
@@ -70,7 +74,8 @@ export default function Download() {
               display: "inline-flex",
               alignItems: "center",
               gap: "8px",
-              background: "linear-gradient(180deg, #ece6f3 0%, rgb(217,212,252) 100%)",
+              background:
+                "linear-gradient(180deg, #ece6f3 0%, rgb(217,212,252) 100%)",
               border: "1px solid rgba(70, 43, 105, 0.1)", // Slight purple border
               padding: "6px 16px",
               borderRadius: "999px",
@@ -79,7 +84,14 @@ export default function Download() {
               marginBottom: "0.5rem",
             }}
           >
-            <Box sx={{ width: "6px", height: "6px", backgroundColor: "#462b69", borderRadius: "50%" }} />
+            <Box
+              sx={{
+                width: "6px",
+                height: "6px",
+                backgroundColor: "#462b69",
+                borderRadius: "50%",
+              }}
+            />
             Available on Web & iOS
           </Box>
         </ScrollReveal>
@@ -106,7 +118,8 @@ export default function Download() {
           <Button
             onClick={goToContact}
             sx={{
-              background: "linear-gradient(180deg, #ece6f3 0%, rgb(217,212,252) 100%)",
+              background:
+                "linear-gradient(180deg,rgb(236, 193, 18) 0%, rgb(248, 157, 21) 100%)",
               border: "1px solid rgba(255,255,255,0.5)",
               padding: "12px 24px",
               borderRadius: "12px",
