@@ -16,9 +16,7 @@ type FloatingIconProps = {
   left?: string;
   right?: string;
   bottom?: string;
-  // delay: string;
   rotate: string;
-  // duration: string;
   className?: string;
 };
 
@@ -52,7 +50,6 @@ export default function LandingPage() {
         id="home"
         sx={{
           paddingTop: "8rem",
-          // paddingBottom: "5rem",s
           px: "4rem",
           margin: "1rem",
           marginBottom: "1rem",
@@ -149,28 +146,6 @@ export default function LandingPage() {
                     // width: "100%",
                   }}
                 >
-                  {/* <Button
-                    onClick={ContactPageHandler}
-                    sx={{
-                      backgroundColor: "white",
-                      color: "gray",
-                      padding: "1rem",
-                      borderRadius: "1rem",
-                      fontSize: "medium",
-                      border: "none",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                      width: { xs: "100%", md: "10rem" },
-                      textTransform: "none",
-                      "&:hover": {
-                        background: "linear-gradient(90deg, #f3d55b, #f1cf4b)",
-                        color: "black",
-                      },
-                    }}
-                  >
-                    Get Started
-                  </Button> */}
-
                   <Button
                     onClick={ContactPageHandler}
                     sx={{
@@ -288,15 +263,10 @@ export default function LandingPage() {
                     position: "absolute",
                     top: { xs: "1%", md: "1%" },
                     left: { xs: "-8%", md: "-8%" },
-                    animation: "float 4s ease-in-out infinite"
+                    animation: "float 4s ease-in-out infinite",
                   }}
                 >
-                  <FloatingIcon
-                    src="/assets/star.png"
-                    // delay="0s"
-                    rotate="-15deg"
-                    // duration="4s"
-                  />
+                  <FloatingIcon src="/assets/star.png" rotate="-15deg" />
                 </Box>
 
                 <Box
@@ -304,15 +274,10 @@ export default function LandingPage() {
                     position: "absolute",
                     top: { xs: "1%", md: "1%" },
                     right: { xs: "34%", md: "34%" },
-                    animation: "float 4s ease-in-out infinite"
+                    animation: "float 4s ease-in-out infinite",
                   }}
                 >
-                  <FloatingIcon
-                    src="/assets/target.png"
-                    // delay="1s"
-                    rotate="15deg"
-                    // duration="7s"
-                  />
+                  <FloatingIcon src="/assets/target.png" rotate="15deg" />
                 </Box>
 
                 <Box
@@ -320,15 +285,10 @@ export default function LandingPage() {
                     position: "absolute",
                     bottom: { xs: "36%", md: "36%" },
                     left: { xs: "-8%", md: "-8%" },
-                    animation: "float 4s ease-in-out infinite"
+                    animation: "float 4s ease-in-out infinite",
                   }}
                 >
-                  <FloatingIcon
-                    src="/assets/trophy.png"
-                    // delay="2s"
-                    rotate="-15deg"
-                    // duration="6s"
-                  />
+                  <FloatingIcon src="/assets/trophy.png" rotate="-15deg" />
                 </Box>
 
                 <Box
@@ -336,16 +296,13 @@ export default function LandingPage() {
                     position: "absolute",
                     bottom: { xs: "36%", md: "36%" },
                     right: { xs: "34%", md: "34%" },
-                    animation: "float 4s ease-in-out infinite"
+                    animation: "float 4s ease-in-out infinite",
                   }}
                 >
                   <FloatingIcon
                     src="/assets/rocket.png"
-                     className="test-bg"
-                    // delay="0.5s"
+                    className="test-bg"
                     rotate="15deg"
-                    // duration="5.5s"
-                 
                   />
                 </Box>
               </Box>
@@ -393,9 +350,8 @@ function FloatingIcon({
   left,
   right,
   bottom,
-  
+
   rotate,
- 
 }: FloatingIconProps) {
   return (
     <Box
@@ -409,10 +365,9 @@ function FloatingIcon({
         padding: "10px",
         zIndex: 2,
         fill: "white",
-        // filter:
-        //   "drop-shadow(0px 10px 20px rgba(0,0,0,0.15)) saturate(0.2) brightness(1.1) contrast(0.8)",
+
         animation: `float  ease-in-out infinite`,
-       
+
         transform: `rotate(${rotate})`,
       }}
     >
