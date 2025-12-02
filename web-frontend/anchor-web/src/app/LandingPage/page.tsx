@@ -16,9 +16,10 @@ type FloatingIconProps = {
   left?: string;
   right?: string;
   bottom?: string;
-  delay: string;
+  // delay: string;
   rotate: string;
-  duration: string;
+  // duration: string;
+  className?: string;
 };
 
 const globalStyles = `
@@ -264,10 +265,10 @@ export default function LandingPage() {
               >
                 {/* MAIN FLOATING IMAGE */}
                 <Image
-                  src="/assets/headerimg.png"
+                  src="/assets/hero1.png"
                   alt="Main Hero"
-                  width={500}
-                  height={500}
+                  width={600}
+                  height={600}
                   style={{
                     width: "80%",
                     height: "auto",
@@ -285,60 +286,66 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "-30px", md: "5%" },
-                    left: { xs: "4%", md: "1%" },
+                    top: { xs: "1%", md: "1%" },
+                    left: { xs: "-8%", md: "-8%" },
+                    animation: "float 4s ease-in-out infinite"
                   }}
                 >
                   <FloatingIcon
                     src="/assets/star.png"
-                    delay="0s"
+                    // delay="0s"
                     rotate="-15deg"
-                    duration="4s"
+                    // duration="4s"
                   />
                 </Box>
 
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "-30px", md: "9%" },
-                    right: { xs: "25%", md: "23%" },
+                    top: { xs: "1%", md: "1%" },
+                    right: { xs: "34%", md: "34%" },
+                    animation: "float 4s ease-in-out infinite"
                   }}
                 >
                   <FloatingIcon
-                    src="/assets/icon-target.png"
-                    delay="1s"
+                    src="/assets/target.png"
+                    // delay="1s"
                     rotate="15deg"
-                    duration="7s"
+                    // duration="7s"
                   />
                 </Box>
 
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: { xs: "20%", md: "32%" },
-                    left: { xs: "4%", md: "1%" },
+                    bottom: { xs: "36%", md: "36%" },
+                    left: { xs: "-8%", md: "-8%" },
+                    animation: "float 4s ease-in-out infinite"
                   }}
                 >
                   <FloatingIcon
-                    src="/assets/icon-trophy.png"
-                    delay="2s"
-                    rotate="-30deg"
-                    duration="6s"
+                    src="/assets/trophy.png"
+                    // delay="2s"
+                    rotate="-15deg"
+                    // duration="6s"
                   />
                 </Box>
 
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: { xs: "20%", md: "32%" },
-                    right: { xs: "28%", md: "30%" },
+                    bottom: { xs: "36%", md: "36%" },
+                    right: { xs: "34%", md: "34%" },
+                    animation: "float 4s ease-in-out infinite"
                   }}
                 >
                   <FloatingIcon
-                    src="/assets/icon-rocket.png"
-                    delay="0.5s"
+                    src="/assets/rocket.png"
+                     className="test-bg"
+                    // delay="0.5s"
                     rotate="15deg"
-                    duration="5.5s"
+                    // duration="5.5s"
+                 
                   />
                 </Box>
               </Box>
@@ -386,9 +393,9 @@ function FloatingIcon({
   left,
   right,
   bottom,
-  delay,
+  
   rotate,
-  duration,
+ 
 }: FloatingIconProps) {
   return (
     <Box
@@ -404,8 +411,8 @@ function FloatingIcon({
         fill: "white",
         // filter:
         //   "drop-shadow(0px 10px 20px rgba(0,0,0,0.15)) saturate(0.2) brightness(1.1) contrast(0.8)",
-        animation: `float ${duration} ease-in-out infinite`,
-        animationDelay: delay,
+        animation: `float  ease-in-out infinite`,
+       
         transform: `rotate(${rotate})`,
       }}
     >

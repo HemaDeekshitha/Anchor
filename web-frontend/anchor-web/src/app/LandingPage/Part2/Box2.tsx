@@ -60,8 +60,16 @@ export default function Box2() {
     <Box
       id="benefits"
       sx={{
-        background:
-          "linear-gradient(180deg, #f4d9af 0%, #f7e6c9 50%,#fbf2e3 100% )",
+     background: "linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5))",
+  
+  // 2. The Blur (The "Frosted" effect)
+  backdropFilter: "blur(12px)", 
+  
+  // 3. The Glass Border (Shiny edges)
+  border: "1px solid rgba(255, 255, 255, 0.3)",
+  
+  // 4. Shadow for depth
+  boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)",
 
         p: "7rem 4rem",
         borderRadius: "3rem",
@@ -71,6 +79,9 @@ export default function Box2() {
         gap: "1rem",
         m: "1rem",
         mb: "1rem",
+       
+                      
+                     
 
         "@media (max-width:600px)": {
           px: "2rem",
