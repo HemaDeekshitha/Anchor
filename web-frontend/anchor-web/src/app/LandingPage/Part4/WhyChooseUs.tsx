@@ -9,29 +9,29 @@ const features = [
     id: 1,
     title: "Goal-Aligned Planning",
     desc: "Anchor learns your goals and builds a personalized job search path.",
-    icon: "/assets/icon-target.png",
-    rotate: "-50deg",
+    icon: "/assets/target.png",
+    rotate: "14deg",
   },
   {
     id: 2,
     title: "Success Tracking",
     desc: "Visualize your progress, manage incoming offers, and celebrate every milestone.",
-    icon: "/assets/icon-trophy.png",
-    rotate: "-4deg",
+    icon: "/assets/trophy.png",
+    rotate: "14deg",
   },
   {
     id: 3,
     title: "Career Acceleration",
     desc: "Streamline your workflow to apply faster and land your dream role sooner.",
-    icon: "/assets/icon-rocket.png",
-    rotate: "10deg",
+    icon: "/assets/rocket.png",
+    rotate: "14deg",
   },
   {
     id: 4,
     title: "Motivation & Rewards",
     desc: "Earn points, build streaks, and unlock rewards as you stay consistent.",
-    icon: "/assets/icon-star.png",
-    rotate: "30deg",
+    icon: "/assets/star.png",
+    rotate: "14deg",
   },
 ];
 
@@ -44,7 +44,7 @@ export default function WhyChooseUs() {
         margin: "1rem",
         marginBottom: "1rem",
         borderRadius: "3rem",
-        background: "rgb(244, 240, 240)",
+        background: "linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5))",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -52,6 +52,10 @@ export default function WhyChooseUs() {
         gap: "1.5rem",
         position: "relative",
         overflow: "hidden",
+        height: { xs: "auto", md: "auto" },
+        pt: { xs: "4rem", sm:"0rem",md: "7rem" },
+        pl: { xs: "4rem", sm:"0rem",md: "7rem" },
+        paddingBottom: { xs: "4rem", md: "10rem" },
 
         "&::before": {
           content: '""',
@@ -73,50 +77,7 @@ export default function WhyChooseUs() {
         },
       }}
     >
-      {/* HEADER */}
-      <ScrollReveal animation="up">
-        <Box
-          sx={{
-            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
-            color: "black",
-            p: "0.8rem",
-            width: "7rem",
-            borderRadius: "2rem",
-            textAlign: "center",
-            fontWeight: 600,
-            position: "relative",
-            overflow: "hidden",
-
-            /* GLASS EFFECT */
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
-
-            /* ALWAYS-RUNNING SHINE */
-            "&::after": {
-              content: '""',
-              position: "absolute",
-              top: 0,
-              left: "-150%",
-              width: "200%",
-              height: "100%",
-              background:
-                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
-              opacity: 0.7,
-              transform: "skewX(-25deg)",
-              animation: "shineMove 2s infinite linear",
-            },
-
-            /* KEYFRAMES */
-            "@keyframes shineMove": {
-              "0%": { left: "-150%" },
-              "100%": { left: "150%" },
-            },
-          }}
-        >
-          Features
-        </Box>
-      </ScrollReveal>
+      
 
       {/* TITLE */}
       <ScrollReveal animation="up">
@@ -173,7 +134,7 @@ export default function WhyChooseUs() {
             <Box
               sx={{
                 position: "relative", // important
-                background: "#f1effe",
+                // background: "#f1effe",
                 padding: "28px 24px 60px", // extra bottom padding so the icon can hang
                 borderRadius: "24px",
                 display: "flex",
@@ -209,6 +170,7 @@ export default function WhyChooseUs() {
                     fontSize: { xs: "1rem", md: "1.2rem" },
                     lineHeight: 1.5,
                     width: { xs: "100%", md: "15rem" },
+                    // fontWeight: "300",
                   }}
                 >
                   {feature.desc}
@@ -222,16 +184,15 @@ export default function WhyChooseUs() {
                   bottom: "10px", // EXACT LOOK matches screenshot
                   left: "75%",
                   transform: "translateX(-50%)",
-                  filter:
-                    "drop-shadow(0px 10px 20px rgba(0,0,0,0.15)) saturate(0.2) brightness(1.1) contrast(0.8)",
+                  
                   zIndex: 10,
                 }}
               >
                 <Image
                   src={feature.icon}
                   alt={feature.title}
-                  width={100}
-                  height={100}
+                  width={110}
+                  height={110}
                   style={{
                     transform: `rotate(${feature.rotate})`,
                   }}

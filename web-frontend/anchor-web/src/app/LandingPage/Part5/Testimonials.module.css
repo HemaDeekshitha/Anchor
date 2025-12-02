@@ -7,7 +7,7 @@ Testimonials.module.css
   
   margin-bottom: 3rem;
   border-radius: 3rem;
-  background: rgb(244, 240, 240); /* Base background color */
+  background: linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5));
   /* min-height: 100vh; */
   display: flex;
   flex-direction: column;
@@ -118,7 +118,9 @@ Testimonials.module.css
   /* Keep your existing styling below */
   padding: 1.5rem;
   border-radius: 1rem;
-  background-color: #f9fafb; /* Example bg */
+    background: rgba(255, 255, 255, 0.2); 
+  backdrop-filter: blur(40px); 
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid #e5e7eb; /* Example border */
   height:210px;
 

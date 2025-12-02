@@ -37,51 +37,7 @@ const steps = [
 export default function StickyCards() {
   return (
     <section id="getstarted" className={styles.section}>
-      {/* HEADER */}
-      {/* HEADER */}
-      <ScrollReveal animation="up">
-        <Box
-          sx={{
-            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
-            color: "black",
-            p: "0.8rem",
-            width: "7rem",
-            borderRadius: "2rem",
-            textAlign: "center",
-            fontWeight: 600,
-            position: "relative",
-            overflow: "hidden",
-
-            /* GLASS EFFECT */
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
-
-            /* ALWAYS-RUNNING SHINE */
-            "&::after": {
-              content: '""',
-              position: "absolute",
-              top: 0,
-              left: "-150%",
-              width: "200%",
-              height: "100%",
-              background:
-                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
-              opacity: 0.7,
-              transform: "skewX(-25deg)",
-              animation: "shineMove 2s infinite linear",
-            },
-
-            /* KEYFRAMES */
-            "@keyframes shineMove": {
-              "0%": { left: "-150%" },
-              "100%": { left: "150%" },
-            },
-          }}
-        >
-          Get started
-        </Box>
-      </ScrollReveal>
+     
 
       {/* TITLE */}
       <ScrollReveal animation="up">
@@ -95,6 +51,7 @@ export default function StickyCards() {
             lineHeight: 1.1,
             maxWidth: "50rem",
             marginX: "auto",
+          
           }}
         >
           How It Works
@@ -105,7 +62,7 @@ export default function StickyCards() {
       <ScrollReveal animation="up">
         <Typography
           sx={{
-            fontSize: "1rem",
+            fontSize: { xs: "1rem", md: "1.2rem" },
             fontWeight: 500,
             marginBottom: "0rem",
             color: "grey",
@@ -143,12 +100,75 @@ export default function StickyCards() {
                     </IPhoneFrame>
                   </div>
 
-                  <div className={styles.textBox}>
-                    <h3>{step.title}</h3>
-                    <p>{step.desc}</p>
+                  <Box
+  sx={{
+    // --- 1. Visual Styles (Glassmorphism) ---
+    background: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(30px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    borderRadius: { xs: '5%', md: '5%', lg: '5%', xl:'5%' },
+
+    // --- 2. Flexbox Setup ---
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+
+    // --- 3. Responsive Layout (The "Styles" Logic) ---
+    
+    // Width: Full on mobile, 80% on tablet, auto (flex-share) on desktop
+    width: { xs: '100%', md: '80%', lg: 'auto' },
+
+    // Flex: Grow to fill space only on desktop
+    flex: { lg: 1 },
+
+    // Height: Auto on mobile so text fits, 40vh fixed on desktop
+    height: { xs: '30vh',md:"45vh",lg: '50vh', xl:'30vh' },
+
+    // Alignment: Center text on mobile/tablet, Left on desktop
+    textAlign: { xs: 'center', lg: 'left' },
+    alignItems: { xs: 'center', lg: 'flex-start' },
+
+    // Spacing: (MUI scale: 1 = 8px)
+    p: { xs: 2.5, md: 4, lg: 5 , xl: 6},     // Padding: 20px -> 32px -> 40px
+    mt: { xs: 4.5, lg: 0, xl: 0 },           // Margin Top: 20px on mobile, 0 on desktop
+    mx: { xs: 0, md: 'auto', lg: 0 }  // Centered horizontally on tablet
+  }}
+>
+ {/* Title (H3) */}
+<Typography 
+  component="h3" 
+  sx={{
+    fontWeight: 700,
+    color: '#000',
+    mb: '20px',       // corresponds to margin-bottom: 20px
+    lineHeight: 1.1,
+    
+    // Responsive Font Size
+    // 1.8rem on Mobile (so it fits), 2.5rem on Desktop (your requested size)
+    fontSize: { xs: '1.2rem', md: '2rem' } 
+  }}
+>
+  {step.title}
+</Typography>
+
+{/* Description (P) */}
+<Typography 
+  component="p" 
+  sx={{
+     // Your requested size
+      
+    color: '#666',
+    lineHeight: 1.6,
+    fontSize: { xs: '1rem', md: '2rem', xl: '1.5rem' } 
+  }}
+>
+  {step.desc}
+</Typography>
+</Box>
+                    
                   </div>
                 </div>
-              </div>
+             
             ))}
           </div>
         </div>

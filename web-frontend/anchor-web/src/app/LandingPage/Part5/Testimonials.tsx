@@ -60,7 +60,9 @@ function TestimonialCard({ user }: { user: (typeof testimonials)[0] }) {
         height: { xs: "auto", md: "210px" },
         padding: { xs: "1rem", md: "1.5rem" },
         borderRadius: "1rem",
-        backgroundColor: "#f9fafb",
+       background: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(40px)',
+    WebkitBackdropFilter: 'blur(40px)',
         border: "1px solid #e5e7eb",
         transition: "all 0.3s ease",
         display: "flex",
@@ -70,6 +72,9 @@ function TestimonialCard({ user }: { user: (typeof testimonials)[0] }) {
         "&:hover": {
           boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
           borderColor: "rgba(0,0,0,0.1)",
+          background: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(40px)',
+    WebkitBackdropFilter: 'blur(40px)',
           cursor: "pointer",
           transform: { md: "scale(1.05)" },
           zIndex: 10,
@@ -130,16 +135,17 @@ export default function Testimonials() {
         margin: "1rem",
         marginBottom: "3rem",
         borderRadius: "3rem",
-        background: "rgb(244, 240, 240)",
+        background: "linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5))",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         gap: "0.4rem",
-        height: { xs: "auto", md: "80vh" },
-        pt: { xs: "8.5rem", md: "0rem" },
+        height: { xs: "auto", md: "auto" },
+        pt: { xs: "4rem", sm:"0rem",md: "7rem" },
+        
 
-        paddingBottom: { xs: "4rem", md: 0 },
+        paddingBottom: { xs: "4rem", md: "10rem" },
         position: "relative",
         overflow: "hidden",
 
@@ -164,50 +170,7 @@ export default function Testimonials() {
       }}
     >
       {/* HEADER */}
-      <ScrollReveal animation="up">
-        <Box
-          sx={{
-            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
-            color: "black",
-            p: "1rem",
-            width: "9rem",
-            borderRadius: "2rem",
-            textAlign: "center",
-            fontWeight: 600,
-            position: "relative",
-            overflow: "hidden",
-
-            /* GLASS EFFECT */
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
-
-            /* ALWAYS-RUNNING SHINE */
-            "&::after": {
-              content: '""',
-              position: "absolute",
-              top: 0,
-              left: "-150%",
-              width: "200%",
-              height: "100%",
-              background:
-                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
-              opacity: 0.7,
-              transform: "skewX(-25deg)",
-              animation: "shineMove 2s infinite linear",
-            },
-
-            /* KEYFRAMES */
-            "@keyframes shineMove": {
-              "0%": { left: "-150%" },
-              "100%": { left: "150%" },
-            },
-          }}
-        >
-          Testimonials
-        </Box>
-      </ScrollReveal>
-
+   
       {/* TITLE */}
       <ScrollReveal animation="up">
         <Typography

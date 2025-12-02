@@ -92,7 +92,7 @@ export default function Header() {
               transition: "0.2s ease",
               "&:hover": {
                 background:
-                  "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
+                  "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(229, 38, 38, 0.85) 100%)",
                 color: "black",
               },
             }}
@@ -184,7 +184,7 @@ export default function Header() {
                     active === item.id ? "blur(10px)" : "none",
                   "&:hover": {
                     background:
-                      "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(229,181,38,0.85) 100%)",
+                      "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(229, 38, 38, 0.85) 100%)",
                     backdropFilter: "blur(12px)",
                     WebkitBackdropFilter: "blur(12px)",
                   },
