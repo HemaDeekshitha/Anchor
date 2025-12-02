@@ -1,5 +1,5 @@
 .section {
-  background: linear-gradient(180deg, #f4d9af 0%, #f7e6c9 50%, #fbf2e3 100%); /* White background like the target video */
+  background: linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5)); /* White background like the target video */
   padding: 100px 20px;
   position: relative;
   padding-top: 7rem;
@@ -33,17 +33,17 @@
   top: 200px; /* Stops 100px from top of viewport */
 
   height: 500px; /* Must have fixed height */
-  background-color: rgb(
+  /* background-color: rgb(
     244,
     240,
     240
-  ); /* Must match section bg to hide card behind it */
+  );  */
 
-  border: 1px solid #eee;
+  /* border: 1px solid #eee; */
   /* border-radius: 32px; */
   margin-bottom: 20px; /* Space between cards */
   /* box-shadow: 0 -10px 40px rgba(0,0,0,0.05); Shadow on TOP to show depth */
-  box-shadow: 0 -15px 30px rgb(244, 240, 240);
+  /* box-shadow: 0 -15px 30px rgb(244, 240, 240); */
 
   overflow: hidden;
 }
@@ -67,7 +67,7 @@
   justify-content: center;
   align-items: center;
   border-radius: 32px;
-  background-color: #f1effe;
+  /* background-color: #f1effe; */
   /* #e5e6f2; */
   padding: 40px; /* Internal padding for the phone image */
 }
@@ -78,25 +78,9 @@
 }
 
 /* Right side: Text */
-.textBox {
-  flex: 1;
-  text-align: left; /* Force left alignment */
-  padding: 40px;
-}
 
-.textBox h3 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #000;
-  margin-bottom: 20px;
-  line-height: 1.1;
-}
 
-.textBox p {
-  font-size: 1.1rem;
-  color: #666;
-  line-height: 1.6;
-}
+
 
 /* Typography for the section headers */
 .header {
