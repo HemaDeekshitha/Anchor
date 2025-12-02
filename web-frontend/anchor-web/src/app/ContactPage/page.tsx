@@ -7,12 +7,16 @@ import { Upload, X } from "lucide-react";
 import AlertBox, { AlertBoxProps } from "../Components/AlertBox/AlertBox";
 import { s } from "framer-motion/client";
 import { Box, Typography } from "@mui/material";
+import Image from "next/image";
 
 export default function Contact() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState("Upload Resume");
+  const [fileLoading, setFileLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
   const [alert, setAlert] = useState<{
     show: boolean;
     type: "success" | "error" | "warning" | null;
@@ -47,6 +51,8 @@ export default function Contact() {
       return;
     }
 
+    setUploading(true);
+
     const fileInput = document.querySelector(
       'input[name="resume"]'
     ) as HTMLInputElement;
@@ -70,13 +76,13 @@ export default function Contact() {
       // ^ prevent frontend crash if backend sends HTML or empty body
 
       if (!res.ok) {
-        // If backend sends error message
         const msg =
           data?.message ||
           data?.error ||
           "Something went wrong. Please try again.";
 
         showAlert("error", msg);
+        setUploading(false);
         return;
       }
 
@@ -86,7 +92,7 @@ export default function Contact() {
       console.error(err);
       showAlert("error", "Server is not responding. Please try again later.");
     }
-
+    setUploading(false);
     setName("");
     setEmail("");
     setMessage("");
@@ -94,11 +100,7 @@ export default function Contact() {
   };
 
   const handleBack = () => {
-    if (document.referrer && document.referrer !== window.location.href) {
-      router.back(); // real browser back
-    } else {
-      router.push("/LandingPage"); // your landing page route
-    }
+    router.push("/LandingPage"); // your landing page route
   };
   return (
     <>
@@ -121,12 +123,46 @@ export default function Contact() {
         }}
       >
         {/* HEADER INSIDE PAGE */}
-        <Header />
+        {/* <Header /> */}
+        <Box
+          sx={{
+            pt: "1.5rem",
+            pl: { md: "1rem" },
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: { xs: "center", md: "center" },
+            justifyContent: { xs: "center", md: "flex-start" },
+          }}
+        >
+          <a href="/LandingPage">
+            <Image
+              src="/assets/logo.png"
+              alt="Anchor Logo"
+              width={50}
+              height={50}
+              style={{
+                borderRadius: "15px",
+                cursor: "pointer",
+              }}
+            />
+          </a>
+          <Typography
+            sx={{
+              color: "black",
+              fontSize: "1.5rem",
+              fontWeight: "Bold",
+              cursor: "pointer",
+            }}
+            onClick={() => router.push("/LandingPage")}
+          >
+            Anchor
+          </Typography>
+        </Box>
 
         {/* CENTERED CONTENT */}
         <Box
           sx={{
-            pt: "7rem",
+            // pt: "2rem",
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -136,38 +172,6 @@ export default function Contact() {
           }}
         >
           {/* BACK BUTTON */}
-          <Box
-            sx={{
-              width: "100%",
-              display: "flex",
-              justifyContent: {
-                xs: "flex-start",
-                md: "flex-start",
-                lg: "flex-start",
-              },
-              pl: { xs: "1rem", sm: "2rem", md: "6rem", lg: "12rem" }, // smooth alignment
-              mb: "1rem",
-            }}
-          >
-            <button
-              onClick={handleBack}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                fontSize: "1rem",
-                fontWeight: 600,
-                color: "black",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
-                textDecoration: "underline",
-              }}
-            >
-              ← Back
-            </button>
-          </Box>
 
           {/* TITLE */}
           <Typography
@@ -283,7 +287,7 @@ export default function Contact() {
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Optional"
+                placeholder="What’s holding you back right now?"
                 style={{
                   marginTop: "0.7rem",
                   padding: "0.8rem",
@@ -321,7 +325,8 @@ export default function Contact() {
               >
                 <Upload size={18} />
 
-                {selectedFile}
+                {/* {selectedFile} */}
+                {fileLoading ? "Loading..." : selectedFile}
 
                 {selectedFile !== "Upload Resume" && (
                   <X
@@ -339,9 +344,21 @@ export default function Contact() {
                   name="resume"
                   accept=".pdf,.doc,.docx"
                   style={{ display: "none" }}
-                  onChange={(e) => {
+                  // onChange={(e) => {
+                  //   const file = e.target.files?.[0];
+                  //   if (file) setSelectedFile(file.name);
+                  // }}
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) setSelectedFile(file.name);
+                    if (!file) return;
+
+                    setFileLoading(true); // show Loading...
+
+                    // small delay to simulate read process (UX smoothness)
+                    await new Promise((res) => setTimeout(res, 600));
+
+                    setSelectedFile(file.name); // show file name
+                    setFileLoading(false); // stop loading
                   }}
                 />
               </label>
@@ -364,7 +381,7 @@ export default function Contact() {
                 transition: "all 0.25s ease",
               }}
             >
-              Send Message
+              {uploading ? "Uploading..." : "Send Message"}
             </button>
           </Box>
         </Box>
