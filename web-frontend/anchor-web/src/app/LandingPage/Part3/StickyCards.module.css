@@ -99,7 +99,7 @@ padding-left: 4rem;
 
 /* Typography for the section headers */
 .header {
-   background: linear-gradient(90deg, #fefdff 0%, rgb(227, 223, 249) 100%);
+   background: linear-gradient(to right, #f7f7f7, #E5B526);
   color: grey;
   padding: 0.8rem;
   width: 7rem;

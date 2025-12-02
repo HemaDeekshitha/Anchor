@@ -153,8 +153,8 @@ export default function WhyChooseUs() {
         <Box
           sx={{
             background:
-              "linear-gradient(90deg, #fefdff 0%, rgb(227,223,249) 100%)",
-            color: "grey",
+              "linear-gradient(to right, #f7f7f7, #E5B526)",
+            color: "black",
             padding: "0.8rem",
             width: "7rem",
             borderRadius: "2rem",

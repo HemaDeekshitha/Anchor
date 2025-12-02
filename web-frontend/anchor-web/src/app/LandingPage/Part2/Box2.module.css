@@ -18,7 +18,7 @@ padding-left: 4rem;
 }
 
 .header {
-  background: linear-gradient(90deg, #fefdff 0%, rgb(227, 223, 249) 100%);
+  background: linear-gradient(to right, #f7f7f7, #E5B526);
   color: grey;
   padding: 0.8rem;
   width: 7rem;
@@ -53,7 +53,7 @@ padding-left: 4rem;
   
 }
 .Items {
-  background: linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%);
+  background: linear-gradient(to right, #f7f7f7, #E5B526);
   display: flex;
   
   gap: 2rem;

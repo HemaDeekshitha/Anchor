@@ -79,8 +79,8 @@ export default function Box2() {
       <ScrollReveal animation="up">
         <Typography
           sx={{
-            background: "linear-gradient(90deg, #fefdff 0%, rgb(227,223,249) 100%)",
-            color: "grey",
+            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
+            color: "black",
             p: "0.8rem",
             width: "7rem",
             borderRadius: "2rem",
@@ -140,7 +140,7 @@ export default function Box2() {
           <Box
             sx={{
               background:
-                "linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%)",
+                "linear-gradient(to right, #f7f7f7, #E5B526)",
               display: "flex",
               flexDirection: { xs: "column", md: "row" },
               alignItems: "center",
@@ -206,7 +206,7 @@ export default function Box2() {
           <Box
             sx={{
               background:
-                "linear-gradient(180deg, #ece6f3 0%, rgb(217, 212, 252) 100%)",
+                "linear-gradient(to right, #f7f7f7, #E5B526)",
               display: "flex",
               flexDirection: { xs: "column", md: "row" },
               alignItems: "center",

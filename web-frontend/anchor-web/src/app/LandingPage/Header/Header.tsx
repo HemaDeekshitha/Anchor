@@ -223,9 +223,9 @@ export default function Header() {
         display: "flex",
         flexDirection: "column",
         gap: "5rem",
-        backgroundColor: "#1c1230",
+        backgroundColor: "#d8b13dc9",
         height: "100%",
-        color: "white",
+        color: "black",
       }}
     >
       {sections.map((item) =>
@@ -240,13 +240,13 @@ export default function Header() {
               borderRadius: "12px",
               background:
                 active === item.id ? "rgba(255,255,255,0.15)" : "transparent",
-              color: active === item.id ? "#f5e9ff" : "#c8bddb",
+              color: active === item.id ? "black" : "black",
               fontWeight: 600,
               fontSize: "1rem",
               transition: "0.2s ease",
               "&:hover": {
-                background: "rgba(255,255,255,0.2)",
-                color: "#ffffff",
+                background: "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
+                color: "black",
               },
             }}
           >
@@ -329,11 +329,21 @@ export default function Header() {
                   padding: "0.6rem 1.2rem",
                   borderRadius: "1.5rem",
                   transition: "0.2s",
-                  background: active === item.id ? "white" : "transparent",
-                  color: active === item.id ? "#5b3aff" : "gray",
+                  background: active === item.id ? "black" : "transparent",
+                  color: active === item.id ? "black" : "black",
                   "&:hover": {
-                    background: "white",
-                    color: "#5b3aff",
+                    background: `
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.25) 0%,
+      rgba(229, 181, 38, 0.85) 100%
+    )
+  `,
+  backdropFilter: "blur(6px)",
+  WebkitBackdropFilter: "blur(6px)",
+  color: "black",
+  transition: "all 0.25s ease",
+                   
                   },
                 }}
               >
@@ -373,10 +383,11 @@ export default function Header() {
         PaperProps={{
           sx: {
             width: "260px",
-            backgroundColor: "#1c1230",
+            backgroundColor: "linear-gradient(180deg,rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
             borderRadius: "1rem 0 0 1rem",
             paddingTop: "-2rem",
-            boxShadow: "0 0 30px rgba(255,255,255,0.15)",
+            boxShadow: "0 0 30px rgba(255, 255, 255, 1)",
+            
           },
         }}
       >

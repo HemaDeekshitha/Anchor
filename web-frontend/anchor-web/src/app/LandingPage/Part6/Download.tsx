@@ -22,7 +22,7 @@ export default function Download() {
         position: "relative",
         width: "100%",
         minHeight: "100vh",
-        backgroundColor: "#462b69", // White background
+        backgroundColor: "#d8b13dc9", 
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
