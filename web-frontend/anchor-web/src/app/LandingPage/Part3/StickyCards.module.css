@@ -1,9 +1,5 @@
 .section {
-  background-color: rgb(
-    244,
-    240,
-    240
-  ); /* White background like the target video */
+  background: linear-gradient(180deg, #f4d9af 0%, #f7e6c9 50%, #fbf2e3 100%); /* White background like the target video */
   padding: 100px 20px;
   position: relative;
   padding-top: 7rem;

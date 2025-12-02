@@ -238,8 +238,8 @@ export default function Header() {
             sx={{
               padding: "0.8rem 1rem",
               borderRadius: "12px",
-              background:
-                active === item.id ? "rgba(255,255,255,0.15)" : "transparent",
+              // background:
+              //   active === item.id ? "rgba(255,255,255,0.15)" : "transparent",
               color: active === item.id ? "black" : "black",
               fontWeight: 600,
               fontSize: "1rem",
@@ -284,7 +284,7 @@ export default function Header() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <a href="/LandingPage">
               <Image
-                src="/assets/anchorLogo.png"
+                src="/assets/logo.png"
                 alt="Anchor Logo"
                 width={50}
                 height={50}
@@ -364,10 +364,10 @@ export default function Header() {
                   cursor: "pointer",
                   transition: "all 0.3s ease",
 
-                  background:
-                    active === item.id
-                      ? "rgba(255,255,255,0.15)"
-                      : "transparent",
+                  // background:
+                  //   active === item.id
+                  //     ? "rgba(255,255,255,0.15)"
+                  //     : "transparent",
                   color: "black",
 
                   backdropFilter: active === item.id ? "blur(10px)" : "none",
@@ -388,10 +388,10 @@ export default function Header() {
                     position: "absolute",
                     inset: 0,
                     borderRadius: "1.5rem",
-                    background:
-                      active === item.id
-                        ? "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(229,181,38,0.85) 100%)"
-                        : "transparent",
+                    // background:
+                    //   active === item.id
+                    //     ? ""
+                    //     : "transparent",
                     // color: active === item.id ? "white" : "black",
                     zIndex: 0,
                     transition: "all 0.3s ease",
