@@ -60,7 +60,9 @@ export default function Box2() {
     <Box
       id="benefits"
       sx={{
-        backgroundColor: "rgb(244, 240, 240)",
+        background:
+          "linear-gradient(180deg, #f4d9af 0%, #f7e6c9 50%,#fbf2e3 100% )",
+
         p: "7rem 4rem",
         borderRadius: "3rem",
         display: "flex",
@@ -68,7 +70,7 @@ export default function Box2() {
         alignItems: "center",
         gap: "1rem",
         m: "1rem",
-        mb: "4rem",
+        mb: "1rem",
 
         "@media (max-width:600px)": {
           px: "2rem",
@@ -78,6 +80,16 @@ export default function Box2() {
       {/* HEADER */}
       <ScrollReveal animation="up">
         <Typography
+          // sx={{
+          //   background: "linear-gradient(to right, #f7f7f7, #E5B526)",
+          //   color: "black",
+          //   p: "0.8rem",
+          //   width: "7rem",
+          //   borderRadius: "2rem",
+          //   textAlign: "center",
+          //   fontWeight: 600,
+          // }}
+
           sx={{
             background: "linear-gradient(to right, #f7f7f7, #E5B526)",
             color: "black",
@@ -86,6 +98,34 @@ export default function Box2() {
             borderRadius: "2rem",
             textAlign: "center",
             fontWeight: 600,
+            position: "relative",
+            overflow: "hidden",
+
+            /* GLASS EFFECT */
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
+
+            /* ALWAYS-RUNNING SHINE */
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: "-150%",
+              width: "200%",
+              height: "100%",
+              background:
+                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
+              opacity: 0.7,
+              transform: "skewX(-25deg)",
+              animation: "shineMove 2s infinite linear",
+            },
+
+            /* KEYFRAMES */
+            "@keyframes shineMove": {
+              "0%": { left: "-150%" },
+              "100%": { left: "150%" },
+            },
           }}
         >
           Benefits
@@ -118,10 +158,10 @@ export default function Box2() {
             textAlign: "center",
             width: { xs: "100%", md: "60rem" },
             mb: "2rem",
-            
           }}
         >
-          Anchor brings clarity, structure, and daily momentum to your job search.
+          Anchor brings clarity, structure, and daily momentum to your job
+          search.
         </Typography>
       </ScrollReveal>
 
@@ -139,8 +179,7 @@ export default function Box2() {
         <ScrollReveal animation="up">
           <Box
             sx={{
-              background:
-                "linear-gradient(to right, #f7f7f7, #E5B526)",
+              background: "linear-gradient(to right, #f7f7f7, #E5B526)",
               display: "flex",
               flexDirection: { xs: "column", md: "row" },
               alignItems: "center",
@@ -183,7 +222,7 @@ export default function Box2() {
               sx={{
                 width: { xs: "130px", sm: "180px", md: "250px" },
                 flexShrink: 0,
-                display: { xs: "none", md: "block" } 
+                display: { xs: "none", md: "block" },
               }}
             >
               <Image
@@ -205,8 +244,7 @@ export default function Box2() {
         <ScrollReveal animation="up">
           <Box
             sx={{
-              background:
-                "linear-gradient(to right, #f7f7f7, #E5B526)",
+              background: "linear-gradient(to right, #f7f7f7, #E5B526)",
               display: "flex",
               flexDirection: { xs: "column", md: "row" },
               alignItems: "center",

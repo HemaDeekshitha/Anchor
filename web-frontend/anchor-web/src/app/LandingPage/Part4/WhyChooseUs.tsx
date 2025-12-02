@@ -60,10 +60,10 @@
 //                 <p>{feature.desc}</p>
 //               </div>
 //               <div className={styles.icon}>
-//                 <Image src={feature.icon} 
-//                        alt={feature.title} 
-//                        width={140} 
-//                        height={140} 
+//                 <Image src={feature.icon}
+//                        alt={feature.title}
+//                        width={140}
+//                        height={140}
 //                        style={{ transform: `rotate(${feature.rotate})` }}/>
 //               </div>
 //             </div>
@@ -117,7 +117,7 @@ export default function WhyChooseUs() {
       sx={{
         padding: "7rem 4rem",
         margin: "1rem",
-        marginBottom: "3rem",
+        marginBottom: "1rem",
         borderRadius: "3rem",
         background: "rgb(244, 240, 240)",
         display: "flex",
@@ -151,15 +151,51 @@ export default function WhyChooseUs() {
       {/* HEADER */}
       <ScrollReveal animation="up">
         <Box
+          // sx={{
+          //   background: "linear-gradient(to right, #f7f7f7, #E5B526)",
+          //   color: "black",
+          //   padding: "0.8rem",
+          //   width: "7rem",
+          //   borderRadius: "2rem",
+          //   textAlign: "center",
+          //   fontWeight: 600,
+          // }}
           sx={{
-            background:
-              "linear-gradient(to right, #f7f7f7, #E5B526)",
+            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
             color: "black",
-            padding: "0.8rem",
+            p: "0.8rem",
             width: "7rem",
             borderRadius: "2rem",
             textAlign: "center",
             fontWeight: 600,
+            position: "relative",
+            overflow: "hidden",
+
+            /* GLASS EFFECT */
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
+
+            /* ALWAYS-RUNNING SHINE */
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: "-150%",
+              width: "200%",
+              height: "100%",
+              background:
+                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
+              opacity: 0.7,
+              transform: "skewX(-25deg)",
+              animation: "shineMove 2s infinite linear",
+            },
+
+            /* KEYFRAMES */
+            "@keyframes shineMove": {
+              "0%": { left: "-150%" },
+              "100%": { left: "150%" },
+            },
           }}
         >
           Features
@@ -174,7 +210,7 @@ export default function WhyChooseUs() {
             fontWeight: "bold",
             color: "black",
             textAlign: "center",
-            
+
             width: { xs: "100%", md: "50rem" },
             mt: "1rem",
           }}
@@ -193,7 +229,6 @@ export default function WhyChooseUs() {
             textAlign: "center",
             width: { xs: "100%", md: "60rem" },
             mb: "2rem",
-            
           }}
         >
           Seamlessly track, organize, and accelerate your job search — all in

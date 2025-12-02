@@ -1,147 +1,3 @@
-// "use client";
-
-// import Image from "next/image";
-// import Header from "./Header/Header";
-// import landingStyles from "./LandingPage.module.css";
-// import Box2 from "./Part2/Box2";
-// import StickyCards from "./Part3/StickyCards";
-// import WhyChooseUs from "./Part4/WhyChooseUs";
-// import Testimonials from "./Part5/Testimonials";
-// import Download from "./Part6/Download";
-// import { useEffect } from "react";
-// import { useRouter } from "next/navigation";
-// // Removed unnecessary motion hooks for the stacking effect
-
-// export default function LandingPage() {
-//   const router = useRouter();
-
-//   useEffect(() => {
-//     window.scrollTo(0, 0);
-//     if ("scrollRestoration" in window.history) {
-//       window.history.scrollRestoration = "manual";
-//     }
-//   }, []);
-
-//   const ContactPageHandler = () => {
-//     router.replace("/ContactPage");
-//   };
-
-//   return (
-//     <>
-//       <div id="home" className={landingStyles.landingpageContainer}>
-//         <Header />
-
-//         <div className={landingStyles.landingpageMain}>
-//           <div className={landingStyles.landingpageContent}>
-//             <h1 className={landingStyles.title}>
-//               <p className={landingStyles.subtitle}>
-//                 <span className={landingStyles.titledot}></span>
-//                 Your entire job search — organized in one place.
-//               </p>
-//               Anchor
-//               <span className={landingStyles.titleblur}>
-//                 - it's the clarity you deserve
-//               </span>
-//             </h1>
-
-//             <div className={landingStyles.heroVisuals}>
-//               <Image
-//                 src="/assets/hero1.png"
-//                 alt="Main Hero"
-//                 width={500}
-//                 height={500}
-//                 className={landingStyles.mainImage}
-//                 priority
-//               />
-//               <div className={landingStyles.floatIcon1}>
-//                 <Image
-//                   src="/assets/icon-star.png"
-//                   alt=""
-//                   width={120}
-//                   height={120}
-//                 />
-//               </div>
-//               <div className={landingStyles.floatIcon2}>
-//                 <Image
-//                   src="/assets/icon-target.png"
-//                   alt=""
-//                   width={120}
-//                   height={120}
-//                 />
-//               </div>
-//               <div className={landingStyles.floatIcon3}>
-//                 <Image
-//                   src="/assets/icon-trophy.png"
-//                   alt=""
-//                   width={120}
-//                   height={120}
-//                 />
-//               </div>
-//               <div className={landingStyles.floatIcon4}>
-//                 <Image
-//                   src="/assets/icon-rocket.png"
-//                   alt=""
-//                   width={120}
-//                   height={120}
-//                 />
-//               </div>
-//             </div>
-
-//             <div className={landingStyles.landingpageBtns}>
-//               <button
-//                 className={landingStyles.primaryBtn}
-//                 onClick={ContactPageHandler}
-//               >
-//                 Get Started
-//               </button>
-//               <button className={landingStyles.secondaryBtn}>Learn More</button>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       <Box2 />
-//       <StickyCards />
-//       <WhyChooseUs />
-
-//       {/* --- STACKING LOGIC START --- */}
-
-//       {/* 1. The Bottom Card (Testimonials)
-//           This sticks in place so the next section can slide over it. */}
-//       <div
-//         style={{
-//           position: "sticky",
-//           top: 0,
-//           // height: '100vh', // Ensures it takes full height while stuck
-//           zIndex: 1,
-//           display: "flex",
-//           alignItems: "center", // Optional: centers content vertically
-//           justifyContent: "center",
-//         }}
-//       >
-//         <Testimonials />
-//       </div>
-
-//       {/* 2. The Top Card (Download)
-//           This slides naturally over the sticky element.
-//           IMPORTANT: This component MUST have a solid background color in its CSS,
-//           otherwise you will see the Testimonials underneath it. */}
-//       <div
-//         style={{
-//           position: "relative",
-//           height: "100vh",
-//           zIndex: 20,
-//           backgroundColor: "white", // CHANGE THIS to match your app background (e.g., #ffffff or your dark theme color)
-//         }}
-//       >
-//         <Download />
-//       </div>
-
-//       {/* --- STACKING LOGIC END --- */}
-//     </>
-//   );
-// }
-
 "use client";
 import Image from "next/image";
 import Header from "./Header/Header";
@@ -198,17 +54,16 @@ export default function LandingPage() {
           // paddingBottom: "5rem",s
           px: "4rem",
           margin: "1rem",
-          marginBottom: "4rem",
+          marginBottom: "1rem",
           borderRadius: "3rem",
-          background:
-            "linear-gradient(to right, #f7f7f7, #E5B526)",
+          background: "linear-gradient(to right, rgb(209 51 51), #E5B526)",
           overflow: "visible",
         }}
       >
         <Header />
 
         {/* MAIN WRAPPER */}
-        <Box sx={{ paddingBottom: {xs: "0rem", sm: "5rem", md:"5rem" } }}>
+        <Box sx={{ paddingBottom: { xs: "0rem", sm: "5rem", md: "5rem" } }}>
           <Box
             alignItems="center"
             sx={{
@@ -227,8 +82,7 @@ export default function LandingPage() {
             }}
           >
             {/* LEFT COLUMN */}
-            <Box
-            >
+            <Box>
               <Box
                 sx={{
                   gridColumn: 1,
@@ -238,12 +92,12 @@ export default function LandingPage() {
                 {/* SUBTITLE */}
                 <Box
                   sx={{
-                    fontSize: "0.7rem",
+                    fontSize: "0.9rem",
                     fontWeight: "bold",
                     mb: "1rem",
                     color: "black",
                     padding: "1rem",
-                    backgroundColor: "rgba(250, 248, 248, 0.25)",
+                    // backgroundColor: "rgba(250, 248, 248, 0.25)",
                     borderRadius: "1.5rem",
                     width: { xs: "100%", sm: "20rem", md: "25rem" },
                     display: "flex",
@@ -275,7 +129,7 @@ export default function LandingPage() {
                   }}
                 >
                   Anchor{" "}
-                  <Box component="span" sx={{ color: "grey" }}>
+                  <Box component="span" sx={{ color: "white" }}>
                     - it's the clarity you deserve
                   </Box>
                 </Box>
@@ -284,7 +138,6 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     display: "flex",
-                    gap: "2rem",
                     paddingBottom: "4rem",
                     marginTop: "2rem",
                     justifyContent: { xs: "center", md: "flex-start" },
@@ -292,9 +145,10 @@ export default function LandingPage() {
 
                     // 🔥 Make container full width on small screens
                     width: { xs: "100%", md: "auto" },
+                    // width: "100%",
                   }}
                 >
-                  <Button
+                  {/* <Button
                     onClick={ContactPageHandler}
                     sx={{
                       backgroundColor: "white",
@@ -314,9 +168,63 @@ export default function LandingPage() {
                     }}
                   >
                     Get Started
-                  </Button>
+                  </Button> */}
 
                   <Button
+                    onClick={ContactPageHandler}
+                    sx={{
+                      position: "relative",
+                      overflow: "hidden",
+                      padding: "1rem",
+                      width: { xs: "100%", md: "15rem" },
+                      borderRadius: "10rem",
+                      fontSize: "medium",
+                      fontWeight: "bold",
+                      textTransform: "none",
+                      cursor: "pointer",
+
+                      // Default glass
+                      background: "rgba(255,255,255,0.2)",
+                      backdropFilter: "blur(10px)",
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      color: "white",
+                      transition: "border-color 0.3s ease, color 0.3s ease",
+
+                      /* Hover fill layer */
+                      "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        background: "linear-gradient(135deg, #f3d55b, #f1cf4b)",
+                        transformOrigin: "bottom left",
+                        transform: "scale(0)",
+                        transition: "transform 0.45s ease-out",
+                        zIndex: 0, // always behind text
+                      },
+
+                      "&:hover": {
+                        borderColor: "white",
+                        color: "black",
+                      },
+
+                      "&:hover::before": {
+                        transform: "scale(1)", // diagonal expansion
+                      },
+
+                      // This ensures TEXT stays above the fill always
+                      "& .btn-text": {
+                        position: "relative",
+                        zIndex: 2,
+                      },
+                    }}
+                  >
+                    <span className="btn-text">Get Started</span>
+                  </Button>
+
+                  {/* <Button
                     sx={{
                       backgroundColor: "black",
                       color: "white",
@@ -335,15 +243,13 @@ export default function LandingPage() {
                     }}
                   >
                     Learn More
-                  </Button>
+                  </Button> */}
                 </Box>
               </Box>
             </Box>
 
             {/* RIGHT COLUMN — HERO VISUALS */}
-            <Box
-              sx = {{display: { xs: "none", md: "block" }}}
-            >
+            <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Box
                 sx={{
                   position: "relative",
@@ -354,13 +260,11 @@ export default function LandingPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  
-                  
                 }}
               >
                 {/* MAIN FLOATING IMAGE */}
                 <Image
-                  src="/assets/hero1.png"
+                  src="/assets/headerimg.png"
                   alt="Main Hero"
                   width={500}
                   height={500}
@@ -386,7 +290,7 @@ export default function LandingPage() {
                   }}
                 >
                   <FloatingIcon
-                    src="/assets/icon-star.png"
+                    src="/assets/star.png"
                     delay="0s"
                     rotate="-15deg"
                     duration="4s"
@@ -497,8 +401,9 @@ function FloatingIcon({
         bottom,
         padding: "10px",
         zIndex: 2,
-        filter:
-          "drop-shadow(0px 10px 20px rgba(0,0,0,0.15)) saturate(0.2) brightness(1.1) contrast(0.8)",
+        fill: "white",
+        // filter:
+        //   "drop-shadow(0px 10px 20px rgba(0,0,0,0.15)) saturate(0.2) brightness(1.1) contrast(0.8)",
         animation: `float ${duration} ease-in-out infinite`,
         animationDelay: delay,
         transform: `rotate(${rotate})`,

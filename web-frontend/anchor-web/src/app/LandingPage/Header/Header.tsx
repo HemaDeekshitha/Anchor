@@ -245,7 +245,8 @@ export default function Header() {
               fontSize: "1rem",
               transition: "0.2s ease",
               "&:hover": {
-                background: "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
+                background:
+                  "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
                 color: "black",
               },
             }}
@@ -269,8 +270,10 @@ export default function Header() {
           transform: "translateX(-50%)",
           top: "3rem",
           borderRadius: "2rem",
-          backdropFilter: "blur(5px)",
-          background: "transparent",
+          // backdropFilter: "blur(15px)",
+          // background: "transparent",
+          background: "rgba(255, 255, 255, 0.2)",
+          backdropFilter: "blur(16px)",
           color: "black",
           boxShadow: "0 2px 12px rgba(0, 0, 0, 0.4)",
           padding: "0.5rem",
@@ -322,31 +325,120 @@ export default function Header() {
                 key={item.id}
                 component="a"
                 href={`#${item.id}`}
+                // sx={{
+                //   fontWeight: 600,
+
+                //   textDecoration: "none",
+                //   padding: "0.6rem 1.2rem",
+                //   borderRadius: "1.5rem",
+                //   transition: "0.2s",
+                //   background:
+                //     active === item.id
+                //       ? "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%,    rgba(229, 181, 38, 0.85) 100% )"
+                //       : "transparent",
+                //   color:
+                //     active === item.id
+                //       ? "linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%,    rgba(229, 181, 38, 0.85) 100% )"
+                //       : "black",
+                //   "&:hover": {
+                //     background: `
+                //       linear-gradient(
+                //         180deg,
+                //         rgba(255, 255, 255, 0.25) 0%,
+                //         rgba(229, 181, 38, 0.85) 100%
+                //       )
+                //     `,
+                //     backdropFilter: "blur(6px)",
+                //     WebkitBackdropFilter: "blur(6px)",
+                //     color: "black",
+                //     transition: "all 0.25s ease",
+                //   },
+                // }}
                 sx={{
                   fontWeight: 600,
-
                   textDecoration: "none",
                   padding: "0.6rem 1.2rem",
                   borderRadius: "1.5rem",
-                  transition: "0.2s",
-                  background: active === item.id ? "black" : "transparent",
-                  color: active === item.id ? "black" : "black",
+                  position: "relative",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+
+                  background:
+                    active === item.id
+                      ? "rgba(255,255,255,0.15)"
+                      : "transparent",
+                  color: "black",
+
+                  backdropFilter: active === item.id ? "blur(10px)" : "none",
+                  WebkitBackdropFilter:
+                    active === item.id ? "blur(10px)" : "none",
+
                   "&:hover": {
-                    background: `
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.25) 0%,
-      rgba(229, 181, 38, 0.85) 100%
-    )
-  `,
-  backdropFilter: "blur(6px)",
-  WebkitBackdropFilter: "blur(6px)",
-  color: "black",
-  transition: "all 0.25s ease",
-                   
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(229,181,38,0.85) 100%)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    // color: "white",
+                  },
+
+                  // ===================== FILL FOR ACTIVE =====================
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "1.5rem",
+                    background:
+                      active === item.id
+                        ? "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(229,181,38,0.85) 100%)"
+                        : "transparent",
+                    // color: active === item.id ? "white" : "black",
+                    zIndex: 0,
+                    transition: "all 0.3s ease",
+                  },
+
+                  "& > *": {
+                    position: "relative",
+                    zIndex: 2,
+                  },
+
+                  // ===================== BORDER ANIMATION ONLY ON HOVER =====================
+                  "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "0%",
+                    height: "2px",
+                    background: "rgb(251, 141, 15)",
+                    boxShadow: "0 0 8px rgba(229,181,38,0.8)",
+                    transition: "width 0.35s ease",
+                    zIndex: 3,
+                  },
+
+                  // ===================== SPARKLE ONLY ON HOVER =====================
+                  "& .sparkle": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: "-120%",
+                    width: "120%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)",
+                    transform: "skewX(-20deg)",
+                    transition: "0.5s",
+                    zIndex: 1,
+                  },
+
+                  "&:hover .sparkle": {
+                    left: "120%",
                   },
                 }}
               >
+                <span className="sparkle" />
+                <span className="bottomBorder" />
+
                 {item.label}
               </Typography>
             ))}
@@ -383,11 +475,11 @@ export default function Header() {
         PaperProps={{
           sx: {
             width: "260px",
-            backgroundColor: "linear-gradient(180deg,rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
+            backgroundColor:
+              "linear-gradient(180deg,rgba(255, 255, 255, 0.25) 0%, rgba(229, 181, 38, 0.85) 100%)",
             borderRadius: "1rem 0 0 1rem",
             paddingTop: "-2rem",
             boxShadow: "0 0 30px rgba(255, 255, 255, 1)",
-            
           },
         }}
       >

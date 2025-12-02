@@ -39,63 +39,99 @@ export default function StickyCards() {
     <section id="getstarted" className={styles.section}>
       {/* HEADER */}
       {/* HEADER */}
-<ScrollReveal animation="up">
-  <Box
-    sx={{
-      background: "linear-gradient(to right, #f7f7f7, #E5B526)",
-      color: "black",
-      padding: "0.8rem",
-      width: "7rem",
-      borderRadius: "2rem",
-      textAlign: "center",
-      fontWeight: 600,
-      fontSize: "1rem",
-      margin: "0 auto",        // ⬅ Center it properly
-      display: "flex",
-      justifyContent: "center",
-    }}
-  >
-    Get started
-  </Box>
-</ScrollReveal>
+      <ScrollReveal animation="up">
+        <Box
+          // sx={{
+          //   background: "linear-gradient(to right, #f7f7f7, #E5B526)",
+          //   color: "black",
+          //   padding: "0.8rem",
+          //   width: "7rem",
+          //   borderRadius: "2rem",
+          //   textAlign: "center",
+          //   fontWeight: 600,
+          //   fontSize: "1rem",
+          //   margin: "0 auto",        // ⬅ Center it properly
+          //   display: "flex",
+          //   justifyContent: "center",
+          // }}
+          sx={{
+            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
+            color: "black",
+            p: "0.8rem",
+            width: "7rem",
+            borderRadius: "2rem",
+            textAlign: "center",
+            fontWeight: 600,
+            position: "relative",
+            overflow: "hidden",
 
-{/* TITLE */}
-<ScrollReveal animation="up">
-  <Typography
-    sx={{
-      fontSize: { xs: "2.2rem", md: "4rem" },
-      fontWeight: "bold",
-      marginTop: "16px",
-      color: "black",
-      textAlign: "center",
-      lineHeight: 1.1,
-      maxWidth: "50rem",       // ⬅ same as original CSS
-      marginX: "auto",         // ⬅ perfectly centered block
-    }}
-  >
-    How It Works
-  </Typography>
-</ScrollReveal>
+            /* GLASS EFFECT */
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
 
-{/* SUBTITLE */}
-<ScrollReveal animation="up">
-  <Typography
-    sx={{
-      fontSize: "1rem",
-      fontWeight: 500,
-      marginBottom: "0rem",
-      color: "grey",
-      textAlign: "center",
-      lineHeight: 1.5,
-      maxWidth: "60rem",        // ⬅ match original
-      marginX: "auto",
-      px: { xs: "1.5rem", md: 0 }, // ⬅ small padding on mobile for breathing room
-    }}
-  >
-    Experience goal-aligned planning and effortless career acceleration.
-  </Typography>
-</ScrollReveal>
+            /* ALWAYS-RUNNING SHINE */
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: "-150%",
+              width: "200%",
+              height: "100%",
+              background:
+                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
+              opacity: 0.7,
+              transform: "skewX(-25deg)",
+              animation: "shineMove 2s infinite linear",
+            },
 
+            /* KEYFRAMES */
+            "@keyframes shineMove": {
+              "0%": { left: "-150%" },
+              "100%": { left: "150%" },
+            },
+          }}
+        >
+          Get started
+        </Box>
+      </ScrollReveal>
+
+      {/* TITLE */}
+      <ScrollReveal animation="up">
+        <Typography
+          sx={{
+            fontSize: { xs: "2.2rem", md: "4rem" },
+            fontWeight: "bold",
+            marginTop: "16px",
+            color: "black",
+            textAlign: "center",
+            lineHeight: 1.1,
+            maxWidth: "50rem", // ⬅ same as original CSS
+            marginX: "auto", // ⬅ perfectly centered block
+          }}
+        >
+          How It Works
+        </Typography>
+      </ScrollReveal>
+
+      {/* SUBTITLE */}
+      <ScrollReveal animation="up">
+        <Typography
+          sx={{
+            fontSize: "1rem",
+            fontWeight: 500,
+            marginBottom: "0rem",
+            color: "grey",
+            textAlign: "center",
+            lineHeight: 1.5,
+            maxWidth: "60rem", // ⬅ match original
+            marginX: "auto",
+            px: { xs: "1.5rem", md: 0 }, // ⬅ small padding on mobile for breathing room
+          }}
+        >
+          Experience goal-aligned planning and effortless career acceleration.
+        </Typography>
+      </ScrollReveal>
 
       {/* STICKY CARDS LAYOUT (unchanged CSS) */}
       <div className={styles.scrollPadding}>

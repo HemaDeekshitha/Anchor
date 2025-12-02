@@ -4,7 +4,7 @@
 // import Image from "next/image";
 // import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 // // UPDATE THIS PATH to where you saved the component from the previous step
-// import { InfiniteMarquee } from "@/app/Components/InfiniteMarquee"; 
+// import { InfiniteMarquee } from "@/app/Components/InfiniteMarquee";
 
 // const testimonials = [
 //   {
@@ -41,7 +41,7 @@
 //     message:"The personalized path planning is spot-on. It's like having a dedicated career coach guiding me through every single step.",
 //         avatar: "/assets/julian.png",
 //   },
-  
+
 // ];
 
 // // Helper Component to keep the main logic clean
@@ -61,11 +61,11 @@
 //       </div>
 //       {/* Kept your dismiss class, assuming it styles the 'X' logo or button */}
 //       <div className={styles.dismiss}>
-//         <Image 
-//           src="/assets/an.png" 
-//           alt="X Logo" 
-//           width={38} 
-//           height={38} 
+//         <Image
+//           src="/assets/an.png"
+//           alt="X Logo"
+//           width={38}
+//           height={38}
 //         />
 //       </div>
 //     </div>
@@ -154,11 +154,7 @@ const testimonials = [
 // -------------------------------
 // Testimonial Card Component
 // -------------------------------
-function TestimonialCard({
-  user,
-}: {
-  user: (typeof testimonials)[0];
-}) {
+function TestimonialCard({ user }: { user: (typeof testimonials)[0] }) {
   return (
     <Box
       sx={{
@@ -201,7 +197,9 @@ function TestimonialCard({
         />
 
         <Box sx={{ flexGrow: 1 }}>
-          <Typography sx={{ fontWeight: 600, fontSize: "16px", color: "black" }}>
+          <Typography
+            sx={{ fontWeight: 600, fontSize: "16px", color: "black" }}
+          >
             {user.name}
           </Typography>
           <Typography sx={{ fontSize: "14px", color: "#666" }}>
@@ -245,7 +243,7 @@ export default function Testimonials() {
         alignItems: "center",
         justifyContent: "center",
         gap: "0.4rem",
-       height: { xs: "auto", md: "80vh" },
+        height: { xs: "auto", md: "80vh" },
         pt: { xs: "8.5rem", md: "0rem" },
 
         paddingBottom: { xs: "4rem", md: 0 },
@@ -275,18 +273,55 @@ export default function Testimonials() {
       {/* HEADER */}
       <ScrollReveal animation="up">
         <Box
+          // sx={{
+          //   background:
+          //     "linear-gradient(to right, #f7f7f7, #E5B526)",
+          //   color: "black",
+          //   p: "0.6rem",
+          //   width: "7rem",
+          //   borderRadius: "2rem",
+          //   textAlign: "center",
+          //   fontWeight: 600,
+          //   mt:"-3.5rem",
+          //   marginBottom: "2rem",
+
+          // }}
           sx={{
-            background:
-              "linear-gradient(to right, #f7f7f7, #E5B526)",
+            background: "linear-gradient(to right, #f7f7f7, #E5B526)",
             color: "black",
-            p: "0.6rem",
-            width: "7rem",
+            p: "1rem",
+            width: "9rem",
             borderRadius: "2rem",
             textAlign: "center",
             fontWeight: 600,
-            mt:"-3.5rem",
-            marginBottom: "2rem",
-            
+            position: "relative",
+            overflow: "hidden",
+
+            /* GLASS EFFECT */
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
+
+            /* ALWAYS-RUNNING SHINE */
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: "-150%",
+              width: "200%",
+              height: "100%",
+              background:
+                "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)",
+              opacity: 0.7,
+              transform: "skewX(-25deg)",
+              animation: "shineMove 2s infinite linear",
+            },
+
+            /* KEYFRAMES */
+            "@keyframes shineMove": {
+              "0%": { left: "-150%" },
+              "100%": { left: "150%" },
+            },
           }}
         >
           Testimonials
