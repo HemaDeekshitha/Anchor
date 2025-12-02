@@ -1,54 +1,3 @@
-// import Image from "next/image";
-// import styles from "./Box2.module.css";
-// import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
-
-// export default function Box2() {
-//   return (
-//     // <ScrollReveal animation="up">
-//     <div id="benefits" className={styles.Box2Container}>
-//       <ScrollReveal animation="up">
-//         <h4 className={styles.header}>Benefits</h4>
-//       </ScrollReveal>
-//       <ScrollReveal animation="up">
-//         <h1 className={styles.title}>Job Search Momentum
-// </h1>
-//       </ScrollReveal>
-//       <ScrollReveal animation="up">
-//         <p className={styles.subtitle}>
-//           Anchor brings clarity, structure, and daily momentum to your job search.
-
-//         </p>
-//       </ScrollReveal>
-
-//       <div className={styles.benefitsContainer}>
-//         <ScrollReveal animation="up">
-//           <div className={styles.Items}>
-//             <div className={styles.ItemBox}>
-//               <h2 className={styles.Itemtitle}>Aim High, Stand Out</h2>
-//               <p className={styles.Itemsubtitle}>
-//                 Target the perfect job and make your application shine.
-//               </p>
-//             </div>
-//             <Image src="/assets/benefits1.png" alt="" width={250} height={250} style = {{borderRadius:"20px"}} />
-//           </div>
-//         </ScrollReveal>
-
-//         <ScrollReveal animation="up">
-//           <div className={styles.Items}>
-//             <div className={styles.ItemBox}>
-//               <h2 className={styles.Itemtitle}>Win the Offer, Take Off</h2>
-//               <p className={styles.Itemsubtitle}>
-//                 Secure the reward and launch your career to new heights.
-//               </p>
-//             </div>
-//             <Image src="/assets/b2.png" alt="" width={250} height={250} style = {{borderRadius:"20px"}} />
-//           </div>
-//         </ScrollReveal>
-//       </div>
-//     </div>
-//     // </ScrollReveal>
-//   );
-// }
 "use client";
 
 import Image from "next/image";
@@ -60,16 +9,17 @@ export default function Box2() {
     <Box
       id="benefits"
       sx={{
-     background: "linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5))",
-  
-  // 2. The Blur (The "Frosted" effect)
-  backdropFilter: "blur(12px)", 
-  
-  // 3. The Glass Border (Shiny edges)
-  border: "1px solid rgba(255, 255, 255, 0.3)",
-  
-  // 4. Shadow for depth
-  boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)",
+        background:
+          "linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5))",
+
+        // 2. The Blur (The "Frosted" effect)
+        backdropFilter: "blur(12px)",
+
+        // 3. The Glass Border (Shiny edges)
+        border: "1px solid rgba(255, 255, 255, 0.3)",
+
+        // 4. Shadow for depth
+        boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)",
 
         p: "7rem 4rem",
         borderRadius: "3rem",
@@ -79,9 +29,6 @@ export default function Box2() {
         gap: "1rem",
         m: "1rem",
         mb: "1rem",
-       
-                      
-                     
 
         "@media (max-width:600px)": {
           px: "2rem",
@@ -91,16 +38,6 @@ export default function Box2() {
       {/* HEADER */}
       <ScrollReveal animation="up">
         <Typography
-          // sx={{
-          //   background: "linear-gradient(to right, #f7f7f7, #E5B526)",
-          //   color: "black",
-          //   p: "0.8rem",
-          //   width: "7rem",
-          //   borderRadius: "2rem",
-          //   textAlign: "center",
-          //   fontWeight: 600,
-          // }}
-
           sx={{
             background: "linear-gradient(to right, #f7f7f7, #E5B526)",
             color: "black",
@@ -233,7 +170,6 @@ export default function Box2() {
               sx={{
                 width: { xs: "130px", sm: "180px", md: "250px" },
                 flexShrink: 0,
-                display: { xs: "none", md: "block" },
               }}
             >
               <Image

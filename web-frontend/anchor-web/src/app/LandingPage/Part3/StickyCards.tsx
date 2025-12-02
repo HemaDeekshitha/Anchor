@@ -41,19 +41,6 @@ export default function StickyCards() {
       {/* HEADER */}
       <ScrollReveal animation="up">
         <Box
-          // sx={{
-          //   background: "linear-gradient(to right, #f7f7f7, #E5B526)",
-          //   color: "black",
-          //   padding: "0.8rem",
-          //   width: "7rem",
-          //   borderRadius: "2rem",
-          //   textAlign: "center",
-          //   fontWeight: 600,
-          //   fontSize: "1rem",
-          //   margin: "0 auto",        // ⬅ Center it properly
-          //   display: "flex",
-          //   justifyContent: "center",
-          // }}
           sx={{
             background: "linear-gradient(to right, #f7f7f7, #E5B526)",
             color: "black",
@@ -106,8 +93,8 @@ export default function StickyCards() {
             color: "black",
             textAlign: "center",
             lineHeight: 1.1,
-            maxWidth: "50rem", // ⬅ same as original CSS
-            marginX: "auto", // ⬅ perfectly centered block
+            maxWidth: "50rem",
+            marginX: "auto",
           }}
         >
           How It Works
@@ -124,9 +111,9 @@ export default function StickyCards() {
             color: "grey",
             textAlign: "center",
             lineHeight: 1.5,
-            maxWidth: "60rem", // ⬅ match original
+            maxWidth: "60rem",
             marginX: "auto",
-            px: { xs: "1.5rem", md: 0 }, // ⬅ small padding on mobile for breathing room
+            px: { xs: "1.5rem", md: 0 },
           }}
         >
           Experience goal-aligned planning and effortless career acceleration.
