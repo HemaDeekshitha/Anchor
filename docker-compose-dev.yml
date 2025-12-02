@@ -31,7 +31,7 @@ services:
     container_name: anchor-backend
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     environment:
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
@@ -45,18 +45,26 @@ services:
       - "3001:3001"
     depends_on:
       - postgres
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: ["npm", "run", "start:dev"]
 
   frontend:
     container_name: anchor-frontend
     build:
       context: ./web-frontend/anchor-web
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    environment:
+      NODE_ENV: development
     volumes:
       - ./web-frontend/anchor-web:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev"]
 
 volumes:
   anchor_data:
