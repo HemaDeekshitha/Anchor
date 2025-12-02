@@ -195,7 +195,7 @@ export default function LandingPage() {
         id="home"
         sx={{
           paddingTop: "8rem",
-          paddingBottom: "5rem",
+          // paddingBottom: "5rem",s
           px: "4rem",
           margin: "1rem",
           marginBottom: "4rem",
@@ -208,7 +208,7 @@ export default function LandingPage() {
         <Header />
 
         {/* MAIN WRAPPER */}
-        <Box sx={{ paddingBottom: "5rem" }}>
+        <Box sx={{ paddingBottom: {xs: "0rem", sm: "5rem", md:"5rem" } }}>
           <Box
             alignItems="center"
             sx={{
@@ -228,11 +228,6 @@ export default function LandingPage() {
           >
             {/* LEFT COLUMN */}
             <Box
-              sx={
-                {
-                  // width: { xs: "100%", md: "50%" },
-                }
-              }
             >
               <Box
                 sx={{
@@ -271,7 +266,7 @@ export default function LandingPage() {
                 {/* TITLE */}
                 <Box
                   sx={{
-                    fontSize: { xs: "2.2rem", sm: "2.8rem", md: "4.5rem" },
+                    fontSize: { xs: "2.5em", sm: "2.8rem", md: "4.5rem" },
                     fontWeight: "bold",
                     color: "black",
                     width: { xs: "100%", md: "50rem" },
@@ -347,11 +342,7 @@ export default function LandingPage() {
 
             {/* RIGHT COLUMN — HERO VISUALS */}
             <Box
-              sx={
-                {
-                  // width: { xs: "100%", md: "50%" },
-                }
-              }
+              sx = {{display: { xs: "none", md: "block" }}}
             >
               <Box
                 sx={{
@@ -363,14 +354,8 @@ export default function LandingPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  // "@media (min-width:900px) and (max-width:1299px)": {
-                  //   gridTemplateColumns: "1fr 1fr",
-                  //   gridTemplateRows: "auto",
-                  //   columnGap: "6rem", // much smaller, keeps visuals aligned
-                  //   alignItems: "center",
-                  // },
-
-                  // Large screen desktop layout (as before)
+                  
+                  
                 }}
               >
                 {/* MAIN FLOATING IMAGE */}

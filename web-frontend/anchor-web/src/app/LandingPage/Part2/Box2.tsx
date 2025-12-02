@@ -183,6 +183,7 @@ export default function Box2() {
               sx={{
                 width: { xs: "130px", sm: "180px", md: "250px" },
                 flexShrink: 0,
+                display: { xs: "none", md: "block" } 
               }}
             >
               <Image
