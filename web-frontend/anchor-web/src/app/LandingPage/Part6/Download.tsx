@@ -4,10 +4,11 @@ import { Box, Typography, Button } from "@mui/material";
 import ScrollReveal from "@/app/Components/Scroll/ScrollReveal";
 import Lottie from "lottie-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 // --- IMPORT THE FILE DIRECTLY ---
 // Make sure animation.json is in the same folder as this file!
-import animationData from "./purple.json";
+import animationData from "./waves.json";
 
 export default function Download() {
   const router = useRouter();
@@ -22,7 +23,13 @@ export default function Download() {
         position: "relative",
         width: "100%",
         minHeight: "100vh",
-        backgroundColor: "#d8b13dc9",
+     background: "linear-gradient(to top, rgba(235, 0, 0, 0.1) 0%, rgba(249, 232, 167, 0.52) 100%)",
+     backdropFilter: "blur(10px)",
+ 
+       border: "1.5px solid rgba(255,255,255,0.7)",
+              borderRadius: "32px",
+              boxShadow:
+                "inset 0 0 0 1px rgba(255,255,255,0.1), 0 10px 30px rgba(0,0,0,0.1)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -34,23 +41,26 @@ export default function Download() {
     >
       {/* --- LOTTIE BACKGROUND --- */}
       {/* zIndex: 0 keeps it BEHIND the text */}
+       <Box sx={{ display: { xs: "none", md: "block" } }}>
       <Box
         sx={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%", // Fill width
-          height: "100%", // Fill height
+          top: "-5rem",
+          right: "35rem",
+          width: "120%", // Fill width
+          height: "93%", // Fill height
           zIndex: 0, // Behind text
           overflow: "hidden", // Cut off edges that spill out
           pointerEvents: "none",
+          rotate:"20deg",
         }}
       >
         <Lottie
           animationData={animationData}
           loop={true}
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: "120%", height: "100%" }}
         />
+      </Box>
       </Box>
 
       {/* --- TEXT CONTENT --- */}
@@ -67,34 +77,7 @@ export default function Download() {
           gap: "2rem",
         }}
       >
-        {/* Pill Tag */}
-        <ScrollReveal animation="up">
-          <Box
-            sx={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              background:
-                "linear-gradient(180deg, #ece6f3 0%, rgb(217,212,252) 100%)",
-              border: "1px solid rgba(70, 43, 105, 0.1)", // Slight purple border
-              padding: "6px 16px",
-              borderRadius: "999px",
-              fontSize: "0.85rem",
-              color: "#462b69",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <Box
-              sx={{
-                width: "6px",
-                height: "6px",
-                backgroundColor: "#462b69",
-                borderRadius: "50%",
-              }}
-            />
-            Available on Web & iOS
-          </Box>
-        </ScrollReveal>
+        
 
         {/* Heading - DARK PURPLE (Visible on white) */}
         <ScrollReveal animation="up">
@@ -104,7 +87,7 @@ export default function Download() {
               fontWeight: 500,
               lineHeight: 1.2,
               letterSpacing: "-0.02em",
-              color: "white", // Dark Text
+              color: "grey", // Dark Text
               margin: 0,
             }}
           >
@@ -119,15 +102,15 @@ export default function Download() {
             onClick={goToContact}
             sx={{
               background:
-                "linear-gradient(180deg,rgb(236, 193, 18) 0%, rgb(248, 157, 21) 100%)",
-              border: "1px solid rgba(255,255,255,0.5)",
+                "transparent",
+              border: "4px solid rgba(255,255,255,0.5)",
               padding: "12px 24px",
               borderRadius: "12px",
-              color: "#462b69",
+              color: "black",
               fontSize: "1rem",
               fontWeight: 600,
               textTransform: "none",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+              boxShadow: "0 9px 40px rgba(0,0,0,0.1)",
               "&:hover": {
                 background: "#f3d55b",
                 transform: "translateY(-2px)",
@@ -160,9 +143,33 @@ export default function Download() {
           },
         }}
       >
-        <div>hello@anchor.app</div>
-        <div>Designed in React</div>
-        <div>All rights reserved, ©2025</div>
+ 
+
+<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+ 
+  <Image 
+    src="/assets/logo.png"      
+    alt="Anchor Logo"
+    width={40}            
+    height={40}           
+    style={{ objectFit: 'contain' }} 
+  />
+  
+  <Typography 
+    variant="h5" 
+    sx={{ fontWeight: 700, letterSpacing: "-0.5px", color: "black" }}
+  >
+    Anchor
+  </Typography>
+</Box>
+       <Typography
+                   variant="body2"
+                   sx={{ color: "#666", fontSize: "0.875rem" }}
+                 >
+                  <span style={{ color: "black" }}>Tip Top Technologies</span>.
+                   Powered by <span style={{ color: "black" }}>Next.js</span>
+                 </Typography>
+        <div style={{color:"black"}}>All rights reserved, ©2025</div>
       </Box>
     </Box>
   );

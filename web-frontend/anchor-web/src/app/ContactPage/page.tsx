@@ -118,7 +118,7 @@ export default function Contact() {
         id="home"
         sx={{
           minHeight: "100vh",
-          background: "linear-gradient(to right, #f7f7f7, #E5B526)",
+          background: "linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(229, 38, 38, 0.85) 180%)",
           pb: "4rem",
         }}
       >
@@ -162,13 +162,14 @@ export default function Contact() {
         {/* CENTERED CONTENT */}
         <Box
           sx={{
-            // pt: "2rem",
+            
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
             alignItems: "center",
             width: "100%",
-            minHeight: "100vh",
+            minHeight: "80vh",
+            
           }}
         >
           {/* BACK BUTTON */}
@@ -183,7 +184,7 @@ export default function Contact() {
               mb: "1rem",
             }}
           >
-            First steps start here.
+            Get in touch with us.
           </Typography>
 
           {/* SUBTITLE */}
@@ -205,7 +206,7 @@ export default function Contact() {
             component="form"
             onSubmit={handleSubmit}
             sx={{
-              width: { xs: "90%", sm: "70%", md: "40%" },
+              width: { xs: "90%", sm: "70%", md: "25%" },
               background: "white",
               p: "2rem",
               borderRadius: "1rem",
@@ -314,8 +315,10 @@ export default function Contact() {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "10px",
-                  background:
-                    "linear-gradient(90deg, #6b4bff 0%, #9d76ff 100%)",
+                   background:
+                      "linear-gradient(to right, rgba(209, 51, 51, 0.5), rgba(229, 181, 38, 0.5))",
+                    backdropFilter: "blur(50px)",
+                    WebkitBackdropFilter: "blur(12px)",
                   color: "white",
                   padding: "10px 16px",
                   borderRadius: "8px",
@@ -385,7 +388,10 @@ export default function Contact() {
             </button>
           </Box>
         </Box>
+        
       </Box>
+       
     </>
+    
   );
 }
