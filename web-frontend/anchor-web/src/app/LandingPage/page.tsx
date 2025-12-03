@@ -10,6 +10,7 @@ import Download from "./Part6/Download";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import styles from "./LandingPage.module.css";
+
 type FloatingIconProps = {
   src: string;
   top?: string;
@@ -61,7 +62,7 @@ export default function LandingPage() {
         <Header />
 
         {/* MAIN WRAPPER */}
-        <Box sx={{ paddingBottom: { xs: "0rem", sm: "5rem", md: "5rem" } }}>
+        <Box sx={{ paddingBottom: { xs: "0rem", sm: "5rem", md: "5rem", lg:"6.5rem", xl:"10rem"} , paddingTop: { xl:"6rem" } }}>
           <Box
             alignItems="center"
             sx={{
@@ -338,9 +339,11 @@ export default function LandingPage() {
         }}
       >
         <Download />
+       
       </Box>
     </>
   );
+  
 }
 
 /* 🎈 Floating Icon Component with SX animations */
@@ -373,5 +376,6 @@ function FloatingIcon({
     >
       <img src={src} alt="" className={styles.floatingIcons} />
     </Box>
+    
   );
 }
