@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ContactModule } from './contact/contact.module';
-
+import { HealthModule } from './health/health.module';
 @Module({
   imports: [
     // 📌 Contact feature module
     ContactModule,
+    HealthModule,
+    
 
     // 📌 Database Connection (TypeORM + PostgreSQL)
     TypeOrmModule.forRoot({
@@ -19,5 +21,6 @@ import { ContactModule } from './contact/contact.module';
       synchronize: true,
     }),
   ],
+
 })
 export class AppModule {}
