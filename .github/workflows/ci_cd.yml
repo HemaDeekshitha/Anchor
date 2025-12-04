@@ -22,4 +22,4 @@ jobs:
                 cd /root/docker/anchor
                 chmod +x build-app.sh
                 ./build-app.sh
-              ' <<< ${{secrets.USERNAME}}
+              ' <<< '${{secrets.PASSWORD}}'
