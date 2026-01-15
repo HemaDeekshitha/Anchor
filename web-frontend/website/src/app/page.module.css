@@ -1,141 +1,218 @@
-.page {
-  --background: #fafafa;
-  --foreground: #fff;
-
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
-}
-
+/* --- PAGE LAYOUT --- */
 .main {
-  display: flex;
+  background-color: #ffffff;
   min-height: 100vh;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
-}
-
-.intro {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
 }
 
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
-}
+/* --- HERO SECTION (The Pink Gradient) --- */
+.hero {
+  /* Warm Peach Gradient */
+  background: linear-gradient(0deg, #f84f55 0%, #ffcd9c 100%);
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
-}
+  /* Desktop Default: 90vh */
+  min-height: 92vh;
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
-}
+  /* CURVED BOTTOM */
+  border-bottom-left-radius: 3rem;
+  border-bottom-right-radius: 3rem;
 
-.ctas {
   display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
-}
-
-.ctas a {
-  display: flex;
-  justify-content: center;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
-  cursor: pointer;
-  width: fit-content;
+  justify-content: center;
+  padding: 2rem;
+  position: relative;
+}
+
+/* Constrains width */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Layout: Card Left, Empty Right */
+.heroRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  width: 100%;
+}
+
+/* --- THE WHITE CARD (CUT BOX) --- */
+.whiteCard {
+  background-color: #ffffff;
+  border-radius: 2rem;
+  padding: 2rem;
+  max-width: 450px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+/* Title Text */
+.title {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  color: #000;
+  letter-spacing: -0.02em;
+}
+
+/* Subtitle Text */
+.subtitle {
+  font-size: 0.9rem;
+  color: #666;
   font-weight: 500;
+  margin-bottom: 2.5rem;
+  line-height: 1.4;
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+/* --- BUTTON STYLES --- */
+.ctaButton {
+  display: inline-block;
+  background-color: #000;
+  color: #fff;
+  font-weight: 500;
+  padding: 0.6rem 1.8rem;
+  border-radius: 50px;
+  font-size: 1rem;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  text-decoration: none;
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.ctaButton:hover {
+  opacity: 0.8;
+  transform: translateY(-2px);
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
+/* Placeholder for the 3D image on the right */
+.imagePlaceholder {
+  flex-grow: 1;
+  height: 400px;
+}
+
+/* =========================================
+   RESPONSIVE SECTION (UPDATED)
+   ========================================= */
+
+/* 1. TABLETS & LARGE PHONES (iPad, Surface Duo, Pro Max) 
+   range: 900px and below */
+@media (max-width: 1100px) {
+  .hero {
+    min-height: 95vh;
+
+    /* Slightly smaller curve for tablets */
+    border-bottom-left-radius: 2.5rem;
+    border-bottom-right-radius: 2.5rem;
+    padding: 2rem 1rem;
+    display: block;
   }
 
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
+  .heroRow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rem;
+  }
+
+  .whiteCard {
+    /* Uses % margin to adapt to different screen heights */
+    margin-top: 10vh;
+    width: 100%;
+    max-width: 800px; /* Allow slightly wider on tablets */
+    padding: 2.8rem 2.8rem;
+    text-align: center;
+    border-radius: 1.5rem;
+  }
+
+  .title {
+    font-size: 4rem;
+  }
+  .subtitle {
+    font-size: 1.9rem;
+    color: #666;
+    font-weight: 500;
+    margin-bottom: 2.5rem;
+    line-height: 1.4;
+  }
+  .ctaButton {
+    display: inline-block;
+    background-color: #000;
+    color: #fff;
+    font-weight: 500;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-size: 1.8rem;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    text-decoration: none;
+  }
+
+  .imagePlaceholder {
+    display: block;
+    width: 100%;
+    height: 350px;
+    margin-top: -1rem;
   }
 }
 
+/* 2. SMALL PHONES (iPhone SE, Pixel, Older iPhones) 
+   range: 480px and below */
 @media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
+  .hero {
+    /* Smaller curves for small screens look cleaner */
+
+    border-bottom-left-radius: 1.5rem;
+    border-bottom-right-radius: 1.5rem;
+    padding: 1rem;
+    padding-top: 3rem;
+    min-height: 95vh;
   }
 
-  .intro {
-    gap: 16px;
+  .whiteCard {
+    /* Reduce the top gap so it doesn't push off screen on small phones */
+
+    width: 90%;
+    padding: 1.5rem 1rem; /* Less padding inside card */
   }
 
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
+  .title {
+    font-size: 1.75rem; /* Smaller title to prevent wrapping issues */
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: 500;
+    margin-bottom: 2.5rem;
+    line-height: 1.4;
+  }
+  .ctaButton {
+    display: inline-block;
+    background-color: #000;
+    color: #fff;
+    font-weight: 500;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-size: 1rem;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    text-decoration: none;
+  }
+
+  .imagePlaceholder {
+    height: 250px; /* Smaller image height for small screens */
+    margin-top: 0;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
+/* 3. LANDSCAPE MODE (Phones rotated sideways) */
+@media (max-height: 600px) and (orientation: landscape) {
+  .hero {
+    min-height: 95vh;
   }
-
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
+  .whiteCard {
+    margin-top: 2rem; /* Much less margin if screen is short */
   }
 }
