@@ -1,9 +1,33 @@
-import Welcome from "../components/welcome/welcome";
+import React from "react";
+import Link from "next/link";
+import styles from "./page.module.css";
 
-export default function Home() {
+export default function WelcomePage() {
   return (
-    <main>
-      <Welcome />
+    <main className={styles.main}>
+      <section className={styles.hero}>
+        <div className={styles.container}>
+          {/* This row aligns the card to the left and leaves space on the right */}
+          <div className={styles.heroRow}>
+            {/* THE WHITE "CUT BOX" */}
+            <div className={styles.whiteCard}>
+              <h1 className={styles.title}>Your new dedicated growth team</h1>
+              <p className={styles.subtitle}>
+                We act as an extension of your team, providing the marketing and
+                creative expertise you need to scale and drive results.
+              </p>
+
+              {/* Button inside the white space */}
+              <Link href="/steps" className={styles.ctaButton}>
+                Let's talk
+              </Link>
+            </div>
+
+            {/* Empty right side (placeholder for your 3D image) */}
+            <div className={styles.imagePlaceholder}></div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
