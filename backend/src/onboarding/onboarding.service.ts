@@ -1,36 +1,58 @@
 import { Injectable } from '@nestjs/common';
 import { ONBOARDING_STEPS } from './onboarding.data';
+import { InjectRepository } from '@nestjs/typeorm';
+import { OnboardingResponse } from './onboarding.entity';
+import { Repository } from 'typeorm';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 @Injectable()
 export class OnboardingService {
+  constructor(
+    @InjectRepository(OnboardingResponse)
+    private readonly repo: Repository<OnboardingResponse>,
+
+    private readonly cloudinary: CloudinaryService,
+  ) {}
+
   getSteps() {
     return {
       steps: ONBOARDING_STEPS,
     };
   }
-  saveAnswers(file: Express.Multer.File | undefined, answers: string) {
-    console.log('\n📥 Onboarding submission received');
-    console.log('--------------------------------');
+  async saveAnswers(
+    file: Express.Multer.File | undefined,
+    answers: string,
+    resumeText?: string,
+  ) {
+    let resumeUrl: string | undefined;
+    let resumeName: string | undefined;
 
     if (file) {
-      console.log('📎 Resume file received:');
-      console.log('Name:', file.originalname);
-      console.log('Size:', file.size);
-      console.log('Type:', file.mimetype);
-    } else {
-      console.log('No resume file uploaded');
+      resumeUrl = await this.cloudinary.uploadFile(file);
+      resumeName = file.originalname;
     }
 
-    if (answers) {
-      console.log('📝 Onboarding answers:');
-      console.log(JSON.parse(answers));
-    }
+    const parsed = answers ? JSON.parse(answers) : {};
 
-    console.log('--------------------------------\n');
+    const entry = this.repo.create({
+      primaryFocus: parsed['primary-focus'] || null,
+      currentStatus: parsed['current-status'] || null,
+      preferredRole: parsed['preferred-role'] || null,
+      areasOfInterest: parsed['areas-interest'] || null,
+      employmentType: parsed['employment-type'] || null,
+      customInterest: parsed.customInterest || null,
+
+      resumeText: resumeText ?? null,
+      resumeName,
+      resumeUrl,
+    });
+
+    await this.repo.save(entry);
 
     return {
       success: true,
-      message: 'Onboarding data received',
+      message: 'Onboarding data saved successfully',
+      id: entry.id,
     };
   }
 }

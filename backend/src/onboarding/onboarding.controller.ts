@@ -19,10 +19,11 @@ export class OnboardingController {
 
   @Post('answers')
   @UseInterceptors(FileInterceptor('resume'))
-  submitAnswers(
+  async submitAnswers(
     @UploadedFile() file: Express.Multer.File,
     @Body('answers') answers: string,
+    @Body('resumeText') resumeText?: string,
   ) {
-    return this.onboardingService.saveAnswers(file, answers);
+    return this.onboardingService.saveAnswers(file, answers, resumeText);
   }
 }
