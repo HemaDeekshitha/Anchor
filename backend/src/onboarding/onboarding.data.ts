@@ -37,15 +37,12 @@ export const ONBOARDING_STEPS = [
     title: 'Preferred Role(s)',
     subtitle: 'What position are you aiming for?',
     customHeader: 'What role are you actively working towards right now?',
-
+    isInterest: true,
     options: [
       'Frontend Developer',
       'Data Analyst',
       'Product Manager',
-      'iOS Engineer',
-      'AI/ML Engineer',
       'Backend Developer',
-      'QA/Test Automation',
       'Full Stack Developer',
     ],
   },
@@ -57,7 +54,6 @@ export const ONBOARDING_STEPS = [
     options: [
       'FinTech',
       'HealthTech',
-      'EdTech',
       'Cybersecurity',
       'Ecommerce',
       'Entrepreneurship',
@@ -73,9 +69,6 @@ export const ONBOARDING_STEPS = [
       'Part-time',
       'Internship / Co-op',
       'Freelance / Contract',
-      'Remote only',
-      'Hybrid',
-      'Onsite',
     ],
   },
 ];
