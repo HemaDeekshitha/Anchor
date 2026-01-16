@@ -1,357 +1,379 @@
-/* ... Keep your existing container, heading, grid, and card styles ... */
-/* (I will paste the new parts below. Ensure the top parts from previous response remain) */
+/* onboarding.module.css */
 
-.container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 9rem 1.5rem 4rem 1.5rem;
-  min-height: 100vh;
-}
-
-.heading {
-  text-align: center;
-  margin-bottom: 4rem;
-  font-size: 2rem;
-  font-weight: 700;
+/* --- COMPONENT VARIABLES --- */
+.splitLayout {
+  background-color: var(--background);
   color: var(--foreground);
-}
 
-.grid {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  align-items: start;
-}
-/* @media (min-width: 768px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2rem;
-  }
-}
-@media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2.5rem;
-  }
-} */
+  /* Component Specific Defaults (Light Mode) */
+  --local-border: #e5e7eb;
+  --local-chip-bg: #ffffff;
+  --local-chip-hover: #f9fafb;
 
-/* --- CARD STYLES --- */
-.card {
-  background-color: #f3f4f6;
-  border: 1px solid transparent;
-  border-radius: 100px; /* Closed State: Pill */
-  cursor: pointer;
-  transition: all 0.2s ease;
+  /* LEFT PANEL VARIABLES */
+  --local-left-bg: #f3f4f6; /* Light gray background */
+  --local-icon-active: #171717; /* Dark icon stroke */
+
+  --local-btn-bg: #171717;
+  --local-btn-text: #ffffff;
+  --local-subtext: #6b7280;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* --- DARK MODE OVERRIDES --- */
+:global([data-theme="dark"]) .splitLayout {
+  --local-border: #333333;
+  --local-chip-bg: #171717;
+  --local-chip-hover: #262626;
+
+  /* Dark Panel Colors */
+  --local-left-bg: #111111;
+  --local-icon-active: #ffffff; /* White icon stroke */
+
+  --local-btn-bg: #ededed;
+  --local-btn-text: #000000;
+  --local-subtext: #a1a1aa;
+}
+
+/* --- LEFT PANEL --- */
+.colorPanel {
+  flex: 0 0 45%;
   position: relative;
-}
-
-.card:hover {
-  background-color: #e5e7eb;
-  transform: translateY(-2px);
-}
-
-.activeCard {
-  background-color: #ffffff;
-  border-color: #e5e7eb; /* Neutral border when open */
-  border-radius: 24px; /* Open State: Rounded Rectangle */
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
-}
-
-.cardHeader {
+  height: 100%;
+  /* background-color: var(--local-left-bg); */
+  transition: background-color 0.3s ease;
   display: flex;
   align-items: center;
-  padding: 1.25rem 2rem;
-  gap: 1rem;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .iconWrapper {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  flex-shrink: 0;
-  color: #0d9488;
-  background-color: #ccfbf1;
-  border-radius: 50%;
+  color: #f75252;
+
+  position: absolute;
+  z-index: 1; /* Behind text */
 }
-.cardTitle {
+
+.panelText {
+  position: absolute;
+  bottom: 3rem;
+  left: 3rem;
+  color: var(--foreground);
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 1.05rem;
-  color: #1f2937;
+  letter-spacing: 0.15em;
+  opacity: 0.6;
+  white-space: nowrap;
+  z-index: 10; /* On top of icon */
+}
+
+/* --- RIGHT PANEL --- */
+.contentPanel {
   flex: 1;
-}
-.arrow {
-  font-size: 0.75rem;
-  color: #9ca3af;
-}
-.activeCard .arrow {
-  transform: rotate(180deg);
-}
-
-/* --- NEW DROPDOWN STYLES --- */
-
-.dropdownContent {
-  padding: 0 2rem 2rem 2rem;
-  animation: slideDown 0.3s ease-out;
-  border-top: 1px solid #f3f4f6;
-}
-
-.dropdownLabel {
-  display: block;
-  margin-top: 1.5rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  color: #4b5563; /* Darker grey text */
-  font-weight: 600;
-}
-
-.optionList {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem; /* Space between buttons */
-  margin-bottom: 2rem;
-}
-
-/* The Selectable "Option" Button */
-.optionBtn {
-  width: 100%;
-  padding: 1rem 1.5rem;
-  text-align: left; /* Text aligns left */
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #374151;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db; /* Grey Border */
-  border-radius: 50px; /* Pill Shape */
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.optionBtn:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
-}
-
-/* SELECTED STATE (Matches screenshot) */
-.selectedOption {
-  background-color: #eff6ff; /* Light Blue Fill */
-  border-color: #60a5fa; /* Blue Border */
-  color: #1e3a8a; /* Dark Blue Text */
-  box-shadow: 0 0 0 1px #60a5fa; /* Adds a tiny glow */
-}
-
-/* Action Button */
-.actionButton {
-  width: 100%;
-  padding: 0.875rem;
-  background-color: #8b5cf6; /* Purple button from previous screens */
-  color: white;
-  border: none;
-  border-radius: 50px;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.actionButton:hover {
-  background-color: #7c3aed;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  .heading {
-    color: white;
-  }
-  .card {
-    background-color: #1f2937;
-  }
-  .activeCard {
-    background-color: #111827;
-    border-color: #374151;
-  }
-  .cardTitle {
-    color: #f3f4f6;
-  }
-  .dropdownContent {
-    border-top-color: #374151;
-  }
-  .dropdownLabel {
-    color: #9ca3af;
-  }
-
-  .optionBtn {
-    background-color: #1f2937;
-    border-color: #4b5563;
-    color: #e5e7eb;
-  }
-  .optionBtn:hover {
-    background-color: #374151;
-  }
-
-  .selectedOption {
-    background-color: rgba(59, 130, 246, 0.2); /* Dark mode blue tint */
-    border-color: #3b82f6;
-    color: #60a5fa;
-  }
-}
-
-/* ... Keep all previous Container/Grid/Card styles ... */
-
-/* (Paste this BELOW your existing css) */
-
-/* --- SPECIAL UPLOAD UI STYLES --- */
-.uploadUI {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding-top: 1rem;
-}
-
-.uploadBox {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  border: 2px dashed #d1d5db;
-  border-radius: 16px;
-  background-color: #f9fafb;
+  background-color: var(--background);
+  transition: background-color 0.3s ease;
+  z-index: 5;
+}
+
+.contentWrapper {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- TYPOGRAPHY --- */
+.stepHeader {
+  margin-bottom: 2rem;
+}
+
+.serifHeading {
+  font-family: "DM Serif Display", serif;
+  font-size: 3.5rem;
+  font-weight: 400;
+  color: var(--foreground);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.1;
+  transition: color 0.3s ease;
+}
+
+.subText {
+  font-family: "Inter", sans-serif;
+  font-size: 1.1rem;
+  color: var(--local-subtext);
+  margin: 0;
+  line-height: 1.5;
+  transition: color 0.3s ease;
+}
+
+.divider {
+  width: 100%;
+  height: 1px;
+  background-color: var(--local-border);
+  margin-bottom: 2.5rem;
+  transition: background-color 0.3s ease;
+}
+
+/* --- FORM ELEMENTS --- */
+.inputLabel {
+  display: block;
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--local-subtext);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.optionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.optionChip {
+  width: 100%;
+  padding: 1.1rem 1.5rem;
+  background-color: var(--local-chip-bg);
+  border: 1px solid var(--local-border);
+  border-radius: 12px;
+  font-family: "Inter", sans-serif;
+  font-size: 1rem;
+  color: var(--foreground);
+  text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.optionChip:hover {
+  background-color: var(--local-chip-hover);
+  border-color: var(--local-subtext);
+}
+
+.selectedChip {
+  border: 2px solid #ec4899;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+  font-weight: 500;
+  color: var(--foreground);
+  padding: 1.1rem 1.4rem;
+}
+
+.customInput {
+  width: 100%;
+  padding: 1rem 0;
+  border: none;
+  border-bottom: 1px solid var(--local-border);
+  font-size: 1rem;
+  margin-top: 1rem;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  transition: border-color 0.2s;
+}
+.customInput:focus {
+  border-bottom-color: var(--foreground);
+}
+
+/* --- UPLOAD UI --- */
+.uploadBox {
+  border: 1px dashed var(--local-border);
+  border-radius: 16px;
+  padding: 3rem;
   text-align: center;
+  background-color: var(--local-chip-hover);
+  cursor: pointer;
+  transition: all 0.2s;
 }
-
 .uploadBox:hover {
-  border-color: #0d9488;
-  background-color: #f0fdfa; /* Light teal bg */
+  border-color: var(--foreground);
 }
-
 .uploadIcon {
   font-size: 2rem;
   margin-bottom: 0.5rem;
 }
-.uploadText {
-  font-weight: 600;
-  color: #374151;
-  font-size: 0.95rem;
+.uploadMainText {
+  font-weight: 500;
+  color: var(--foreground);
+  margin: 0;
 }
-.uploadSub {
-  font-size: 0.8rem;
-  color: #9ca3af;
+.uploadSubText {
+  font-size: 0.85rem;
+  color: var(--local-subtext);
   margin-top: 0.25rem;
 }
 
-.divider {
+/* --- FOOTER NAV --- */
+.footerNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 3rem;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--local-subtext);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.backBtn:hover {
+  color: var(--foreground);
+}
+
+.continueBtn {
+  background-color: var(--local-btn-bg);
+  color: var(--local-btn-text);
+  padding: 0.9rem 2.25rem;
+  border-radius: 100px;
+  border: none;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #9ca3af;
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-transform: uppercase;
+  gap: 0.5rem;
+  transition: transform 0.2s, background-color 0.2s;
 }
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  border-bottom: 1px solid #e5e7eb;
+.continueBtn:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
 }
-.divider span {
-  padding: 0 10px;
+.btnArrow {
+  transition: transform 0.2s;
+}
+.continueBtn:hover .btnArrow {
+  transform: translateX(3px);
 }
 
-.pasteArea {
-  width: 100%;
-  min-height: 120px;
-  padding: 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  font-family: inherit;
-  font-size: 0.9rem;
-  resize: vertical;
-  outline: none;
-}
-.pasteArea:focus {
-  border-color: #0d9488;
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
-}
+/* MOBILE RESPONSIVE */
+@media (max-width: 600px) {
+  /* 1. STACK LAYOUT (No Split) */
+  .splitLayout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: hidden;
+    position: fixed;
+  }
 
-/* --- DARK MODE FOR UPLOAD UI --- */
-@media (prefers-color-scheme: dark) {
-  .uploadBox {
-    background-color: #1f2937;
-    border-color: #4b5563;
+  /* 2. PUSH CONTENT TO CENTER (Using VH to center vertically) */
+  .contentPanel {
+    /* 25vh pushes the content down to roughly the vertical center start */
+    padding: 15vh 1.5rem 15vh 2.3rem;
+    align-items: flex-start;
   }
-  .uploadBox:hover {
-    background-color: #374151;
-    border-color: #2dd4bf;
+
+  /* 3. REPOSITION ICON (Synced with Content) */
+  .colorPanel {
+    flex: none;
+    width: auto;
+    height: auto;
+    background-color: transparent;
+    position: absolute;
+    /* Aligns with the text at 25vh + small adjustment for visual alignment */
+    top: calc(15vh + 0rem);
+
+    /* Match the left padding of the content so it aligns */
+    left: 2rem;
+    z-index: 20;
+    padding: 0;
   }
-  .uploadText {
-    color: #f3f4f6;
+
+  .iconWrapper {
+    position: static;
+    width: 28px;
+    height: 28px;
+    color: var(--foreground);
+    justify-content: flex-start;
   }
+
+  .panelText {
+    display: none;
+  }
+
+  /* 4. ALIGN TEXT WITH ICON */
+  .serifHeading {
+    font-size: 2rem;
+    margin-top: 0;
+    margin-left: 2.5rem; /* Gap for the icon */
+  }
+
+  .subText {
+    margin-left: 2.5rem;
+    font-size: 1rem;
+  }
+
+  /* 5. MISC ADJUSTMENTS */
   .divider {
-    color: #6b7280;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
   }
-  .divider::before,
-  .divider::after {
-    border-color: #374151;
-  }
-  .pasteArea {
-    background-color: #1f2937;
-    border-color: #4b5563;
-    color: white;
+
+  .footerNav {
+    position: fixed; /* Sticks it to the screen */
+    bottom: 0; /* Anchors to bottom edge */
+    left: 0;
+    width: 100%; /* Spans full width */
+
+    /* Layout */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    /* Spacing */
+    /* top: 1rem, right: 1.5rem, bottom: 2rem, left: 5rem (to align with content) */
+    padding: 1rem 1.5rem 2rem 5rem;
+
+    /* Visuals */
+    background-color: #ffffff; /* Crucial: covers content behind it */
+    z-index: 100; /* Keeps it on top of everything */
   }
 }
 
-/* ... Keep all existing styles ... */
-
-/* (Add this at the bottom or near optionBtn) */
-
-.otherInput {
-  width: 100%;
-  padding: 1rem 1.5rem;
-  font-size: 0.95rem;
-  font-family: inherit;
-  color: #374151;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db; /* Matches other buttons */
-  border-radius: 50px; /* Pill shape */
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.otherInput::placeholder {
-  color: #9ca3af;
-}
-
-.otherInput:focus {
-  border-color: #60a5fa; /* Blue border on focus */
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
-}
-
-/* Dark Mode for Input */
-@media (prefers-color-scheme: dark) {
-  .otherInput {
-    background-color: #1f2937;
-    border-color: #4b5563;
-    color: #f3f4f6;
+/* Tablet (601px - 1024px) */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .contentWrapper {
+    max-width: 90%;
   }
-  .otherInput:focus {
-    border-color: #3b82f6;
+}
+
+/* Large Screens (> 1200px) */
+@media (min-width: 1200px) {
+  .contentWrapper {
+    max-width: 1100px;
   }
 }
