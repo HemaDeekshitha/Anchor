@@ -2,12 +2,14 @@ export const ONBOARDING_STEPS = [
   {
     id: 'resume-upload',
     title: 'Upload Resume',
+    subtitle: "Let's start with the basics.",
     isUpload: true,
     options: [],
   },
   {
     id: 'primary-focus',
     title: 'Primary Focus',
+    subtitle: 'Choose the direction that excites you most.',
     options: [
       'Find a new job',
       'Switch careers',
@@ -20,6 +22,7 @@ export const ONBOARDING_STEPS = [
   {
     id: 'current-status',
     title: 'Current Status',
+    subtitle: 'Where do you currently stand?',
     options: [
       'Actively job searching',
       'Passively looking',
@@ -32,7 +35,9 @@ export const ONBOARDING_STEPS = [
   {
     id: 'preferred-role',
     title: 'Preferred Role(s)',
+    subtitle: 'What position are you aiming for?',
     customHeader: 'What role are you actively working towards right now?',
+
     options: [
       'Frontend Developer',
       'Data Analyst',
@@ -47,6 +52,7 @@ export const ONBOARDING_STEPS = [
   {
     id: 'areas-interest',
     title: 'Areas of Interest',
+    subtitle: 'Which industries excite you?',
     isInterest: true,
     options: [
       'FinTech',
@@ -60,6 +66,7 @@ export const ONBOARDING_STEPS = [
   {
     id: 'employment-type',
     title: 'Employment Type',
+    subtitle: 'How do you want to work?',
     customHeader: 'What kind of work are you looking for?',
     options: [
       'Full-time',

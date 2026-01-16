@@ -5,72 +5,82 @@ import { motion, AnimatePresence } from "framer-motion";
 import styles from "./onboarding.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
 // --- DATA ---
-const roles = [
-  {
-    id: "resume-upload",
-    title: "Upload Resume",
-    subtitle: "Let's start with the basics.",
-    isUpload: true,
-    options: [],
-  },
-  {
-    id: "primary-focus",
-    title: "Primary Focus",
-    subtitle: "Define the visual language of your future project.",
-    options: [
-      "Find a new job",
-      "Switch careers",
-      "Get promoted",
-      "Learn new skills",
-      "Network more",
-    ],
-  },
-  {
-    id: "current-status",
-    title: "Current Status",
-    subtitle: "Where do you currently stand?",
-    options: [
-      "Actively job searching",
-      "Passively looking",
-      "Recently laid off",
-      "Employed, seeking change",
-      "Student/Recent graduate",
-      "Career break",
-    ],
-  },
-  {
-    id: "preferred-role",
-    title: "Preferred Role(s)",
-    subtitle: "What position are you aiming for?",
-    options: [
-      "Frontend Developer",
-      "Data Analyst",
-      "Product Manager",
-      "iOS Engineer",
-      "Backend Developer",
-      "Full Stack Developer",
-    ],
-  },
-  {
-    id: "areas-interest",
-    title: "Areas of Interest",
-    subtitle: "Which industries excite you?",
-    isInterest: true,
-    options: ["FinTech", "HealthTech", "EdTech", "Cybersecurity", "Ecommerce"],
-  },
-  {
-    id: "employment-type",
-    title: "Employment Type",
-    subtitle: "How do you want to work?",
-    options: [
-      "Full-time",
-      "Part-time",
-      "Internship / Co-op",
-      "Freelance / Contract",
-      "Remote only",
-    ],
-  },
-];
+// const roles = [
+//   {
+//     id: "resume-upload",
+//     title: "Upload Resume",
+//     subtitle: "Let's start with the basics.",
+//     isUpload: true,
+//     options: [],
+//   },
+//   {
+//     id: "primary-focus",
+//     title: "Primary Focus",
+//     subtitle: "Define the visual language of your future project.",
+//     options: [
+//       "Find a new job",
+//       "Switch careers",
+//       "Get promoted",
+//       "Learn new skills",
+//       "Network more",
+//     ],
+//   },
+//   {
+//     id: "current-status",
+//     title: "Current Status",
+//     subtitle: "Where do you currently stand?",
+//     options: [
+//       "Actively job searching",
+//       "Passively looking",
+//       "Recently laid off",
+//       "Employed, seeking change",
+//       "Student/Recent graduate",
+//       "Career break",
+//     ],
+//   },
+//   {
+//     id: "preferred-role",
+//     title: "Preferred Role(s)",
+//     subtitle: "What position are you aiming for?",
+//     options: [
+//       "Frontend Developer",
+//       "Data Analyst",
+//       "Product Manager",
+//       "iOS Engineer",
+//       "Backend Developer",
+//       "Full Stack Developer",
+//     ],
+//   },
+//   {
+//     id: "areas-interest",
+//     title: "Areas of Interest",
+//     subtitle: "Which industries excite you?",
+//     isInterest: true,
+//     options: ["FinTech", "HealthTech", "EdTech", "Cybersecurity", "Ecommerce"],
+//   },
+//   {
+//     id: "employment-type",
+//     title: "Employment Type",
+//     subtitle: "How do you want to work?",
+//     options: [
+//       "Full-time",
+//       "Part-time",
+//       "Internship / Co-op",
+//       "Freelance / Contract",
+//       "Remote only",
+//     ],
+//   },
+// ];
+
+type OnboardingRole = {
+  id: string;
+  title: string;
+  subtitle: string;
+  options: string[];
+  isUpload?: boolean;
+  isInterest?: boolean;
+  customHeader?: string;
+};
 
 // --- ICON RENDERING HELPER ---
 const renderIcon = (id: string) => {
@@ -183,9 +193,12 @@ export default function Steps() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [customInterest, setCustomInterest] = useState("");
+  const [roles, setRoles] = useState<OnboardingRole[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeText, setResumeText] = useState("");
 
   // --- GLOBAL THEME LOGIC ---
-  const [theme, setTheme] = useState("light");
   useEffect(() => {
     const stepParam = searchParams.get("step");
     const newIndex = stepParam ? parseInt(stepParam) : 0;
@@ -195,18 +208,32 @@ export default function Steps() {
       setActiveIndex(newIndex);
     }
   }, [searchParams]);
+
   useEffect(() => {
-    const currentTheme = document.documentElement.getAttribute("data-theme");
-    if (currentTheme) {
-      setTheme(currentTheme);
-    } else {
-      const saved = localStorage.getItem("theme") || "light";
-      setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    }
+    const fetchOnboardingSteps = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/onboarding/steps");
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch onboarding steps");
+        }
+
+        const data = await res.json();
+        setRoles(data.steps);
+      } catch (error) {
+        console.error("Error fetching onboarding steps:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOnboardingSteps();
   }, []);
 
   const activeRole = roles[activeIndex];
+  if (loading || !activeRole) {
+    return <div className={styles.loading}>Loading onboarding…</div>;
+  }
 
   const toggleSelection = (option: string) => {
     const roleId = activeRole.id;
@@ -228,7 +255,8 @@ export default function Steps() {
       // Instead of setActiveIndex, we update URL
       updateStepInUrl(activeIndex + 1);
     } else {
-      alert("All steps completed!");
+      submitHandler();
+      // alert("All steps completed!");
     }
   };
 
@@ -236,6 +264,53 @@ export default function Steps() {
     if (activeIndex > 0) {
       // Instead of setActiveIndex, we update URL
       updateStepInUrl(activeIndex - 1);
+    }
+  };
+
+  const submitHandler = async () => {
+    // e.preventDefault();
+
+    // Require at least one resume input
+    // if (!resumeFile && !resumeText.trim()) {
+    //   alert("Please upload a resume or paste resume text");
+    //   return;
+    // }
+
+    const formData = new FormData();
+
+    // 📎 Resume file (optional)
+    if (resumeFile) {
+      formData.append("resume", resumeFile);
+    }
+
+    // 📝 Resume text (optional)
+    if (resumeText.trim()) {
+      formData.append("resumeText", resumeText.trim());
+    }
+
+    // 🧠 Onboarding answers
+    formData.append(
+      "answers",
+      JSON.stringify({
+        ...selections,
+        customInterest: customInterest || null,
+      })
+    );
+
+    try {
+      const res = await fetch("http://localhost:3001/onboarding/answers", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Submission failed");
+      }
+
+      alert("Onboarding submitted successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit onboarding data");
     }
   };
 
