@@ -271,10 +271,10 @@ export default function Steps() {
     // e.preventDefault();
 
     // Require at least one resume input
-    // if (!resumeFile && !resumeText.trim()) {
-    //   alert("Please upload a resume or paste resume text");
-    //   return;
-    // }
+    if (!resumeFile && !resumeText.trim()) {
+      alert("Please upload a resume or paste resume text");
+      return;
+    }
 
     const formData = new FormData();
 
@@ -363,15 +363,28 @@ export default function Steps() {
               {activeRole.isUpload ? (
                 /* UPLOAD STATE */
                 <div className={styles.uploadContainer}>
-                  <label className={styles.inputLabel}>YOUR RESUME</label>
-                  <div className={styles.uploadBox}>
-                    <div className={styles.uploadIcon}>📄</div>
-                    <p className={styles.uploadMainText}>
-                      Click to Upload or Drag & Drop
-                    </p>
-                    <p className={styles.uploadSubText}>PDF, DOCX up to 10MB</p>
-                    <input type="file" hidden />
-                  </div>
+                  {/* <label className={styles.inputLabel}>YOUR RESUME</label> */}
+                  <label>
+                    <div className={styles.uploadBox}>
+                      <div className={styles.uploadIcon}>📄</div>
+                      <p className={styles.uploadMainText}>
+                        Click to Upload or Drag & Drop
+                      </p>
+                      <p className={styles.uploadSubText}>
+                        PDF, DOCX up to 10MB
+                      </p>
+                      <input
+                        type="file"
+                        hidden
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setResumeFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+                  </label>
 
                   <label
                     className={styles.inputLabel}
