@@ -22,6 +22,10 @@ import { OnboardingModule } from './onboarding/onboarding.module';
       database: process.env.DATABASE_NAME,
       autoLoadEntities: true,
       synchronize: true,
+      ssl:
+        process.env.DATABASE_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : false,
     }),
   ],
 })
