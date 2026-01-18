@@ -40,7 +40,6 @@ export class OnboardingService {
       preferredRole: parsed['preferred-role'] || null,
       areasOfInterest: parsed['areas-interest'] || null,
       employmentType: parsed['employment-type'] || null,
-      customInterest: parsed.customInterest || null,
 
       resumeText: resumeText ?? null,
       resumeName,
