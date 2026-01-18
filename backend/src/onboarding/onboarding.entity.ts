@@ -28,7 +28,7 @@ export class OnboardingResponse {
   employmentType: string[] | null;
 
   @Column({ type: 'text', nullable: true })
-  customInterest: string | null;
+  customInterest: Record<string, string> | null;
 
   // Resume data
   @Column({ nullable: true })
