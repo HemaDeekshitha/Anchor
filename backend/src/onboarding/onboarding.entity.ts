@@ -27,9 +27,6 @@ export class OnboardingResponse {
   @Column('text', { array: true, nullable: true })
   employmentType: string[] | null;
 
-  @Column({ type: 'text', nullable: true })
-  customInterest: Record<string, string> | null;
-
   // Resume data
   @Column({ nullable: true })
   resumeName?: string;

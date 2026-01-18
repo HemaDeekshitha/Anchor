@@ -193,7 +193,7 @@ export default function Steps() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [customInterest, setCustomInterest] = useState<Record<string, string>>(
-    {},
+    {}
   );
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -291,13 +291,23 @@ export default function Steps() {
     }
 
     // 🧠 Onboarding answers
-    formData.append(
-      "answers",
-      JSON.stringify({
-        ...selections,
-        customInterest: customInterest,
-      }),
-    );
+    // formData.append(
+    //   "answers",
+    //   JSON.stringify({
+    //     ...selections,
+    //     customInterest: customInterest,
+    //   }),
+    // );
+    const mergedAnswers: Record<string, string[]> = { ...selections };
+
+    // merge "Other" input into same role array
+    Object.entries(customInterest).forEach(([roleId, value]) => {
+      if (!value.trim()) return;
+
+      mergedAnswers[roleId] = [...(mergedAnswers[roleId] || []), value.trim()];
+    });
+
+    formData.append("answers", JSON.stringify(mergedAnswers));
 
     try {
       const res = await fetch("http://localhost:3001/onboarding/answers", {
