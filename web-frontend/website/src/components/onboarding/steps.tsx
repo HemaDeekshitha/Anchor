@@ -192,7 +192,9 @@ export default function Steps() {
   const searchParams = useSearchParams();
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
-  const [customInterest, setCustomInterest] = useState("");
+  const [customInterest, setCustomInterest] = useState<Record<string, string>>(
+    {},
+  );
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -293,8 +295,8 @@ export default function Steps() {
       "answers",
       JSON.stringify({
         ...selections,
-        customInterest: customInterest || null,
-      })
+        customInterest: customInterest,
+      }),
     );
 
     try {
@@ -366,13 +368,58 @@ export default function Steps() {
                   {/* <label className={styles.inputLabel}>YOUR RESUME</label> */}
                   <label>
                     <div className={styles.uploadBox}>
-                      <div className={styles.uploadIcon}>📄</div>
-                      <p className={styles.uploadMainText}>
-                        Click to Upload or Drag & Drop
-                      </p>
-                      <p className={styles.uploadSubText}>
-                        PDF, DOCX up to 10MB
-                      </p>
+                      {resumeFile ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            width: "100%",
+                            padding: "0 1rem",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                            }}
+                          >
+                            <span style={{ fontSize: "1.5rem" }}>📄</span>
+                            <span style={{ fontWeight: 500 }}>
+                              {resumeFile.name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault(); // Prevent opening file dialog
+                              e.stopPropagation();
+                              setResumeFile(null);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "1.2rem",
+                              color: "currentColor",
+                              padding: "5px",
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        // Standard View when no file is uploaded
+                        <>
+                          <div className={styles.uploadIcon}>📄</div>
+                          <p className={styles.uploadMainText}>
+                            Click to Upload or Drag & Drop
+                          </p>
+                          <p className={styles.uploadSubText}>
+                            PDF, DOCX up to 10MB
+                          </p>
+                        </>
+                      )}
                       <input
                         type="file"
                         hidden
@@ -404,6 +451,8 @@ export default function Steps() {
                       lineHeight: "1.5",
                     }}
                     placeholder="Paste your resume content here..."
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
                   />
                 </div>
               ) : (
@@ -435,8 +484,13 @@ export default function Steps() {
                       type="text"
                       className={styles.customInput}
                       placeholder="Other (Type to add...)"
-                      value={customInterest}
-                      onChange={(e) => setCustomInterest(e.target.value)}
+                      value={customInterest[activeRole.id] || ""}
+                      onChange={(e) =>
+                        setCustomInterest((prev) => ({
+                          ...prev,
+                          [activeRole.id]: e.target.value,
+                        }))
+                      }
                     />
                   )}
                 </div>
