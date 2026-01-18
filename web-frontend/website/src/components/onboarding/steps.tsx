@@ -508,22 +508,22 @@ export default function Steps() {
             </div>
 
             {/* FOOTER NAV */}
-            <div className={styles.footerNav}>
-              <button
-                className={styles.backBtn}
-                onClick={handleBack}
-                style={{ visibility: activeIndex === 0 ? "hidden" : "visible" }}
-              >
-                ← BACK
-              </button>
-
-              <button className={styles.continueBtn} onClick={handleNext}>
-                {activeIndex === roles.length - 1 ? "FINISH" : "CONTINUE"}
-                <span className={styles.btnArrow}>→</span>
-              </button>
-            </div>
           </motion.div>
         </AnimatePresence>
+        <div className={styles.footerNav}>
+          <button
+            className={styles.backBtn}
+            onClick={handleBack}
+            style={{ visibility: activeIndex === 0 ? "hidden" : "visible" }}
+          >
+            ← BACK
+          </button>
+
+          <button className={styles.continueBtn} onClick={handleNext}>
+            {activeIndex === roles.length - 1 ? "FINISH" : "CONTINUE"}
+            <span className={styles.btnArrow}>→</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -91,6 +91,7 @@
 .contentPanel {
   flex: 1;
   position: relative;
+  flex-direction: column;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,6 +235,8 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 3rem;
+  width: 100%;
+  padding: 2rem;
 }
 
 .backBtn {
@@ -284,8 +287,8 @@
   /* 1. STACK LAYOUT (No Split) */
   .splitLayout {
     flex-direction: column;
-    height: auto;
-    min-height: 100vh;
+    /* height: auto; */
+    max-height: 100vh;
     overflow: hidden;
     position: fixed;
   }
@@ -293,8 +296,9 @@
   /* 2. PUSH CONTENT TO CENTER (Using VH to center vertically) */
   .contentPanel {
     /* 25vh pushes the content down to roughly the vertical center start */
-    padding: 15vh 1.5rem 15vh 2.3rem;
+    padding: 3rem 1.5rem 15vh 2.3rem;
     align-items: flex-start;
+    justify-content: center;
   }
 
   /* 3. REPOSITION ICON (Synced with Content) */
@@ -305,7 +309,7 @@
     background-color: transparent;
     position: absolute;
     /* Aligns with the text at 25vh + small adjustment for visual alignment */
-    top: calc(15vh + 0rem);
+    top: calc(3rem + 0rem);
 
     /* Match the left padding of the content so it aligns */
     left: 2rem;
@@ -338,10 +342,10 @@
   }
 
   /* 5. MISC ADJUSTMENTS */
-  .divider {
-    margin-top: 1.5rem;
+  /* .divider {
+    margin-top: 1rem;
     margin-bottom: 2rem;
-  }
+  } */
 
   .footerNav {
     position: fixed; /* Sticks it to the screen */
