@@ -1,64 +1,43 @@
 version: "3.9"
 
 services:
-  # postgres:
-  #   container_name: anchor-postgres
-  #   image: postgres:15
-  #   restart: always
-  #   environment:
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: anchor
-  #     POSTGRES_DB: anchor
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - anchor_data:/var/lib/postgresql/data
-
   backend:
     container_name: anchor-backend
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
     environment:
-      DATABASE_HOST: ep-withered-cake-afumlbp8-pooler.c-2.us-west-2.aws.neon.tech
-      DATABASE_PORT: 5432
-      DATABASE_USER: neondb_owner
-      DATABASE_PASSWORD: npg_i5CzpIDOnVA1
-      DATABASE_NAME: Anchor
-      DATABASE_SSL: true
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_SSL: ${DATABASE_SSL}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      # DATABASE_HOST: postgres
-      # DATABASE_PORT: 5432
-      # DATABASE_USER: postgres
-      # DATABASE_PASSWORD: anchor
-      # DATABASE_NAME: anchor
-
     ports:
       - "3001:3001"
-    # depends_on:
-    #   - postgres
     volumes:
       - ./backend:/app
       - /app/node_modules
     command: ["npm", "run", "start:dev"]
 
-  frontend:
-    container_name: anchor-frontend
-    build:
-      context: ./web-frontend/anchor-web
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    environment:
-      NODE_ENV: development
-    volumes:
-      - ./web-frontend/anchor-web:/app
-      - /app/node_modules
-    command: ["npm", "run", "dev"]
+  # frontend:
+  #   container_name: anchor-frontend
+  #   build:
+  #     context: ./web-frontend/anchor-web
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - backend
+  #   environment:
+  #     NODE_ENV: development
+  #   volumes:
+  #     - ./web-frontend/anchor-web:/app
+  #     - /app/node_modules
+  #   command: ["npm", "run", "dev"]
 
 volumes:
   anchor_data:
