@@ -1,17 +1,21 @@
-import { Controller, Post, Body, Res, HttpStatus } from '@nestjs/common';
-
-import type { Response } from 'express';
-
-import { DashboardService } from './dashboard.service'; // ✅ This will now work
+import { Controller, Post, Req, Res, HttpStatus } from '@nestjs/common';
+import type { Request, Response } from 'express'; // Import Request from express
+import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Post('init')
-  async initDashboard(@Body() body: any, @Res() res: Response) {
-    const { userId } = body;
+  async initDashboard(@Req() req: Request, @Res() res: Response) {
+    // 1. Log the entire body to debug
+    console.log('🔹 Raw Body Received:', req.body);
+
+    // 2. Access data directly from req.body
+    const userId = req.body?.userId;
+
     if (!userId) {
+      console.log('❌ UserId is missing in body');
       return res.status(400).json({ error: 'Missing userId' });
     }
 

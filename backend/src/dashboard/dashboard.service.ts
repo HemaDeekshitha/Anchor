@@ -1,10 +1,137 @@
+// import { Injectable } from '@nestjs/common';
+// import { InjectRepository } from '@nestjs/typeorm';
+// import { Repository, MoreThan } from 'typeorm';
+// import { OnboardingResponse } from '../onboarding/onboarding.entity';
+// import { GoogleGenerativeAI } from '@google/generative-ai';
+// import * as dotenv from 'dotenv';
+// import { Task } from './tasks.entity';
+// dotenv.config();
+
+// @Injectable()
+// export class DashboardService {
+//   private genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
+
+//   constructor(
+//     @InjectRepository(OnboardingResponse)
+//     private onboardingRepo: Repository<OnboardingResponse>,
+//     @InjectRepository(Task)
+//     private taskRepo: Repository<Task>,
+//   ) {}
+
+//   async getDashboardData(userId: string) {
+//     const today = new Date().toISOString().slice(0, 10);
+
+//     // 1. Fetch the latest onboarding data FIRST
+//     let onboarding = await this.onboardingRepo.findOne({
+//       where: { userId },
+//       order: { createdAt: 'DESC' },
+//     });
+
+//     if (!onboarding) {
+//       console.log(
+//         `⚠️ No onboarding found for ${userId}. Using default fallback.`,
+//       );
+//       onboarding = {
+//         primaryFocus: ['Job Search'],
+//         preferredRole: ['Software Engineer'],
+//         currentStatus: ['Open to opportunities'],
+//         areasOfInterest: ['Full Stack Development', 'AI'],
+//         createdAt: new Date(), // Important for the timestamp check
+//         userId: userId,
+//       } as any; // Cast as any to bypass strict Entity checks for this fallback
+//     }
+
+//     // 2. Fetch existing AI tasks for today
+//     let smartPlanTasks = await this.taskRepo.find({
+//       where: {
+//         user_id: userId,
+//         is_ai_generated: true,
+//         task_date: today,
+//       },
+//     });
+
+//     // 3. DETERMINE IF REGENERATION IS NEEDED
+//     let shouldGenerate = false;
+
+//     if (smartPlanTasks.length === 0) {
+//       // Case A: No plan exists for today yet
+//       shouldGenerate = true;
+//     } else {
+//       // Case B: Plan exists, but let's check if onboarding is NEWER than the plan
+//       // Assuming your Task entity has a 'created_at' or 'createdAt' field
+//       const planCreatedAt = smartPlanTasks[0].created_at;
+//       const onboardingCreatedAt = onboarding?.createdAt;
+
+//       // If onboarding was created AFTER the current plan, the plan is stale.
+//       if (onboardingCreatedAt && onboardingCreatedAt > planCreatedAt) {
+//         console.log('New onboarding data detected. Regenerating plan...');
+//         shouldGenerate = true;
+
+//         // Delete the old/stale tasks so we don't have duplicates
+//         await this.taskRepo.remove(smartPlanTasks);
+//         smartPlanTasks = []; // Clear array for the next step
+//       }
+//     }
+
+//     // 4. GENERATE NEW CONTENT IF NEEDED
+//     if (shouldGenerate) {
+//       const prompt = this.generatePromptFromOnboarding(onboarding!);
+
+//       const model = this.genAI.getGenerativeModel({
+//         model: 'models/gemini-1.5-pro',
+//       });
+
+//       const result = await model.generateContent([{ text: prompt }]);
+//       const rawText = result.response.text();
+
+//       const cleanedText: string = rawText
+//         .replace(/^```json/, '')
+//         .replace(/^```/, '')
+//         .replace(/```$/, '')
+//         .trim();
+
+//       try {
+//         const tasks = JSON.parse(cleanedText);
+
+//         smartPlanTasks = await this.taskRepo.save(
+//           tasks.map((t: any) =>
+//             this.taskRepo.create({
+//               user_id: userId,
+//               title: t.title,
+//               status: 'pending',
+//               is_ai_generated: true,
+//               task_date: today,
+//             }),
+//           ),
+//         );
+//       } catch (err) {
+//         console.error('Failed to parse Gemini response:', rawText);
+//         throw new Error('Invalid Gemini response format');
+//       }
+//     }
+
+//     // 5. Fetch Pending tasks (Backlog)
+//     // (Existing logic remains the same)
+//     const pendingTasks = await this.taskRepo.find({
+//       where: {
+//         user_id: userId,
+//         is_ai_generated: false,
+//         status: 'pending',
+//         task_date: MoreThan(today),
+//       },
+//     });
+
+//     return {
+//       tasks: [...smartPlanTasks, ...pendingTasks],
+//     };
+//   }
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { OnboardingResponse } from '../onboarding/onboarding.entity';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as dotenv from 'dotenv';
-import { Task } from './tasks.entity';
+
 dotenv.config();
 
 @Injectable()
@@ -14,72 +141,48 @@ export class DashboardService {
   constructor(
     @InjectRepository(OnboardingResponse)
     private onboardingRepo: Repository<OnboardingResponse>,
-    @InjectRepository(Task)
-    private taskRepo: Repository<Task>,
   ) {}
 
   async getDashboardData(userId: string) {
-    const today = new Date().toISOString().slice(0, 10);
-    let smartPlanTasks = await this.taskRepo.find({
-      where: {
-        user_id: userId,
-        is_ai_generated: true,
-        task_date: today,
-      },
+    const onboarding = await this.onboardingRepo.findOne({
+      where: { userId },
+      order: { createdAt: 'DESC' }, // Get latest
     });
-    if (smartPlanTasks.length === 0) {
-      const onboarding = await this.onboardingRepo.findOne({
-        where: { userId },
-        order: { createdAt: 'DESC' },
-      });
 
-      if (!onboarding) throw new Error('No onboarding data found.');
+    if (!onboarding) throw new Error('No onboarding data found.');
 
-      const prompt = this.generatePromptFromOnboarding(onboarding);
+    const prompt = this.generatePromptFromOnboarding(onboarding);
 
-      const model = this.genAI.getGenerativeModel({
-        model: 'models/gemini-2.5-flash',
-      });
+    const model = this.genAI.getGenerativeModel({
+      model: 'models/gemini-2.5-flash',
+    });
 
-      const result = await model.generateContent([{ text: prompt }]);
-      const rawText = result.response.text();
+    const result = await model.generateContent([{ text: prompt }]);
+    const rawText = result.response.text();
+    console.log('🧠 Gemini raw response:', rawText);
 
-      const cleanedText: string = rawText
-        .replace(/^```json/, '')
-        .replace(/^```/, '')
-        .replace(/```$/, '')
-        .trim();
+    const cleanedText: string = rawText
+      .replace(/^```json/, '')
+      .replace(/^```/, '')
+      .replace(/```$/, '')
+      .trim();
+    console.log('🧼 Cleaned Gemini JSON:', cleanedText);
 
-      try {
-        const tasks = JSON.parse(cleanedText);
+    try {
+      const tasks = JSON.parse(cleanedText);
 
-        smartPlanTasks = await this.taskRepo.save(
-          tasks.map((t: any) =>
-            this.taskRepo.create({
-              user_id: userId,
-              title: t.title,
-              status: 'pending',
-              is_ai_generated: true,
-              task_date: today,
-            }),
-          ),
-        );
-      } catch (err) {
-        console.error('Failed to parse Gemini response:', rawText);
-        throw new Error('Invalid Gemini response format');
-      }
+      return {
+        tasks: tasks.map((t: any, i: number) => ({
+          id: i + 1,
+          title: t.title,
+          status: 'pending',
+          is_ai_generated: true,
+        })),
+      };
+    } catch (err) {
+      console.error('Failed to parse Gemini response:', rawText);
+      throw new Error('Invalid Gemini response format');
     }
-    const pendingTasks = await this.taskRepo.find({
-      where: {
-        user_id: userId,
-        is_ai_generated: false,
-        status: 'pending',
-        task_date: MoreThan(today),
-      },
-    });
-    return {
-      tasks: [...smartPlanTasks, ...pendingTasks],
-    };
   }
 
   private generatePromptFromOnboarding(onboarding: OnboardingResponse): string {
