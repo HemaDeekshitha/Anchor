@@ -1,5 +1,7 @@
+"use client";
 import React from "react";
 import styles from "./profile.module.css";
+import LayoutWithSidebar from "../LayoutWithSidebar";
 
 interface Milestone {
   id: string;
@@ -10,34 +12,17 @@ interface Milestone {
 
 const Profile: React.FC = () => {
   const milestones: Milestone[] = [
-    {
-      id: "1",
-      icon: "🎯",
-      text: "Applied to 100 openings in a week",
-      completed: true,
-    },
-    {
-      id: "2",
-      icon: "💧",
-      text: "Practiced DSA 7 days in a row",
-      completed: true,
-    },
-    {
-      id: "3",
-      icon: "⭐",
-      text: "Used AI Coach 5 times",
-      completed: true,
-    },
-    {
-      id: "4",
-      icon: "🏆",
-      text: "Perfect week streak",
-      completed: false,
-    },
+    { id: "1", icon: "🎯", text: "Applied to 100 openings in a week", completed: true },
+    { id: "2", icon: "💧", text: "Practiced DSA 7 days in a row", completed: true },
+    { id: "3", icon: "⭐", text: "Used AI Coach 5 times", completed: true },
+    { id: "4", icon: "🏆", text: "Perfect week streak", completed: false },
   ];
 
   return (
+    <LayoutWithSidebar>
     <div className={styles.profileContainer}>
+     
+
       <div className={styles.profileHeader}>
         {/* <button className={styles.backButton}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -273,6 +258,7 @@ const Profile: React.FC = () => {
         </div>
       </div>
     </div>
+    </LayoutWithSidebar>
   );
 };
 
