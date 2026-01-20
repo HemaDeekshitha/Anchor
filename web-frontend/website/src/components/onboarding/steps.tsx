@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./onboarding.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 // --- DATA ---
 // const roles = [
 //   {
@@ -193,12 +194,13 @@ export default function Steps() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [customInterest, setCustomInterest] = useState<Record<string, string>>(
-    {}
+    {},
   );
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
+  const userId = "user_123";
 
   // --- GLOBAL THEME LOGIC ---
   useEffect(() => {
@@ -308,6 +310,7 @@ export default function Steps() {
     });
 
     formData.append("answers", JSON.stringify(mergedAnswers));
+    formData.append("userId", userId);
 
     try {
       const res = await fetch("http://localhost:3001/onboarding/answers", {
@@ -519,10 +522,15 @@ export default function Steps() {
             ← BACK
           </button>
 
-          <button className={styles.continueBtn} onClick={handleNext}>
-            {activeIndex === roles.length - 1 ? "FINISH" : "CONTINUE"}
-            <span className={styles.btnArrow}>→</span>
-          </button>
+          {activeIndex === roles.length - 1 ? (
+            <Link href="/dashboard" className={styles.continueBtn}>
+              FINISH <span className={styles.btnArrow}>→</span>
+            </Link>
+          ) : (
+            <button className={styles.continueBtn} onClick={handleNext}>
+              CONTINUE <span className={styles.btnArrow}>→</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

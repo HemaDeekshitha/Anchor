@@ -11,6 +11,8 @@ export class OnboardingResponse {
   id: string;
 
   // 👇 Each onboarding answer as its own column
+  @Column({ nullable: true }) // ← TEMP
+  userId: string;
 
   @Column('text', { array: true, nullable: true })
   primaryFocus: string[] | null;

@@ -18,7 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {/* Adds the button to every page automatically */}
-        <ThemeToggle />
+        {/* <ThemeToggle /> */}
 
         {children}
       </body>

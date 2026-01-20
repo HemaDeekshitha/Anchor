@@ -20,6 +20,7 @@ export class OnboardingService {
     };
   }
   async saveAnswers(
+    userId: string,
     file: Express.Multer.File | undefined,
     answers: string,
     resumeText?: string,
@@ -35,6 +36,7 @@ export class OnboardingService {
     const parsed = answers ? JSON.parse(answers) : {};
 
     const entry = this.repo.create({
+      userId,
       primaryFocus: parsed['primary-focus'] || null,
       currentStatus: parsed['current-status'] || null,
       preferredRole: parsed['preferred-role'] || null,
