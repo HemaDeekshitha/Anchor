@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 @Module({
   imports: [
     // 📌 Contact feature module
@@ -11,6 +12,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
     //Adding in health module for testing
     HealthModule,
     OnboardingModule,
+    DashboardModule,
 
     // 📌 Database Connection (TypeORM + PostgreSQL)
     TypeOrmModule.forRoot({

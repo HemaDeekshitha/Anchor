@@ -1,247 +1,239 @@
 /* src/components/dashboard/dashboard.module.css */
 
-/* --- MAIN LAYOUT --- */
+/* --- LAYOUT CONTAINERS --- */
 .container {
-  min-height: 100vh;
-  background-color: #f8f9fd;
   display: flex;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #1f2937;
+  min-height: 100vh;
+  background-color: white;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
 }
 
-/* --- SIDEBAR STYLES --- */
+/* SIDEBAR */
 .sidebar {
   width: 260px;
   background-color: #ffffff;
-  padding: 2rem;
+  border-right: 1px solid #fecdd3;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  flex-shrink: 0;
   position: sticky;
   top: 0;
   height: 100vh;
-  border-right: 1px solid rgba(0,0,0,0.03);
-  z-index: 100; /* High z-index to stay on top */
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.3s ease;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.logoArea {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 3rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #111;
-}
-
-.logoIcon {
-  color: #f75252;
-}
-
-/* Hamburger Button (Hidden on Desktop) */
-.hamburgerBtn {
-  display: none; 
-  background: none;
+/* Collapsed State */
+.sidebarCollapsed {
+  width: 0;
+  padding: 24px 0; /* Keep vertical padding to prevent layout jump */
+  opacity: 0;
   border: none;
-  cursor: pointer;
-  color: #374151;
-  padding: 8px; /* Larger touch target */
 }
 
-.navMenu {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex-grow: 1;
+.brand {
+  display: flex; /* Aligns Icon + Text horizontally */
+  align-items: center; /* Centers them vertically */
+  gap: 12px; /* Space between icon and text */
+
+  margin-bottom: 40px;
+  padding-left: 12px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #be123c;
+  opacity: 1;
+  transition: opacity 0.2s;
 }
 
+.brandIcon {
+  width: 28px; /* Adjust size as needed */
+  height: 28px;
+  object-fit: contain;
+}
+/* Nav Items */
 .navItem {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  color: #6b7280;
-  font-weight: 500;
+  gap: 12px;
+  padding: 12px 16px;
+  color: #713f12;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  text-decoration: none;
+  margin-bottom: 8px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .navItem:hover {
-  background-color: #f9fafb;
-  color: #374151;
+  background-color: #fff1f2;
+  color: #be123c;
 }
 
-/* ACTIVE STATE */
 .navItemActive {
-  background-color: #fff5f5;
-  color: #f75252;
-  font-weight: 600;
+  background-color: #ffe4e6;
+  color: #be123c;
 }
 
-.navItemActive::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 60%;
-  width: 4px;
-  background-color: #f75252;
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-}
-
-.navIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-}
-
-/* Mobile Only Items (Hidden on Desktop) */
-.mobileOnly {
-  display: none;
-}
-
-.sidebarFooter {
-  margin-top: auto;
-}
-
-.miniAvatar {
-  width: 36px;
-  height: 36px;
-  background-color: #1f2937;
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-/* --- MAIN CONTENT AREA --- */
+/* MAIN CONTENT */
 .mainContent {
-  flex-grow: 1;
-  padding: 2rem;
+  flex: 1;
+  padding: 40px;
   overflow-y: auto;
-  height: 100vh;
+  transition: margin 0.3s ease;
 }
 
-.wrapper {
-  max-width: 1000px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* --- HEADER --- */
+/* --- HEADER (Fixed Alignment) --- */
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  align-items: flex-start; /* Aligns items to top so button matches Title */
+  margin-bottom: 40px;
 }
 
-.greeting h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin: 0 0 0.25rem 0;
-  color: #111;
+.headerLeft {
+  display: flex;
+  align-items: flex-start; /* Aligns icon with the top line of text */
+  gap: 16px;
 }
 
-.subGreeting {
-  color: #6b7280;
-  font-size: 0.95rem;
-  margin: 0;
-}
-
-.profileSection {
+/* The Menu Button - Fixed Square Size */
+.menuBtn {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-content: center;
+  width: 40px; /* Fixed width */
+  height: 40px; /* Fixed height */
+  background: white;
+  border: 1px solid #fecdd3; /* Subtle border to define area */
+  border-radius: 8px;
+  cursor: pointer;
+  color: #881337;
+  transition: all 0.2s;
+  flex-shrink: 0; /* Prevents button from squishing */
+  margin-top: 2px; /* Micro-adjustment to align exactly with H1 text baseline */
 }
 
-.streakBadge {
+.menuBtn:hover {
+  background-color: #ffe4e6;
+  border-color: #fb7185;
+}
+
+.welcomeText h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #4c0519;
+  margin: 0 0 4px 0;
+  line-height: 1.2; /* Ensures text height is predictable */
+}
+
+.dateText {
+  color: #9f1239;
+  font-size: 14px;
+}
+
+.headerActions {
   display: flex;
+  gap: 16px;
   align-items: center;
-  gap: 6px;
-  background-color: #ffffff;
-  padding: 8px 16px;
-  border-radius: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #374151;
 }
 
-.flameIcon { color: #f75252; }
+.notificationBtn {
+  padding: 10px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(251, 113, 133, 0.2);
+  cursor: pointer;
+}
 
-/* --- PROGRESS SECTION --- */
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #fb7185;
+}
+
+/* --- PROGRESS BAR --- */
 .progressCard {
-  background-color: white;
+  background: white;
+  padding: 24px;
   border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 2.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  border: 1px solid #e5e7eb;
+  border: 1px solid #fecdd3;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 12px rgba(251, 113, 133, 0.05);
 }
 
 .progressHeader {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #374151;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #881337;
 }
 
-.progressLabel { color: #6b7280; }
-.statusText { color: #f75252; font-weight: 600; }
-
-.progressBarContainer {
-  width: 100%;
+.progressBarBg {
   height: 12px;
-  background-color: #ffe5e5;
+  background-color: #ffe4e6;
   border-radius: 6px;
   overflow: hidden;
 }
 
-.progressBarFill {
+.progressFill {
   height: 100%;
-  background-color: #f75252;
+  background: linear-gradient(90deg, #f59e0b, #e11d48);
   border-radius: 6px;
-  transition: width 0.3s ease;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* --- SMART PLAN SECTION --- */
-.planSection {
+/* --- GRID & TASKS --- */
+.gridContainer {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 48px;
 }
 
-.planTitle {
+@media (max-width: 1024px) {
+  .gridContainer {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #881337;
+  margin: 0 0 20px 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  gap: 10px;
 }
 
-.planIcon { color: #f75252; }
+.aiBadge {
+  background-color: #ffe4e6;
+  color: #be123c;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 .taskCard {
   background-color: white;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #fecdd3;
   border-radius: 12px;
-  padding: 1rem 1.25rem;
+  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -249,227 +241,79 @@
   transition: all 0.2s ease;
 }
 
-.taskList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem; /* Adds space between the cards */
-  width: 100%;
-}
-
 .taskCard:hover {
-  border-color: #f75252;
-  box-shadow: 0 4px 6px rgba(247, 82, 82, 0.1);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(190, 18, 60, 0.1);
+  border-color: #fb7185;
 }
 
-.activeCard {
-  border-color: #f75252;
-  background-color: #fffafa;
+.taskLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.taskLeft { display: flex; align-items: center; gap: 1rem; }
-
-.radioCircle {
+.checkbox {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 2px solid #d1d5db;
-  transition: border-color 0.2s;
-}
-
-.taskCard:hover .radioCircle { border-color: #f75252; }
-.taskText { font-size: 1rem; font-weight: 500; color: #1f2937; }
-.chevron { color: #9ca3af; }
-
-/* --- OTHER SECTIONS --- */
-.sectionHeading {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-top: 2.5rem;
-  margin-bottom: 1rem;
-  color: #111;
-}
-
-.toggleContainer {
-  background-color: #f3f4f6;
-  border-radius: 50px;
-  padding: 4px;
+  border: 2px solid #fda4af;
   display: flex;
-  margin-bottom: 1rem;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.toggleButton {
-  flex: 1;
-  padding: 8px 16px;
-  border-radius: 50px;
-  border: none;
-  background: transparent;
-  color: #6b7280;
+.completed .checkbox {
+  background-color: #e11d48;
+  border-color: #e11d48;
+}
+
+.taskTitle {
   font-weight: 500;
+  color: #4a044e;
+  font-size: 16px;
+}
+
+.completed .taskTitle {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+/* PENDING RED BOXES */
+.pendingTaskCard {
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-bottom: 16px;
 }
 
-.toggleButtonActive {
-  background-color: white;
-  color: #1f2937;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+.pendingTaskCard:hover {
+  transform: translateY(-2px);
+  background-color: #fecaca;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+}
+
+.pendingTitle {
+  font-weight: 600;
+  color: #991b1b;
+  font-size: 16px;
+}
+
+.pendingDate {
+  font-size: 12px;
+  color: #be123c;
+  margin-top: 4px;
+  display: block;
   font-weight: 600;
 }
 
-.emptyStateCard {
-  background-color: white;
-  border: 1px dashed #e5e7eb;
-  border-radius: 16px;
-  padding: 2rem 1.5rem;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.emptyStateText { color: #4b5563; font-size: 0.95rem; }
-.emptyStateActions { display: flex; gap: 1rem; justify-content: center; }
-
-.actionButton {
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  padding: 0.6rem 1.5rem;
-  border-radius: 50px;
-  color: #f75252;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  flex: 1;
-  max-width: 200px;
-  transition: background 0.2s;
-}
-
-.actionButton:hover { background-color: #fff5f5; }
-
-.rewardsCard {
-  background: linear-gradient(to bottom, #ffd1cc, #ffb3b3);
-  border-radius: 20px;
-  padding: 1.5rem;
-  color: #374151;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 10px 20px rgba(255, 179, 179, 0.25);
-}
-
-.rewardsHeader { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
-.pointsTitle { font-size: 0.9rem; opacity: 0.8; font-weight: 600; margin-bottom: 0.25rem; display: block; }
-.pointsValue { font-size: 2rem; font-weight: 800; line-height: 1; color: #f75252; }
-.pointsValue span { font-size: 1rem; font-weight: 600; opacity: 0.8; margin-left: 4px; color: #374151; }
-.pointsBadge { background-color: rgba(255, 255, 255, 0.5); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #f75252; }
-
-.redeemBar {
-  background-color: rgba(255, 255, 255, 0.6);
-  color: #f75252;
-  border-radius: 50px;
-  padding: 12px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  margin-bottom: 1.5rem;
-  transition: transform 0.2s;
-}
-
-.redeemBar:hover { background-color: rgba(255, 255, 255, 0.8); transform: translateY(-2px); }
-
-.tiersGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
-.tierItem { background-color: rgba(255, 255, 255, 0.4); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; text-align: center; }
-.tierLock { opacity: 0.6; color: #f75252; }
-.tierPoints { font-size: 0.75rem; font-weight: 600; opacity: 0.8; }
-
-.moodGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 3rem; }
-.moodCard { background-color: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; cursor: pointer; transition: all 0.2s ease; }
-.moodCard:hover { border-color: #f75252; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(247, 82, 82, 0.1); }
-.moodEmoji { font-size: 2rem; }
-.moodLabel { font-size: 0.95rem; font-weight: 500; color: #374151; }
-
-/* --- RESPONSIVE ADJUSTMENTS --- */
-
-/* Mobile & Tablet Header */
-@media (max-width: 900px) {
-  .container {
-    flex-direction: column; 
-  }
-  
-  .sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 1rem 1.5rem;
-    flex-direction: row; 
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-  }
-  
-  .logoArea {
-    margin-bottom: 0; 
-  }
-
-  /* Show Hamburger */
-  .hamburgerBtn {
-    display: block; 
-  }
-
-  /* Hide Footer Avatar */
-  .sidebarFooter {
-    display: none; 
-  }
-
-  /* Mobile Dropdown Menu */
-  .navMenu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    background-color: white;
-    padding: 1rem 1.5rem 1.5rem 1.5rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    border-bottom: 1px solid #e5e7eb;
-    
-    display: none; /* Hidden by default */
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  /* Class to show menu when open */
-  .navMenu.open {
-    display: flex;
-  }
-
-  /* Show Account link in hamburger */
-  .mobileOnly {
-    display: flex; 
-  }
-  
-  .mainContent {
-    height: auto;
-    padding: 1.5rem 1rem;
-  }
-}
-
-/* Small Screens */
-@media (max-width: 600px) {
-  .emptyStateActions { 
-    flex-direction: column; 
-    width: 100%;
-  }
-
-  /* Make buttons full width so they align perfectly */
-  .actionButton {
-    width: 100%;
-    max-width: none; 
-    text-align: center;
-  }
-  
-  .moodGrid { grid-template-columns: 1fr; }
-  .tiersGrid { gap: 0.5rem; }
+.redArrow {
+  color: #ef4444;
 }

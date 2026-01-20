@@ -21,9 +21,15 @@ export class OnboardingController {
   @UseInterceptors(FileInterceptor('resume'))
   async submitAnswers(
     @UploadedFile() file: Express.Multer.File,
+    @Body('userId') userId: string,
     @Body('answers') answers: string,
     @Body('resumeText') resumeText?: string,
   ) {
-    return this.onboardingService.saveAnswers(file, answers, resumeText);
+    return this.onboardingService.saveAnswers(
+      userId,
+      file,
+      answers,
+      resumeText,
+    );
   }
 }
