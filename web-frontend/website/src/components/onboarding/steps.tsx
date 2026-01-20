@@ -523,9 +523,15 @@ export default function Steps() {
           </button>
 
           {activeIndex === roles.length - 1 ? (
-            <Link href="/dashboard" className={styles.continueBtn}>
+            <button
+              className={styles.continueBtn}
+              onClick={async () => {
+                await submitHandler(); // call submit
+                router.push("/dashboard"); // then go to dashboard
+              }}
+            >
               FINISH <span className={styles.btnArrow}>→</span>
-            </Link>
+            </button>
           ) : (
             <button className={styles.continueBtn} onClick={handleNext}>
               CONTINUE <span className={styles.btnArrow}>→</span>

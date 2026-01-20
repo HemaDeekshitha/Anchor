@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import styles from "./dashboard.module.css";
+import Link from "next/link";
 
 interface Task {
   id: number;
@@ -45,7 +46,7 @@ const Dashboard = () => {
       const res = await fetch("http://localhost:3001/dashboard/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "user_test01" }),
+        body: JSON.stringify({ userId: "user_123" }),
       });
 
       const data = await res.json();
@@ -120,10 +121,10 @@ const Dashboard = () => {
             <Trophy size={20} />
             <span>Rewards</span>
           </div>
-          <div className={styles.navItem}>
+          <Link href="/profile" className={styles.navItem}>
             <User size={20} />
             <span>Profile</span>
-          </div>
+          </Link>
         </nav>
       )}
 
@@ -139,7 +140,7 @@ const Dashboard = () => {
             <div className={styles.welcomeText}>
               <h1>Hello, Alex 👋</h1>
               <span className={styles.dateText}>
-                {new Date().toDateString()} • "Let's make today count!"
+                {new Date().toDateString()} • "Passion fuels purpose."
               </span>
             </div>
           </div>
@@ -168,7 +169,7 @@ const Dashboard = () => {
           >
             <Loader2 className="animate-spin" size={40} />
             <span style={{ marginLeft: "10px", marginTop: "8px" }}>
-              {/* Generating your AI Plan... */}
+              Generating your AI Plan...
             </span>
           </div>
         ) : (

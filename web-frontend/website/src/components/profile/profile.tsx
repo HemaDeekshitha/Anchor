@@ -1,5 +1,5 @@
-import React from 'react';
-import styles from './profile.module.css';
+import React from "react";
+import styles from "./profile.module.css";
 
 interface Milestone {
   id: string;
@@ -11,27 +11,27 @@ interface Milestone {
 const Profile: React.FC = () => {
   const milestones: Milestone[] = [
     {
-      id: '1',
-      icon: '🎯',
-      text: 'Applied to 100 openings in a week',
+      id: "1",
+      icon: "🎯",
+      text: "Applied to 100 openings in a week",
       completed: true,
     },
     {
-      id: '2',
-      icon: '💧',
-      text: 'Practiced DSA 7 days in a row',
+      id: "2",
+      icon: "💧",
+      text: "Practiced DSA 7 days in a row",
       completed: true,
     },
     {
-      id: '3',
-      icon: '⭐',
-      text: 'Used AI Coach 5 times',
+      id: "3",
+      icon: "⭐",
+      text: "Used AI Coach 5 times",
       completed: true,
     },
     {
-      id: '4',
-      icon: '🏆',
-      text: 'Perfect week streak',
+      id: "4",
+      icon: "🏆",
+      text: "Perfect week streak",
       completed: false,
     },
   ];
@@ -39,11 +39,11 @@ const Profile: React.FC = () => {
   return (
     <div className={styles.profileContainer}>
       <div className={styles.profileHeader}>
-        <button className={styles.backButton}>
+        {/* <button className={styles.backButton}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
             <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" />
           </svg>
-        </button>
+        </button> */}
         <h1 className={styles.profileTitle}>Profile</h1>
       </div>
 
@@ -81,7 +81,10 @@ const Profile: React.FC = () => {
           </div>
           <div className={styles.syncStatus}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="#10b981">
-              <path fillRule="evenodd" d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z" />
+              <path
+                fillRule="evenodd"
+                d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"
+              />
             </svg>
             <span className={styles.synced}>Synced</span>
           </div>
@@ -125,8 +128,17 @@ const Profile: React.FC = () => {
               <div className={styles.milestoneIcon}>{milestone.icon}</div>
               <div className={styles.milestoneText}>{milestone.text}</div>
               {milestone.completed && (
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="#10b981" className={styles.checkIcon}>
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="#10b981"
+                  className={styles.checkIcon}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  />
                 </svg>
               )}
             </div>
@@ -195,20 +207,35 @@ const Profile: React.FC = () => {
           </div>
 
           <div className={styles.progressBar}>
-            <div className={styles.progressFill} style={{ width: '72%' }}></div>
+            <div className={styles.progressFill} style={{ width: "72%" }}></div>
           </div>
 
           <div className={styles.taskStats}>
             <div className={styles.taskStat}>
-              <div className={styles.taskStatValue} style={{ color: '#10b981' }}>18</div>
+              <div
+                className={styles.taskStatValue}
+                style={{ color: "#10b981" }}
+              >
+                18
+              </div>
               <div className={styles.taskStatLabel}>Completed</div>
             </div>
             <div className={styles.taskStat}>
-              <div className={styles.taskStatValue} style={{ color: '#f59e0b' }}>5</div>
+              <div
+                className={styles.taskStatValue}
+                style={{ color: "#f59e0b" }}
+              >
+                5
+              </div>
               <div className={styles.taskStatLabel}>Pending</div>
             </div>
             <div className={styles.taskStat}>
-              <div className={styles.taskStatValue} style={{ color: '#6b7280' }}>2</div>
+              <div
+                className={styles.taskStatValue}
+                style={{ color: "#6b7280" }}
+              >
+                2
+              </div>
               <div className={styles.taskStatLabel}>Skipped</div>
             </div>
           </div>
@@ -221,10 +248,22 @@ const Profile: React.FC = () => {
         <div className={styles.moodCard}>
           <div className={styles.moodIcon}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="#10b981">
-              <circle cx="12" cy="12" r="10" stroke="#10b981" strokeWidth="2" fill="none"/>
-              <path d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14" stroke="#10b981" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="9" cy="9" r="1" fill="#10b981"/>
-              <circle cx="15" cy="9" r="1" fill="#10b981"/>
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="#10b981"
+                strokeWidth="2"
+                fill="none"
+              />
+              <path
+                d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14"
+                stroke="#10b981"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <circle cx="9" cy="9" r="1" fill="#10b981" />
+              <circle cx="15" cy="9" r="1" fill="#10b981" />
             </svg>
           </div>
           <div className={styles.moodInfo}>
