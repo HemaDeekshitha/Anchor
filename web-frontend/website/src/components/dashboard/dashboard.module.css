@@ -37,24 +37,26 @@
 }
 
 .brand {
-  display: flex; /* Aligns Icon + Text horizontally */
-  align-items: center; /* Centers them vertically */
-  gap: 12px; /* Space between icon and text */
-
-  margin-bottom: 40px;
-  padding-left: 12px;
-  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 1rem;
+  font-size: 1.25rem;
   font-weight: bold;
+  color: #111827;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.brand:hover {
   color: #be123c;
-  opacity: 1;
-  transition: opacity 0.2s;
 }
 
 .brandIcon {
-  width: 28px; /* Adjust size as needed */
+  width: 28px;
   height: 28px;
-  object-fit: contain;
 }
+
 /* Nav Items */
 .navItem {
   display: flex;

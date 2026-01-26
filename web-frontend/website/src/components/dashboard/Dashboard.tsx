@@ -1,10 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import {
-  Check,
-  ChevronRight,
-  Loader2,
-} from "lucide-react";
+import { Check, ChevronRight, Loader2 } from "lucide-react";
 import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../LayoutWithSidebar"; // ✅ new wrapper
 
@@ -52,20 +48,46 @@ const Dashboard = () => {
   const toggleTask = (id: number) => {
     setSmartPlan((prev) =>
       prev.map((t) =>
-        t.id === id ? { ...t, status: t.status === "completed" ? "pending" : "completed" } : t
-      )
+        t.id === id
+          ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
+          : t,
+      ),
     );
   };
 
-  const completedCount = smartPlan.filter((t) => t.status === "completed").length;
-  const progress = smartPlan.length > 0 ? Math.round((completedCount / smartPlan.length) * 100) : 0;
+  const completedCount = smartPlan.filter(
+    (t) => t.status === "completed",
+  ).length;
+  const progress =
+    smartPlan.length > 0
+      ? Math.round((completedCount / smartPlan.length) * 100)
+      : 0;
 
   return (
     <LayoutWithSidebar>
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <div className={styles.welcomeText}>
+            <h1>Hello, Alex 👋</h1>
+            <span className={styles.dateText}>
+              {new Date().toDateString()} • "Keep pushing!"
+            </span>
+          </div>
+        </div>
+      </header>
       {isLoading ? (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "50px", color: "#be123c" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "50px",
+            color: "#be123c",
+          }}
+        >
           <Loader2 className="animate-spin" size={40} />
-          <span style={{ marginLeft: "10px", marginTop: "8px" }}>Generating your AI Plan...</span>
+          <span style={{ marginLeft: "10px", marginTop: "8px" }}>
+            Generating your AI Plan...
+          </span>
         </div>
       ) : (
         <>
@@ -76,7 +98,10 @@ const Dashboard = () => {
               <span style={{ color: "#be123c" }}>{progress}%</span>
             </div>
             <div className={styles.progressBarBg}>
-              <div className={styles.progressFill} style={{ width: `${progress}%` }}></div>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${progress}%` }}
+              ></div>
             </div>
           </section>
 
@@ -100,14 +125,18 @@ const Dashboard = () => {
                   >
                     <div className={styles.taskLeft}>
                       <div className={styles.checkbox}>
-                        {task.status === "completed" && <Check size={14} color="white" />}
+                        {task.status === "completed" && (
+                          <Check size={14} color="white" />
+                        )}
                       </div>
                       <span className={styles.taskTitle}>{task.title}</span>
                     </div>
                     <ChevronRight size={20} color="#fb7185" />
                   </div>
                 ))}
-                {smartPlan.length === 0 && <p style={{ color: "#888" }}>No plan generated yet.</p>}
+                {smartPlan.length === 0 && (
+                  <p style={{ color: "#888" }}>No plan generated yet.</p>
+                )}
               </div>
             </section>
 
@@ -120,17 +149,26 @@ const Dashboard = () => {
                     <div className={styles.taskLeft}>
                       <div
                         className={styles.checkbox}
-                        style={{ borderColor: "#ef4444", backgroundColor: "white" }}
+                        style={{
+                          borderColor: "#ef4444",
+                          backgroundColor: "white",
+                        }}
                       ></div>
                       <div>
-                        <span className={styles.pendingTitle}>{task.title}</span>
-                        <span className={styles.pendingDate}>{task.date || "Overdue"}</span>
+                        <span className={styles.pendingTitle}>
+                          {task.title}
+                        </span>
+                        <span className={styles.pendingDate}>
+                          {task.date || "Overdue"}
+                        </span>
                       </div>
                     </div>
                     <ChevronRight size={20} className={styles.redArrow} />
                   </div>
                 ))}
-                {pendingTasks.length === 0 && <p style={{ color: "#888" }}>No pending tasks!</p>}
+                {pendingTasks.length === 0 && (
+                  <p style={{ color: "#888" }}>No pending tasks!</p>
+                )}
               </div>
             </section>
           </div>

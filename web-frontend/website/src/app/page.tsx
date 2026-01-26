@@ -11,15 +11,17 @@ export default function WelcomePage() {
           <div className={styles.heroRow}>
             {/* THE WHITE "CUT BOX" */}
             <div className={styles.whiteCard}>
-              <h1 className={styles.title}>Your new dedicated growth team</h1>
+              <h1 className={styles.title}>
+                Anchor - it's the clarity you deserve
+              </h1>
               <p className={styles.subtitle}>
-                We act as an extension of your team, providing the marketing and
-                creative expertise you need to scale and drive results.
+                Plans your day, tracks real applications, and prepares you for
+                interviews — all in one place
               </p>
 
               {/* Button inside the white space */}
               <Link href="/steps" className={styles.ctaButton}>
-                Let's talk
+                Start Today
               </Link>
             </div>
 
