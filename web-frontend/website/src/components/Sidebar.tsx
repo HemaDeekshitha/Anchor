@@ -2,13 +2,8 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  ListTodo,
-  Trophy,
-  User,
-} from "lucide-react";
-import styles from "./dashboard/dashboard.module.css"; // Adjust the path based on your folder structure
+import { ListTodo, Trophy, User } from "lucide-react";
+import styles from "./dashboard/dashboard.module.css";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -24,23 +19,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, hasMounted }) => {
         !isSidebarOpen ? styles.sidebarCollapsed : ""
       }`}
     >
-      <div className={styles.brand}>
-        <img src="/assets/logo.png" alt="Anchor Logo" className={styles.brandIcon} />
+      {/* ✅ Brand Logo links to /dashboard */}
+      <Link href="/dashboard" className={styles.brand}>
+        <img
+          src="/assets/logo.png"
+          alt="Anchor Logo"
+          className={styles.brandIcon}
+        />
         <span>Anchor</span>
-      </div>
+      </Link>
 
-      <div className={`${styles.navItem} ${styles.navItemActive}`}>
-        <LayoutDashboard size={20} />
-        <span>Dashboard</span>
-      </div>
+      {/* ✅ Removed Dashboard nav item */}
+
       <div className={styles.navItem}>
         <ListTodo size={20} />
         <span>My Plan</span>
       </div>
+
       <div className={styles.navItem}>
         <Trophy size={20} />
         <span>Rewards</span>
       </div>
+
       <Link href="/profile" className={styles.navItem}>
         <User size={20} />
         <span>Profile</span>

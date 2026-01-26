@@ -1,7 +1,8 @@
+// components/LayoutWithSidebar.tsx
 "use client";
 import React, { useEffect, useState } from "react";
-import Sidebar from "./Sidebar"; // Path as per your structure
-import styles from "./dashboard/dashboard.module.css"; // Using global layout styles
+import Sidebar from "./Sidebar";
+import styles from "./dashboard/dashboard.module.css";
 
 const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -23,19 +24,13 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
     <div className={styles.container}>
       <Sidebar isSidebarOpen={isSidebarOpen} hasMounted={hasMounted} />
       <main className={styles.mainContent}>
-        <header className={styles.header}>
-          <div className={styles.headerLeft}>
-            <button className={styles.menuBtn} onClick={handleToggle}>
-              ☰
-            </button>
-            <div className={styles.welcomeText}>
-              <h1>Hello, Alex 👋</h1>
-              <span className={styles.dateText}>
-                {new Date().toDateString()} • "Keep pushing!"
-              </span>
-            </div>
-          </div>
-        </header>
+        {/* 🔁 Only retains toggle button; no greeting */}
+        <div className={styles.header}>
+          <button className={styles.menuBtn} onClick={handleToggle}>
+            ☰
+          </button>
+        </div>
+
         {children}
       </main>
     </div>
