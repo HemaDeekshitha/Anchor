@@ -3,23 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import { ListTodo, Trophy, User } from "lucide-react";
-import styles from "./dashboard/dashboard.module.css";
+import styles from "./style.module.css";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
-  hasMounted: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, hasMounted }) => {
-  if (!hasMounted) return null;
-
+const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen }) => {
   return (
     <nav
-      className={`${styles.sidebar} ${
-        !isSidebarOpen ? styles.sidebarCollapsed : ""
-      }`}
+      className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ""}`}
     >
-      {/* ✅ Brand Logo links to /dashboard */}
       <Link href="/dashboard" className={styles.brand}>
         <img
           src="/assets/logo.png"
@@ -28,8 +22,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, hasMounted }) => {
         />
         <span>Anchor</span>
       </Link>
-
-      {/* ✅ Removed Dashboard nav item */}
 
       <div className={styles.navItem}>
         <ListTodo size={20} />
