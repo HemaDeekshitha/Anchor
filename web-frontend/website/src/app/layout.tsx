@@ -1,12 +1,15 @@
 import "./globals.css";
-import { Inter } from "next/font/google"; // Or your font
-import ThemeToggle from "@/components/ThemeToggle"; // <--- Import it
+import { Inter } from "next/font/google";
+// import ThemeToggle from "@/components/ThemeToggle";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "My Responsive App",
-  description: "Built with Next.js",
+  title: "Anchor",
+  description: "Anchor – stay grounded, one step at a time",
+  icons: {
+    icon: "/favicon.ico", // ✅ Uses src/app/favicon.ico
+  },
 };
 
 export default function RootLayout({
@@ -17,9 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* Adds the button to every page automatically */}
         {/* <ThemeToggle /> */}
-
         {children}
       </body>
     </html>
