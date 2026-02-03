@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import styles from "./profile.module.css";
-import LayoutWithSidebar from "../LayoutWithSidebar";
+import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 
 interface Milestone {
   id: string;
@@ -120,7 +120,9 @@ const Profile: React.FC = () => {
             {milestones.map((milestone) => (
               <div
                 key={milestone.id}
-                className={`${styles.milestoneItem} ${milestone.completed ? styles.completed : styles.locked}`}
+                className={`${styles.milestoneItem} ${
+                  milestone.completed ? styles.completed : styles.locked
+                }`}
               >
                 <div className={styles.milestoneIcon}>{milestone.icon}</div>
                 <div className={styles.milestoneText}>{milestone.text}</div>

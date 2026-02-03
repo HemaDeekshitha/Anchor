@@ -4,6 +4,7 @@ import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { RagModule } from './rag/rag.module';
 @Module({
   imports: [
     // 📌 Contact feature module
@@ -29,6 +30,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
           ? { rejectUnauthorized: false }
           : false,
     }),
+
+    RagModule,
   ],
 })
 export class AppModule {}
