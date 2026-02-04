@@ -1,97 +1,282 @@
 "use client";
 
-import styles from "./page.module.css";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import {
+  Box,
+  Stack,
+  TextField,
+  Button,
+  Typography,
+  Divider,
+  Paper,
+} from "@mui/material";
 
-// Reuse the same Anchor logo
+// Images
 import anchorLogo from "../login/images/favicon.ico";
 import googleIcon from "../login/images/google.png";
 import linkedinIcon from "../login/images/linkedin.png";
 import githubIcon from "../login/images/github.png";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
-  return (
-    <div className={styles.wrapper}>
-      {/* LEFT PANEL */}
-      <div className={styles.left}>
-        <div className={`${styles.brand} ${styles.brandAnim}`}>
-          <Image
-            src={anchorLogo}
-            alt="Anchor logo"
-            width={48}
-            height={48}
-            priority
-          />
-          <h1>Anchor</h1>
-        </div>
+  // 🔹 form state
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
 
-        <h2 className={styles.headingAnim}>Create your account</h2>
-        <h4 className={styles.subHeadingAnim}>
-          Start building better habits and staying consistent.
-        </h4>
-      </div>
+  const [touched, setTouched] = useState({
+    name: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+
+  const router = useRouter();
+
+  // 🔹 helpers
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const nameError = touched.name && !form.name;
+
+  const emailError =
+    touched.email && (!form.email || !isValidEmail(form.email));
+
+  const passwordError = touched.password && form.password.length < 6;
+
+  const confirmPasswordError =
+    touched.confirmPassword &&
+    (!form.confirmPassword || form.confirmPassword !== form.password);
+
+  const isFormValid =
+    form.name &&
+    isValidEmail(form.email) &&
+    form.password.length >= 6 &&
+    form.password === form.confirmPassword;
+
+  const handleChange = (field: string) => (e: { target: { value: any } }) => {
+    setForm({ ...form, [field]: e.target.value });
+  };
+
+  const handleBlur = (field: string) => () => {
+    setTouched({ ...touched, [field]: true });
+  };
+
+  const handleSignup = async () => {
+    if (!isFormValid) return;
+
+    setLoading(true);
+    setApiError("");
+
+    try {
+      const res = await fetch(`http://localhost:3001/auth/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Signup failed");
+      }
+
+      // ✅ Success → go to login
+      router.push("/login");
+    } catch (err: any) {
+      setApiError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box
+      minHeight="100vh"
+      display="flex"
+      flexDirection={{ xs: "column", md: "row" }}
+    >
+      {/* LEFT PANEL */}
+      <Box
+        flex={1}
+        bgcolor="#ff7a5c"
+        color="#3b1d16"
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        px={4}
+        py={6}
+      >
+        <Stack spacing={2} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Image src={anchorLogo} alt="Anchor logo" width={48} height={48} />
+            <Typography variant="h4">Anchor</Typography>
+          </Stack>
+
+          <Typography variant="h5" fontWeight={600}>
+            Create your account
+          </Typography>
+
+          <Typography textAlign="center">
+            Start building better habits and staying consistent.
+          </Typography>
+        </Stack>
+      </Box>
 
       {/* RIGHT PANEL */}
-      <div className={styles.right}>
-        <div className={styles.card}>
-          <h3>Create an account</h3>
-          <p className={styles.subtitle}>It takes less than a minute</p>
+      <Box
+        flex={1}
+        bgcolor="white"
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        px={2}
+        py={6}
+      >
+        <Paper elevation={3} sx={{ width: "100%", maxWidth: 420, p: 4 }}>
+          <Stack spacing={2.5}>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Create an account
+              </Typography>
+              <Typography color="text.secondary">
+                It takes less than a minute
+              </Typography>
+            </Box>
 
-          <input
-            type="text"
-            placeholder="Full name"
-            className={styles.input}
-          />
+            {/* FULL NAME */}
+            <TextField
+              label="Full name"
+              fullWidth
+              value={form.name}
+              onChange={handleChange("name")}
+              onBlur={handleBlur("name")}
+              error={nameError}
+              helperText={nameError ? "Full name is required" : " "}
+            />
 
-          <input
-            type="email"
-            placeholder="Email address"
-            className={styles.input}
-          />
+            {/* EMAIL */}
+            <TextField
+              label="Email address"
+              type="email"
+              fullWidth
+              value={form.email}
+              onChange={handleChange("email")}
+              onBlur={handleBlur("email")}
+              error={emailError}
+              helperText={
+                emailError
+                  ? !form.email
+                    ? "Email is required"
+                    : "Enter a valid email"
+                  : " "
+              }
+            />
 
-          <input
-            type="password"
-            placeholder="Password"
-            className={styles.input}
-          />
+            {/* PASSWORD */}
+            <TextField
+              label="Password"
+              type="password"
+              fullWidth
+              value={form.password}
+              onChange={handleChange("password")}
+              onBlur={handleBlur("password")}
+              error={passwordError}
+              helperText={
+                passwordError ? "Password must be at least 6 characters" : " "
+              }
+            />
 
-          <input
-            type="password"
-            placeholder="Confirm password"
-            className={styles.input}
-          />
+            {/* CONFIRM PASSWORD */}
+            <TextField
+              label="Confirm password"
+              type="password"
+              fullWidth
+              value={form.confirmPassword}
+              onChange={handleChange("confirmPassword")}
+              onBlur={handleBlur("confirmPassword")}
+              error={confirmPasswordError}
+              helperText={confirmPasswordError ? "Passwords do not match" : " "}
+            />
 
-          <button className={styles.primary}>Sign up</button>
+            {/* SIGN UP BUTTON */}
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              disabled={!isFormValid}
+              sx={{ opacity: isFormValid ? 1 : 0.6 }}
+              onClick={handleSignup}
+            >
+              {loading ? "Creating account..." : "Sign up"}
+            </Button>
+            {apiError && (
+              <Typography color="error" textAlign="center">
+                {apiError}
+              </Typography>
+            )}
 
-          <div className={styles.divider}>
-            <span>OR</span>
-          </div>
+            <Divider>OR</Divider>
 
-           {/* SOCIAL LOGIN */}
-          <button className={styles.socialGoogle}>
-            <Image src={googleIcon} alt="Google" width={20} height={20} />
-            Continue with Google
-          </button>
+            {/* SOCIAL LOGIN */}
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={
+                <Image src={googleIcon} alt="Google" width={20} height={20} />
+              }
+            >
+              Continue with Google
+            </Button>
 
-          <div className={styles.socialRow}>
-            <button className={styles.socialSmall}>
-              <Image src={linkedinIcon} alt="LinkedIn" width={22} height={22} />
-              Continue with LinkedIn
-            </button>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={
+                  <Image
+                    src={linkedinIcon}
+                    alt="LinkedIn"
+                    width={22}
+                    height={22}
+                  />
+                }
+              >
+                LinkedIn
+              </Button>
 
-            <button className={styles.socialSmall}>
-              <Image src={githubIcon} alt="GitHub" width={22} height={22} />
-              Continue with GitHub
-            </button>
-          </div>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={
+                  <Image src={githubIcon} alt="GitHub" width={22} height={22} />
+                }
+              >
+                GitHub
+              </Button>
+            </Stack>
 
-          <p className={styles.login}>
-            Already have an account?{" "}
-            <Link href="/login">Log in</Link>
-          </p>
-        </div>
-      </div>
-    </div>
+            <Typography textAlign="center">
+              Already have an account? <Link href="/login">Log in</Link>
+            </Typography>
+          </Stack>
+        </Paper>
+      </Box>
+    </Box>
   );
 }
