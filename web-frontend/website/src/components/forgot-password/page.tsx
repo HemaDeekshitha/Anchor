@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 // ✅ import image from same folder
-import anchorLogo from "./images/favicon.ico";
+import anchorLogo from "../../../public/assets/logo.png";
 
 export default function ForgotPasswordPage() {
   return (
@@ -29,15 +29,9 @@ export default function ForgotPasswordPage() {
           Enter your email and we’ll send you a reset link.
         </p>
 
-        <input
-          type="email"
-          placeholder="Your email"
-          className={styles.input}
-        />
+        <input type="email" placeholder="Your email" className={styles.input} />
 
-        <button className={styles.primary}>
-          Send reset link
-        </button>
+        <button className={styles.primary}>Send reset link</button>
 
         <Link href="/login" className={styles.back}>
           ← Back to login

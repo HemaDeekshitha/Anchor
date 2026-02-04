@@ -14,8 +14,8 @@ import {
 } from "@mui/material";
 
 // Images
-import anchorLogo from "../login/images/favicon.ico";
-import googleIcon from "../login/images/google.png";
+import anchorLogo from "../../../public/assets/logo.png";
+import googleIcon from "../../../public/assets/images/google.png";
 import linkedinIcon from "../login/images/linkedin.png";
 import githubIcon from "../login/images/github.png";
 import { useRouter } from "next/navigation";

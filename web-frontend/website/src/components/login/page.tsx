@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-// import Link from "next/link";
+
 import Image from "next/image";
 import {
   Box,
@@ -17,8 +17,9 @@ import {
 } from "@mui/material";
 
 // Images
-import anchorLogo from "./images/favicon.ico";
-import googleIcon from "./images/google.png";
+import anchorLogo from "../../../public/assets/logo.png";
+import googleIcon from "../../../public/assets/images/google.png";
+
 import linkedinIcon from "./images/linkedin.png";
 import githubIcon from "./images/github.png";
 import { useState } from "react";
