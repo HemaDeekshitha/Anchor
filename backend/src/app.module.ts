@@ -5,15 +5,23 @@ import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RagModule } from './rag/rag.module';
+import { AuthService } from './auth/auth.service';
+import { AuthController } from './auth/auth.controller';
+import { AuthModule } from './auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
+
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     // 📌 Contact feature module
     ContactModule,
 
     //Adding in health module for testing
     HealthModule,
     OnboardingModule,
-    DashboardModule,
+    // DashboardModule,
 
     // 📌 Database Connection (TypeORM + PostgreSQL)
     TypeOrmModule.forRoot({
@@ -32,6 +40,8 @@ import { RagModule } from './rag/rag.module';
     }),
 
     RagModule,
+
+    AuthModule,
   ],
 })
 export class AppModule {}

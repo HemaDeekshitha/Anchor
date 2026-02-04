@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
+import { useRouter } from "next/navigation";
 
 interface Task {
   id: number;
@@ -36,24 +37,7 @@ const Dashboard = () => {
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [showPending, setShowPending] = useState(false);
   const [openPendingModal, setOpenPendingModal] = useState(false);
-
-  // placeholder for userid till login comes
-  const getGuestUserId = () => {
-    if (typeof window === "undefined") return null;
-
-    let guestId = localStorage.getItem("guestUserId");
-
-    if (!guestId) {
-      guestId = "guest_" + crypto.randomUUID();
-      localStorage.setItem("guestUserId", guestId);
-    }
-
-    return guestId;
-  };
-
-  const getTestUserId = () => {
-    return "test_user_" + Math.floor(Math.random() * 1000);
-  };
+  const router = useRouter();
 
   useEffect(() => {
     fetchDashboardData();
@@ -62,17 +46,11 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      // const res = await fetch("http://localhost:3001/dashboard/init", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ userId: "user_123" }),
-      // });
-      const userId = getTestUserId();
-      // const userId = getGuestUserId();
 
-      const res = await fetch(
-        `http://localhost:3001/rag/tasks?userId=${userId}`
-      );
+      const res = await fetch(`http://localhost:3001/rag/tasks`, {
+        method: "GET",
+        credentials: "include",
+      });
 
       const data = await res.json();
 
@@ -87,7 +65,7 @@ const Dashboard = () => {
       }
 
       if (data.pendingTasks) {
-        setPendingTasks(data.smartPlan);
+        setPendingTasks(data.pendingTasks);
       }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
