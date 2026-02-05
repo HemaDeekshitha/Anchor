@@ -194,13 +194,12 @@ export default function Steps() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [customInterest, setCustomInterest] = useState<Record<string, string>>(
-    {},
+    {}
   );
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
-  const userId = "user_123";
 
   // --- GLOBAL THEME LOGIC ---
   useEffect(() => {
@@ -216,7 +215,9 @@ export default function Steps() {
   useEffect(() => {
     const fetchOnboardingSteps = async () => {
       try {
-        const res = await fetch("http://localhost:3001/onboarding/steps");
+        const res = await fetch("http://localhost:3001/onboarding/steps", {
+          credentials: "include", // Include cookies for authentication
+        });
 
         if (!res.ok) {
           throw new Error("Failed to fetch onboarding steps");
@@ -310,12 +311,12 @@ export default function Steps() {
     });
 
     formData.append("answers", JSON.stringify(mergedAnswers));
-    formData.append("userId", userId);
 
     try {
       const res = await fetch("http://localhost:3001/onboarding/answers", {
         method: "POST",
         body: formData,
+        credentials: "include", // Include cookies for authentication
       });
 
       if (!res.ok) {

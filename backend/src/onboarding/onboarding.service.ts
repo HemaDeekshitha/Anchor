@@ -4,12 +4,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { OnboardingResponse } from './onboarding.entity';
 import { Repository } from 'typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { User } from 'src/users/user.entity';
 
 @Injectable()
 export class OnboardingService {
   constructor(
     @InjectRepository(OnboardingResponse)
     private readonly repo: Repository<OnboardingResponse>,
+
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
 
     private readonly cloudinary: CloudinaryService,
   ) {}
@@ -49,6 +53,9 @@ export class OnboardingService {
     });
 
     await this.repo.save(entry);
+    await this.userRepo.update(userId, {
+      onboardingCompleted: true,
+    });
 
     return {
       success: true,
