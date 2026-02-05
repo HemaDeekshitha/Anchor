@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -19,6 +20,14 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
   async signup(dto: SignupDto) {
+    const existingUser = await this.userRepo.findOne({
+      where: { email: dto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists');
+    }
+
     // 1️⃣ Hash the password
     const hashedPassword = await hashPassword(dto.password);
 
@@ -30,10 +39,20 @@ export class AuthService {
 
     await this.userRepo.save(user);
 
-    // 2️⃣ Save user to DB (later)
-    // email, name, hashedPassword
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+    });
 
-    return { message: 'User created successfully' };
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id },
+      {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: '7d',
+      },
+    );
+
+    return { accessToken, refreshToken };
   }
 
   async login(dto: LoginDto) {
@@ -43,9 +62,8 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new UnauthorizedException('Email not found');
     }
-    console.log('Setting cookies for user:', user.id);
     if (!user.password) {
       throw new UnauthorizedException(
         'This account uses Google login. Please sign in with Google.',
@@ -107,6 +125,6 @@ export class AuthService {
       { expiresIn: '7d' },
     );
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, user };
   }
 }

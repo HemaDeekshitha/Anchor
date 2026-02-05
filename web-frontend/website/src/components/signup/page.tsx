@@ -82,6 +82,7 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // important to include cookies
         body: JSON.stringify({
           name: form.name,
           email: form.email,
@@ -96,7 +97,7 @@ export default function SignupPage() {
       }
 
       // ✅ Success → go to login
-      router.push("/login");
+      router.push("/steps");
     } catch (err: any) {
       setApiError(err.message);
     } finally {
@@ -173,6 +174,22 @@ export default function SignupPage() {
                 onBlur={handleBlur("name")}
                 error={nameError}
                 helperText={nameError ? "Full name is required" : " "}
+                sx={{
+                  // backgroundColor: "#f7f7f7",
+                  borderRadius: 1,
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "#ddd",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "#be123c", // hover color (optional)
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#be123c", // focus color
+                      borderWidth: 1,
+                    },
+                  },
+                }}
               />
 
               {/* EMAIL */}
@@ -191,6 +208,22 @@ export default function SignupPage() {
                       : "Enter a valid email"
                     : " "
                 }
+                sx={{
+                  // backgroundColor: "#f7f7f7",
+                  borderRadius: 1,
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "#ddd",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "#be123c", // hover color (optional)
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#be123c", // focus color
+                      borderWidth: 1,
+                    },
+                  },
+                }}
               />
 
               {/* PASSWORD */}
@@ -205,6 +238,22 @@ export default function SignupPage() {
                 helperText={
                   passwordError ? "Password must be at least 6 characters" : " "
                 }
+                sx={{
+                  // backgroundColor: "#f7f7f7",
+                  borderRadius: 1,
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "#ddd",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "#be123c", // hover color (optional)
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#be123c", // focus color
+                      borderWidth: 1,
+                    },
+                  },
+                }}
               />
 
               {/* CONFIRM PASSWORD */}
@@ -219,6 +268,22 @@ export default function SignupPage() {
                 helperText={
                   confirmPasswordError ? "Passwords do not match" : " "
                 }
+                sx={{
+                  // backgroundColor: "#f7f7f7",
+                  borderRadius: 1,
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "#ddd",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "#be123c", // hover color (optional)
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#be123c", // focus color
+                      borderWidth: 1,
+                    },
+                  },
+                }}
               />
             </Stack>
             {/* SIGN UP BUTTON */}
@@ -227,7 +292,10 @@ export default function SignupPage() {
               size="large"
               fullWidth
               disabled={!isFormValid}
-              sx={{ opacity: isFormValid ? 1 : 0.6 }}
+              sx={{
+                opacity: isFormValid ? 1 : 0.6,
+                backgroundColor: "#ff7a5c",
+              }}
               onClick={handleSignup}
             >
               {loading ? "Creating account..." : "Sign up"}
