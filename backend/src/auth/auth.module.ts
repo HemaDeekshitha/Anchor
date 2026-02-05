@@ -8,10 +8,12 @@ import { jwtConstants } from './constants';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
   imports: [
     PassportModule,
+    PassportModule.register({ session: false }),
     TypeOrmModule.forFeature([User]),
     JwtModule.register({
       secret: jwtConstants.accessTokenSecret,
@@ -20,7 +22,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   ],
 
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
   exports: [PassportModule, JwtModule],
 })
 export class AuthModule {}

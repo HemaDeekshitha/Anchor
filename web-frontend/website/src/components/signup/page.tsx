@@ -247,6 +247,9 @@ export default function SignupPage() {
               startIcon={
                 <Image src={googleIcon} alt="Google" width={20} height={20} />
               }
+              onClick={() => {
+                window.location.href = "http://localhost:3001/auth/google";
+              }}
             >
               Continue with Google
             </Button>
