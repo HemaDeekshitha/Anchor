@@ -16,8 +16,15 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
-  password: string; // 🔐 hashed password
+  @Column({ type: 'varchar', nullable: true })
+  password: string | null;
+
+  // 🔐 hashed password
+  @Column({ type: 'varchar', nullable: true })
+  provider: 'local' | 'google';
+
+  @Column({ type: 'varchar', nullable: true })
+  provider_id: string;
 
   @CreateDateColumn()
   createdAt: Date;

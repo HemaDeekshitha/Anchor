@@ -46,6 +46,11 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
     console.log('Setting cookies for user:', user.id);
+    if (!user.password) {
+      throw new UnauthorizedException(
+        'This account uses Google login. Please sign in with Google.',
+      );
+    }
 
     // 2️⃣ Compare passwords
     const isMatch = await comparePasswords(dto.password, user.password);
@@ -66,6 +71,42 @@ export class AuthService {
     });
 
     // ✅ Service returns DATA only
+    return { accessToken, refreshToken };
+  }
+
+  async googleLogin(googleUser: {
+    email: string;
+    name: string;
+    googleId: string;
+  }) {
+    let user = await this.userRepo.findOne({
+      where: { email: googleUser.email },
+    });
+
+    // 👤 If user doesn't exist → create
+    if (!user) {
+      user = this.userRepo.create({
+        email: googleUser.email,
+        name: googleUser.name,
+        provider: 'google',
+        provider_id: googleUser.googleId,
+        password: null,
+      });
+
+      await this.userRepo.save(user);
+    }
+
+    // 🔐 Generate JWTs (reuse your existing logic)
+    const accessToken = this.jwtService.sign(
+      { sub: user.id, email: user.email },
+      { expiresIn: '15m' },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id },
+      { expiresIn: '7d' },
+    );
+
     return { accessToken, refreshToken };
   }
 }

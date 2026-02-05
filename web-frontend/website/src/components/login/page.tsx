@@ -162,7 +162,7 @@ export default function LoginPage() {
                   : " "
               }
               sx={{
-                backgroundColor: "#f7f7f7",
+                // backgroundColor: "#f7f7f7",
                 borderRadius: 1,
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
@@ -189,7 +189,7 @@ export default function LoginPage() {
               error={passwordError}
               helperText={passwordError ? "Password is required" : " "}
               sx={{
-                backgroundColor: "#f7f7f7",
+                // backgroundColor: "#f7f7f7",
                 borderRadius: 1,
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
@@ -258,6 +258,9 @@ export default function LoginPage() {
                 <Image src={googleIcon} alt="Google" width={20} height={20} />
               }
               sx={{ borderColor: "#ddd", color: "#000" }}
+              onClick={() => {
+                window.location.href = "http://localhost:3001/auth/google";
+              }}
             >
               Continue with Google
             </Button>
