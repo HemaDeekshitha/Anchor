@@ -90,7 +90,6 @@ export default function ForgotPasswordPage() {
               0 30px 60px rgba(0,0,0,0.25),
               inset 0 1px 0 rgba(255,255,255,0.45)
             `,
-            opacity: 0.7,
           }}
         >
           <Stack spacing={3}>
