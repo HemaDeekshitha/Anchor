@@ -19,6 +19,7 @@ import googleIcon from "../../../public/assets/images/google.png";
 import linkedinIcon from "../login/images/linkedin.png";
 import githubIcon from "../login/images/github.png";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function SignupPage() {
   // 🔹 form state
@@ -38,6 +39,8 @@ export default function SignupPage() {
 
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [emailExists, setEmailExists] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const router = useRouter();
 
@@ -59,6 +62,7 @@ export default function SignupPage() {
   const isFormValid =
     form.name &&
     isValidEmail(form.email) &&
+    !emailExists &&
     form.password.length >= 6 &&
     form.password === form.confirmPassword;
 
@@ -68,6 +72,23 @@ export default function SignupPage() {
 
   const handleBlur = (field: string) => () => {
     setTouched({ ...touched, [field]: true });
+  };
+
+  const checkEmailExists = async (email: string) => {
+    if (!isValidEmail(email)) return;
+
+    try {
+      setCheckingEmail(true);
+      const res = await fetch(
+        `http://localhost:3001/auth/check-email?email=${email}`
+      );
+      const data = await res.json();
+      setEmailExists(data.exists);
+    } catch {
+      setEmailExists(false);
+    } finally {
+      setCheckingEmail(false);
+    }
   };
 
   const handleSignup = async () => {
@@ -114,7 +135,9 @@ export default function SignupPage() {
       {/* LEFT PANEL */}
       <Box
         flex={1}
-        bgcolor="#ff7a5c"
+        sx={{
+          background: "linear-gradient(to right, rgb(209 51 51), #E5B526)",
+        }}
         color="#3b1d16"
         display="flex"
         flexDirection="column"
@@ -123,24 +146,84 @@ export default function SignupPage() {
         px={4}
         py={6}
       >
-        <Stack spacing={3} alignItems="center">
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Image src={anchorLogo} alt="Anchor logo" width={48} height={48} />
-            <Typography variant="h2" sx={{ fontWeight: "Bold" }}>
-              Anchor
-            </Typography>
-          </Stack>
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 1.6,
+            ease: [0.16, 1, 0.3, 1], // premium easing
+          }}
+        >
+          <Paper
+            elevation={0}
+            sx={{
+              px: 7,
+              py: 6,
+              borderRadius: 4,
 
-          <Stack spacing={1} alignItems="center">
-            <Typography variant="h4" fontWeight={600}>
-              Create your account
-            </Typography>
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.12))",
+              backdropFilter: "blur(22px)",
+              WebkitBackdropFilter: "blur(22px)",
 
-            <Typography textAlign="center">
-              Start building better habits and staying consistent.
-            </Typography>
-          </Stack>
-        </Stack>
+              border: "1px solid rgba(255, 255, 255, 0.35)",
+
+              boxShadow: `
+        0 20px 50px rgba(0,0,0,0.25),
+        inset 0 1px 0 rgba(255,255,255,0.4)
+      `,
+            }}
+          >
+            <Stack spacing={4} alignItems="center">
+              {/* LOGO */}
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Image
+                  src={anchorLogo}
+                  alt="Anchor logo"
+                  width={52}
+                  height={52}
+                />
+                <Typography
+                  variant="h3"
+                  sx={{
+                    fontWeight: 700,
+                    letterSpacing: "-0.02em",
+                    color: "#24160F",
+                  }}
+                >
+                  Anchor
+                </Typography>
+              </Stack>
+
+              {/* TEXT */}
+              <Stack spacing={1.5} alignItems="center">
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 800,
+                    color: "#24160F",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  Welcome to Anchor
+                </Typography>
+
+                <Typography
+                  textAlign="center"
+                  sx={{
+                    color: "#24160F",
+                    opacity: 0.78,
+                    maxWidth: 380,
+                    fontSize: 16,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  A simple space to reflect, grow, and stay consistent.
+                </Typography>
+              </Stack>
+            </Stack>
+          </Paper>
+        </motion.div>
       </Box>
 
       {/* RIGHT PANEL */}
@@ -153,176 +236,363 @@ export default function SignupPage() {
         px={2}
         py={6}
       >
-        <Paper elevation={3} sx={{ width: "100%", maxWidth: 420, p: 4 }}>
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="h6" fontWeight={600}>
-                Create an account
-              </Typography>
-              <Typography color="text.secondary">
-                It takes less than a minute
-              </Typography>
-            </Box>
+        <motion.div
+          style={{ width: "100%", display: "flex", justifyContent: "center" }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            delay: 0.2, // comes after left
+            duration: 1.4, // slower than default
+            ease: [0.16, 1, 0.3, 1],
+          }}
+        >
+          <Paper
+            elevation={3}
+            sx={{
+              position: "relative", // 👈 REQUIRED
+              overflow: "hidden",
+              width: "100%",
+              maxWidth: 420,
+              p: 4,
+              borderRadius: 3,
 
-            <Stack spacing={0} direction={"column"}>
-              {/* FULL NAME */}
-              <TextField
-                label="Full name"
-                fullWidth
-                value={form.name}
-                onChange={handleChange("name")}
-                onBlur={handleBlur("name")}
-                error={nameError}
-                helperText={nameError ? "Full name is required" : " "}
+              // 🌫 Glass effect
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55))",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+
+              // ✨ Soft border + depth
+              border: "1px solid rgba(255,255,255,0.6)",
+              boxShadow: `
+                0 25px 50px rgba(0,0,0,0.12),
+                inset 0 1px 0 rgba(255,255,255,0.6)
+              `,
+            }}
+          >
+            <Stack spacing={2}>
+              <Box
                 sx={{
-                  // backgroundColor: "#f7f7f7",
-                  borderRadius: 1,
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "#ddd",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "#be123c", // hover color (optional)
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#be123c", // focus color
-                      borderWidth: 1,
-                    },
-                  },
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.5,
                 }}
-              />
+              >
+                <Typography variant="h6" fontWeight={600}>
+                  Create an account
+                </Typography>
+                <Typography color="text.secondary">
+                  It takes less than a minute
+                </Typography>
+              </Box>
 
-              {/* EMAIL */}
-              <TextField
-                label="Email address"
-                type="email"
+              <Stack spacing={1} direction={"column"}>
+                {/* FULL NAME */}
+                <TextField
+                  label="Full name"
+                  fullWidth
+                  value={form.name}
+                  onChange={handleChange("name")}
+                  onBlur={handleBlur("name")}
+                  error={nameError}
+                  helperText={nameError ? "Full name is required" : " "}
+                  sx={{
+                    borderRadius: 1,
+
+                    // 👇 Label default color
+                    "& .MuiInputLabel-root": {
+                      color: "#6b7280", // gray
+                    },
+
+                    // 👇 Label when focused
+                    "& .MuiInputLabel-root.Mui-focused": {
+                      color: "#be123c", // your red
+                    },
+
+                    // 👇 Label when error
+                    "& .MuiInputLabel-root.Mui-error": {
+                      color: "#dc2626",
+                    },
+
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "#ddd",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#be123c",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#be123c",
+                        borderWidth: 1,
+                      },
+                      "& .MuiOutlinedInput-input": {
+                        "&:-webkit-autofill": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                          WebkitTextFillColor: "#000",
+                          caretColor: "#000",
+                        },
+                        "&:-webkit-autofill:hover": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:focus": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:active": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                      },
+                    },
+                  }}
+                />
+
+                {/* EMAIL */}
+                <TextField
+                  label="Email address"
+                  type="email"
+                  fullWidth
+                  value={form.email}
+                  onChange={handleChange("email")}
+                  onBlur={() => {
+                    handleBlur("email")();
+                    checkEmailExists(form.email);
+                  }}
+                  error={emailError}
+                  helperText={
+                    emailError ? (
+                      !form.email ? (
+                        "Email is required"
+                      ) : (
+                        "Enter a valid email"
+                      )
+                    ) : emailExists ? (
+                      <span>
+                        This email is already registered.{" "}
+                        <Link
+                          href="/login"
+                          sx={{ color: "red" }}
+                          underline="hover"
+                        >
+                          Log in instead
+                        </Link>
+                      </span>
+                    ) : (
+                      " "
+                    )
+                  }
+                  sx={{
+                    borderRadius: 1,
+
+                    // 👇 Label default color
+                    "& .MuiInputLabel-root": {
+                      color: "#6b7280", // gray
+                    },
+
+                    // 👇 Label when focused
+                    "& .MuiInputLabel-root.Mui-focused": {
+                      color: "#be123c", // your red
+                    },
+
+                    // 👇 Label when error
+                    "& .MuiInputLabel-root.Mui-error": {
+                      color: "#dc2626",
+                    },
+
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "#ddd",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#be123c",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#be123c",
+                        borderWidth: 1,
+                      },
+                      "& .MuiOutlinedInput-input": {
+                        "&:-webkit-autofill": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                          WebkitTextFillColor: "#000",
+                          caretColor: "#000",
+                        },
+                        "&:-webkit-autofill:hover": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:focus": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:active": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "& .MuiFormHelperText-root": {
+                          color: emailExists ? "#92400e" : "#6b7280",
+                        },
+                      },
+                    },
+                  }}
+                />
+
+                {/* PASSWORD */}
+                <TextField
+                  label="Password"
+                  type="password"
+                  fullWidth
+                  value={form.password}
+                  onChange={handleChange("password")}
+                  onBlur={handleBlur("password")}
+                  error={passwordError}
+                  helperText={
+                    passwordError
+                      ? "Password must be at least 6 characters"
+                      : " "
+                  }
+                  sx={{
+                    borderRadius: 1,
+
+                    // 👇 Label default color
+                    "& .MuiInputLabel-root": {
+                      color: "#6b7280", // gray
+                    },
+
+                    // 👇 Label when focused
+                    "& .MuiInputLabel-root.Mui-focused": {
+                      color: "#be123c", // your red
+                    },
+
+                    // 👇 Label when error
+                    "& .MuiInputLabel-root.Mui-error": {
+                      color: "#dc2626",
+                    },
+
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "#ddd",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#be123c",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#be123c",
+                        borderWidth: 1,
+                      },
+                      "& .MuiOutlinedInput-input": {
+                        "&:-webkit-autofill": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                          WebkitTextFillColor: "#000",
+                          caretColor: "#000",
+                        },
+                        "&:-webkit-autofill:hover": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:focus": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:active": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                      },
+                    },
+                  }}
+                />
+
+                {/* CONFIRM PASSWORD */}
+                <TextField
+                  label="Confirm password"
+                  type="password"
+                  fullWidth
+                  value={form.confirmPassword}
+                  onChange={handleChange("confirmPassword")}
+                  onBlur={handleBlur("confirmPassword")}
+                  error={confirmPasswordError}
+                  helperText={
+                    confirmPasswordError ? "Passwords do not match" : " "
+                  }
+                  sx={{
+                    borderRadius: 1,
+
+                    // 👇 Label default color
+                    "& .MuiInputLabel-root": {
+                      color: "#6b7280", // gray
+                    },
+
+                    // 👇 Label when focused
+                    "& .MuiInputLabel-root.Mui-focused": {
+                      color: "#be123c", // your red
+                    },
+
+                    // 👇 Label when error
+                    "& .MuiInputLabel-root.Mui-error": {
+                      color: "#dc2626",
+                    },
+
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "#ddd",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#be123c",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#be123c",
+                        borderWidth: 1,
+                      },
+                      "& .MuiOutlinedInput-input": {
+                        "&:-webkit-autofill": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                          WebkitTextFillColor: "#000",
+                          caretColor: "#000",
+                        },
+                        "&:-webkit-autofill:hover": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:focus": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                        "&:-webkit-autofill:active": {
+                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
+                        },
+                      },
+                    },
+                  }}
+                />
+              </Stack>
+              {/* SIGN UP BUTTON */}
+              <Button
+                variant="contained"
+                size="large"
                 fullWidth
-                value={form.email}
-                onChange={handleChange("email")}
-                onBlur={handleBlur("email")}
-                error={emailError}
-                helperText={
-                  emailError
-                    ? !form.email
-                      ? "Email is required"
-                      : "Enter a valid email"
-                    : " "
+                disabled={!isFormValid}
+                sx={{
+                  opacity: isFormValid ? 1 : 0.6,
+                  backgroundColor: "#ff7a5c",
+                }}
+                onClick={handleSignup}
+              >
+                {loading ? "Creating account..." : "Sign up"}
+              </Button>
+              {apiError && (
+                <Typography color="error" textAlign="center">
+                  {apiError}
+                </Typography>
+              )}
+
+              <Divider>OR</Divider>
+
+              {/* SOCIAL LOGIN */}
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={
+                  <Image src={googleIcon} alt="Google" width={20} height={20} />
                 }
-                sx={{
-                  // backgroundColor: "#f7f7f7",
-                  borderRadius: 1,
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "#ddd",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "#be123c", // hover color (optional)
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#be123c", // focus color
-                      borderWidth: 1,
-                    },
-                  },
+                onClick={() => {
+                  window.location.href = "http://localhost:3001/auth/google";
                 }}
-              />
+              >
+                Continue with Google
+              </Button>
 
-              {/* PASSWORD */}
-              <TextField
-                label="Password"
-                type="password"
-                fullWidth
-                value={form.password}
-                onChange={handleChange("password")}
-                onBlur={handleBlur("password")}
-                error={passwordError}
-                helperText={
-                  passwordError ? "Password must be at least 6 characters" : " "
-                }
-                sx={{
-                  // backgroundColor: "#f7f7f7",
-                  borderRadius: 1,
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "#ddd",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "#be123c", // hover color (optional)
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#be123c", // focus color
-                      borderWidth: 1,
-                    },
-                  },
-                }}
-              />
-
-              {/* CONFIRM PASSWORD */}
-              <TextField
-                label="Confirm password"
-                type="password"
-                fullWidth
-                value={form.confirmPassword}
-                onChange={handleChange("confirmPassword")}
-                onBlur={handleBlur("confirmPassword")}
-                error={confirmPasswordError}
-                helperText={
-                  confirmPasswordError ? "Passwords do not match" : " "
-                }
-                sx={{
-                  // backgroundColor: "#f7f7f7",
-                  borderRadius: 1,
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "#ddd",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "#be123c", // hover color (optional)
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#be123c", // focus color
-                      borderWidth: 1,
-                    },
-                  },
-                }}
-              />
-            </Stack>
-            {/* SIGN UP BUTTON */}
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              disabled={!isFormValid}
-              sx={{
-                opacity: isFormValid ? 1 : 0.6,
-                backgroundColor: "#ff7a5c",
-              }}
-              onClick={handleSignup}
-            >
-              {loading ? "Creating account..." : "Sign up"}
-            </Button>
-            {apiError && (
-              <Typography color="error" textAlign="center">
-                {apiError}
-              </Typography>
-            )}
-
-            <Divider>OR</Divider>
-
-            {/* SOCIAL LOGIN */}
-            <Button
-              variant="outlined"
-              fullWidth
-              startIcon={
-                <Image src={googleIcon} alt="Google" width={20} height={20} />
-              }
-              onClick={() => {
-                window.location.href = "http://localhost:3001/auth/google";
-              }}
-            >
-              Continue with Google
-            </Button>
-
-            {/* <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              {/* <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <Button
                 variant="outlined"
                 fullWidth
@@ -349,25 +619,26 @@ export default function SignupPage() {
               </Button>
             </Stack> */}
 
-            <Typography textAlign="center">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                sx={{
-                  // fontSize: 14,
-                  color: "#000",
-                  textDecoration: "none",
-                  "&:hover": {
-                    textDecoration: "underline",
-                    color: "#be123c",
-                  },
-                }}
-              >
-                Log in
-              </Link>
-            </Typography>
-          </Stack>
-        </Paper>
+              <Typography textAlign="center">
+                Already have an account?{" "}
+                <Link
+                  href="/login"
+                  sx={{
+                    // fontSize: 14,
+                    color: "#000",
+                    textDecoration: "none",
+                    "&:hover": {
+                      textDecoration: "underline",
+                      color: "#be123c",
+                    },
+                  }}
+                >
+                  Log in
+                </Link>
+              </Typography>
+            </Stack>
+          </Paper>
+        </motion.div>
       </Box>
     </Box>
   );
