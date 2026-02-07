@@ -7,6 +7,10 @@ import {
 
 @Entity('users')
 export class User {
+  constructor() {
+    console.log('🔥 USER ENTITY LOADED FROM:', __filename);
+  }
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -30,4 +34,10 @@ export class User {
   createdAt: Date;
   @Column({ default: false })
   onboardingCompleted: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  passwordResetToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpiresAt: Date | null;
 }

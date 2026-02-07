@@ -6,12 +6,15 @@ import {
   Get,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import type { Response, Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -47,6 +50,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const { accessToken, refreshToken } = await this.authService.login(dto);
+    const rememberMe = dto.rememberMe === true;
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,
@@ -59,7 +63,9 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      ...(rememberMe && {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      }),
     });
 
     return { message: 'Login successful' };
@@ -98,5 +104,23 @@ export class AuthController {
       : 'http://localhost:3000/steps';
 
     return res.redirect(redirectUrl);
+  }
+
+  // if email already exist then we will show that email already exist in th esignup page without even waiting for the user to submit the form
+  @Get('check-email')
+  async checkEmail(@Query('email') email: string) {
+    return this.authService.checkEmailExists(email);
+  }
+
+  // email reset password
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  // reset password
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; password: string }) {
+    return this.authService.resetPassword(body.token, body.password);
   }
 }
