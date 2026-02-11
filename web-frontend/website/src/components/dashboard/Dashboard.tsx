@@ -2,26 +2,25 @@
 import React, { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import styles from "./dashboard.module.css";
-import LayoutWithSidebar from "../SideBar/LayoutWithSidebar"; // ✅ new wrapper
+import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
+import SubmissionModal from "./SubmissionModal";
+import PreviousSubmissionModal from "./PreviousSubmissionModal";
+import { api } from "@/lib/api";
 import {
   Box,
-  Button,
   Card,
   CardContent,
-  Checkbox,
   CircularProgress,
   Divider,
   IconButton,
   List,
   ListItem,
   ListItemButton,
-  ListItemText,
   Modal,
   Typography,
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
-import { useRouter } from "next/navigation";
 
 interface Task {
   id: number;
@@ -29,15 +28,18 @@ interface Task {
   status: "pending" | "completed";
   date?: string;
   is_ai_generated?: boolean;
+  category?: string;
 }
 
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [smartPlan, setSmartPlan] = useState<Task[]>([]);
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
-  const [showPending, setShowPending] = useState(false);
   const [openPendingModal, setOpenPendingModal] = useState(false);
-  const router = useRouter();
+  const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
+  const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -54,12 +56,6 @@ const Dashboard = () => {
 
       const data = await res.json();
 
-      // if (data.tasks) {
-      //   const aiTasks = data.tasks.filter((t: any) => t.is_ai_generated);
-      //   const backlog = data.tasks.filter((t: any) => !t.is_ai_generated);
-      //   setSmartPlan(aiTasks);
-      //   setPendingTasks(backlog);
-      // }
       if (data.smartPlan) {
         setSmartPlan(data.smartPlan);
       }
@@ -74,25 +70,38 @@ const Dashboard = () => {
     }
   };
 
-  const toggleTaskInList = (
-    setList: React.Dispatch<React.SetStateAction<Task[]>>,
-    id: number
-  ) => {
-    setList((prev) =>
+  const handleTaskClick = async (task: Task) => {
+    // If task is completed, show previous submission
+    if (task.status === "completed") {
+      try {
+        // Fetch submissions and find the one for this task
+        const submissions = await api.getMySubmissions();
+        const taskSubmission = submissions.find((s: any) => s.taskId === task.id);
+        
+        if (taskSubmission) {
+          // Fetch full details
+          const fullSubmission = await api.getSubmission(taskSubmission.id);
+          setSelectedSubmission(fullSubmission);
+          setPreviousSubmissionModalOpen(true);
+        }
+      } catch (error) {
+        console.error("Failed to load submission:", error);
+      }
+    } else {
+      // Task not completed - open submission modal
+      setSelectedTask(task);
+      setSubmissionModalOpen(true);
+    }
+  };
+
+  const togglePendingTask = (id: number) => {
+    setPendingTasks((prev) =>
       prev.map((t) =>
         t.id === id
           ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
           : t
       )
     );
-  };
-
-  const toggleTask = (id: number) => {
-    toggleTaskInList(setSmartPlan, id);
-  };
-
-  const togglePendingTask = (id: number) => {
-    toggleTaskInList(setPendingTasks, id);
   };
 
   const completedCount = smartPlan.filter(
@@ -139,14 +148,12 @@ const Dashboard = () => {
                 mb: 4,
                 alignItems: "stretch",
                 flexDirection: {
-                  xs: "column", // mobile
-                  sm: "row", // tablet+
+                  xs: "column",
+                  sm: "row",
                 },
               }}
             >
-              {/* ===================== */}
               {/* DAILY PROGRESS CARD */}
-              {/* ===================== */}
               <Card sx={{ flex: 1, minWidth: 0 }}>
                 <CardContent
                   sx={{
@@ -194,9 +201,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* ===================== */}
               {/* PENDING TASKS CARD */}
-              {/* ===================== */}
               <Card
                 sx={{
                   flex: 1,
@@ -219,32 +224,12 @@ const Dashboard = () => {
                       ? "No pending tasks 🎉"
                       : `${pendingTasks.length} pending`}
                   </Typography>
-
-                  {showPending && pendingTasks.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      {pendingTasks.map((task) => (
-                        <Box
-                          key={task.id}
-                          sx={{
-                            py: 1,
-                            borderBottom: "1px solid #eee",
-                          }}
-                        >
-                          <Typography variant="body2">{task.title}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {task.date || "Overdue"}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
                 </CardContent>
               </Card>
             </Box>
 
-            {/* TASKS STACKED VERTICALLY */}
+            {/* TASKS SECTION */}
             <div className={styles.gridContainer}>
-              {/* SMART PLAN */}
               <section>
                 <h2 className={styles.sectionTitle}>
                   Today's Smart Plan
@@ -258,7 +243,7 @@ const Dashboard = () => {
                       className={`${styles.taskCard} ${
                         task.status === "completed" ? styles.completed : ""
                       }`}
-                      onClick={() => toggleTask(task.id)}
+                      onClick={() => handleTaskClick(task)}
                     >
                       <div className={styles.taskLeft}>
                         <div className={styles.checkbox}>
@@ -280,10 +265,10 @@ const Dashboard = () => {
           </>
         )}
 
+        {/* PENDING TASKS MODAL */}
         <Modal
           open={openPendingModal}
           onClose={() => setOpenPendingModal(false)}
-          aria-labelledby="pending-tasks-title"
           slotProps={{
             backdrop: {
               sx: {
@@ -299,7 +284,7 @@ const Dashboard = () => {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: 600, // 🔥 wider
+              width: 600,
               maxWidth: "90vw",
               bgcolor: "#fff",
               borderRadius: 3,
@@ -309,7 +294,6 @@ const Dashboard = () => {
               overflowY: "auto",
             }}
           >
-            {/* Modal Header */}
             <Box
               sx={{
                 display: "flex",
@@ -336,7 +320,6 @@ const Dashboard = () => {
               </IconButton>
             </Box>
 
-            {/* Pending Tasks List */}
             <List disablePadding>
               {pendingTasks.map((task, idx) => {
                 const isCompleted = task.status === "completed";
@@ -352,7 +335,6 @@ const Dashboard = () => {
                           gap: 2,
                         }}
                       >
-                        {/* SmartPlan-style checkbox */}
                         <Box
                           sx={{
                             width: 20,
@@ -371,7 +353,6 @@ const Dashboard = () => {
                           {isCompleted && <Check size={14} color="white" />}
                         </Box>
 
-                        {/* Text */}
                         <Box sx={{ flex: 1 }}>
                           <Typography
                             sx={{
@@ -409,6 +390,31 @@ const Dashboard = () => {
             </List>
           </Box>
         </Modal>
+
+        {/* SUBMISSION MODAL (for new submissions) */}
+        <SubmissionModal
+          open={submissionModalOpen}
+          onClose={() => {
+            setSubmissionModalOpen(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          onSuccess={() => {
+            fetchDashboardData(); // Refresh tasks
+            setSubmissionModalOpen(false);
+            setSelectedTask(null);
+          }}
+        />
+
+        {/* PREVIOUS SUBMISSION MODAL (for completed tasks) */}
+        <PreviousSubmissionModal
+          open={previousSubmissionModalOpen}
+          onClose={() => {
+            setPreviousSubmissionModalOpen(false);
+            setSelectedSubmission(null);
+          }}
+          submission={selectedSubmission}
+        />
       </div>
     </LayoutWithSidebar>
   );

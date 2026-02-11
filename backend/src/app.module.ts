@@ -9,21 +9,17 @@ import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
+import { SubmissionModule } from './submissions/submission.module'; // NEW
+import { AiModule } from './ai/ai.module'; // NEW
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    // 📌 Contact feature module
     ContactModule,
-
-    //Adding in health module for testing
     HealthModule,
     OnboardingModule,
-    // DashboardModule,
-
-    // 📌 Database Connection (TypeORM + PostgreSQL)
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DATABASE_HOST,
@@ -32,16 +28,16 @@ import { ConfigModule } from '@nestjs/config';
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: true, // CAREFUL: This auto-creates tables. Disable in production!
       ssl:
         process.env.DATABASE_SSL === 'true'
           ? { rejectUnauthorized: false }
           : false,
     }),
-
     RagModule,
-
     AuthModule,
+    SubmissionModule, // NEW
+    AiModule, // NEW
   ],
 })
 export class AppModule {}
