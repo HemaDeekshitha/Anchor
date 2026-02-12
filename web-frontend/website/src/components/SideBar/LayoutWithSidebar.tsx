@@ -1,16 +1,22 @@
-// components/LayoutWithSidebar.tsx
 "use client";
+
 import React, { useEffect, useState } from "react";
+import { Box, IconButton, useMediaQuery, useTheme } from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
 import Sidebar from "./Sidebar";
-import styles from "./style.module.css";
+
+const drawerWidth = 240;
 
 const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
   const handleToggle = () => setSidebarOpen((prev) => !prev);
   const handleClose = () => setSidebarOpen(false);
 
-  // Optional nice UX: close sidebar on ESC key
+  // Close sidebar on ESC (nice UX touch)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleClose();
@@ -20,32 +26,43 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <div className={styles.container}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
       {/* Sidebar */}
-      <Sidebar isSidebarOpen={isSidebarOpen} />
+      <Sidebar isSidebarOpen={isSidebarOpen} onClose={handleClose} />
 
-      {/* ✅ Overlay (only visible on mobile when sidebar is open) */}
-      {isSidebarOpen && (
-        <div
-          className={styles.sidebarOverlay}
-          onClick={handleClose}
-          aria-hidden="true"
-        />
-      )}
-
-      <main className={styles.mainContent}>
-        {/* Hamburger (mobile only via CSS) */}
-        <button
-          className={styles.menuBtn}
-          onClick={handleToggle}
-          aria-label="Toggle sidebar"
-        >
-          ☰
-        </button>
+      {/* Main Content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          bgcolor: "#fafafa",
+          ml: !isMobile ? `${drawerWidth}px` : 0,
+          transition: "margin 0.3s ease",
+        }}
+      >
+        {/* Hamburger (Mobile Only) */}
+        {isMobile && (
+          <IconButton
+            onClick={handleToggle}
+            sx={{
+              mb: 2,
+              border: "1px solid #fecdd3",
+              borderRadius: 2,
+              color: "#881337",
+              bgcolor: "white",
+              "&:hover": {
+                bgcolor: "#ffe4e6",
+              },
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
 
         {children}
-      </main>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
