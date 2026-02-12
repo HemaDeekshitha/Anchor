@@ -30,10 +30,8 @@ export class MailService {
           ],
         });
 
-      console.log('✅ Mailjet Response:', result.body);
       return result.body;
     } catch (err) {
-      console.error('❌ Mailjet Error:', err);
       throw err;
     }
   }

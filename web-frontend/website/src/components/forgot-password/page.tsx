@@ -20,6 +20,7 @@ export default function ForgotPasswordPage() {
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
   const isValidEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -30,9 +31,11 @@ export default function ForgotPasswordPage() {
     if (!email || !isValidEmail(email)) return;
 
     setLoading(true);
+    setError(""); // 🔥 CLEAR OLD ERROR HERE
+    setSubmitted(false);
 
     try {
-      await fetch("http://localhost:3001/auth/forgot-password", {
+      const res = await fetch("http://localhost:3001/auth/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -41,9 +44,16 @@ export default function ForgotPasswordPage() {
       });
 
       // ⚠️ Always success (even if email doesn't exist)
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Something went wrong");
+      }
       setSubmitted(true);
-    } catch (err) {
+    } catch (err: any) {
       // Optional: log error, but don't show scary UI
+      setError(err.message || "Failed to send reset link. Please try again.");
+      setEmail(""); // Clear email to prevent resubmission with same value
       setSubmitted(true);
     } finally {
       setLoading(false);
@@ -177,12 +187,21 @@ export default function ForgotPasswordPage() {
                 },
               }}
             />
-            {submitted && (
+            {error && (
+              <Typography
+                textAlign="center"
+                sx={{ color: "red", fontSize: 14 }}
+              >
+                {error}
+              </Typography>
+            )}
+
+            {submitted && !error && (
               <Typography
                 textAlign="center"
                 sx={{ color: "green", fontSize: 14 }}
               >
-                If the email exists, a reset link was sent.
+                Reset link sent successfully.
               </Typography>
             )}
 
