@@ -11,6 +11,8 @@ import {
   Divider,
   Paper,
   Link,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
 
 // Images
@@ -20,6 +22,7 @@ import linkedinIcon from "../login/images/linkedin.png";
 import githubIcon from "../login/images/github.png";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 export default function SignupPage() {
   // 🔹 form state
@@ -41,6 +44,8 @@ export default function SignupPage() {
   const [apiError, setApiError] = useState("");
   const [emailExists, setEmailExists] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const router = useRouter();
 
@@ -435,7 +440,7 @@ export default function SignupPage() {
                 {/* PASSWORD */}
                 <TextField
                   label="Password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   fullWidth
                   value={form.password}
                   onChange={handleChange("password")}
@@ -446,50 +451,31 @@ export default function SignupPage() {
                       ? "Password must be at least 6 characters"
                       : " "
                   }
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          edge="end"
+                          onMouseDown={(e) => e.preventDefault()}
+                          sx={{ color: "#6b7280" }}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                   sx={{
                     borderRadius: 1,
-
-                    // 👇 Label default color
-                    "& .MuiInputLabel-root": {
-                      color: "#6b7280", // gray
-                    },
-
-                    // 👇 Label when focused
-                    "& .MuiInputLabel-root.Mui-focused": {
-                      color: "#be123c", // your red
-                    },
-
-                    // 👇 Label when error
-                    "& .MuiInputLabel-root.Mui-error": {
-                      color: "#dc2626",
-                    },
-
+                    "& .MuiInputLabel-root": { color: "#6b7280" },
+                    "& .MuiInputLabel-root.Mui-focused": { color: "#be123c" },
+                    "& .MuiInputLabel-root.Mui-error": { color: "#dc2626" },
                     "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "#ddd",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#be123c",
-                      },
+                      "& fieldset": { borderColor: "#ddd" },
+                      "&:hover fieldset": { borderColor: "#be123c" },
                       "&.Mui-focused fieldset": {
                         borderColor: "#be123c",
                         borderWidth: 1,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        "&:-webkit-autofill": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                          WebkitTextFillColor: "#000",
-                          caretColor: "#000",
-                        },
-                        "&:-webkit-autofill:hover": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:focus": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:active": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
                       },
                     },
                   }}
@@ -498,7 +484,7 @@ export default function SignupPage() {
                 {/* CONFIRM PASSWORD */}
                 <TextField
                   label="Confirm password"
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   fullWidth
                   value={form.confirmPassword}
                   onChange={handleChange("confirmPassword")}
@@ -507,50 +493,37 @@ export default function SignupPage() {
                   helperText={
                     confirmPasswordError ? "Passwords do not match" : " "
                   }
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() =>
+                            setShowConfirmPassword((prev) => !prev)
+                          }
+                          edge="end"
+                          onMouseDown={(e) => e.preventDefault()}
+                          sx={{ color: "#6b7280" }}
+                        >
+                          {showConfirmPassword ? (
+                            <VisibilityOff />
+                          ) : (
+                            <Visibility />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                   sx={{
                     borderRadius: 1,
-
-                    // 👇 Label default color
-                    "& .MuiInputLabel-root": {
-                      color: "#6b7280", // gray
-                    },
-
-                    // 👇 Label when focused
-                    "& .MuiInputLabel-root.Mui-focused": {
-                      color: "#be123c", // your red
-                    },
-
-                    // 👇 Label when error
-                    "& .MuiInputLabel-root.Mui-error": {
-                      color: "#dc2626",
-                    },
-
+                    "& .MuiInputLabel-root": { color: "#6b7280" },
+                    "& .MuiInputLabel-root.Mui-focused": { color: "#be123c" },
+                    "& .MuiInputLabel-root.Mui-error": { color: "#dc2626" },
                     "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "#ddd",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#be123c",
-                      },
+                      "& fieldset": { borderColor: "#ddd" },
+                      "&:hover fieldset": { borderColor: "#be123c" },
                       "&.Mui-focused fieldset": {
                         borderColor: "#be123c",
                         borderWidth: 1,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        "&:-webkit-autofill": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                          WebkitTextFillColor: "#000",
-                          caretColor: "#000",
-                        },
-                        "&:-webkit-autofill:hover": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:focus": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:active": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
                       },
                     },
                   }}

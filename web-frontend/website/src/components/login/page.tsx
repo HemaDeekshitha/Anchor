@@ -14,6 +14,8 @@ import {
   FormControlLabel,
   Paper,
   Link,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
 
 // Images
@@ -24,6 +26,7 @@ import linkedinIcon from "./images/linkedin.png";
 import githubIcon from "./images/github.png";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -36,6 +39,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // 🔹 helpers
   const isValidEmail = (value: string) =>
@@ -331,27 +335,35 @@ export default function LoginPage() {
 
                 <TextField
                   label="Password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   fullWidth
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                   error={passwordError}
                   helperText={passwordError ? "Password is required" : " "}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          edge="end"
+                          sx={{ color: "#6b7280" }}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                   sx={{
                     borderRadius: 1,
 
-                    // 👇 Label default color
                     "& .MuiInputLabel-root": {
-                      color: "#6b7280", // gray
+                      color: "#6b7280",
                     },
-
-                    // 👇 Label when focused
                     "& .MuiInputLabel-root.Mui-focused": {
-                      color: "#be123c", // your red
+                      color: "#be123c",
                     },
-
-                    // 👇 Label when error
                     "& .MuiInputLabel-root.Mui-error": {
                       color: "#dc2626",
                     },
@@ -366,22 +378,6 @@ export default function LoginPage() {
                       "&.Mui-focused fieldset": {
                         borderColor: "#be123c",
                         borderWidth: 1,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        "&:-webkit-autofill": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                          WebkitTextFillColor: "#000",
-                          caretColor: "#000",
-                        },
-                        "&:-webkit-autofill:hover": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:focus": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:active": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
                       },
                     },
                   }}

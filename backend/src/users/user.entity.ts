@@ -7,9 +7,7 @@ import {
 
 @Entity('users')
 export class User {
-  constructor() {
-    console.log('🔥 USER ENTITY LOADED FROM:', __filename);
-  }
+  constructor() {}
 
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -80,7 +80,6 @@ export class AuthService {
       throw new UnauthorizedException('Incorrect Password');
     }
     const payload = { sub: user.id, email: user.email };
-    console.log('JWT_ACCESS_SECRET:', process.env.JWT_ACCESS_SECRET);
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '15m',
@@ -150,7 +149,7 @@ export class AuthService {
 
     // 🔐 Important: do NOT reveal if user exists
     if (!user) {
-      return { message: 'If the email exists, a reset link was sent' };
+      throw new NotFoundException('User does not exist');
     }
 
     // 1️⃣ Generate secure random token
@@ -171,8 +170,6 @@ export class AuthService {
     // 4️⃣ Reset link (frontend URL)
     const resetLink = `http://localhost:3000/changePassword?token=${resetToken}`;
     await this.mailService.sendPasswordResetEmail(user.email, resetLink);
-
-    console.log('RESET LINK:', resetLink); // 👈 temporary
 
     return { message: 'If the email exists, a reset link was sent' };
   }

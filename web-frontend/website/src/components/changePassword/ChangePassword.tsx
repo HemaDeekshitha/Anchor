@@ -9,8 +9,11 @@ import {
   Typography,
   TextField,
   Button,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
 import { motion } from "framer-motion";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
@@ -21,6 +24,8 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const passwordError = password.length > 0 && password.length < 6;
   const confirmError =
@@ -101,22 +106,56 @@ export default function ResetPasswordPage() {
 
             <TextField
               label="New password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError("");
+              }}
               error={passwordError}
               helperText={passwordError ? "Minimum 6 characters" : " "}
               fullWidth
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      edge="end"
+                      onMouseDown={(e) => e.preventDefault()}
+                      sx={{ color: "#6b7280" }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
 
             <TextField
               label="Confirm password"
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (error) setError("");
+              }}
               error={confirmError}
               helperText={confirmError ? "Passwords do not match" : " "}
               fullWidth
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      edge="end"
+                      onMouseDown={(e) => e.preventDefault()}
+                      sx={{ color: "#6b7280" }}
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
 
             {error && (
