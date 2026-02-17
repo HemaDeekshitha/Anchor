@@ -21,6 +21,7 @@ interface Task {
   id: number;
   title: string;
   category?: string;
+  date?: string;
 }
 
 interface SubmissionModalProps {
@@ -68,6 +69,7 @@ export default function SubmissionModal({
     try {
       const response = await api.submitAnswer({
         taskId: task.id,
+        taskDate: task.date,
         textContent: answer,
       });
 

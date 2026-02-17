@@ -94,7 +94,7 @@ export class SubmissionService {
 
   // Mark task as completed if approved
   if (aiResult.approved) {
-    await this.markTaskCompleted(userId, dto.taskId);
+    await this.markTaskCompleted(userId, dto.taskId, dto.taskDate);
   }
 
   return {
@@ -115,14 +115,18 @@ export class SubmissionService {
    * Mark task as completed in user_daily_tasks table
    * This integrates with the existing RAG system
    */
-  private async markTaskCompleted(userId: string, taskId: number) {
-    const today = new Date().toISOString().slice(0, 10);
+  private async markTaskCompleted(
+    userId: string,
+    taskId: number,
+    taskDate?: string,
+  ) {
+    const completionDate = taskDate || new Date().toISOString().slice(0, 10);
 
     await this.userDailyTaskRepo.update(
       {
         user_id: userId,
         task_id: taskId,
-        task_date: today,
+        task_date: completionDate,
       },
       { status: 'completed' },
     );
