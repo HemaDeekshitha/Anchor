@@ -29,6 +29,7 @@ interface Task {
   date?: string;
   is_ai_generated?: boolean;
   category?: string;
+  taskId?: number;
 }
 
 const Dashboard = () => {
@@ -61,7 +62,13 @@ const Dashboard = () => {
       }
 
       if (data.pendingTasks) {
-        setPendingTasks(data.pendingTasks);
+        const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
+          ...task,
+          id: Number(task.id),
+          taskId: Number(task.taskId ?? task.taskid ?? task.id),
+          status: task.status ?? "pending",
+        }));
+        setPendingTasks(normalizedPendingTasks);
       }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -71,12 +78,17 @@ const Dashboard = () => {
   };
 
   const handleTaskClick = async (task: Task) => {
+    const submissionTaskId = task.taskId ?? task.id;
+    const taskForSubmission = { ...task, id: submissionTaskId };
+
     // If task is completed, show previous submission
     if (task.status === "completed") {
       try {
         // Fetch submissions and find the one for this task
         const submissions = await api.getMySubmissions();
-        const taskSubmission = submissions.find((s: any) => s.taskId === task.id);
+        const taskSubmission = submissions.find(
+          (s: any) => s.taskId === submissionTaskId
+        );
         
         if (taskSubmission) {
           // Fetch full details
@@ -89,19 +101,9 @@ const Dashboard = () => {
       }
     } else {
       // Task not completed - open submission modal
-      setSelectedTask(task);
+      setSelectedTask(taskForSubmission);
       setSubmissionModalOpen(true);
     }
-  };
-
-  const togglePendingTask = (id: number) => {
-    setPendingTasks((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
-          : t
-      )
-    );
   };
 
   const completedCount = smartPlan.filter(
@@ -328,7 +330,10 @@ const Dashboard = () => {
                   <React.Fragment key={task.id}>
                     <ListItem disablePadding>
                       <ListItemButton
-                        onClick={() => togglePendingTask(task.id)}
+                        onClick={() => {
+                          setOpenPendingModal(false);
+                          handleTaskClick(task);
+                        }}
                         sx={{
                           py: 1.5,
                           px: 2,
