@@ -15,7 +15,7 @@ import {
   useTheme,
   Button,
 } from "@mui/material";
-import { ListTodo, LogOut, Trophy, User } from "lucide-react";
+import { BriefcaseBusiness, ListTodo, LogOut, Trophy, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface SidebarProps {
@@ -141,6 +141,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
             href="/profile"
             sx={{
               borderRadius: 2,
+              mb: 1,
               color: "#713f12",
               "&:hover": {
                 bgcolor: "#fff1f2",
@@ -152,6 +153,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
               <User size={20} />
             </ListItemIcon>
             <ListItemText primary="Profile" />
+          </ListItemButton>
+
+          <ListItemButton
+            component={Link}
+            href="/application-tracker"
+            sx={{
+              borderRadius: 2,
+              color: "#713f12",
+              "&:hover": {
+                bgcolor: "#fff1f2",
+                color: "#be123c",
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <BriefcaseBusiness size={20} />
+            </ListItemIcon>
+            <ListItemText primary="Track your Jobs" />
           </ListItemButton>
         </List>
       </Box>
