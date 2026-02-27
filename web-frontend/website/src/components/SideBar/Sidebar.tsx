@@ -170,7 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
             <ListItemIcon sx={{ minWidth: 36 }}>
               <BriefcaseBusiness size={20} />
             </ListItemIcon>
-            <ListItemText primary="Track your Jobs" />
+            <ListItemText primary="Jobs" />
           </ListItemButton>
         </List>
       </Box>
