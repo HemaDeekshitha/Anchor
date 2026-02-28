@@ -32,6 +32,10 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
   });
+const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{8,}$/;
+
+const isStrongPassword = (password: string) => passwordRegex.test(password);
 
   const [touched, setTouched] = useState({
     name: false,
@@ -58,7 +62,8 @@ export default function SignupPage() {
   const emailError =
     touched.email && (!form.email || !isValidEmail(form.email));
 
-  const passwordError = touched.password && form.password.length < 6;
+  const passwordError =
+  touched.password && !isStrongPassword(form.password);
 
   const confirmPasswordError =
     touched.confirmPassword &&
@@ -68,7 +73,7 @@ export default function SignupPage() {
     form.name &&
     isValidEmail(form.email) &&
     !emailExists &&
-    form.password.length >= 6 &&
+    isStrongPassword(form.password) &&
     form.password === form.confirmPassword;
 
   const handleChange = (field: string) => (e: { target: { value: any } }) => {
@@ -280,7 +285,7 @@ export default function SignupPage() {
                 sx={{
                   display: "flex",
                   flexDirection: "column",
-                  alignItems: "center",
+                 alignItems: "center",
                   gap: 0.5,
                 }}
               >
@@ -447,10 +452,9 @@ export default function SignupPage() {
                   onBlur={handleBlur("password")}
                   error={passwordError}
                   helperText={
-                    passwordError
-                      ? "Password must be at least 6 characters"
-                      : " "
-                  }
+                    passwordError ? "At least 8 characters with uppercase, lowercase, number, and symbol."  : " "
+                    }
+
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">

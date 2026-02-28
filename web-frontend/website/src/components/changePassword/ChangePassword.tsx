@@ -14,6 +14,11 @@ import {
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{8,}$/;
+
+const isStrongPassword = (password: string) => passwordRegex.test(password);
+
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
@@ -26,13 +31,17 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const passwordError =
+  password.length > 0 && !isStrongPassword(password);
 
-  const passwordError = password.length > 0 && password.length < 6;
   const confirmError =
     confirmPassword.length > 0 && password !== confirmPassword;
 
-  const canSubmit =
-    token && password.length >= 6 && password === confirmPassword && !loading;
+ const canSubmit =
+  token &&
+  isStrongPassword(password) &&
+  password === confirmPassword &&
+  !loading;
 
   const handleSubmit = async () => {
     if (!token) {
@@ -113,7 +122,10 @@ export default function ResetPasswordPage() {
                 if (error) setError("");
               }}
               error={passwordError}
-              helperText={passwordError ? "Minimum 6 characters" : " "}
+              helperText={
+                passwordError ? "At least 8 characters with uppercase, lowercase, number, and symbol." : " "
+                     }
+
               fullWidth
               InputProps={{
                 endAdornment: (
