@@ -27,6 +27,7 @@ export const config = {
     "/dashboard/:path*",
     "/profile/:path*",
     "/rewards/:path*",
+    "/application-tracker/:path*",
     "/onboarding/:path*",
     "/steps/:path*",
   ],
