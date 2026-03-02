@@ -5,6 +5,7 @@ import { TaskSubmission } from './submission.entity';
 import { RagTask } from '../rag/rag-task.entity';
 import { UserDailyTask } from '../rag/rag-daily-user-tasks.entity';
 import { GeminiService } from '../ai/gemini.service';
+import { PointsService } from '../points/points.service';
 import { SubmitTextDto } from './dto/submit-text.dto';
 import { SubmissionResponseDto } from './dto/submission-response.dto';
 
@@ -13,14 +14,15 @@ export class SubmissionService {
   constructor(
     @InjectRepository(TaskSubmission)
     private submissionRepo: Repository<TaskSubmission>,
-    
+
     @InjectRepository(RagTask)
     private ragTaskRepo: Repository<RagTask>,
-    
+
     @InjectRepository(UserDailyTask)
     private userDailyTaskRepo: Repository<UserDailyTask>,
-    
+
     private geminiService: GeminiService,
+    private pointsService: PointsService,
   ) {}
 
   /**
@@ -92,10 +94,18 @@ export class SubmissionService {
 
   await this.submissionRepo.save(submission);
 
-  // Mark task as completed if approved
+  // Mark task as completed and award Anchor Points if approved
+  let anchorPointsEarned = 0;
   if (aiResult.approved) {
     await this.markTaskCompleted(userId, dto.taskId, dto.taskDate);
+    // Award 25 Anchor Points — idempotent, safe to call on resubmit too
+    await this.pointsService.awardTaskPoints(userId, dto.taskId);
+    anchorPointsEarned = 25;
   }
+
+  // Fetch updated balance so the frontend can update its UI in one round-trip
+  const { anchorPoints: newAnchorPointsBalance } =
+    await this.pointsService.getBalance(userId);
 
   return {
     id: submission.id,
@@ -108,6 +118,8 @@ export class SubmissionService {
     approved: aiResult.approved,
     submittedAt: submission.submitted_at,
     details: aiResult.details,
+    anchorPointsEarned,
+    newAnchorPointsBalance,
   };
 }
 

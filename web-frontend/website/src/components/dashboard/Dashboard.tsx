@@ -5,7 +5,8 @@ import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import SubmissionModal from "./SubmissionModal";
 import PreviousSubmissionModal from "./PreviousSubmissionModal";
-import { api } from "@/lib/api";
+import AnchorPointsCard from "../points/AnchorPointsCard";
+import { api, SubmissionResult } from "@/lib/api";
 import {
   Box,
   Card,
@@ -41,6 +42,8 @@ const Dashboard = () => {
   const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  // Incrementing this tells AnchorPointsCard to silently re-fetch its balance
+  const [pointsRefreshKey, setPointsRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
@@ -228,6 +231,9 @@ const Dashboard = () => {
                   </Typography>
                 </CardContent>
               </Card>
+
+              {/* ANCHOR POINTS CARD */}
+              <AnchorPointsCard refreshKey={pointsRefreshKey} />
             </Box>
 
             {/* TASKS SECTION */}
@@ -404,8 +410,12 @@ const Dashboard = () => {
             setSelectedTask(null);
           }}
           task={selectedTask}
-          onSuccess={() => {
-            fetchDashboardData(); // Refresh tasks
+          onSuccess={(result: SubmissionResult) => {
+            fetchDashboardData(); // Refresh task statuses
+            // If points were earned, tell AnchorPointsCard to re-fetch
+            if (result?.anchorPointsEarned > 0) {
+              setPointsRefreshKey((k) => k + 1);
+            }
             setSubmissionModalOpen(false);
             setSelectedTask(null);
           }}

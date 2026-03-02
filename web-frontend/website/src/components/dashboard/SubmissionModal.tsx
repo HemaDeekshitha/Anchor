@@ -15,7 +15,8 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import { api } from "@/lib/api";
+import { Zap } from "lucide-react";
+import { api, SubmissionResult } from "@/lib/api";
 
 interface Task {
   id: number;
@@ -28,7 +29,9 @@ interface SubmissionModalProps {
   open: boolean;
   onClose: () => void;
   task: Task | null;
-  onSuccess?: () => void;
+  /** Called when the user dismisses the result screen. Receives the full result
+   *  so the parent (Dashboard) can sync the Anchor Points balance. */
+  onSuccess?: (result: SubmissionResult) => void;
 }
 
 // Categories that only need 10 characters minimum
@@ -49,7 +52,7 @@ export default function SubmissionModal({
 }: SubmissionModalProps) {
   const [answer, setAnswer] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Determine minimum characters based on task category
@@ -200,6 +203,38 @@ export default function SubmissionModal({
                 {result.feedback}
               </Typography>
 
+              {/* Anchor Points earned banner — only shown on approval */}
+              {result.approved && result.anchorPointsEarned > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mt: 1,
+                    mb: 1,
+                    px: 2,
+                    py: 1,
+                    borderRadius: 2,
+                    bgcolor: "#fef9c3",
+                    border: "1px solid #fde68a",
+                  }}
+                >
+                  <Zap size={16} color="#f59e0b" fill="#f59e0b" />
+                  <Typography
+                    variant="body2"
+                    sx={{ fontWeight: 700, color: "#854d0e" }}
+                  >
+                    +{result.anchorPointsEarned} Anchor Points earned!
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ ml: "auto", color: "#92400e" }}
+                  >
+                    Total: {result.newAnchorPointsBalance} AP
+                  </Typography>
+                </Box>
+              )}
+
               {/* Details */}
               {result.details && !result.details.selfReport && (
                 <Box
@@ -274,10 +309,10 @@ export default function SubmissionModal({
               fullWidth
               variant="contained"
               onClick={() => {
-                if (onSuccess) {
-                  onSuccess();  // Refresh dashboard
+                if (onSuccess && result) {
+                  onSuccess(result); // Pass full result so Dashboard can refresh points
                 }
-                handleClose();  // Close modal
+                handleClose();
               }}
               sx={{
                 bgcolor: "#be123c",

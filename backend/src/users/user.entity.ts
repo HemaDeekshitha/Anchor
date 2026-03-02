@@ -38,4 +38,11 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   passwordResetExpiresAt: Date | null;
+
+  /**
+   * Number of "360 Points" this user has earned by converting Anchor Points.
+   * 500 Anchor Points → 1 "360 Point" (universal cross-platform currency).
+   */
+  @Column({ type: 'int', default: 0 })
+  points_360: number;
 }
