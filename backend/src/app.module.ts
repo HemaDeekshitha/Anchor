@@ -9,8 +9,9 @@ import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
-import { SubmissionModule } from './submissions/submission.module'; // NEW
-import { AiModule } from './ai/ai.module'; // NEW
+import { SubmissionModule } from './submissions/submission.module';
+import { AiModule } from './ai/ai.module';
+import { PointsModule } from './points/points.module';
 
 @Module({
   imports: [
@@ -36,8 +37,9 @@ import { AiModule } from './ai/ai.module'; // NEW
     }),
     RagModule,
     AuthModule,
-    SubmissionModule, // NEW
-    AiModule, // NEW
+    SubmissionModule,
+    AiModule,
+    PointsModule,
   ],
 })
 export class AppModule {}

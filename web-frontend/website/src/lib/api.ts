@@ -6,7 +6,7 @@ interface SubmitAnswerParams {
   textContent: string;
 }
 
-interface SubmissionResult {
+export interface SubmissionResult {
   id: number;
   taskId: number;
   taskTitle: string;
@@ -25,6 +25,10 @@ interface SubmissionResult {
     wordCount?: number;
     [key: string]: any;
   };
+  /** Anchor Points awarded for this submission (25 if approved, 0 if rejected) */
+  anchorPointsEarned: number;
+  /** User's total Anchor Points balance after this submission */
+  newAnchorPointsBalance: number;
 }
 
 interface Submission {
@@ -39,15 +43,34 @@ interface Submission {
   submittedAt: string;
 }
 
+// ── Points ────────────────────────────────────────────────────────────────────
+
+export interface PointsEntry {
+  id: number;
+  type: 'task_earned' | 'converted_to_360';
+  amount: number;
+  taskId: number | null;
+  createdAt: string;
+}
+
+export interface PointsSummary {
+  anchorPoints: number;
+  points360: number;
+  pointsToNextConversion: number;
+  progressPercent: number;
+  canConvert: boolean;
+  history: PointsEntry[];
+}
+
+// ── API client ────────────────────────────────────────────────────────────────
+
 export const api = {
   // Submit answer for a task
   submitAnswer: async (params: SubmitAnswerParams): Promise<SubmissionResult> => {
     const response = await fetch(`${API_BASE_URL}/submissions/submit`, {
       method: 'POST',
-      credentials: 'include', // Important for cookies
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
 
@@ -66,10 +89,7 @@ export const api = {
       credentials: 'include',
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch submissions');
-    }
-
+    if (!response.ok) throw new Error('Failed to fetch submissions');
     return response.json();
   },
 
@@ -80,8 +100,31 @@ export const api = {
       credentials: 'include',
     });
 
+    if (!response.ok) throw new Error('Failed to fetch submission');
+    return response.json();
+  },
+
+  // Get current user's Anchor Points balance, history, and 360 Points count
+  getMyPoints: async (): Promise<PointsSummary> => {
+    const response = await fetch(`${API_BASE_URL}/points/me`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch points');
+    return response.json();
+  },
+
+  // Convert 500 Anchor Points → 1 "360 Point"
+  convertTo360: async (): Promise<Omit<PointsSummary, 'history'>> => {
+    const response = await fetch(`${API_BASE_URL}/points/convert`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
     if (!response.ok) {
-      throw new Error('Failed to fetch submission');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Conversion failed');
     }
 
     return response.json();
