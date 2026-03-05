@@ -41,4 +41,6 @@ export class OnboardingResponse {
 
   @CreateDateColumn()
   createdAt: Date;
+  @Column({ nullable: true })
+  profileImageUrl: string;
 }

@@ -37,4 +37,15 @@ export class RagController {
       pendingTasks,
     };
   }
+  @UseGuards(JwtAuthGuard)
+  @Get('milestones')
+  async getMilestones(@Req() req: Request) {
+    if (!req.user) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    const userId = req.user.userId;
+
+    return this.ragService.getWeeklyMilestones(userId);
+  }
 }

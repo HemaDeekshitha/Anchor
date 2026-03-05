@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { SubmissionModule } from './submissions/submission.module';
 import { AiModule } from './ai/ai.module';
 import { PointsModule } from './points/points.module';
+import { MomentumModule } from './momentum/momentum.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PointsModule } from './points/points.module';
     SubmissionModule,
     AiModule,
     PointsModule,
+    MomentumModule,
   ],
 })
 export class AppModule {}

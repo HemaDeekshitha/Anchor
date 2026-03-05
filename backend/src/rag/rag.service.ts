@@ -19,7 +19,7 @@ export class RagService {
     const existingPlan = await this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
-      .andWhere("DATE(udt.task_date) = :today", { today })
+      .andWhere('DATE(udt.task_date) = :today', { today })
       .getMany();
 
     console.log(`📅 Checking for tasks on ${today}`);
@@ -45,22 +45,23 @@ export class RagService {
       .andWhere('DATE(udt.task_date) >= :recentDate', { recentDate })
       .getRawMany();
 
-    const excludeTaskIds = recentlyCompleted.map(r => r.task_id);
+    const excludeTaskIds = recentlyCompleted.map((r) => r.task_id);
 
-    console.log(`🚫 Excluding ${excludeTaskIds.length} recently completed tasks`);
+    console.log(
+      `🚫 Excluding ${excludeTaskIds.length} recently completed tasks`,
+    );
 
     let query = this.ragTaskRepo
       .createQueryBuilder('task')
       .where('task.is_active = true');
 
     if (excludeTaskIds.length > 0) {
-      query = query.andWhere('task.id NOT IN (:...excludeIds)', { excludeIds: excludeTaskIds });
+      query = query.andWhere('task.id NOT IN (:...excludeIds)', {
+        excludeIds: excludeTaskIds,
+      });
     }
 
-    const tasks = await query
-      .orderBy('RANDOM()')
-      .limit(limit)
-      .getMany();
+    const tasks = await query.orderBy('RANDOM()').limit(limit).getMany();
 
     console.log(`✨ Generated ${tasks.length} fresh tasks`);
 
@@ -103,7 +104,7 @@ export class RagService {
     const taskIds = dailyTasks.map((d) => d.task_id);
 
     const tasks = await this.ragTaskRepo.find({
-      where: { id: In(taskIds) }
+      where: { id: In(taskIds) },
     });
 
     return tasks.map((task) => {
@@ -136,7 +137,9 @@ export class RagService {
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
       .andWhere('udt.status = :status', { status: 'pending' })
-      .andWhere('DATE(udt.task_date) >= :weekStart', { weekStart: weekStartDate })
+      .andWhere('DATE(udt.task_date) >= :weekStart', {
+        weekStart: weekStartDate,
+      })
       .andWhere('DATE(udt.task_date) < :today', { today })
       .select([
         'udt.id as "id"',
@@ -157,9 +160,51 @@ export class RagService {
       .createQueryBuilder()
       .delete()
       .where('user_id = :userId', { userId })
-      .andWhere("DATE(task_date) = :date", { date })
+      .andWhere('DATE(task_date) = :date', { date })
       .execute();
-    
+
     return result.affected;
+  }
+
+  async getWeeklyMilestones(userId: string) {
+    const now = new Date();
+
+    // Start of week (Sunday)
+    const weekStart = new Date(now);
+    weekStart.setUTCDate(now.getUTCDate() - now.getUTCDay());
+    weekStart.setUTCHours(0, 0, 0, 0);
+
+    const weekStartDate = weekStart.toISOString().slice(0, 10);
+
+    const tasks = await this.userDailyRepo
+      .createQueryBuilder('udt')
+      .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+      .where('udt.user_id = :userId', { userId })
+      .andWhere('DATE(udt.task_date) >= :weekStart', {
+        weekStart: weekStartDate,
+      })
+      .select([
+        'udt.id as "id"',
+        'task.title as "title"',
+        'udt.status as "status"',
+        'udt.task_date as "date"',
+      ])
+      .orderBy('udt.task_date', 'ASC')
+      .getRawMany();
+
+    const completed = tasks.filter((t) => t.status === 'completed').length;
+
+    return {
+      summary: {
+        completed,
+        total: tasks.length,
+      },
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        completed: t.status === 'completed',
+        date: t.date,
+      })),
+    };
   }
 }
