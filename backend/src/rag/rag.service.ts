@@ -180,9 +180,7 @@ export class RagService {
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
-      .andWhere('DATE(udt.task_date) >= :weekStart', {
-        weekStart: weekStartDate,
-      })
+      .andWhere('task.difficulty = :difficulty', { difficulty: 'hard' })
       .select([
         'udt.id as "id"',
         'task.title as "title"',
