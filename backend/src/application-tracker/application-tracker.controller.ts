@@ -2,8 +2,10 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
   Logger,
+  Param,
   Post,
   Query,
   Req,
@@ -140,5 +142,17 @@ export class ApplicationTrackerController {
     }
 
     return this.applicationTrackerService.getJobsForUser(userId);
+  }
+
+  @Delete('jobs/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteJob(@Req() req, @Param('id') jobId: string) {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+
+    return this.applicationTrackerService.deleteJob(userId, jobId);
   }
 }
