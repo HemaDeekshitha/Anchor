@@ -46,38 +46,38 @@ type SimpleBar = {
   value: number;
 };
 
-const milestones = [
-  {
-    id: 1,
-    title: "Solved 5 LeetCode Mediums",
-    progress: "Arrays, Hashing, Sliding Window",
-    completed: true,
-  },
-  {
-    id: 2,
-    title: "Applied to 10+ roles",
-    progress: "Frontend Developer at Stripe, Vercel, Linear",
-    completed: true,
-  },
-  {
-    id: 3,
-    title: "React Hooks mastery",
-    progress: "Completed useEffect, useCallback modules",
-    completed: true,
-  },
-  {
-    id: 4,
-    title: "System Design basics",
-    progress: "2/4 videos • LRU Cache, Rate Limiter",
-    completed: false,
-  },
-  {
-    id: 5,
-    title: "Mock behavioral interview",
-    progress: "Schedule with mentor this Friday",
-    completed: false,
-  },
-];
+// const milestones = [
+//   {
+//     id: 1,
+//     title: "Solved 5 LeetCode Mediums",
+//     progress: "Arrays, Hashing, Sliding Window",
+//     completed: true,
+//   },
+//   {
+//     id: 2,
+//     title: "Applied to 10+ roles",
+//     progress: "Frontend Developer at Stripe, Vercel, Linear",
+//     completed: true,
+//   },
+//   {
+//     id: 3,
+//     title: "React Hooks mastery",
+//     progress: "Completed useEffect, useCallback modules",
+//     completed: true,
+//   },
+//   {
+//     id: 4,
+//     title: "System Design basics",
+//     progress: "2/4 videos • LRU Cache, Rate Limiter",
+//     completed: false,
+//   },
+//   {
+//     id: 5,
+//     title: "Mock behavioral interview",
+//     progress: "Schedule with mentor this Friday",
+//     completed: false,
+//   },
+// ];
 
 const metrics: AnalyticsMetric[] = [
   { label: "Total Sessions (30d)", value: 124, change: 12.4 },
@@ -124,24 +124,34 @@ export default function DashboardPage() {
   const maxBarValue = Math.max(...weeklyActivity.map((b) => b.value));
   const [profile, setProfile] = useState<any>(null);
   const [openResumeText, setOpenResumeText] = useState(false);
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const topPriorityTask = milestones.find((task) => !task.completed);
+  const allMilestonesCompleted =
+    milestones.length > 0 && milestones.every((task) => task.completed);
 
   useEffect(() => {
-    async function fetchProfile() {
+    async function loadDashboardData() {
       try {
-        const res = await fetch("http://localhost:3001/momentum/profile", {
-          credentials: "include",
-        });
+        const [profileRes, milestonesRes] = await Promise.all([
+          fetch("http://localhost:3001/momentum/profile", {
+            credentials: "include",
+          }),
+          fetch("http://localhost:3001/rag/milestones", {
+            credentials: "include",
+          }),
+        ]);
 
-        const data = await res.json();
-        console.log("PROFILE DATA:", data);
+        const profileData = await profileRes.json();
+        const milestonesData = await milestonesRes.json();
 
-        setProfile(data);
+        setProfile(profileData);
+        setMilestones(milestonesData.tasks || []);
       } catch (err) {
-        console.error("Failed to fetch profile", err);
+        console.error("Failed to load dashboard data", err);
       }
     }
 
-    fetchProfile();
+    loadDashboardData();
   }, []);
 
   return (
@@ -269,10 +279,11 @@ export default function DashboardPage() {
                       variant="h6"
                       sx={{ fontWeight: 700, lineHeight: 1.4, mt: 0.5 }}
                     >
-                      System Design:{" "}
-                      <Box component="span" sx={{ color: "text.primary" }}>
-                        LRU Cache
-                      </Box>
+                      {allMilestonesCompleted
+                        ? " Congrats! You finished today's priority task."
+                        : topPriorityTask
+                        ? topPriorityTask.title
+                        : "Loading priority task..."}
                     </Typography>
                   </Box>
                 </Box>
@@ -280,6 +291,7 @@ export default function DashboardPage() {
                 <Button
                   variant="contained"
                   size="medium"
+                  disabled={!topPriorityTask}
                   sx={{
                     bgcolor: "rgb(209, 112, 51)",
                     "&:hover": { bgcolor: "#e5b526" },

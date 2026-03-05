@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RagTask } from './rag-task.entity';
 import { Repository, In } from 'typeorm';
 import { UserDailyTask } from './rag-daily-user-tasks.entity';
+import { diff } from 'util';
 
 @Injectable()
 export class RagService {
@@ -39,29 +40,58 @@ export class RagService {
 
     const recentlyCompleted = await this.userDailyRepo
       .createQueryBuilder('udt')
-      .select('udt.task_id')
+      .select('udt.task_id', 'task_id')
       .where('udt.user_id = :userId', { userId })
       .andWhere('udt.status = :status', { status: 'completed' })
       .andWhere('DATE(udt.task_date) >= :recentDate', { recentDate })
       .getRawMany();
 
-    const excludeTaskIds = recentlyCompleted.map((r) => r.task_id);
+    const excludeTaskIds = recentlyCompleted
+      .map((r) => r.task_id)
+      .filter((id) => id !== undefined);
 
     console.log(
       `🚫 Excluding ${excludeTaskIds.length} recently completed tasks`,
     );
 
-    let query = this.ragTaskRepo
+    const baseQuery = this.ragTaskRepo
       .createQueryBuilder('task')
       .where('task.is_active = true');
 
     if (excludeTaskIds.length > 0) {
-      query = query.andWhere('task.id NOT IN (:...excludeIds)', {
+      baseQuery.andWhere('task.id NOT IN (:...excludeIds)', {
         excludeIds: excludeTaskIds,
       });
     }
+    // 1️⃣ Hard task (High priority)
+    const hardTask = await baseQuery
+      .clone()
+      .andWhere('task.difficulty = :difficulty', { difficulty: 'hard' })
+      .orderBy('RANDOM()')
+      .limit(1)
+      .getMany();
 
-    const tasks = await query.orderBy('RANDOM()').limit(limit).getMany();
+    console.log('Hard tasks:', hardTask.length);
+
+    // 2️⃣ Medium tasks
+    const mediumTasks = await baseQuery
+      .clone()
+      .andWhere('task.difficulty = :difficulty', { difficulty: 'medium' })
+      .orderBy('RANDOM()')
+      .limit(2)
+      .getMany();
+    console.log('Medium tasks:', mediumTasks.length);
+
+    // 3️⃣ random task
+    const easyTask = await baseQuery
+      .clone()
+      .andWhere('task.difficulty = :difficulty', { difficulty: 'easy' })
+      .orderBy('RANDOM()')
+      .limit(1)
+      .getMany();
+
+    console.log('Easy tasks:', easyTask.length);
+    const tasks = [...hardTask, ...mediumTasks, ...easyTask];
 
     console.log(`✨ Generated ${tasks.length} fresh tasks`);
 
@@ -93,6 +123,7 @@ export class RagService {
       title: t.title,
       category: t.category,
       difficulty: t.difficulty,
+      priority: t.priority,
       status: 'pending',
       date: today,
       task_date: today,
@@ -114,6 +145,7 @@ export class RagService {
         title: task.title,
         category: task.category,
         difficulty: task.difficulty,
+        priority: task.priority,
         status: daily?.status ?? 'pending',
         date: daily?.task_date,
         task_date: daily?.task_date,
@@ -148,6 +180,7 @@ export class RagService {
         'task.category as "category"',
         'udt.status as "status"',
         'udt.task_date as "date"',
+        'task.priority as "priority"',
       ])
       .orderBy('udt.task_date', 'ASC')
       .getRawMany();
@@ -180,14 +213,16 @@ export class RagService {
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
-      .andWhere('task.difficulty = :difficulty', { difficulty: 'hard' })
+      .andWhere('task.priority = :priority', { priority: 'high' })
       .select([
         'udt.id as "id"',
         'task.title as "title"',
+        'task.difficulty as "difficulty"',
         'udt.status as "status"',
         'udt.task_date as "date"',
       ])
       .orderBy('udt.task_date', 'ASC')
+      .limit(5)
       .getRawMany();
 
     const completed = tasks.filter((t) => t.status === 'completed').length;
@@ -202,6 +237,7 @@ export class RagService {
         title: t.title,
         completed: t.status === 'completed',
         date: t.date,
+        difficulty: t.difficulty,
       })),
     };
   }

@@ -3,6 +3,7 @@ import {
   Card,
   CardContent,
   CardHeader,
+  Chip,
   Divider,
   List,
   ListItem,
@@ -14,14 +15,48 @@ import React from "react";
 type Milestone = {
   id: number;
   title: string;
-  progress: string;
   completed: boolean;
+  difficulty?: string;
 };
 type MilestonesCardProps = {
   milestones: Milestone[];
 };
 
 export default function RecentActivity({ milestones }: MilestonesCardProps) {
+  const completedCount = milestones.filter((m) => m.completed).length;
+
+  const milestones1 = [
+    {
+      id: 1,
+      title: "Solved 5 LeetCode Mediums",
+      difficulty: "medium",
+      completed: true,
+    },
+    {
+      id: 2,
+      title: "Applied to 10+ roles",
+      difficulty: "hard",
+      completed: true,
+    },
+    {
+      id: 3,
+      title: "React Hooks mastery",
+      difficulty: "hard",
+      completed: true,
+    },
+    {
+      id: 4,
+      title: "System Design basics",
+      difficulty: "medium",
+      completed: false,
+    },
+    {
+      id: 5,
+      title: "Mock behavioral interview",
+      difficulty: "medium",
+      completed: false,
+    },
+  ];
   return (
     <>
       <Card
@@ -75,7 +110,7 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
             },
           }}
           title="Weekly Milestones"
-          subheader="3 of 5 key achievements this week"
+          subheader={`${completedCount} of ${5} key achievements this week`}
         />
 
         <Divider
@@ -147,43 +182,79 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
                   </Box>
 
                   <ListItemText
+                    slotProps={{
+                      secondary: {
+                        component: "div",
+                      },
+                    }}
                     primary={
-                      <Typography
-                        variant="subtitle2"
+                      <Box
                         sx={{
-                          fontWeight: 700,
-                          ...(milestone.completed
-                            ? {
-                                color: "rgb(209, 112, 51)", // ← Brand orange
-                                background:
-                                  "linear-gradient(to right, rgb(209, 112, 51), #E5B526)", // ← Brand gradient
-                                WebkitBackgroundClip: "text",
-                                WebkitTextFillColor: "transparent",
-                                backgroundClip: "text",
-                              }
-                            : { color: "rgb(209, 112, 51)" }),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 1,
                         }}
                       >
-                        {milestone.title}
-                      </Typography>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            fontWeight: 700,
+                            ...(milestone.completed
+                              ? {
+                                  color: "rgb(209, 112, 51)",
+                                  background:
+                                    "linear-gradient(to right, rgb(209, 112, 51), #E5B526)",
+                                  WebkitBackgroundClip: "text",
+                                  WebkitTextFillColor: "transparent",
+                                  backgroundClip: "text",
+                                }
+                              : { color: "rgb(209, 112, 51)" }),
+                          }}
+                        >
+                          {milestone.title}
+                        </Typography>
+
+                        {/* Difficulty Chip */}
+                        {milestone.difficulty && (
+                          <Chip
+                            label={milestone.difficulty.toUpperCase()}
+                            size="small"
+                            sx={{
+                              fontWeight: 700,
+                              height: 22,
+                              ...(milestone.difficulty === "hard" && {
+                                bgcolor: "#FEE2E2",
+                                color: "#B91C1C",
+                              }),
+                              ...(milestone.difficulty === "medium" && {
+                                bgcolor: "#FEF3C7",
+                                color: "#92400E",
+                              }),
+                              ...(milestone.difficulty === "easy" && {
+                                bgcolor: "#DCFCE7",
+                                color: "#065F46",
+                              }),
+                            }}
+                          />
+                        )}
+                      </Box>
                     }
                     secondary={
-                      <Typography
-                        variant="body2"
+                      <Box
                         sx={{
-                          mt: 0.25,
-                          fontWeight: 500,
-                          ...(milestone.completed
-                            ? { color: "rgb(209, 112, 51)" }
-                            : { color: "text.primary" }),
+                          mt: 0.5,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1.2,
+                          flexWrap: "wrap",
                         }}
                       >
-                        {milestone.progress}
+                        {/* DONE badge */}
                         {milestone.completed && (
                           <Box
                             component="span"
                             sx={{
-                              ml: 1.5,
                               px: 1.5,
                               py: 0.25,
                               bgcolor: "rgba(209, 112, 51, 0.15)",
@@ -196,7 +267,7 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
                             DONE
                           </Box>
                         )}
-                      </Typography>
+                      </Box>
                     }
                   />
                 </ListItem>

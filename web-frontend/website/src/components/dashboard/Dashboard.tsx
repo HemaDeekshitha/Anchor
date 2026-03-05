@@ -31,6 +31,7 @@ interface Task {
   is_ai_generated?: boolean;
   category?: string;
   taskId?: number;
+  priority?: "low" | "medium" | "high";
 }
 
 const Dashboard = () => {
@@ -39,7 +40,8 @@ const Dashboard = () => {
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [openPendingModal, setOpenPendingModal] = useState(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
-  const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] = useState(false);
+  const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] =
+    useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   // Incrementing this tells AnchorPointsCard to silently re-fetch its balance
@@ -65,12 +67,14 @@ const Dashboard = () => {
       }
 
       if (data.pendingTasks) {
-        const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
-          ...task,
-          id: Number(task.id),
-          taskId: Number(task.taskId ?? task.taskid ?? task.id),
-          status: task.status ?? "pending",
-        }));
+        const normalizedPendingTasks: Task[] = data.pendingTasks.map(
+          (task: any) => ({
+            ...task,
+            id: Number(task.id),
+            taskId: Number(task.taskId ?? task.taskid ?? task.id),
+            status: task.status ?? "pending",
+          })
+        );
         setPendingTasks(normalizedPendingTasks);
       }
     } catch (error) {
@@ -92,7 +96,7 @@ const Dashboard = () => {
         const taskSubmission = submissions.find(
           (s: any) => s.taskId === submissionTaskId
         );
-        
+
         if (taskSubmission) {
           // Fetch full details
           const fullSubmission = await api.getSubmission(taskSubmission.id);
@@ -259,7 +263,40 @@ const Dashboard = () => {
                             <Check size={14} color="white" />
                           )}
                         </div>
-                        <span className={styles.taskTitle}>{task.title}</span>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <span className={styles.taskTitle}>{task.title}</span>
+
+                          {task.priority && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: "2px 6px",
+                                borderRadius: 6,
+                                background:
+                                  task.priority === "high"
+                                    ? "#fee2e2"
+                                    : task.priority === "medium"
+                                    ? "#fef3c7"
+                                    : "#dcfce7",
+                                color:
+                                  task.priority === "high"
+                                    ? "#b91c1c"
+                                    : task.priority === "medium"
+                                    ? "#92400e"
+                                    : "#065f46",
+                              }}
+                            >
+                              {task.priority.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <ChevronRight size={20} color="#fb7185" />
                     </div>
