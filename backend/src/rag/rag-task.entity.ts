@@ -30,4 +30,7 @@ export class RagTask {
 
   @CreateDateColumn()
   created_at: Date;
+
+  @Column({ type: 'text', default: 'medium' })
+  priority: 'low' | 'medium' | 'high';
 }

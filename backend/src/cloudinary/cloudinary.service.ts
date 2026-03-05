@@ -37,7 +37,7 @@ export class CloudinaryService {
         {
           folder: 'anchor-resumes',
           resource_type: 'raw', // 🔥 PDFs/docs are non-image RAW files
-          type: 'private', // 🔥 Makes the file NON-PUBLIC
+          // type: 'public', // 🔥 Makes the file NON-PUBLIC
         },
         (error: any, result?: UploadApiResponse) => {
           if (error || !result) {
@@ -63,6 +63,7 @@ export class CloudinaryService {
       type: 'private',
       sign_url: true, // 🔥 Authenticated access
       expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour expiry
+      attachment: false, // ⭐ forces browser to open instead of download
     });
 
     return url;

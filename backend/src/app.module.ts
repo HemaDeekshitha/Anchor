@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { SubmissionModule } from './submissions/submission.module';
 import { AiModule } from './ai/ai.module';
 import { PointsModule } from './points/points.module';
+import { MomentumModule } from './momentum/momentum.module';
 import { ApplicationTrackerModule } from './application-tracker/application-tracker.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { ApplicationTrackerModule } from './application-tracker/application-trac
     SubmissionModule,
     AiModule,
     PointsModule,
+    MomentumModule,
     ApplicationTrackerModule,
   ],
 })
