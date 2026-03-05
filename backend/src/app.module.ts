@@ -13,6 +13,7 @@ import { SubmissionModule } from './submissions/submission.module';
 import { AiModule } from './ai/ai.module';
 import { PointsModule } from './points/points.module';
 import { MomentumModule } from './momentum/momentum.module';
+import { ApplicationTrackerModule } from './application-tracker/application-tracker.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { MomentumModule } from './momentum/momentum.module';
     AiModule,
     PointsModule,
     MomentumModule,
+    ApplicationTrackerModule,
   ],
 })
 export class AppModule {}
