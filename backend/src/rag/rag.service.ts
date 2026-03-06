@@ -67,34 +67,28 @@ export class RagService {
       });
     }
     // 1️⃣ Hard task (High priority)
-    const hardTask = await baseQuery
+    const highTask = await baseQuery
       .clone()
-      .andWhere('task.difficulty = :difficulty', { difficulty: 'hard' })
+      .andWhere('task.priority = :priority', { priority: 'high' })
       .orderBy('RANDOM()')
       .limit(1)
       .getMany();
 
-    console.log('Hard tasks:', hardTask.length);
-
-    // 2️⃣ Medium tasks
     const mediumTasks = await baseQuery
       .clone()
-      .andWhere('task.difficulty = :difficulty', { difficulty: 'medium' })
+      .andWhere('task.priority = :priority', { priority: 'medium' })
       .orderBy('RANDOM()')
       .limit(2)
       .getMany();
-    console.log('Medium tasks:', mediumTasks.length);
 
     // 3️⃣ random task
-    const easyTask = await baseQuery
+    const lowTask = await baseQuery
       .clone()
-      .andWhere('task.difficulty = :difficulty', { difficulty: 'easy' })
+      .andWhere('task.priority = :priority', { priority: 'low' })
       .orderBy('RANDOM()')
       .limit(1)
       .getMany();
-
-    console.log('Easy tasks:', easyTask.length);
-    const tasks = [...hardTask, ...mediumTasks, ...easyTask];
+    const tasks = [...highTask, ...mediumTasks, ...lowTask];
 
     console.log(`✨ Generated ${tasks.length} fresh tasks`);
 
@@ -223,11 +217,14 @@ export class RagService {
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
-      .andWhere('task.priority = :priority', { priority: 'high' })
+      .andWhere('DATE(udt.task_date) >= :weekStart', {
+        weekStart: weekStartDate,
+      })
+      .andWhere('task.priority = :priority', { priority: 'high' }) // ✅ added
       .select([
         'udt.id as "id"',
         'task.title as "title"',
-        'task.difficulty as "difficulty"',
+        'task.priority as "priority"',
         'udt.status as "status"',
         'udt.task_date as "date"',
       ])
@@ -247,7 +244,7 @@ export class RagService {
         title: t.title,
         completed: t.status === 'completed',
         date: t.date,
-        difficulty: t.difficulty,
+        priority: t.priority,
       })),
     };
   }
