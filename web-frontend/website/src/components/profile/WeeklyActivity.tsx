@@ -21,15 +21,36 @@ export default function WeeklyActivity({
 
   const peakText =
     peakDays.length === 0
-      ? "No tasks completed this week yet."
-      : `Most productive day${peakDays.length > 1 ? "s" : ""}: ${peakDays.join(
+      ? "You haven't completed any tasks this week yet."
+      : `Peak productivity on ${peakDays.join(
           ", "
         )} — ${maxTasks}/4 tasks completed`;
-
+  const barData = weeklyActivity.map((d) => ({
+    value: d.value,
+    color:
+      d.value === maxTasks && maxTasks > 0
+        ? "rgb(209, 112, 51)" // highlight peak days
+        : "#E5B526", // normal bars
+  }));
   return (
     <>
       <Card sx={{ borderRadius: 3, mt: 1 }}>
         <CardHeader
+          sx={{
+            "& .MuiCardHeader-title": {
+              fontWeight: 700,
+              background:
+                "linear-gradient(to right, rgb(209, 112, 51), #E5B526)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            },
+            "& .MuiCardHeader-subheader": {
+              color: "black",
+              fontWeight: 500,
+              fontSize: "0.9rem",
+            },
+          }}
           title="Weekly Activity"
           subheader="Tasks completed per day (last 7 days)"
           action={
@@ -66,7 +87,7 @@ export default function WeeklyActivity({
               {
                 data: weeklyActivity.map((d) => d.value),
                 label: "Tasks",
-                color: "#E5B526",
+                color: "rgb(209,112,51)",
                 valueFormatter: (value) => `${value}/4  `,
               },
             ]}
@@ -107,8 +128,8 @@ export default function WeeklyActivity({
           />
           <Typography
             variant="caption"
-            color="text.primary"
-            sx={{ mt: 1, display: "block" }}
+            color="rgb(209,112,51)"
+            sx={{ mt: 1, display: "block", fontWeight: 500 }}
           >
             {peakText}
           </Typography>
