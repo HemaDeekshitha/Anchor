@@ -198,7 +198,7 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
                             sx={{
                               fontWeight: 700,
                               height: 22,
-                              ...(milestone.priority === "hard" && {
+                              ...(milestone.priority === "high" && {
                                 bgcolor: "#FEE2E2",
                                 color: "#B91C1C",
                               }),
@@ -206,7 +206,7 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
                                 bgcolor: "#FEF3C7",
                                 color: "#92400E",
                               }),
-                              ...(milestone.priority === "easy" && {
+                              ...(milestone.priority === "low" && {
                                 bgcolor: "#DCFCE7",
                                 color: "#065F46",
                               }),

@@ -13,11 +13,13 @@ import React from "react";
 
 type ProfileSectionProps = {
   profile: any;
+  weeklyRecap: string;
   setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export default function ProfileSection({
   profile,
+  weeklyRecap,
   setOpenResumeText,
 }: ProfileSectionProps) {
   return (
@@ -149,13 +151,43 @@ export default function ProfileSection({
             <Typography
               variant="body2"
               sx={{
-                color: "text.primary",
-                fontWeight: 500,
-                lineHeight: 1.5,
+                position: "relative",
+                borderRadius: 2,
+                padding: "12px 16px",
+                fontWeight: 600,
+                fontSize: 14,
+                overflow: "hidden",
+
+                background:
+                  "linear-gradient(to right, rgb(209,112,51), #E5B526)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+
+                "&::before": {
+                  content: '""',
+                  position: "absolute",
+                  top: 0,
+                  left: "-50%",
+                  width: "200%",
+                  height: "100%",
+                  background:
+                    "linear-gradient(120deg, rgba(209,112,51,0) 0%, rgba(209,112,51,0.2) 50%, rgba(209,112,51,0) 100%)",
+                  animation: "shine 3s infinite",
+                  borderRadius: 2,
+                },
+
+                "@keyframes pulse": {
+                  "0%": { transform: "scale(1)" },
+                  "50%": { transform: "scale(1.02)" },
+                  "100%": { transform: "scale(1)" },
+                },
+
+                animation: "pulse 2s infinite",
               }}
             >
-              Weekly recap: you moved forward on key skills and stayed aligned
-              with your career goals.
+              {weeklyRecap ||
+                "Complete your today's plan to unlock streaks and rewards"}
             </Typography>
           </Box>
 

@@ -9,10 +9,16 @@ import {
 import { RagService } from './rag.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import type { Request } from 'express';
+import { AnalyticsService } from './analytics/analytics.service';
+import { InsightsService } from './insights/insights.service';
 
 @Controller('rag')
 export class RagController {
-  constructor(private readonly ragService: RagService) {}
+  constructor(
+    private readonly ragService: RagService,
+    private readonly analyticsService: AnalyticsService,
+    private readonly insightsService: InsightsService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('tasks')
@@ -53,13 +59,20 @@ export class RagController {
   @Get('analytics')
   getAnalytics(@Req() req) {
     const userId = req.user.userId;
-    return this.ragService.getAnalytics(userId);
+    return this.analyticsService.getAnalytics(userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('weekly-activity')
   async getWeeklyActivity(@Req() req) {
     const userId = req.user.userId;
-    return this.ragService.getWeeklyActivity(userId);
+    return this.analyticsService.getWeeklyActivity(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('weekly-recap')
+  async getWeeklyRecap(@Req() req) {
+    const userId = req.user.userId;
+    return this.insightsService.getWeeklyRecap(userId);
   }
 }

@@ -79,6 +79,12 @@ export class AuthService {
     if (!isMatch) {
       throw new UnauthorizedException('Incorrect Password');
     }
+
+    // 🌍 update user timezone if provided
+    if (dto.timezone && user.timezone !== dto.timezone) {
+      user.timezone = dto.timezone;
+      await this.userRepo.save(user);
+    }
     const payload = { sub: user.id, email: user.email };
 
     const accessToken = this.jwtService.sign(payload, {

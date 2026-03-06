@@ -45,4 +45,6 @@ export class User {
    */
   @Column({ type: 'int', default: 0 })
   points_360: number;
+  @Column({ nullable: true })
+  timezone: string;
 }

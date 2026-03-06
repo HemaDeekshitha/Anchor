@@ -44,6 +44,7 @@ const deadlinesData = [
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
+  const [weeklyRecap, setWeeklyRecap] = useState<string>("");
   const [openResumeText, setOpenResumeText] = useState(false);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
@@ -95,9 +96,12 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [profileRes, milestonesRes, analyticsRes, weeklyRes] =
+        const [profileRes, recapRes, milestonesRes, analyticsRes, weeklyRes] =
           await Promise.all([
             fetch("http://localhost:3001/momentum/profile", {
+              credentials: "include",
+            }),
+            fetch("http://localhost:3001/rag/weekly-recap", {
               credentials: "include",
             }),
             fetch("http://localhost:3001/rag/milestones", {
@@ -112,11 +116,13 @@ export default function DashboardPage() {
           ]);
 
         const profileData = await profileRes.json();
+        const weeklyRecapData = await recapRes.json();
         const milestonesData = await milestonesRes.json();
         const analyticsData = await analyticsRes.json();
         const weeklyData = await weeklyRes.json();
 
         setProfile(profileData);
+        setWeeklyRecap(weeklyRecapData.recap);
         setMilestones(milestonesData.tasks || []);
         setAnalytics(analyticsData);
         setWeeklyActivity(weeklyData.weeklyActivity);
@@ -210,6 +216,7 @@ export default function DashboardPage() {
             {/* Profile card */}
             <ProfileSection
               profile={profile}
+              weeklyRecap={weeklyRecap}
               setOpenResumeText={setOpenResumeText}
             />
 
