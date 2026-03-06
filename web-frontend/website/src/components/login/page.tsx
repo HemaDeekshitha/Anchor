@@ -68,6 +68,7 @@ export default function LoginPage() {
 
     setLoading(true);
     setApiError("");
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
       const res = await fetch(`http://localhost:3001/auth/login`, {
@@ -80,6 +81,7 @@ export default function LoginPage() {
           email,
           password,
           rememberMe,
+          timezone,
         }),
       });
 

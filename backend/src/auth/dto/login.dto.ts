@@ -6,4 +6,5 @@ export class LoginDto {
   @IsNotEmpty()
   password: string;
   rememberMe?: boolean;
+  timezone?: string;
 }
