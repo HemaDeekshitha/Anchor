@@ -17,7 +17,7 @@ type Milestone = {
   id: number;
   title: string;
   completed: boolean;
-  difficulty?: string;
+  priority?: string;
 };
 type MilestonesCardProps = {
   milestones: Milestone[];
@@ -190,23 +190,23 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
                           {milestone.title}
                         </Typography>
 
-                        {/* Difficulty Chip */}
-                        {milestone.difficulty && (
+                        {/* priority Chip */}
+                        {milestone.priority && (
                           <Chip
-                            label={milestone.difficulty.toUpperCase()}
+                            label={milestone.priority.toUpperCase()}
                             size="small"
                             sx={{
                               fontWeight: 700,
                               height: 22,
-                              ...(milestone.difficulty === "hard" && {
+                              ...(milestone.priority === "hard" && {
                                 bgcolor: "#FEE2E2",
                                 color: "#B91C1C",
                               }),
-                              ...(milestone.difficulty === "medium" && {
+                              ...(milestone.priority === "medium" && {
                                 bgcolor: "#FEF3C7",
                                 color: "#92400E",
                               }),
-                              ...(milestone.difficulty === "easy" && {
+                              ...(milestone.priority === "easy" && {
                                 bgcolor: "#DCFCE7",
                                 color: "#065F46",
                               }),
