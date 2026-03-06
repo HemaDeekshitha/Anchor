@@ -28,80 +28,10 @@ import ApplicationFunnel from "./ApplicationFunnel";
 import AnalyticsCard from "./AnalyticsCard";
 import WeeklyActivity from "./WeeklyActivity";
 
-type ActivityItem = {
-  id: number;
-  title: string;
-  description: string;
-  timestamp: string;
-};
-
-type AnalyticsMetric = {
-  label: string;
-  value: string | number;
-  change: number;
-};
-
 type SimpleBar = {
   label: string;
   value: number;
 };
-
-// const milestones = [
-//   {
-//     id: 1,
-//     title: "Solved 5 LeetCode Mediums",
-//     progress: "Arrays, Hashing, Sliding Window",
-//     completed: true,
-//   },
-//   {
-//     id: 2,
-//     title: "Applied to 10+ roles",
-//     progress: "Frontend Developer at Stripe, Vercel, Linear",
-//     completed: true,
-//   },
-//   {
-//     id: 3,
-//     title: "React Hooks mastery",
-//     progress: "Completed useEffect, useCallback modules",
-//     completed: true,
-//   },
-//   {
-//     id: 4,
-//     title: "System Design basics",
-//     progress: "2/4 videos • LRU Cache, Rate Limiter",
-//     completed: false,
-//   },
-//   {
-//     id: 5,
-//     title: "Mock behavioral interview",
-//     progress: "Schedule with mentor this Friday",
-//     completed: false,
-//   },
-// ];
-
-const metrics: AnalyticsMetric[] = [
-  { label: "Total Sessions (30d)", value: 124, change: 12.4 },
-  { label: "Avg. Session Length", value: "18m 32s", change: 4.1 },
-  { label: "Profile Views", value: 892, change: -3.7 },
-  { label: "Actions per Session", value: 6.3, change: 2.2 },
-];
-
-const weeklyActivity: SimpleBar[] = [
-  { label: "Mon", value: 4 },
-  { label: "Tue", value: 7 },
-  { label: "Wed", value: 5 },
-  { label: "Thu", value: 9 },
-  { label: "Fri", value: 6 },
-  { label: "Sat", value: 3 },
-  { label: "Sun", value: 2 },
-];
-
-const jobPrepMetrics = [
-  { label: "LeetCode Solved", value: "12", change: 25 },
-  { label: "Tasks Completed", value: "18/25", change: 18 },
-  { label: "Applications Sent", value: "8", change: 33 },
-  { label: "Study Hours", value: "14h 32m", change: 18 },
-];
 
 const deadlinesData = [
   {
@@ -121,31 +51,81 @@ const deadlinesData = [
 ];
 
 export default function DashboardPage() {
-  const maxBarValue = Math.max(...weeklyActivity.map((b) => b.value));
   const [profile, setProfile] = useState<any>(null);
   const [openResumeText, setOpenResumeText] = useState(false);
   const [milestones, setMilestones] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [weeklyActivity, setWeeklyActivity] = useState<SimpleBar[]>([]);
   const topPriorityTask = milestones.find((task) => !task.completed);
   const allMilestonesCompleted =
     milestones.length > 0 && milestones.every((task) => task.completed);
 
+  const jobPrepMetrics = analytics
+    ? [
+        {
+          label: "LeetCode Solved",
+          value: analytics.dsaSolved,
+          lastWeek: analytics.dsaSolvedLastWeek,
+          change: calculateChange(
+            analytics.dsaSolved,
+            analytics.dsaSolvedLastWeek
+          ),
+        },
+        {
+          label: "Tasks Completed",
+          value: `${analytics.tasksCompleted}/${analytics.tasksTotal}`,
+          lastWeek: analytics.tasksCompletedLastWeek,
+          change: calculateChange(
+            analytics.tasksCompleted,
+            analytics.tasksCompletedLastWeek
+          ),
+        },
+        {
+          label: "Applications Sent",
+          value: analytics.applicationsSent,
+          lastWeek: analytics.applicationsLastWeek,
+          change: calculateChange(
+            analytics.applicationsSent,
+            analytics.applicationsLastWeek
+          ),
+        },
+
+        {
+          label: "Momentum Streak",
+          value: `${analytics.streak} Day Streak`,
+          change: 0,
+        },
+      ]
+    : [];
+
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [profileRes, milestonesRes] = await Promise.all([
-          fetch("http://localhost:3001/momentum/profile", {
-            credentials: "include",
-          }),
-          fetch("http://localhost:3001/rag/milestones", {
-            credentials: "include",
-          }),
-        ]);
+        const [profileRes, milestonesRes, analyticsRes, weeklyRes] =
+          await Promise.all([
+            fetch("http://localhost:3001/momentum/profile", {
+              credentials: "include",
+            }),
+            fetch("http://localhost:3001/rag/milestones", {
+              credentials: "include",
+            }),
+            fetch("http://localhost:3001/rag/analytics", {
+              credentials: "include",
+            }),
+            fetch("http://localhost:3001/rag/weekly-activity", {
+              credentials: "include",
+            }),
+          ]);
 
         const profileData = await profileRes.json();
         const milestonesData = await milestonesRes.json();
+        const analyticsData = await analyticsRes.json();
+        const weeklyData = await weeklyRes.json();
 
         setProfile(profileData);
         setMilestones(milestonesData.tasks || []);
+        setAnalytics(analyticsData);
+        setWeeklyActivity(weeklyData.weeklyActivity);
       } catch (err) {
         console.error("Failed to load dashboard data", err);
       }
@@ -153,6 +133,14 @@ export default function DashboardPage() {
 
     loadDashboardData();
   }, []);
+
+  function calculateChange(current: number, previous: number) {
+    if (previous === 0) {
+      return current === 0 ? 0 : 100;
+    }
+
+    return Math.round(((current - previous) / previous) * 100);
+  }
 
   return (
     <LayoutWithSidebar>
@@ -305,7 +293,14 @@ export default function DashboardPage() {
             </Card>
 
             {/* Analytics cards */}
-            <AnalyticsCard jobPrepMetrics={jobPrepMetrics} />
+            {analytics && (
+              <AnalyticsCard
+                jobPrepMetrics={jobPrepMetrics}
+                rewards={analytics?.rewards}
+                pointsEarned={analytics.pointsEarned}
+                pointsEarnedLastWeek={analytics.pointsEarnedLastWeek}
+              />
+            )}
 
             {/* Weekly Activity with MUI X BarChart */}
             <WeeklyActivity weeklyActivity={weeklyActivity} />

@@ -13,7 +13,19 @@ type WeeklyActivityChartProps = {
 export default function WeeklyActivity({
   weeklyActivity,
 }: WeeklyActivityChartProps) {
-  const maxBarValue = Math.max(...weeklyActivity.map((b) => b.value));
+  const maxTasks = Math.max(...weeklyActivity.map((d) => d.value), 0);
+
+  const peakDays = weeklyActivity
+    .filter((d) => d.value === maxTasks && maxTasks > 0)
+    .map((d) => d.label);
+
+  const peakText =
+    peakDays.length === 0
+      ? "No tasks completed this week yet."
+      : `Most productive day${peakDays.length > 1 ? "s" : ""}: ${peakDays.join(
+          ", "
+        )} — ${maxTasks}/4 tasks completed`;
+
   return (
     <>
       <Card sx={{ borderRadius: 3, mt: 1 }}>
@@ -39,7 +51,9 @@ export default function WeeklyActivity({
             borderRadius={8}
             yAxis={[
               {
-                width: 0, // 👈 remove left axis space
+                min: 0,
+                max: 4, // max tasks per day
+                width: 0,
               },
             ]}
             xAxis={[
@@ -52,8 +66,8 @@ export default function WeeklyActivity({
               {
                 data: weeklyActivity.map((d) => d.value),
                 label: "Tasks",
-
-                color: " #E5B526",
+                color: "#E5B526",
+                valueFormatter: (value) => `${value}/4  `,
               },
             ]}
             margin={{ top: 16, right: 12, bottom: 32, left: 40 }}
@@ -86,6 +100,9 @@ export default function WeeklyActivity({
                   },
                 },
               },
+              "& .MuiBarElement-root": {
+                rx: 6,
+              },
             }}
           />
           <Typography
@@ -93,7 +110,7 @@ export default function WeeklyActivity({
             color="text.primary"
             sx={{ mt: 1, display: "block" }}
           >
-            Peak usage on Thursday with {maxBarValue} sessions.
+            {peakText}
           </Typography>
         </CardContent>
       </Card>
