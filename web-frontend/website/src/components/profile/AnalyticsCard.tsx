@@ -224,16 +224,13 @@ export default function AnalyticsCard({
         let helperText = "";
 
         if (metric.label === "LeetCode Solved") {
-          helperText = "Solve one more problem to keep your momentum going";
+          helperText = "You're on the right track. Keep going!";
         }
 
         if (metric.label === "Tasks Completed") {
           const parts = metric.value.toString().split("/");
           const remaining = Number(parts[1]) - Number(parts[0]);
-          helperText =
-            remaining > 0
-              ? `${remaining} tasks left to complete this week's plan`
-              : "All tasks completed for this week 🎉";
+          helperText = "Every completed task moves you closer to your goal";
         }
 
         if (metric.label === "Applications Sent") {

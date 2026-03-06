@@ -68,7 +68,7 @@ export default function DashboardPage() {
         },
         {
           label: "Tasks Completed",
-          value: `${analytics.tasksCompleted}/${analytics.tasksTotal}`,
+          value: `${analytics.tasksCompleted}`,
           lastWeek: analytics.tasksCompletedLastWeek,
           change: calculateChange(
             analytics.tasksCompleted,
