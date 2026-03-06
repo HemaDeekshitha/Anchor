@@ -378,7 +378,7 @@ export class RagService {
     const STREAK_REWARD_TARGET = 5;
     const STREAK_REWARD_POINTS = 50;
 
-    if (streak >= STREAK_REWARD_TARGET) {
+    if (streak == STREAK_REWARD_TARGET) {
       const existingReward = await this.pointsRepo
         .createQueryBuilder('upl')
         .where('upl.user_id = :userId', { userId })

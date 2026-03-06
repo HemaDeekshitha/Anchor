@@ -4,29 +4,21 @@ import LayoutWithSidebar from "@/components/SideBar/LayoutWithSidebar";
 import {
   Box,
   Card,
-  CardContent,
-  CardHeader,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
   Typography,
   Button,
-  Chip,
   DialogTitle,
   DialogContent,
   Dialog,
 } from "@mui/material";
 
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import { useEffect, useState } from "react";
-import { BarChart } from "@mui/x-charts";
 import ProfileSection from "./profileSection";
 import RecentActivity from "./recentActivity";
 import ApplicationFunnel from "./ApplicationFunnel";
 import AnalyticsCard from "./AnalyticsCard";
 import WeeklyActivity from "./WeeklyActivity";
+import { CircularProgress } from "@mui/material";
+import { useRouter } from "next/navigation";
 
 type SimpleBar = {
   label: string;
@@ -56,9 +48,11 @@ export default function DashboardPage() {
   const [milestones, setMilestones] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [weeklyActivity, setWeeklyActivity] = useState<SimpleBar[]>([]);
+  const [loading, setLoading] = useState(true);
   const topPriorityTask = milestones.find((task) => !task.completed);
   const allMilestonesCompleted =
     milestones.length > 0 && milestones.every((task) => task.completed);
+  const router = useRouter();
 
   const jobPrepMetrics = analytics
     ? [
@@ -128,6 +122,8 @@ export default function DashboardPage() {
         setWeeklyActivity(weeklyData.weeklyActivity);
       } catch (err) {
         console.error("Failed to load dashboard data", err);
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -140,6 +136,23 @@ export default function DashboardPage() {
     }
 
     return Math.round(((current - previous) / previous) * 100);
+  }
+
+  if (loading) {
+    return (
+      <LayoutWithSidebar>
+        <Box
+          sx={{
+            height: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <CircularProgress sx={{ color: "rgb(209,112,51)" }} />
+        </Box>
+      </LayoutWithSidebar>
+    );
   }
 
   return (
@@ -280,6 +293,7 @@ export default function DashboardPage() {
                   variant="contained"
                   size="medium"
                   disabled={!topPriorityTask}
+                  onClick={() => router.push("/dashboard")}
                   sx={{
                     bgcolor: "rgb(209, 112, 51)",
                     "&:hover": { bgcolor: "#e5b526" },

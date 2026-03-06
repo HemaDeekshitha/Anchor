@@ -5,6 +5,11 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import Tooltip from "@mui/material/Tooltip";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import CodeRoundedIcon from "@mui/icons-material/CodeRounded";
+import TaskAltRoundedIcon from "@mui/icons-material/TaskAltRounded";
+import SendRoundedIcon from "@mui/icons-material/SendRounded";
+import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
 
 type JobPrepMetric = {
   label: string;
@@ -25,6 +30,22 @@ type AnalyticsCardsProps = {
 };
 
 const STREAK_GOAL = 5;
+const iconMap: Record<string, React.ReactNode> = {
+  "LeetCode Solved": (
+    <CodeRoundedIcon sx={{ color: "#3b82f6", fontSize: 18, ml: -0.5 }} />
+  ),
+  "Tasks Completed": (
+    <TaskAltRoundedIcon sx={{ color: "#22c55e", fontSize: 18, ml: -0.5 }} />
+  ),
+  "Applications Sent": (
+    <SendRoundedIcon sx={{ color: "#a855f7", fontSize: 18, ml: -0.5 }} />
+  ),
+  "Momentum Streak": (
+    <LocalFireDepartmentRoundedIcon
+      sx={{ color: "#f59e0b", fontSize: 18, ml: -0.5 }}
+    />
+  ),
+};
 
 const tooltipMap: Record<string, string> = {
   "LeetCode Solved": "Number of DSA problems you solved this week.",
@@ -33,8 +54,6 @@ const tooltipMap: Record<string, string> = {
   "Momentum Streak":
     "Complete all tasks daily to build your streak. Reach 5 consecutive days to unlock a reward.",
   "AP Earned": "Total Anchor Points earned from completing tasks this week.",
-  // "Anchor Points":
-  //   "Earn Anchor Points (AP) by completing tasks. Every 100 AP can be converted into 1 × 360 reward.",
 };
 
 export default function AnalyticsCard({
@@ -53,6 +72,10 @@ export default function AnalyticsCard({
             minWidth: 200,
             border: "1px solid rgb(209,112,51)",
             background: "rgba(209,112,51,0.05)",
+            "&:hover": {
+              transform: "translateY(-2px)",
+              boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+            },
           }}
         >
           <CardContent
@@ -69,14 +92,25 @@ export default function AnalyticsCard({
               alignItems="center"
               justifyContent="space-between"
             >
-              <Typography
-                variant="caption"
-                color="text.primary"
-                textTransform="uppercase"
-                fontWeight={600}
-              >
-                ⚡ Anchor Points
-              </Typography>
+              <Box display="flex" alignItems="center" gap={0.75}>
+                <BoltRoundedIcon
+                  sx={{
+                    color: "#D17033",
+                    fontSize: 20,
+                    ml: -0.5,
+                  }}
+                />
+
+                <Typography
+                  variant="caption"
+                  color="text.primary"
+                  textTransform="uppercase"
+                  fontWeight={600}
+                  sx={{ lineHeight: 1 }}
+                >
+                  Anchor Points
+                </Typography>
+              </Box>
 
               <Tooltip
                 title="Earn Anchor Points by completing tasks. Every 100 AP converts to 1 × 360 reward."
@@ -97,7 +131,12 @@ export default function AnalyticsCard({
                 />
               </Tooltip>
             </Box>
-
+            <Typography
+              variant="caption"
+              sx={{ color: "rgb(209,112,51)", display: "block", mt: 1 }}
+            >
+              This week
+            </Typography>
             {/* Current AP */}
             <Typography variant="h5" mt={0.5}>
               {rewards.apBalance} AP
@@ -118,12 +157,6 @@ export default function AnalyticsCard({
 
             {/* Helper message */}
             {/* Weekly comparison */}
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", display: "block", mt: 1 }}
-            >
-              This week
-            </Typography>
 
             <Typography
               variant="caption"
@@ -233,14 +266,25 @@ export default function AnalyticsCard({
                 alignItems="center"
                 justifyContent="space-between"
               >
-                <Typography
-                  variant="caption"
-                  color="text.primary"
-                  textTransform="uppercase"
-                  fontWeight={600}
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="space-between"
                 >
-                  {metric.label}
-                </Typography>
+                  <Box display="flex" alignItems="center" gap={0.75}>
+                    {iconMap[metric.label]}
+
+                    <Typography
+                      variant="caption"
+                      color="text.primary"
+                      textTransform="uppercase"
+                      fontWeight={600}
+                      sx={{ lineHeight: 1 }}
+                    >
+                      {metric.label}
+                    </Typography>
+                  </Box>
+                </Box>
 
                 <Tooltip title={tooltipMap[metric.label]} arrow placement="top">
                   <InfoOutlinedIcon
@@ -257,7 +301,12 @@ export default function AnalyticsCard({
                   />
                 </Tooltip>
               </Box>
-
+              <Typography
+                variant="caption"
+                sx={{ color: "rgb(209,112,51)", display: "block", mt: 1 }}
+              >
+                This week
+              </Typography>
               {/* Main value */}
               <Typography variant="h5" mt={0.5}>
                 {metric.value}
@@ -282,6 +331,7 @@ export default function AnalyticsCard({
                         <Box
                           key={i}
                           sx={{
+                            mt: 2,
                             width: 12,
                             height: 12,
                             borderRadius: "50%",
@@ -297,9 +347,11 @@ export default function AnalyticsCard({
                   <Typography
                     variant="caption"
                     sx={{
-                      color: "text.secondary",
+                      pt: 1,
+                      color: "rgb(209,112,51)",
                       textAlign: "start",
                       display: "block",
+                      fontWeight: 600,
                     }}
                   >
                     {STREAK_GOAL - streakValue > 0
@@ -312,13 +364,6 @@ export default function AnalyticsCard({
               ) : (
                 <>
                   {/* This week */}
-
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", display: "block", mt: 1 }}
-                  >
-                    This week
-                  </Typography>
 
                   {/* Last week */}
                   {metric.lastWeek !== undefined &&

@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Box,
   Card,
@@ -10,7 +11,7 @@ import {
   ListItemText,
   Typography,
 } from "@mui/material";
-import React from "react";
+import { useRouter } from "next/navigation";
 
 type Milestone = {
   id: number;
@@ -24,39 +25,8 @@ type MilestonesCardProps = {
 
 export default function RecentActivity({ milestones }: MilestonesCardProps) {
   const completedCount = milestones.filter((m) => m.completed).length;
+  const router = useRouter();
 
-  const milestones1 = [
-    {
-      id: 1,
-      title: "Solved 5 LeetCode Mediums",
-      difficulty: "medium",
-      completed: true,
-    },
-    {
-      id: 2,
-      title: "Applied to 10+ roles",
-      difficulty: "hard",
-      completed: true,
-    },
-    {
-      id: 3,
-      title: "React Hooks mastery",
-      difficulty: "hard",
-      completed: true,
-    },
-    {
-      id: 4,
-      title: "System Design basics",
-      difficulty: "medium",
-      completed: false,
-    },
-    {
-      id: 5,
-      title: "Mock behavioral interview",
-      difficulty: "medium",
-      completed: false,
-    },
-  ];
   return (
     <>
       <Card
@@ -104,7 +74,7 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
               backgroundClip: "text",
             },
             "& .MuiCardHeader-subheader": {
-              color: "rgb(209, 112, 51)",
+              color: "black",
               fontWeight: 500,
               fontSize: "0.9rem",
             },
@@ -132,6 +102,11 @@ export default function RecentActivity({ milestones }: MilestonesCardProps) {
                 }}
               >
                 <ListItem
+                  onClick={() => {
+                    if (!milestone.completed) {
+                      router.push("/dashboard");
+                    }
+                  }}
                   alignItems="flex-start"
                   sx={{
                     px: 3,
