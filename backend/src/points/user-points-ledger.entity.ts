@@ -10,7 +10,10 @@ import {
 import { User } from '../users/user.entity';
 import { RagTask } from '../rag/rag-task.entity';
 
-export type PointsEntryType = 'task_earned' | 'converted_to_360';
+export type PointsEntryType =
+  | 'task_earned'
+  | 'converted_to_360'
+  | 'streak_reward';
 
 /**
  * Ledger-style table that records every point transaction for a user.
@@ -61,7 +64,7 @@ export class UserPointsLedger {
 
   @Column({
     type: 'enum',
-    enum: ['task_earned', 'converted_to_360'],
+    enum: ['task_earned', 'converted_to_360', 'streak_reward'],
   })
   type: PointsEntryType;
 

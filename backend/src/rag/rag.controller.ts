@@ -48,4 +48,18 @@ export class RagController {
 
     return this.ragService.getWeeklyMilestones(userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('analytics')
+  getAnalytics(@Req() req) {
+    const userId = req.user.userId;
+    return this.ragService.getAnalytics(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('weekly-activity')
+  async getWeeklyActivity(@Req() req) {
+    const userId = req.user.userId;
+    return this.ragService.getWeeklyActivity(userId);
+  }
 }
