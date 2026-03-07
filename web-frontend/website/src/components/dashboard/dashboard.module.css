@@ -1,7 +1,183 @@
 /* src/components/dashboard/dashboard.module.css */
+/* .dashboardContainer {
+  position: relative;
+  padding: 32px;
+  min-height: 100vh;
+  background: radial-gradient(
+      circle at top left,
+      rgba(244, 114, 182, 0.1),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at right center,
+      rgba(251, 191, 36, 0.08),
+      transparent 24%
+    ),
+    linear-gradient(180deg, #fff8f8 0%, #fffdfd 45%, #fff7fb 100%);
+  overflow: hidden;
+} */
 
+.dashboardBackgroundGlow {
+  position: absolute;
+  top: 40px;
+  right: 80px;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(251, 113, 133, 0.14) 0%,
+    rgba(251, 113, 133, 0) 70%
+  );
+  filter: blur(10px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dashboardBackgroundGlowTwo {
+  position: absolute;
+  bottom: 120px;
+  left: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(244, 114, 182, 0.12) 0%,
+    rgba(244, 114, 182, 0) 72%
+  );
+  filter: blur(18px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.heroHeader {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 28px;
+}
+
+.heroContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 30px;
+  border-radius: 28px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.88),
+    rgba(255, 247, 250, 0.92)
+  );
+  border: 1px solid rgba(244, 194, 204, 0.65);
+  box-shadow: 0 10px 30px rgba(190, 24, 60, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.heroTextBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heroEyebrow {
+  display: inline-flex;
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #be123c;
+  background: rgba(190, 24, 60, 0.08);
+  border: 1px solid rgba(190, 24, 60, 0.12);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.05;
+  color: #5b1025;
+  letter-spacing: -0.03em;
+}
+
+.heroMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dateText {
+  font-size: 15px;
+  font-weight: 500;
+  color: #7c2d44;
+}
+
+.metaDot {
+  color: #d48aa0;
+  font-weight: 700;
+}
+
+.heroQuote {
+  font-size: 15px;
+  font-weight: 600;
+  color: #be123c;
+}
+
+.heroStatusCard {
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fff4f4, #fff9fb);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  box-shadow: 0 8px 24px rgba(190, 24, 60, 0.07);
+}
+
+.heroStatusIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fff1c2, #ffe0b2);
+  color: #9a3412;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.heroStatusLabel {
+  font-size: 18px;
+  font-weight: 700;
+  color: #5b1025;
+}
+
+.heroStatusSubtext {
+  font-size: 13px;
+  color: #8b6b76;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .heroContent {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .heroStatusCard {
+    width: 100%;
+    min-width: unset;
+  }
+}
 .dashboardContainer {
-  padding: 2rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
 

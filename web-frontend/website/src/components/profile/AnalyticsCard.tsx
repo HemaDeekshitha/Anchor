@@ -253,6 +253,7 @@ export default function AnalyticsCard({
               sx={{
                 display: "flex",
                 flexDirection: "column",
+                justifyContent: "space-between",
                 height: "100%",
                 minHeight: 150,
               }}
