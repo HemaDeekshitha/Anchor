@@ -17,6 +17,8 @@ export class RagService {
     private ragTaskRepo: Repository<RagTask>,
     @InjectRepository(UserDailyTask)
     private readonly userDailyRepo: Repository<UserDailyTask>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     @InjectRepository(UserPointsLedger)
     private readonly pointsRepo: Repository<UserPointsLedger>,
     @InjectRepository(User)
@@ -36,6 +38,12 @@ export class RagService {
     const timezone = await this.getUserTimezone(userId);
 
     const today = getTodayInTimezone(timezone);
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'name'], // only fetch what we need
+    });
+
+    const userName = user?.name || 'there';
 
     const existingPlan = await this.userDailyRepo
       .createQueryBuilder('udt')
@@ -48,7 +56,12 @@ export class RagService {
 
     if (existingPlan.length > 0) {
       console.log('✅ Returning existing plan');
-      return this.fetchTasksFromDailyPlan(existingPlan);
+      const tasks = await this.fetchTasksFromDailyPlan(existingPlan);
+
+      return {
+        userName,
+        tasks,
+      };
     }
 
     console.log('🆕 Generating new tasks for today');
@@ -132,17 +145,20 @@ export class RagService {
 
     await this.userDailyRepo.save(dailyTasks);
 
-    return tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      category: t.category,
-      difficulty: t.difficulty,
-      priority: t.priority,
-      status: 'pending',
-      date: today,
-      task_date: today,
-      is_ai_generated: true,
-    }));
+    return {
+      userName,
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        category: t.category,
+        difficulty: t.difficulty,
+        priority: t.priority,
+        status: 'pending',
+        date: today,
+        task_date: today,
+        is_ai_generated: true,
+      })),
+    };
   }
 
   private async fetchTasksFromDailyPlan(dailyTasks: UserDailyTask[]) {

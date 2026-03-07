@@ -77,7 +77,12 @@ export default function AnchorPointsCard({
     return (
       <Card sx={{ flex: 1, minWidth: 0 }}>
         <CardContent
-          sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 3 }}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            py: 3,
+          }}
         >
           <CircularProgress size={24} sx={{ color: "#f59e0b" }} />
         </CardContent>
@@ -96,12 +101,10 @@ export default function AnchorPointsCard({
       sx={{
         flex: 1,
         minWidth: 0,
-        border: "1px solid",
-        borderColor: canConvert ? "#fbbf24" : "#fecdd3",
+        // border: "1px solid",
+        // borderColor: canConvert ? "#fbbf24" : "#fecdd3",
         // Subtle gold glow when ready to convert
-        boxShadow: canConvert
-          ? "0 0 0 2px rgba(251,191,36,0.25)"
-          : undefined,
+        boxShadow: canConvert ? "0 0 0 2px rgba(251,191,36,0.25)" : undefined,
         transition: "box-shadow 0.3s ease",
       }}
     >
@@ -168,7 +171,11 @@ export default function AnchorPointsCard({
         </Box>
 
         {/* ── Sub-label ── */}
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mb: 1.5 }}
+        >
           {canConvert ? (
             <Box component="span" sx={{ color: "#d97706", fontWeight: 600 }}>
               Ready to convert! 🎉
