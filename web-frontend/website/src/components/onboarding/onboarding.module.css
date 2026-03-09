@@ -208,19 +208,6 @@
   border-bottom-color: white;
 }
 
-/* --- UPLOAD UI --- */
-.uploadBox {
-  border: 1px dashed var(--local-border);
-  border-radius: 16px;
-  padding: 3rem;
-  text-align: center;
-  background-color: var(--local-chip-hover);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.uploadBox:hover {
-  border-color: var(--foreground);
-}
 .uploadIcon {
   font-size: 2rem;
   margin-bottom: 0.5rem;
@@ -236,19 +223,17 @@
   margin-top: 0.25rem;
 }
 
-/* --- FOOTER NAV --- */
 .footerNav {
+  position: fixed;
+  bottom: 40px;
+
+  width: 500px;
+  left: 50%;
+  transform: translateX(-50%);
+
   display: flex;
   justify-content: space-between;
-  align-items: center;
-
-  width: 100%;
-  max-width: 500px; /* MATCH contentWrapper */
-  margin: 3rem auto 0 auto; /* center it */
-
-  padding-bottom: 3rem;
 }
-
 .backBtn {
   background: none;
   border: none;
@@ -277,10 +262,21 @@
   background: black;
   color: white;
 }
+.backBtn:hover .btnArrow {
+  transform: translateX(3px);
+}
 
 .continueBtn {
-  background-color: var(--local-btn-bg);
-  color: var(--local-btn-text);
+  background: none;
+  border: none;
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: black;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.2s;
   padding: 0.9rem 2.25rem;
   border-radius: 100px;
   border: none;
@@ -295,8 +291,8 @@
   transition: transform 0.2s, background-color 0.2s;
 }
 .continueBtn:hover {
-  transform: translateY(-2px);
-  opacity: 0.9;
+  background: black;
+  color: white;
 }
 .btnArrow {
   transition: transform 0.2s;
@@ -305,16 +301,33 @@
   transform: translateX(3px);
 }
 
+.backBtn:hover,
+.continueBtn:hover {
+  background: black;
+  color: white;
+  transform: translateY(-2px);
+}
+
+
 /* MOBILE RESPONSIVE */
 @media (max-width: 600px) {
   /* 1. STACK LAYOUT (No Split) */
   .splitLayout {
-    flex-direction: column;
-    /* height: auto; */
-    max-height: 100vh;
-    overflow: hidden;
-    position: fixed;
-  }
+  background: linear-gradient(to right, rgb(209 51 51), #e5b526);
+  color: var(--foreground);
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+
+  overflow-y: auto;   /* ✅ allow vertical scroll */
+}
 
   /* 2. PUSH CONTENT TO CENTER (Using VH to center vertically) */
   .contentPanel {
@@ -370,22 +383,21 @@
     margin-bottom: 2rem;
   } */
 
-  .footerNav {
+  .footerNav{
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0; /* ✅ important */
-    width: 100%;
+    bottom: 40px;
 
-    max-width: none; /* ✅ overrides desktop max-width */
-    margin: 0; /* ✅ overrides desktop centering */
+    width: 100%;
+    max-width: 500px;
+
+    margin: 0 auto;
+    left: 0;
+    right: 0;
 
     display: flex;
     justify-content: space-between;
     align-items: center;
 
-    padding: 1rem 1.5rem 2rem 2.3rem; /* ✅ match contentPanel left padding */
-    background-color: #ffffff;
     z-index: 100;
   }
 }
@@ -402,4 +414,102 @@
   .contentWrapper {
     max-width: 1100px;
   }
+}
+
+.uploadColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.twoColumn{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+
+.formContainer{
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+/* First Name + Last Name */
+
+.twoColumn{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+
+
+.inputGroup input:focus,
+.inputGroup select:focus{
+  border-color:#111827;
+  box-shadow:0 0 0 2px rgba(0,0,0,0.05);
+}
+
+/* ===== FILE UPLOAD ===== */
+
+.uploadBox{
+  border:2px dashed #d1d5db;
+  border-radius:12px;
+
+  padding:16px;
+
+  cursor:pointer;
+
+  background:#f9fafb;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size:14px;
+
+  transition:all 0.2s ease;
+}
+
+.uploadBox:hover{
+  border-color:black;
+}
+
+/* ===== MOBILE ===== */
+
+@media (max-width:768px){
+
+  .twoColumn{
+    grid-template-columns:1fr;
+  }
+
+}
+
+.inputGroup{
+display:flex;
+flex-direction:column;
+gap:6px;
+}
+
+.inputGroup label{
+font-size:12px;
+font-weight:700;
+letter-spacing:1px;
+text-transform:uppercase;
+color:black;
+}
+
+.inputGroup input,
+.inputGroup select{
+width:100%;
+padding:14px;
+
+border:1px solid #d1d5db;
+border-radius:10px;
+
+background:white;
+
+font-size:14px;
+outline:none;
+color: black;
 }
