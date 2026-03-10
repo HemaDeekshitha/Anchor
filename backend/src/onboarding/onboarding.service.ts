@@ -5,6 +5,7 @@ import { OnboardingResponse } from './onboarding.entity';
 import { Repository } from 'typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { User } from 'src/users/user.entity';
+import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
 
 @Injectable()
 export class OnboardingService {
@@ -16,6 +17,7 @@ export class OnboardingService {
     private readonly userRepo: Repository<User>,
 
     private readonly cloudinary: CloudinaryService,
+    private readonly resumeSkillProcessor: ResumeSkillProcessor,
   ) {}
 
   getSteps() {
@@ -53,6 +55,7 @@ export class OnboardingService {
     });
 
     await this.repo.save(entry);
+    await this.resumeSkillProcessor.processResume(entry);
     await this.userRepo.update(userId, {
       onboardingCompleted: true,
     });

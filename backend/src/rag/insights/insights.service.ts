@@ -25,9 +25,7 @@ export class InsightsService {
     if (dayOfWeek === 1) {
       // Monday
       if (tasksCompleted === 0) {
-        message = `The week just started! Last week you had a ${
-          streak || 0
-        }-day streak. Let's keep that momentum going this week!`;
+        message = `The week just started! Let's start building momentum together!`;
       } else {
         message = `Great start! You already completed some tasks. Keep up the energy!`;
       }
