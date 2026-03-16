@@ -32,12 +32,55 @@ export class AnalyticsService {
     return user?.timezone || 'UTC';
   }
 
-  async getAnalytics(userId: string) {
+  async getAnalytics(userId: string, period: string = 'this_week') {
     const timezone = await this.getUserTimezone(userId);
+
+    // -----------------------------
+    // PERIOD DATE RANGE
+    // -----------------------------
+
+    let startDate: string | null = null;
+    let endDate: string | null = null;
+
+    const today = getTodayInTimezone(timezone);
+
+    if (period === 'this_week') {
+      startDate = getWeekStartInTimezone(timezone);
+      endDate = today;
+    }
+
+    if (period === 'last_week') {
+      const currentWeekStart = new Date(getWeekStartInTimezone(timezone));
+
+      const lastWeekStart = new Date(currentWeekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+      const lastWeekEnd = new Date(currentWeekStart);
+      lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+
+      startDate = lastWeekStart.toISOString().slice(0, 10);
+      endDate = lastWeekEnd.toISOString().slice(0, 10);
+    }
+
+    if (period === 'month') {
+      const d = new Date(today);
+      d.setDate(1);
+
+      startDate = d.toISOString().slice(0, 10);
+      endDate = today;
+    }
+
+    if (period === 'all_time') {
+      startDate = null;
+      endDate = null;
+    }
+
+    // -----------------------------
+    // LAST WEEK RANGE (for comparison)
+    // -----------------------------
 
     const currentWeekStartDate = getWeekStartInTimezone(timezone);
 
-    // last week start = 7 days before
     const currentWeekStart = new Date(currentWeekStartDate);
 
     const lastWeekStart = new Date(currentWeekStart);
@@ -49,39 +92,65 @@ export class AnalyticsService {
     const lastWeekEndDate = lastWeekEnd.toISOString().slice(0, 10);
 
     // -----------------------------
-    // THIS WEEK TASKS
+    // TOTAL TASKS
     // -----------------------------
 
-    const totalTasks = await this.userDailyRepo
+    const totalTasksQuery = this.userDailyRepo
+      .createQueryBuilder('udt')
+      .where('udt.user_id = :userId', { userId });
+
+    if (startDate && endDate) {
+      totalTasksQuery.andWhere('DATE(udt.task_date) BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
+    }
+
+    const totalTasks = await totalTasksQuery.getCount();
+
+    // -----------------------------
+    // COMPLETED TASKS
+    // -----------------------------
+
+    const completedTasksQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
-      .andWhere('DATE(udt.task_date) >= :weekStart', {
-        weekStart: currentWeekStartDate,
-      })
-      .getCount();
+      .andWhere('udt.status = :status', { status: 'completed' });
 
-    const completedTasks = await this.userDailyRepo
-      .createQueryBuilder('udt')
-      .where('udt.user_id = :userId', { userId })
-      .andWhere('udt.status = :status', { status: 'completed' })
-      .andWhere('DATE(udt.task_date) >= :weekStart', {
-        weekStart: currentWeekStartDate,
-      })
-      .getCount();
+    if (startDate && endDate) {
+      completedTasksQuery.andWhere(
+        'DATE(udt.task_date) BETWEEN :start AND :end',
+        {
+          start: startDate,
+          end: endDate,
+        },
+      );
+    }
 
-    const dsaSolved = await this.userDailyRepo
+    const completedTasks = await completedTasksQuery.getCount();
+
+    // -----------------------------
+    // DSA SOLVED
+    // -----------------------------
+
+    const dsaSolvedQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
       .andWhere('udt.status = :status', { status: 'completed' })
-      .andWhere('task.category = :category', { category: 'DSA' })
-      .andWhere('DATE(udt.task_date) >= :weekStart', {
-        weekStart: currentWeekStartDate,
-      })
-      .getCount();
+      .andWhere('task.category = :category', { category: 'DSA' });
+
+    if (startDate && endDate) {
+      dsaSolvedQuery.andWhere('DATE(udt.task_date) BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
+    }
+
+    const dsaSolved = await dsaSolvedQuery.getCount();
 
     // -----------------------------
-    // LAST WEEK TASKS
+    // LAST WEEK COMPARISON
     // -----------------------------
 
     const lastWeekTasksCompleted = await this.userDailyRepo
@@ -132,7 +201,6 @@ export class AnalyticsService {
       const completed = Number(row.completed);
       const total = Number(row.total);
 
-      // Skip today if tasks exist but not all completed
       if (i === 0 && completed < total) {
         continue;
       }
@@ -145,35 +213,9 @@ export class AnalyticsService {
     }
 
     // -----------------------------
-    // STREAK REWARD LOGIC
+    // REWARDS / AP BALANCE
     // -----------------------------
 
-    const STREAK_REWARD_TARGET = 5;
-    const STREAK_REWARD_POINTS = 50;
-
-    if (streak == STREAK_REWARD_TARGET) {
-      const existingReward = await this.pointsRepo
-        .createQueryBuilder('upl')
-        .where('upl.user_id = :userId', { userId })
-        .andWhere('upl.type = :type', { type: 'streak_reward' })
-        .getOne();
-
-      if (!existingReward) {
-        await this.pointsRepo.save(
-          this.pointsRepo.create({
-            task_id: null,
-            user_id: userId,
-            amount: STREAK_REWARD_POINTS,
-            type: 'streak_reward',
-          }),
-        );
-      }
-    }
-    // -----------------------------
-    // REWARDS / ANCHOR POINTS
-    // -----------------------------
-
-    // total points balance (task_earned positive, converted negative)
     const totalRow = await this.pointsRepo
       .createQueryBuilder('upl')
       .select('COALESCE(SUM(upl.amount), 0)', 'total')
@@ -182,7 +224,6 @@ export class AnalyticsService {
 
     const totalPoints = Number(totalRow?.total) || 0;
 
-    // how many conversions happened (count entries)
     const conversionsRow = await this.pointsRepo
       .createQueryBuilder('upl')
       .select('COUNT(*)', 'count')
@@ -192,7 +233,6 @@ export class AnalyticsService {
 
     const conversions360 = Number(conversionsRow?.count) || 0;
 
-    // optional: total AP earned from tasks (ignores conversions)
     const earnedRow = await this.pointsRepo
       .createQueryBuilder('upl')
       .select('COALESCE(SUM(upl.amount), 0)', 'earned')
@@ -202,23 +242,29 @@ export class AnalyticsService {
 
     const lifetimeApEarned = Number(earnedRow?.earned) || 0;
 
-    // current AP balance towards next conversion (0..99)
-    const apBalance = ((totalPoints % 100) + 100) % 100; // safe even if negative
+    const apBalance = ((totalPoints % 100) + 100) % 100;
     const apNeeded = apBalance === 0 ? 100 : 100 - apBalance;
 
     // -----------------------------
-    // AP EARNED THIS WEEK
+    // AP EARNED (PERIOD BASED)
     // -----------------------------
 
-    const apEarnedThisWeek = await this.pointsRepo
+    const apEarnedQuery = this.pointsRepo
       .createQueryBuilder('upl')
       .select('COALESCE(SUM(upl.amount),0)', 'points')
       .where('upl.user_id = :userId', { userId })
-      .andWhere('upl.type = :type', { type: 'task_earned' })
-      .andWhere('DATE(upl.created_at) >= :weekStart', {
-        weekStart: currentWeekStartDate,
-      })
-      .getRawOne();
+      .andWhere('upl.type = :type', { type: 'task_earned' });
+
+    if (startDate && endDate) {
+      apEarnedQuery.andWhere('DATE(upl.created_at) BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
+    }
+
+    const apEarnedResult = await apEarnedQuery.getRawOne();
+
+    const pointsThisWeek = Number(apEarnedResult?.points) || 0;
 
     const apEarnedLastWeek = await this.pointsRepo
       .createQueryBuilder('upl')
@@ -230,7 +276,7 @@ export class AnalyticsService {
         end: lastWeekEndDate,
       })
       .getRawOne();
-    const pointsThisWeek = Number(apEarnedThisWeek?.points) || 0;
+
     const pointsLastWeek = Number(apEarnedLastWeek?.points) || 0;
 
     return {
@@ -241,12 +287,13 @@ export class AnalyticsService {
       tasksCompletedLastWeek: lastWeekTasksCompleted,
       tasksTotal: totalTasks,
 
-      applicationsSent: 8, // static for now
-      applicationsLastWeek: 5, // static placeholder
+      applicationsSent: 8,
+      applicationsLastWeek: 5,
 
       streak,
       pointsEarned: pointsThisWeek,
       pointsEarnedLastWeek: pointsLastWeek,
+
       rewards: {
         apBalance,
         apNeeded,

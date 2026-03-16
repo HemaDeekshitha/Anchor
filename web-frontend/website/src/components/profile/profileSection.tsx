@@ -6,13 +6,30 @@ import {
   CardHeader,
   Chip,
   IconButton,
+  Modal,
   Typography,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import React from "react";
+import CloseIcon from "@mui/icons-material/Close";
+import Fade from "@mui/material/Fade";
+import Backdrop from "@mui/material/Backdrop";
+
+type ProfileSkill = {
+  name: string;
+  category: string;
+};
 
 type ProfileSectionProps = {
-  profile: any;
+  profile: {
+    name?: string;
+    email?: string;
+    primaryFocus?: string[];
+    resumeName?: string | null;
+    resumeUrl?: string | null;
+    resumeText?: string | null;
+    skills?: ProfileSkill[];
+  };
   weeklyRecap: string;
   setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -22,6 +39,30 @@ export default function ProfileSection({
   weeklyRecap,
   setOpenResumeText,
 }: ProfileSectionProps) {
+  const [showAllSkills, setShowAllSkills] = React.useState(false);
+  const [openSkillsModal, setOpenSkillsModal] = React.useState(false);
+
+  const skillsCount = profile?.skills?.length ?? 0;
+
+  const groupedSkills = React.useMemo(() => {
+    if (!profile?.skills) return {};
+
+    return profile.skills.reduce(
+      (acc: Record<string, ProfileSkill[]>, skill) => {
+        const category = skill.category || "other";
+
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+
+        acc[category].push(skill);
+
+        return acc;
+      },
+      {}
+    );
+  }, [profile?.skills]);
+
   return (
     <>
       <Card
@@ -196,33 +237,34 @@ export default function ProfileSection({
             sx={{
               display: "flex",
               flexDirection: "column",
-              gap: 3,
+              gap: 2,
               animation: "fadeInUp 0.8s ease-out 0.2s both",
+              pt: 2,
             }}
           >
-            {/* skills */}
-            <Box sx={{ pt: 2 }}>
+            {/* Skills */}
+            <Box>
               <Typography
                 variant="caption"
                 textTransform="uppercase"
                 sx={{
                   fontWeight: 600,
                   letterSpacing: 0.5,
-                  color: "text.primary",
                 }}
               >
                 Skills
               </Typography>
 
-              <Box>
-                {profile?.skills?.length ? (
+              {profile?.skills?.length ? (
+                <Box>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                    {profile.skills.map((skill: string) => (
+                    {profile.skills.slice(0, 5).map((skill) => (
                       <Chip
-                        key={skill}
-                        label={skill}
+                        key={skill.name}
+                        label={skill.name}
                         size="small"
                         sx={{
+                          mt: 0.5,
                           bgcolor: "rgba(209,112,51,0.1)",
                           color: "rgb(209,112,51)",
                           fontWeight: 500,
@@ -230,13 +272,30 @@ export default function ProfileSection({
                       />
                     ))}
                   </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Upload your resume to extract skills automatically.
-                  </Typography>
-                )}
-              </Box>
+
+                  {skillsCount > 5 && (
+                    <Typography
+                      onClick={() => setOpenSkillsModal(true)}
+                      sx={{
+                        mt: 1.5,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "rgb(209,112,51)",
+                        cursor: "pointer",
+                        "&:hover": { textDecoration: "underline" },
+                      }}
+                    >
+                      + {skillsCount} skills
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Upload your resume to extract skills automatically.
+                </Typography>
+              )}
             </Box>
+
             {/* resume */}
             <Box>
               <Typography
@@ -330,7 +389,11 @@ export default function ProfileSection({
                     />
                   ))
                 ) : (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: -1 }}
+                  >
                     Set your focus to guide your momentum
                   </Typography>
                 )}
@@ -339,6 +402,125 @@ export default function ProfileSection({
           </Box>
         </CardContent>
       </Card>
+
+      <Modal
+        open={openSkillsModal}
+        onClose={() => setOpenSkillsModal(false)}
+        closeAfterTransition
+        slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 300,
+            sx: {
+              backdropFilter: "blur(6px)",
+              backgroundColor: "rgba(0,0,0,0.3)",
+            },
+          },
+        }}
+      >
+        <Fade in={openSkillsModal}>
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 520,
+              maxHeight: "75vh",
+              bgcolor: "white",
+              borderRadius: 3,
+              boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <Box
+              sx={{
+                px: 3,
+                py: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderBottom: "1px solid rgba(0,0,0,0.08)",
+              }}
+            >
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: 18,
+                }}
+              >
+                Skills ({skillsCount})
+              </Typography>
+
+              <IconButton
+                onClick={() => setOpenSkillsModal(false)}
+                sx={{
+                  bgcolor: "rgba(0,0,0,0.04)",
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.08)",
+                  },
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
+
+            {/* Scrollable content */}
+            <Box
+              sx={{
+                px: 3,
+                py: 2,
+                overflowY: "auto",
+              }}
+            >
+              {Object.entries(groupedSkills).map(([category, skills]) => (
+                <Box key={category} sx={{ mb: 3 }}>
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      color: "text.secondary",
+                      mb: 1.2,
+                      letterSpacing: 0.6,
+                    }}
+                  >
+                    {category}
+                  </Typography>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 1,
+                    }}
+                  >
+                    {skills.map((skill) => (
+                      <Chip
+                        key={skill.name}
+                        label={skill.name}
+                        size="small"
+                        sx={{
+                          bgcolor: "rgba(209,112,51,0.08)",
+                          color: "rgb(209,112,51)",
+                          fontWeight: 500,
+                          border: "1px solid rgba(209,112,51,0.18)",
+                          "&:hover": {
+                            bgcolor: "rgba(209,112,51,0.15)",
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Fade>
+      </Modal>
     </>
   );
 }

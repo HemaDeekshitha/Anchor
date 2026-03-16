@@ -8,6 +8,8 @@ import { MomentumProfileDto } from './dto/momentum-profile.dto';
 import axios from 'axios';
 import { Response } from 'express';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { UserSkill } from 'src/skills/user-skills.entity';
+import { Skill } from 'src/skills/skills.entity';
 
 @Injectable()
 export class MomentumService {
@@ -18,6 +20,11 @@ export class MomentumService {
     @InjectRepository(OnboardingResponse)
     private onboardingRepository: Repository<OnboardingResponse>,
     private cloudinaryService: CloudinaryService,
+    @InjectRepository(UserSkill)
+    private userSkillRepository: Repository<UserSkill>,
+
+    @InjectRepository(Skill)
+    private skillRepository: Repository<Skill>,
   ) {}
 
   async getProfile(userId: string): Promise<MomentumProfileDto> {
@@ -28,6 +35,7 @@ export class MomentumService {
     const onboarding = await this.onboardingRepository.findOne({
       where: { userId },
     });
+    const skills = await this.getUserSkills(userId);
 
     return {
       name: user?.name || '',
@@ -38,7 +46,7 @@ export class MomentumService {
       resumeUrl: onboarding?.resumeUrl ? '/momentum/resume' : null,
       resumeText: onboarding?.resumeText ?? null,
 
-      skills: [], // will be populated after resume parsing
+      skills,
       //   imageUrl?: onboarding?.imageUrl ?? null;  // future: user profile image stored in cloudinary
     };
   }
@@ -65,5 +73,17 @@ export class MomentumService {
     });
 
     file.data.pipe(res);
+  }
+
+  async getUserSkills(userId: string) {
+    const skills = await this.userSkillRepository
+      .createQueryBuilder('us')
+      .innerJoin(Skill, 's', 's.id = us.skillId')
+      .where('us.userId = :userId', { userId })
+      .select(['s.name as name', 's.category as category'])
+      .orderBy('s.category', 'ASC')
+      .getRawMany();
+
+    return skills;
   }
 }

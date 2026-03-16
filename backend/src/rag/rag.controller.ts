@@ -57,9 +57,9 @@ export class RagController {
 
   @UseGuards(JwtAuthGuard)
   @Get('analytics')
-  getAnalytics(@Req() req) {
+  getAnalytics(@Req() req, @Query('period') period: string) {
     const userId = req.user.userId;
-    return this.analyticsService.getAnalytics(userId);
+    return this.analyticsService.getAnalytics(userId, period);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -9,6 +9,9 @@ import {
   DialogTitle,
   DialogContent,
   Dialog,
+  Menu,
+  MenuItem,
+  Chip,
 } from "@mui/material";
 
 import { useEffect, useState } from "react";
@@ -19,6 +22,8 @@ import AnalyticsCard from "./AnalyticsCard";
 import WeeklyActivity from "./WeeklyActivity";
 import { CircularProgress } from "@mui/material";
 import { useRouter } from "next/navigation";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
+import React from "react";
 
 type SimpleBar = {
   label: string;
@@ -54,6 +59,28 @@ export default function DashboardPage() {
   const allMilestonesCompleted =
     milestones.length > 0 && milestones.every((task) => task.completed);
   const router = useRouter();
+  const [period, setPeriod] = React.useState("this_week");
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  const open = Boolean(anchorEl);
+
+  const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleSelect = (value: string) => {
+    setPeriod(value);
+    handleClose();
+  };
+  const periodLabels: Record<string, string> = {
+    this_week: "This Week",
+    last_week: "Last Week",
+    month: "This Month",
+    all_time: "All Time",
+  };
 
   const jobPrepMetrics = analytics
     ? [
@@ -107,7 +134,7 @@ export default function DashboardPage() {
             fetch("http://localhost:3001/rag/milestones", {
               credentials: "include",
             }),
-            fetch("http://localhost:3001/rag/analytics", {
+            fetch(`http://localhost:3001/rag/analytics?period=${period}`, {
               credentials: "include",
             }),
             fetch("http://localhost:3001/rag/weekly-activity", {
@@ -134,7 +161,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData();
-  }, []);
+  }, [period]);
 
   function calculateChange(current: number, previous: number) {
     if (previous === 0) {
@@ -312,16 +339,75 @@ export default function DashboardPage() {
                 </Button>
               </Box>
             </Card>
+            <Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography fontWeight={700} fontSize={18}>
+                  Progress Overview
+                </Typography>
 
-            {/* Analytics cards */}
-            {analytics && (
-              <AnalyticsCard
-                jobPrepMetrics={jobPrepMetrics}
-                rewards={analytics?.rewards}
-                pointsEarned={analytics.pointsEarned}
-                pointsEarnedLastWeek={analytics.pointsEarnedLastWeek}
-              />
-            )}
+                <Chip
+                  label={periodLabels[period]}
+                  onClick={handleOpen}
+                  deleteIcon={
+                    <KeyboardArrowDownRoundedIcon
+                      sx={{
+                        color: "rgb(209,112,51)",
+                        fontSize: 20,
+                      }}
+                    />
+                  }
+                  onDelete={handleOpen}
+                  sx={{
+                    fontWeight: 600,
+                    bgcolor: "rgba(209,112,51,0.08)",
+                    color: "rgb(209,112,51)",
+                    border: "1px solid rgba(209,112,51,0.25)",
+                    px: 0.5,
+                    "&:hover": {
+                      bgcolor: "rgba(209,112,51,0.15)",
+                    },
+                    "& .MuiChip-deleteIcon": {
+                      ml: 0.5,
+                      mr: -0.3,
+                    },
+                  }}
+                />
+
+                <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+                  <MenuItem onClick={() => handleSelect("this_week")}>
+                    This Week
+                  </MenuItem>
+
+                  <MenuItem onClick={() => handleSelect("last_week")}>
+                    Last Week
+                  </MenuItem>
+
+                  <MenuItem onClick={() => handleSelect("month")}>
+                    This Month
+                  </MenuItem>
+
+                  <MenuItem onClick={() => handleSelect("all_time")}>
+                    All Time
+                  </MenuItem>
+                </Menu>
+              </Box>
+              {/* Analytics cards */}
+              {analytics && (
+                <AnalyticsCard
+                  jobPrepMetrics={jobPrepMetrics}
+                  rewards={analytics?.rewards}
+                  pointsEarned={analytics.pointsEarned}
+                  pointsEarnedLastWeek={analytics.pointsEarnedLastWeek}
+                />
+              )}
+            </Box>
 
             {/* Weekly Activity with MUI X BarChart */}
             <WeeklyActivity weeklyActivity={weeklyActivity} />
