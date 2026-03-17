@@ -30,4 +30,10 @@ export class JobApplication {
 
   @Column({ type: 'timestamp' })
   appliedDate: Date;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
+
+  @Column({ default: 'gmail' })
+  source: string;
 }

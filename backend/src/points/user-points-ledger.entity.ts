@@ -24,7 +24,7 @@ export type PointsEntryType =
  *
  * Entry types:
  *  - task_earned      → +25  (one task completed & approved)
- *  - converted_to_360 → -500 (redeemed for 1 "360 Point")
+ *  - converted_to_360 → -100 (redeemed for 1 "360 Point")
  */
 @Entity('user_points_ledger')
 @Index(['user_id', 'task_id']) // fast duplicate-earn check
