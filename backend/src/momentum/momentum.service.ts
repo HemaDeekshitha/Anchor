@@ -45,6 +45,10 @@ export class MomentumService {
       resumeName: onboarding?.resumeName ?? null,
       resumeUrl: onboarding?.resumeUrl ? '/momentum/resume' : null,
       resumeText: onboarding?.resumeText ?? null,
+      status: onboarding?.currentStatus ?? [],
+      preferredRoles: onboarding?.preferredRole ?? [],
+      intrests: onboarding?.areasOfInterest ?? [],
+      employmentType: onboarding?.employmentType ?? [],
 
       skills,
       //   imageUrl?: onboarding?.imageUrl ?? null;  // future: user profile image stored in cloudinary

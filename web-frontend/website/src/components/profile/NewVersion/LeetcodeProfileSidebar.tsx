@@ -1,0 +1,458 @@
+"use client";
+
+import React from "react";
+import {
+  Avatar,
+  Box,
+  Card,
+  Typography,
+  Button,
+  Divider,
+  Chip,
+  Stack,
+  Popover,
+} from "@mui/material";
+
+type ProfileSkill = {
+  name: string;
+  category: string;
+};
+
+type ProfileSectionProps = {
+  profile: {
+    name?: string;
+    email?: string;
+    primaryFocus?: string[];
+    resumeName?: string | null;
+    resumeUrl?: string | null;
+    resumeText?: string | null;
+    preferredRoles?: string[];
+    status?: string[];
+    intrests?: string[];
+    employmentType?: string[];
+    skills?: ProfileSkill[];
+  };
+  weeklyRecap?: string;
+  setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
+};
+const categoryColors: Record<string, string> = {
+  ai: "#c084fc",
+  frontend: "#34d399",
+  backend: "#fbbf24",
+  database: "#60a5fa",
+  devops: "#22d3ee",
+  cloud: "#38bdf8",
+  tools: "#a1a1aa",
+};
+
+export default function LeetcodeProfileSidebar({
+  profile,
+  weeklyRecap,
+  setOpenResumeText,
+}: ProfileSectionProps) {
+  const [showAllSkills, setShowAllSkills] = React.useState(false);
+  const skills = profile?.skills?.map((s) => s.name) ?? [
+    "Frontend",
+    "Backend",
+    "AI",
+    "React",
+    "NodeJS",
+    "System Design",
+  ];
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const skillsCount = profile?.skills?.length ?? 0;
+
+  const groupedSkills = React.useMemo(() => {
+    if (!profile?.skills) return {};
+
+    return profile.skills.reduce(
+      (acc: Record<string, ProfileSkill[]>, skill) => {
+        const category = skill.category || "other";
+
+        if (!acc[category]) acc[category] = [];
+
+        acc[category].push(skill);
+
+        return acc;
+      },
+      {}
+    );
+  }, [profile?.skills]);
+
+  const categories = Object.entries(groupedSkills);
+
+  const visibleCategories = showAllSkills ? categories : categories.slice(0, 2); // show only first 2 categories
+
+  const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const open = Boolean(anchorEl);
+  return (
+    <Card
+      sx={{
+        width: {
+          xs: "100%", // mobile
+          sm: "100%",
+          md: 380, // desktop fixed width
+        },
+
+        flexShrink: 0,
+
+        borderRadius: 3,
+        p: 3,
+
+        background: "#0f0f0f",
+        color: "#fff",
+      }}
+    >
+      {/* PROFILE HEADER */}
+
+      <Box>
+        {/* Top row avatar + name */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            alignItems: "center",
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 72,
+              height: 72,
+              bgcolor: "#d9d9d9",
+              borderRadius: 3,
+            }}
+            src="/assets/images/pro.jpg"
+          />
+
+          <Box>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: 20,
+              }}
+            >
+              {profile?.name || "Guest User"}
+            </Typography>
+
+            <Typography
+              sx={{
+                color: "#8c8c8c",
+                fontSize: 14,
+              }}
+            >
+              {profile?.email || "No email provided"}
+            </Typography>
+
+            <Box sx={{ mt: 0.5 }}>
+              <Typography
+                component="span"
+                sx={{
+                  // fontWeight: 600,
+                  fontSize: 14,
+                  color: "#fff",
+                }}
+              >
+                Resume{" "}
+              </Typography>
+              {profile?.resumeUrl ? (
+                <Typography
+                  component="a"
+                  href="http://localhost:3001/momentum/resume"
+                  target="_blank"
+                  sx={{
+                    color: "rgb(209,112,51)",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    "&:hover": { textDecoration: "underline" },
+                  }}
+                >
+                  {profile.resumeName}
+                </Typography>
+              ) : profile?.resumeText ? (
+                <Typography
+                  onClick={() => setOpenResumeText(true)}
+                  sx={{
+                    color: "rgb(209,112,51)",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    "&:hover": { textDecoration: "underline" },
+                  }}
+                >
+                  View Resume Text
+                </Typography>
+              ) : (
+                <Typography fontSize={14} color="text.secondary">
+                  Upload your resume to unlock AI insights.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Focus section */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1.5,
+            mt: 2,
+            alignItems: "center",
+            fontSize: 14,
+            color: "#cfcfcf",
+          }}
+        >
+          <Typography>Focus</Typography>
+
+          <Typography sx={{ opacity: 0.4 }}>|</Typography>
+
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {profile?.primaryFocus?.slice(0, 2).map((focus) => (
+              <Chip
+                key={focus}
+                label={focus}
+                size="small"
+                sx={{
+                  background: "#2a2a2a",
+                  color: "#fff",
+                  fontWeight: 500,
+                }}
+              />
+            ))}
+            {profile?.primaryFocus?.length ? (
+              (profile?.primaryFocus?.length ?? 0) > 2 && (
+                <Chip
+                  label={`+${(profile?.primaryFocus?.length ?? 0) - 2}`}
+                  size="small"
+                  onClick={handleOpen}
+                  sx={{
+                    background: "#1e1e1e",
+                    color: "#fff",
+                    cursor: "pointer",
+                  }}
+                />
+              )
+            ) : (
+              <Typography fontSize={14} sx={{ color: "#fff" }}>
+                Add your focus
+              </Typography>
+            )}
+          </Box>
+        </Box>
+        <Popover
+          open={open}
+          anchorEl={anchorEl}
+          onClose={handleClose}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "left",
+          }}
+        >
+          <Box
+            sx={{
+              p: 2,
+              display: "flex",
+              gap: 1,
+              flexWrap: "wrap",
+              maxWidth: 300,
+            }}
+          >
+            {profile?.primaryFocus?.map((focus) => (
+              <Chip
+                key={focus}
+                label={focus}
+                size="small"
+                sx={{
+                  background: "#2a2a2a",
+                  color: "#fff",
+                }}
+              />
+            ))}
+          </Box>
+        </Popover>
+
+        {/* Edit profile button */}
+        <Button
+          fullWidth
+          sx={{
+            mt: 2.5,
+            py: 1.2,
+            borderRadius: 2,
+            textTransform: "none",
+            fontWeight: 600,
+            fontSize: 16,
+            color: "#35d07f",
+            background:
+              "linear-gradient(90deg, rgba(30,80,40,0.9) 0%, rgba(18,60,30,0.9) 100%)",
+
+            "&:hover": {
+              background:
+                "linear-gradient(90deg, rgba(30,80,40,1) 0%, rgba(18,60,30,1) 100%)",
+            },
+          }}
+        >
+          Edit Profile
+        </Button>
+
+        {/* divider */}
+        <Box
+          sx={{
+            mt: 3,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+          }}
+        />
+      </Box>
+
+      {/* CAREER PROFILE */}
+
+      <Typography fontWeight={700} mb={1}>
+        Career Profile
+      </Typography>
+
+      <Stack spacing={1}>
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Typography fontSize={13} color="gray">
+            Status
+          </Typography>
+          <Typography fontSize={14}>
+            {profile?.status?.length || "No status set yet"}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Typography fontSize={13} color="gray">
+            Seeking
+          </Typography>
+          <Typography fontSize={14}>
+            {" "}
+            {profile?.employmentType?.length ||
+              "Open to all employment opportunities"}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Typography fontSize={13} color="gray">
+            Location
+          </Typography>
+          <Typography fontSize={14}>Fremont, CA</Typography>
+        </Box>
+      </Stack>
+      <Divider sx={{ my: 3, borderColor: "#2a2a2a" }} />
+
+      {/* PREFERRED ROLES */}
+
+      <Typography fontWeight={700} mb={1}>
+        Preferred Roles
+      </Typography>
+
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+        {(profile?.preferredRoles?.length ?? 0) > 0 ? (
+          profile?.preferredRoles?.map((role) => (
+            <Chip
+              key={role}
+              label={role}
+              size="small"
+              sx={{
+                background: "#2a2a2a",
+                color: "#fff",
+                fontWeight: 500,
+              }}
+            />
+          ))
+        ) : (
+          <Typography fontSize={14} sx={{ color: "rgb(209,112,51)" }}>
+            Add your preferred roles so we can personalize your preparation
+            plan.
+          </Typography>
+        )}
+      </Box>
+
+      <Divider sx={{ my: 3, borderColor: "#2a2a2a" }} />
+
+      {/* INDUSTRY INTERESTS */}
+
+      <Typography fontWeight={700} mb={1}>
+        Industry Interests
+      </Typography>
+
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+        {(profile?.intrests?.length ?? 0) > 0 ? (
+          profile?.intrests?.map((intrest) => (
+            <Chip
+              key={intrest}
+              label={intrest}
+              size="small"
+              sx={{
+                background: "#2a2a2a",
+                color: "#fff",
+                fontWeight: 500,
+              }}
+            />
+          ))
+        ) : (
+          <Typography fontSize={14} sx={{ color: "rgb(209,112,51)" }}>
+            Choose areas you're curious about to guide your learning path.
+          </Typography>
+        )}
+      </Box>
+
+      {/* SKILLS */}
+      {(profile?.skills?.length ?? 0) > 0 && (
+        <>
+          <Divider sx={{ my: 3, borderColor: "#2a2a2a" }} />
+          <Typography fontWeight={700} mb={2}>
+            Skills
+          </Typography>
+
+          {visibleCategories.map(([category, skills]) => (
+            <Box key={category} mb={2}>
+              <Typography
+                fontSize={13}
+                fontWeight={600}
+                sx={{
+                  color: categoryColors[category.toLowerCase()] ?? "#cfcfcf",
+                }}
+              >
+                {category}
+              </Typography>
+
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {skills.map((skill) => (
+                  <Chip
+                    key={skill.name}
+                    label={skill.name}
+                    sx={{
+                      background: "#2a2a2a",
+                      color: "#fff",
+                      fontSize: 12,
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+          ))}
+
+          {categories.length > 2 && (
+            <Box
+              mt={1}
+              sx={{
+                cursor: "pointer",
+                color: "#9aa0a6",
+                fontSize: 14,
+                "&:hover": { color: "#fff" },
+              }}
+              onClick={() => setShowAllSkills(!showAllSkills)}
+            >
+              {showAllSkills ? "Show less" : "Show more"}
+            </Box>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}

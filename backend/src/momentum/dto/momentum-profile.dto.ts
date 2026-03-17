@@ -7,6 +7,10 @@ export class MomentumProfileDto {
 
   resumeUrl: string | null;
   resumeText?: string | null;
+  status: string[];
+  employmentType?: string[];
+  preferredRoles?: string[];
+  intrests?: string[];
 
   skills?: string[];
 

@@ -2,18 +2,17 @@ import {
   Avatar,
   Box,
   Card,
-  CardContent,
-  CardHeader,
   Chip,
+  Divider,
   IconButton,
   Modal,
   Typography,
+  Fade,
+  Backdrop,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import React from "react";
 import CloseIcon from "@mui/icons-material/Close";
-import Fade from "@mui/material/Fade";
-import Backdrop from "@mui/material/Backdrop";
+import React from "react";
 
 type ProfileSkill = {
   name: string;
@@ -39,7 +38,6 @@ export default function ProfileSection({
   weeklyRecap,
   setOpenResumeText,
 }: ProfileSectionProps) {
-  const [showAllSkills, setShowAllSkills] = React.useState(false);
   const [openSkillsModal, setOpenSkillsModal] = React.useState(false);
 
   const skillsCount = profile?.skills?.length ?? 0;
@@ -51,9 +49,7 @@ export default function ProfileSection({
       (acc: Record<string, ProfileSkill[]>, skill) => {
         const category = skill.category || "other";
 
-        if (!acc[category]) {
-          acc[category] = [];
-        }
+        if (!acc[category]) acc[category] = [];
 
         acc[category].push(skill);
 
@@ -68,340 +64,233 @@ export default function ProfileSection({
       <Card
         sx={{
           borderRadius: 3,
-          boxShadow: "0 20px 40px rgba(209, 112, 51, 0.15)",
-          border: "1px solid rgba(209, 112, 51, 0.1)",
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          position: "relative",
+          border: "1px solid rgba(0,0,0,0.08)",
+          boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
           overflow: "hidden",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: "4px",
-            background: "linear-gradient(to left, rgb(209, 112, 51), #E5B526)",
-          },
-          "&:hover": {
-            transform: "translateY(-8px)",
-            boxShadow: "0 30px 60px rgba(209, 112, 51, 0.25)",
-          },
         }}
       >
-        {/* Decorative top gradient bar */}
+        {/* PROFILE HEADER */}
         <Box
           sx={{
-            height: 6,
-            background: "linear-gradient(to left, rgb(209, 112, 51), #E5B526)",
-            opacity: 0.9,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            px: 3,
+            py: 2.5,
           }}
-        />
-
-        <CardHeader
-          sx={{ px: 3, pt: 3 }}
-          avatar={
-            <Avatar
-              sx={{
-                width: 64,
-                height: 64,
-                bgcolor: "linear-gradient(to left, rgb(209, 112, 51), #E5B526)",
-                color: "white",
-                fontWeight: 700,
-                fontSize: "1.25rem",
-                boxShadow: "0 12px 24px rgba(209, 112, 51, 0.3)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  transform: "scale(1.05)",
-                  boxShadow: "0 16px 32px rgba(209, 112, 51, 0.4)",
-                },
-              }}
-              src="/assets/images/pro.jpg"
-            >
-              JD
-            </Avatar>
-          }
-          action={
-            <IconButton
-              aria-label="edit profile"
-              sx={{
-                bgcolor: "rgba(209, 112, 51, 0.1)",
-                color: "rgb(209, 112, 51)",
-                "&:hover": {
-                  bgcolor: "rgba(209, 112, 51, 0.2)",
-                  transform: "rotate(90deg)",
-                },
-              }}
-            >
-              <EditIcon />
-            </IconButton>
-          }
-          title={
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 700,
-                  background:
-                    "linear-gradient(to right, rgb(209, 112, 51), #E5B526)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                {profile?.name || "Complete your profile"}
-              </Typography>
-              <Chip
-                label="Job Seeker"
-                size="small"
-                sx={{
-                  bgcolor: "rgba(209, 112, 51, 0.15)",
-                  color: "rgb(209, 112, 51)",
-                  fontWeight: 600,
-                  fontSize: "0.75rem",
-                }}
-              />
-            </Box>
-          }
-          subheader={
-            <Typography
-              variant="body1"
-              sx={{
-                color: "rgb(209, 112, 51)",
-                fontWeight: 500,
-                mt: 0.5,
-                fontSize: "0.95rem",
-              }}
-            >
-              {profile?.email || "Add your email in profile settings"}
-            </Typography>
-          }
-        />
-
-        <CardContent sx={{ px: 3, pb: 3 }}>
-          {/* Weekly progress summary */}
-          <Box
+        >
+          <Avatar
             sx={{
-              // mb: 3,
-              p: 2,
-              bgcolor: "rgba(209, 112, 51, 0.08)",
-              borderRadius: 2,
-              border: "1px solid rgba(209, 112, 51, 0.12)",
-              animation: "fadeInUp 0.6s ease-out",
+              width: 56,
+              height: 56,
+              fontWeight: 700,
             }}
-          >
-            <Typography
-              variant="body2"
-              sx={{
-                position: "relative",
-                borderRadius: 2,
-                padding: "12px 16px",
-                fontWeight: 600,
-                fontSize: 14,
-                overflow: "hidden",
+            src="/assets/images/pro.jpg"
+          />
 
-                background:
-                  "linear-gradient(to right, rgb(209,112,51), #E5B526)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
+          <Box sx={{ flex: 1 }}>
+            <Typography fontWeight={700} fontSize={18}>
+              {profile?.name || "Complete your profile"}
+            </Typography>
 
-                "&::before": {
-                  content: '""',
-                  position: "absolute",
-                  top: 0,
-                  left: "-50%",
-                  width: "200%",
-                  height: "100%",
-                  background:
-                    "linear-gradient(120deg, rgba(209,112,51,0) 0%, rgba(209,112,51,0.2) 50%, rgba(209,112,51,0) 100%)",
-                  animation: "shine 3s infinite",
-                  borderRadius: 2,
-                },
-
-                "@keyframes pulse": {
-                  "0%": { transform: "scale(1)" },
-                  "50%": { transform: "scale(1.02)" },
-                  "100%": { transform: "scale(1)" },
-                },
-
-                animation: "pulse 2s infinite",
-              }}
-            >
-              {weeklyRecap ||
-                "Complete your today's plan to unlock streaks and rewards"}
+            <Typography fontSize={14} color="text.secondary" sx={{ mt: 0.3 }}>
+              {profile?.email || "Add your email"}
             </Typography>
           </Box>
 
-          {/* Onboarding data grid */}
-          <Box
+          <Chip
+            label="Job Seeker"
+            size="small"
             sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              animation: "fadeInUp 0.8s ease-out 0.2s both",
-              pt: 2,
+              fontWeight: 600,
+              bgcolor: "rgba(209,112,51,0.1)",
+              color: "rgb(209,112,51)",
+            }}
+          />
+
+          <IconButton size="small">
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <Divider />
+
+        {/* WEEKLY RECAP */}
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "rgb(209,112,51)",
             }}
           >
-            {/* Skills */}
-            <Box>
-              <Typography
-                variant="caption"
-                textTransform="uppercase"
-                sx={{
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                }}
-              >
-                Skills
-              </Typography>
+            {weeklyRecap ||
+              "Complete your today's plan to unlock streaks and rewards"}
+          </Typography>
+        </Box>
 
-              {profile?.skills?.length ? (
-                <Box>
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                    {profile.skills.slice(0, 5).map((skill) => (
-                      <Chip
-                        key={skill.name}
-                        label={skill.name}
-                        size="small"
-                        sx={{
-                          mt: 0.5,
-                          bgcolor: "rgba(209,112,51,0.1)",
-                          color: "rgb(209,112,51)",
-                          fontWeight: 500,
-                        }}
-                      />
-                    ))}
-                  </Box>
+        <Divider />
 
-                  {skillsCount > 5 && (
-                    <Typography
-                      onClick={() => setOpenSkillsModal(true)}
-                      sx={{
-                        mt: 1.5,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: "rgb(209,112,51)",
-                        cursor: "pointer",
-                        "&:hover": { textDecoration: "underline" },
-                      }}
-                    >
-                      + {skillsCount} skills
-                    </Typography>
-                  )}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Upload your resume to extract skills automatically.
-                </Typography>
-              )}
-            </Box>
+        {/* SKILLS */}
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 12,
+              textTransform: "uppercase",
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              color: "text.secondary",
+              mb: 1,
+            }}
+          >
+            Skills
+          </Typography>
 
-            {/* resume */}
-            <Box>
-              <Typography
-                variant="caption"
-                textTransform="uppercase"
-                sx={{
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                  color: "text.primary",
-                }}
-              >
-                Resume
-              </Typography>
-
-              <Box>
-                {profile?.resumeUrl ? (
-                  <Typography
-                    component="a"
-                    href="http://localhost:3001/momentum/resume"
-                    target="_blank"
-                    sx={{
-                      color: "rgb(209,112,51)",
-                      fontWeight: 600,
-                      textDecoration: "none",
-                      "&:hover": {
-                        textDecoration: "underline",
-                      },
-                    }}
-                  >
-                    {profile.resumeName}
-                  </Typography>
-                ) : profile?.resumeText ? (
-                  // CASE 2: Resume TEXT provided
-                  <Typography
-                    onClick={() => setOpenResumeText(true)}
-                    sx={{
-                      color: "rgb(209,112,51)",
-                      fontWeight: 600,
-                      textDecoration: "none",
-                      cursor: "pointer",
-                      "&:hover": {
-                        textDecoration: "underline",
-                      },
-                    }}
-                  >
-                    View Resume Text
-                  </Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Upload your resume to unlock personalized AI insights.
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-            {/* focus */}
-            <Box>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography
-                  variant="caption"
-                  textTransform="uppercase"
-                  sx={{
-                    fontWeight: 600,
-                    letterSpacing: 0.5,
-                    color: "text.primary",
-                  }}
-                >
-                  Focus
-                </Typography>
-              </Box>
-
+          {profile?.skills?.length ? (
+            <>
               <Box
                 sx={{
-                  pt: 1,
                   display: "flex",
                   flexWrap: "wrap",
                   gap: 1,
                 }}
               >
-                {profile?.primaryFocus?.length ? (
-                  profile.primaryFocus.map((focus: string) => (
-                    <Chip
-                      key={focus}
-                      label={focus}
-                      size="small"
-                      sx={{
-                        bgcolor: "rgba(209,112,51,0.15)",
-                        color: "rgb(209,112,51)",
-                        fontWeight: 600,
-                        border: "1px solid rgba(209,112,51,0.3)",
-                      }}
-                    />
-                  ))
-                ) : (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mt: -1 }}
-                  >
-                    Set your focus to guide your momentum
-                  </Typography>
-                )}
+                {profile.skills.slice(0, 6).map((skill) => (
+                  <Chip
+                    key={skill.name}
+                    label={skill.name}
+                    size="small"
+                    sx={{
+                      bgcolor: "rgba(209,112,51,0.08)",
+                      color: "rgb(209,112,51)",
+                      fontWeight: 500,
+                      border: "1px solid rgba(209,112,51,0.2)",
+                    }}
+                  />
+                ))}
               </Box>
-            </Box>
+
+              {skillsCount > 6 && (
+                <Typography
+                  onClick={() => setOpenSkillsModal(true)}
+                  sx={{
+                    mt: 1,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "rgb(209,112,51)",
+                    cursor: "pointer",
+                    "&:hover": { textDecoration: "underline" },
+                  }}
+                >
+                  + {skillsCount - 6} more skills
+                </Typography>
+              )}
+            </>
+          ) : (
+            <Typography fontSize={14} color="text.secondary">
+              Upload your resume to extract skills automatically.
+            </Typography>
+          )}
+        </Box>
+
+        <Divider />
+
+        {/* RESUME */}
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 12,
+              textTransform: "uppercase",
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              color: "text.secondary",
+              mb: 1,
+            }}
+          >
+            Resume
+          </Typography>
+
+          {profile?.resumeUrl ? (
+            <Typography
+              component="a"
+              href="http://localhost:3001/momentum/resume"
+              target="_blank"
+              sx={{
+                color: "rgb(209,112,51)",
+                fontWeight: 600,
+                textDecoration: "none",
+                "&:hover": { textDecoration: "underline" },
+              }}
+            >
+              {profile.resumeName}
+            </Typography>
+          ) : profile?.resumeText ? (
+            <Typography
+              onClick={() => setOpenResumeText(true)}
+              sx={{
+                color: "rgb(209,112,51)",
+                fontWeight: 600,
+                cursor: "pointer",
+                "&:hover": { textDecoration: "underline" },
+              }}
+            >
+              View Resume Text
+            </Typography>
+          ) : (
+            <Typography fontSize={14} color="text.secondary">
+              Upload your resume to unlock AI insights.
+            </Typography>
+          )}
+        </Box>
+
+        <Divider />
+
+        {/* FOCUS */}
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 12,
+              textTransform: "uppercase",
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              color: "text.secondary",
+              mb: 1,
+            }}
+          >
+            Focus
+          </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 1,
+            }}
+          >
+            {profile?.primaryFocus?.length ? (
+              profile.primaryFocus.map((focus: string) => (
+                <Chip
+                  key={focus}
+                  label={focus}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(209,112,51,0.12)",
+                    color: "rgb(209,112,51)",
+                    fontWeight: 600,
+                    border: "1px solid rgba(209,112,51,0.25)",
+                  }}
+                />
+              ))
+            ) : (
+              <Typography fontSize={14} color="text.secondary">
+                Set your focus to guide your momentum
+              </Typography>
+            )}
           </Box>
-        </CardContent>
+        </Box>
       </Card>
+
+      {/* SKILLS MODAL */}
 
       <Modal
         open={openSkillsModal}
@@ -435,7 +324,7 @@ export default function ProfileSection({
               overflow: "hidden",
             }}
           >
-            {/* Header */}
+            {/* HEADER */}
             <Box
               sx={{
                 px: 3,
@@ -446,12 +335,7 @@ export default function ProfileSection({
                 borderBottom: "1px solid rgba(0,0,0,0.08)",
               }}
             >
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: 18,
-                }}
-              >
+              <Typography fontWeight={700} fontSize={18}>
                 Skills ({skillsCount})
               </Typography>
 
@@ -459,16 +343,15 @@ export default function ProfileSection({
                 onClick={() => setOpenSkillsModal(false)}
                 sx={{
                   bgcolor: "rgba(0,0,0,0.04)",
-                  "&:hover": {
-                    bgcolor: "rgba(0,0,0,0.08)",
-                  },
+                  "&:hover": { bgcolor: "rgba(0,0,0,0.08)" },
                 }}
               >
                 <CloseIcon />
               </IconButton>
             </Box>
 
-            {/* Scrollable content */}
+            {/* CONTENT */}
+
             <Box
               sx={{
                 px: 3,
@@ -484,20 +367,14 @@ export default function ProfileSection({
                       fontWeight: 700,
                       textTransform: "uppercase",
                       color: "text.secondary",
-                      mb: 1.2,
+                      mb: 1,
                       letterSpacing: 0.6,
                     }}
                   >
                     {category}
                   </Typography>
 
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 1,
-                    }}
-                  >
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                     {skills.map((skill) => (
                       <Chip
                         key={skill.name}
@@ -506,11 +383,7 @@ export default function ProfileSection({
                         sx={{
                           bgcolor: "rgba(209,112,51,0.08)",
                           color: "rgb(209,112,51)",
-                          fontWeight: 500,
                           border: "1px solid rgba(209,112,51,0.18)",
-                          "&:hover": {
-                            bgcolor: "rgba(209,112,51,0.15)",
-                          },
                         }}
                       />
                     ))}
