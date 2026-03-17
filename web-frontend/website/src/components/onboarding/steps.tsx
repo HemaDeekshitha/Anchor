@@ -155,14 +155,7 @@ export default function Steps() {
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [firstName, setFirstName] = useState("");
-const [lastName, setLastName] = useState("");
-const [linkedin, setLinkedin] = useState("");
-const [experience, setExperience] = useState("");
-
-const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  
+  const [resumeText, setResumeText] = useState("");
 
   // --- GLOBAL THEME LOGIC ---
   useEffect(() => {
@@ -218,52 +211,15 @@ const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     params.set("step", index.toString());
     router.push(`?${params.toString()}`);
   };
-  const isValidLinkedIn = (url: string) => {
-  const regex = /^https?:\/\/(www\.)?linkedin\.com\/.*$/;
-  return regex.test(url);
-  };
   const handleNext = () => {
-
-  if (activeRole.isUpload) {
-
-    if (!firstName.trim()) {
-      alert("First Name is required");
-      return;
+    if (activeIndex < roles.length - 1) {
+      // Instead of setActiveIndex, we update URL
+      updateStepInUrl(activeIndex + 1);
+    } else {
+      submitHandler();
+      // alert("All steps completed!");
     }
-
-    if (!linkedin.trim()) {
-      alert("LinkedIn Profile is required");
-      return;
-    }
-
-    if (!isValidLinkedIn(linkedin)) {
-      alert("Please enter a valid LinkedIn profile URL");
-      return;
-    }
-
-    if (!experience) {
-      alert("Please select Years of Experience");
-      return;
-    }
-
-    if (!profilePhoto) {
-      alert("Please upload a Profile Photo");
-      return;
-    }
-
-    if (!resumeFile) {
-      alert("Please upload your Resume");
-      return;
-    }
-
-  }
-
-  if (activeIndex < roles.length - 1) {
-    updateStepInUrl(activeIndex + 1);
-  } else {
-    submitHandler();
-  }
-};
+  };
 
   const handleBack = () => {
     if (activeIndex > 0) {
@@ -276,9 +232,9 @@ const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     // e.preventDefault();
 
     // Require at least one resume input
-    if (!resumeFile) {
-    alert("Please upload your resume");
-    return;
+    if (!resumeFile && !resumeText.trim()) {
+      alert("Please upload a resume or paste resume text");
+      return;
     }
 
     const formData = new FormData();
@@ -289,7 +245,9 @@ const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     }
 
     // 📝 Resume text (optional)
-    
+    if (resumeText.trim()) {
+      formData.append("resumeText", resumeText.trim());
+    }
 
     // 🧠 Onboarding answers
     // formData.append(
@@ -376,96 +334,97 @@ const [photoPreview, setPhotoPreview] = useState<string | null>(null);
             <div className={styles.formBody}>
               {activeRole.isUpload ? (
                 /* UPLOAD STATE */
-                <div className={styles.formContainer}>
-                  
+                <div className={styles.uploadContainer}>
+                  {/* <label className={styles.inputLabel}>YOUR RESUME</label> */}
+                  <label>
+                    <div className={styles.uploadBox}>
+                      {resumeFile ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            width: "100%",
+                            padding: "0 1rem",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                            }}
+                          >
+                            <span style={{ fontSize: "1.5rem" }}>📄</span>
+                            <span style={{ fontWeight: 500 }}>
+                              {resumeFile.name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault(); // Prevent opening file dialog
+                              e.stopPropagation();
+                              setResumeFile(null);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "1.2rem",
+                              color: "currentColor",
+                              padding: "5px",
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        // Standard View when no file is uploaded
+                        <>
+                          <div className={styles.uploadIcon}>📄</div>
+                          <p className={styles.uploadMainText}>
+                            Click to Upload or Drag & Drop
+                          </p>
+                          <p className={styles.uploadSubText}>
+                            PDF, DOCX up to 10MB
+                          </p>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        hidden
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setResumeFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+                  </label>
 
-  {/* Row 1 */}
-  <div className={styles.twoColumn}>
-    <div className={styles.inputGroup}>
-      <label>FIRST NAME</label>
-      <input
-        type="text"
-        value={firstName}
-        onChange={(e)=>setFirstName(e.target.value)}
-      />
-    </div>
-
-    <div className={styles.inputGroup}>
-      <label>LAST NAME</label>
-      <input
-        type="text"
-        value={lastName}
-        onChange={(e)=>setLastName(e.target.value)}
-      />
-    </div>
-  </div>
-
-  {/* Row 2 */}
-  <div className={styles.inputGroup}>
-    <label>LINKEDIN PROFILE</label>
-    <input
-      type="text"
-      value={linkedin}
-      onChange={(e)=>setLinkedin(e.target.value)}
-    />
-  </div>
-
-  {/* Row 3 */}
-  <div className={styles.inputGroup}>
-    <label>YEARS OF EXPERIENCE</label>
-    <select
-      value={experience}
-      onChange={(e)=>setExperience(e.target.value)}
-    >
-      <option>Select</option>
-      <option>0-1 Years</option>
-      <option>1-3 Years</option>
-      <option>3-5 Years</option>
-      <option>5+ Years</option>
-    </select>
-  </div>
-
-  {/* Row 4 */}
-  <div className={styles.inputGroup}>
-    <label>PROFILE PHOTO</label>
-    <label className={styles.uploadBox}>
-  {profilePhoto ? profilePhoto.name : "Click to upload profile photo"}
-
-  <input
-    type="file"
-    hidden
-    accept="image/*"
-    onChange={(e)=>{
-      if(e.target.files?.[0]){
-        setProfilePhoto(e.target.files[0])
-      }
-    }}
-  />
-</label>
-  </div>
-
-  {/* Row 5 */}
-  <div className={styles.inputGroup}>
-    <label>UPLOAD RESUME</label>
-    <label className={styles.uploadBox}>
-  {resumeFile ? resumeFile.name : "Click to upload resume"}
-
-  <input
-    type="file"
-    hidden
-    accept=".pdf,.doc,.docx"
-    onChange={(e)=>{
-      if(e.target.files?.[0]){
-        setResumeFile(e.target.files[0])
-      }
-    }}
-  />
-</label>
-  </div>
-
-</div>
-
-
+                  <label
+                    className={styles.inputLabel}
+                    style={{ marginTop: "2rem", display: "block" }}
+                  >
+                    OR PASTE TEXT
+                  </label>
+                  <textarea
+                    className={
+                      styles.optionChip
+                    } /* Reuses your existing card styling */
+                    style={{
+                      minHeight: "150px",
+                      resize: "vertical",
+                      cursor: "text",
+                      fontFamily: "inherit",
+                      lineHeight: "1.5",
+                    }}
+                    placeholder="Paste your resume content here..."
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
+                  />
+                </div>
               ) : (
                 /* SELECTION STATE */
                 <div className={styles.selectionContainer}>
