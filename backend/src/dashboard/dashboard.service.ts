@@ -154,7 +154,7 @@ export class DashboardService {
     const prompt = this.generatePromptFromOnboarding(onboarding);
 
     const model = this.genAI.getGenerativeModel({
-      model: 'models/gemini-2.0-flash',
+      model: 'models/gemini-2.5-flash',
     });
 
     const result = await model.generateContent([{ text: prompt }]);
