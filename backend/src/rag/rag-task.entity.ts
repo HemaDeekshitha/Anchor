@@ -33,4 +33,16 @@ export class RagTask {
 
   @Column({ type: 'text', default: 'medium' })
   priority: 'low' | 'medium' | 'high';
+
+  // NULL = shared global task, set = user-specific AI-generated task
+  @Column({ type: 'uuid', nullable: true, default: null })
+  user_id: string | null;
+
+  // Optional detailed description for AI-generated tasks
+  @Column({ type: 'text', nullable: true, default: null })
+  description: string | null;
+
+  // LeetCode URL for DSA category tasks (e.g. https://leetcode.com/problems/two-sum/)
+  @Column({ type: 'text', nullable: true, default: null })
+  leetcodeUrl: string | null;
 }

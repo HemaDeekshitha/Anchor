@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -20,6 +21,7 @@ import { ApplicationTrackerModule } from './application-tracker/application-trac
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     ContactModule,
     HealthModule,
     OnboardingModule,

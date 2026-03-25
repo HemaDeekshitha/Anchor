@@ -46,7 +46,7 @@ struct PrimaryFocusView: View {
                         .bold()
 
                         .background(selected.contains(item) ? Color.yellow.opacity(0.1) : Color.white)
-                        .overlay(RoundedRectangle(cornerRadius: 25).stroke(selected.contains(item) ? Color.yellow : Color.gray.opacity(0.2), lineWidth: 2))
+                        .overlay(RoundedRectangle(cornerRadius: 25).stroke(selected.contains(item) ? Color.yellow : Color.gray.opacity(0.35), lineWidth: selected.contains(item) ? 3.5 : 3))
                         .cornerRadius(25)
                 }
             }

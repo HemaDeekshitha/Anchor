@@ -64,7 +64,7 @@ export class SubmissionService {
   }
 
   // Rest of your existing code...
-  let aiResult;
+  let aiResult: { score: number; feedback: string; approved: boolean; confidence: number; details: any };
   
   if (selfReportCategories.includes(task.category)) {
     // Auto-approve self-report tasks
@@ -161,11 +161,14 @@ export class SubmissionService {
       taskId: sub.task_id,
       taskTitle: sub.task.title,
       category: sub.task.category,
+      difficulty: sub.task.difficulty,
       status: sub.status,
       score: sub.ai_result.score,
       feedback: sub.ai_result.feedback,
       approved: sub.ai_result.approved,
+      answer: sub.text_content,
       submittedAt: sub.submitted_at,
+      details: sub.ai_result.details,
     }));
   }
 

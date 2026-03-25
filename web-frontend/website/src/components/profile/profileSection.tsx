@@ -5,11 +5,14 @@ import {
   CardContent,
   CardHeader,
   Chip,
+  CircularProgress,
   IconButton,
   Modal,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import React from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import Fade from "@mui/material/Fade";
@@ -32,15 +35,32 @@ type ProfileSectionProps = {
   };
   weeklyRecap: string;
   setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
+  onSkillsRefreshed?: () => void;
 };
 
 export default function ProfileSection({
   profile,
   weeklyRecap,
   setOpenResumeText,
+  onSkillsRefreshed,
 }: ProfileSectionProps) {
-  const [showAllSkills, setShowAllSkills] = React.useState(false);
   const [openSkillsModal, setOpenSkillsModal] = React.useState(false);
+  const [resyncing, setResyncing] = React.useState(false);
+
+  const handleResyncSkills = async () => {
+    setResyncing(true);
+    try {
+      await fetch("http://localhost:3001/momentum/resync-skills", {
+        method: "POST",
+        credentials: "include",
+      });
+      onSkillsRefreshed?.();
+    } catch (err) {
+      console.error("Failed to resync skills", err);
+    } finally {
+      setResyncing(false);
+    }
+  };
 
   const skillsCount = profile?.skills?.length ?? 0;
 
@@ -244,16 +264,29 @@ export default function ProfileSection({
           >
             {/* Skills */}
             <Box>
-              <Typography
-                variant="caption"
-                textTransform="uppercase"
-                sx={{
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                }}
-              >
-                Skills
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  textTransform="uppercase"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                >
+                  Skills
+                </Typography>
+                <Tooltip title="Re-extract skills from resume">
+                  <IconButton
+                    size="small"
+                    onClick={handleResyncSkills}
+                    disabled={resyncing}
+                    sx={{ p: 0.3, color: "rgb(209,112,51)" }}
+                  >
+                    {resyncing ? (
+                      <CircularProgress size={12} sx={{ color: "rgb(209,112,51)" }} />
+                    ) : (
+                      <RefreshIcon sx={{ fontSize: 14 }} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
 
               {profile?.skills?.length ? (
                 <Box>
@@ -285,7 +318,7 @@ export default function ProfileSection({
                         "&:hover": { textDecoration: "underline" },
                       }}
                     >
-                      + {skillsCount} skills
+                      + {skillsCount - 5} more skills
                     </Typography>
                   )}
                 </Box>

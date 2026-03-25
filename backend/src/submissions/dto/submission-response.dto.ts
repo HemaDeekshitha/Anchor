@@ -3,10 +3,12 @@ export class SubmissionResponseDto {
   taskId: number;
   taskTitle: string;
   category: string;
+  difficulty?: string;
   status: 'pending' | 'approved' | 'rejected';
   score: number;
   feedback: string;
   approved: boolean;
+  answer?: string;
   submittedAt: Date;
   details?: any;
   /** Points awarded for this submission. 25 if approved, 0 if rejected.
