@@ -1,3 +1,10 @@
+// Polyfill globalThis.crypto for Node.js 18 (required by @nestjs/schedule v6)
+if (!globalThis.crypto) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { webcrypto } = require('crypto');
+  (globalThis as any).crypto = webcrypto;
+}
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';

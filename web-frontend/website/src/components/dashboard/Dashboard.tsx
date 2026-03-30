@@ -31,6 +31,8 @@ interface Task {
   category?: string;
   taskId?: number;
   priority?: "low" | "medium" | "high";
+  difficulty?: "easy" | "medium" | "hard";
+  leetcodeUrl?: string | null;
 }
 
 const Dashboard = () => {
@@ -646,10 +648,6 @@ const Dashboard = () => {
                                   task.status === "completed"
                                     ? "#9ca3af"
                                     : "#1f2937",
-                                textDecoration:
-                                  task.status === "completed"
-                                    ? "line-through"
-                                    : "none",
                               }}
                             >
                               {task.title}
@@ -677,9 +675,70 @@ const Dashboard = () => {
                           sx={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 2,
+                            gap: 1.5,
                           }}
                         >
+                          {/* Difficulty Badge */}
+                          {task.difficulty && (
+                            <Box
+                              sx={{
+                                px: 1.2,
+                                py: 0.3,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: 2,
+                                background:
+                                  task.difficulty === "hard"
+                                    ? "#fee2e2"
+                                    : task.difficulty === "medium"
+                                    ? "#fef3c7"
+                                    : "#dcfce7",
+                                color:
+                                  task.difficulty === "hard"
+                                    ? "#b91c1c"
+                                    : task.difficulty === "medium"
+                                    ? "#92400e"
+                                    : "#065f46",
+                              }}
+                            >
+                              {task.difficulty.toUpperCase()}
+                            </Box>
+                          )}
+
+                          {/* LeetCode link for DSA tasks */}
+                          {task.leetcodeUrl && (
+                            <Box
+                              component="a"
+                              href={task.leetcodeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e: React.MouseEvent) =>
+                                e.stopPropagation()
+                              }
+                              title="Open on LeetCode"
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 28,
+                                height: 28,
+                                borderRadius: "6px",
+                                background: "#fff7ed",
+                                border: "1px solid #fed7aa",
+                                color: "#ea580c",
+                                textDecoration: "none",
+                                fontSize: 14,
+                                flexShrink: 0,
+                                "&:hover": {
+                                  background: "#ffedd5",
+                                  borderColor: "#fb923c",
+                                },
+                              }}
+                            >
+                              ↗
+                            </Box>
+                          )}
+
                           <ChevronRight size={20} color="#fb7185" />
                         </Box>
                       </CardContent>

@@ -16,7 +16,7 @@ import {
 
 import { useEffect, useState } from "react";
 import ProfileSection from "./profileSection";
-import RecentActivity from "./recentActivity";
+import HistorySection from "./HistorySection";
 import ApplicationFunnel from "./ApplicationFunnel";
 import AnalyticsCard from "./AnalyticsCard";
 import WeeklyActivity from "./WeeklyActivity";
@@ -51,7 +51,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [weeklyRecap, setWeeklyRecap] = useState<string>("");
   const [openResumeText, setOpenResumeText] = useState(false);
-  const [milestones, setMilestones] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]); // kept for analytics only
   const [analytics, setAnalytics] = useState<any>(null);
   const [weeklyActivity, setWeeklyActivity] = useState<SimpleBar[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,48 +120,48 @@ export default function DashboardPage() {
       ]
     : [];
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        const [profileRes, recapRes, milestonesRes, analyticsRes, weeklyRes] =
-          await Promise.all([
-            fetch("http://localhost:3001/momentum/profile", {
-              credentials: "include",
-            }),
-            fetch("http://localhost:3001/rag/weekly-recap", {
-              credentials: "include",
-            }),
-            fetch("http://localhost:3001/rag/milestones", {
-              credentials: "include",
-            }),
-            fetch(`http://localhost:3001/rag/analytics?period=${period}`, {
-              credentials: "include",
-            }),
-            fetch("http://localhost:3001/rag/weekly-activity", {
-              credentials: "include",
-            }),
-          ]);
+  const loadDashboardData = React.useCallback(async () => {
+    try {
+      const [profileRes, recapRes, milestonesRes, analyticsRes, weeklyRes] =
+        await Promise.all([
+          fetch("http://localhost:3001/momentum/profile", {
+            credentials: "include",
+          }),
+          fetch("http://localhost:3001/rag/weekly-recap", {
+            credentials: "include",
+          }),
+          fetch("http://localhost:3001/rag/milestones", {
+            credentials: "include",
+          }),
+          fetch(`http://localhost:3001/rag/analytics?period=${period}`, {
+            credentials: "include",
+          }),
+          fetch("http://localhost:3001/rag/weekly-activity", {
+            credentials: "include",
+          }),
+        ]);
 
-        const profileData = await profileRes.json();
-        const weeklyRecapData = await recapRes.json();
-        const milestonesData = await milestonesRes.json();
-        const analyticsData = await analyticsRes.json();
-        const weeklyData = await weeklyRes.json();
+      const profileData = await profileRes.json();
+      const weeklyRecapData = await recapRes.json();
+      const milestonesData = await milestonesRes.json();
+      const analyticsData = await analyticsRes.json();
+      const weeklyData = await weeklyRes.json();
 
-        setProfile(profileData);
-        setWeeklyRecap(weeklyRecapData.recap);
-        setMilestones(milestonesData.tasks || []);
-        setAnalytics(analyticsData);
-        setWeeklyActivity(weeklyData.weeklyActivity);
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setLoading(false);
-      }
+      setProfile(profileData);
+      setWeeklyRecap(weeklyRecapData.recap);
+      setMilestones(milestonesData.tasks || []);
+      setAnalytics(analyticsData);
+      setWeeklyActivity(weeklyData.weeklyActivity);
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
+    } finally {
+      setLoading(false);
     }
-
-    loadDashboardData();
   }, [period]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   function calculateChange(current: number, previous: number) {
     if (previous === 0) {
@@ -245,10 +245,11 @@ export default function DashboardPage() {
               profile={profile}
               weeklyRecap={weeklyRecap}
               setOpenResumeText={setOpenResumeText}
+              onSkillsRefreshed={() => loadDashboardData()}
             />
 
-            {/* Recent activity */}
-            <RecentActivity milestones={milestones} />
+            {/* Task history — day-by-day plan log */}
+            <HistorySection createdAt={profile?.createdAt} />
 
             {/* 3. Application Funnel */}
             <ApplicationFunnel deadlinesData={deadlinesData} />

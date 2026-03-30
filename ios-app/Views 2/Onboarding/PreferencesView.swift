@@ -59,7 +59,7 @@ Text(industry)
 .bold()
 .padding()
 .background(selectedIndustries.contains(industry) ? Color.yellow.opacity(0.1) : Color.white)
-.overlay(RoundedRectangle(cornerRadius: 25).stroke(selectedIndustries.contains(industry) ? Color.yellow : Color.gray.opacity(0.2), lineWidth: 2))
+.overlay(RoundedRectangle(cornerRadius: 25).stroke(selectedIndustries.contains(industry) ? Color.yellow : Color.gray.opacity(0.35), lineWidth: selectedIndustries.contains(industry) ? 3.5 : 3))
 .cornerRadius(25)
 }
 }
@@ -97,7 +97,7 @@ Text(type)
 .bold()
 .padding()
 .background(selectedEmployment.contains(type) ? Color.yellow.opacity(0.1) : Color.white)
-.overlay(RoundedRectangle(cornerRadius: 25).stroke(selectedEmployment.contains(type) ? Color.yellow : Color.gray.opacity(0.2), lineWidth: 2))
+.overlay(RoundedRectangle(cornerRadius: 25).stroke(selectedEmployment.contains(type) ? Color.yellow : Color.gray.opacity(0.35), lineWidth: selectedEmployment.contains(type) ? 3.5 : 3))
 .cornerRadius(25)
 }
 }
@@ -126,10 +126,10 @@ navigate = true
 .cornerRadius(30)
 
 
-NavigationLink(destination: FinalOnboardingView(), isActive: $navigate) {
+NavigationLink(destination: AILoadingView(), isActive: $navigate) {
 EmptyView()
 }
-    NavigationLink(destination: FinalOnboardingView(), isActive: $skipToFinal) {
+    NavigationLink(destination: AILoadingView(), isActive: $skipToFinal) {
                     EmptyView()
                 }.hidden()
 }

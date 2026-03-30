@@ -39,6 +39,10 @@ export class OnboardingResponse {
   @Column({ type: 'text', nullable: true })
   resumeText: string | null;
 
+  // AI-extracted keywords from the resume (role, tools, domain concepts, etc.)
+  @Column('text', { array: true, nullable: true })
+  resumeKeywords: string[] | null;
+
   @CreateDateColumn()
   createdAt: Date;
   @Column({ nullable: true })

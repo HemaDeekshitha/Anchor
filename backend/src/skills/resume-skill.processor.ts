@@ -1,44 +1,33 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { SkillExtractionService } from './skill-extraction.service';
 import { ResumeExtractorService } from '../resume/resume-extractor.service';
+import { AiSkillExtractorService } from './ai-skill-extractor.service';
 import { UserSkill } from './user-skills.entity';
 import { OnboardingResponse } from 'src/onboarding/onboarding.entity';
-import { AiSkillExtractorService } from './ai-skill-extractor.service';
-import { Skill } from './skills.entity';
-import { SkillMatcherService } from './skill-matcher.service';
 
 @Injectable()
 export class ResumeSkillProcessor {
+  private readonly logger = new Logger(ResumeSkillProcessor.name);
+
   constructor(
     @InjectRepository(UserSkill)
     private userSkillRepo: Repository<UserSkill>,
 
-    @InjectRepository(Skill)
-    private skillRepo: Repository<Skill>,
+    @InjectRepository(OnboardingResponse)
+    private onboardingRepo: Repository<OnboardingResponse>,
 
     private skillExtractionService: SkillExtractionService,
     private resumeExtractor: ResumeExtractorService,
     private aiSkillExtractorService: AiSkillExtractorService,
-    private skillMatcherService: SkillMatcherService,
   ) {}
-
-  private normalizeSkillText(value: string): string {
-    return value
-      .toLowerCase()
-      .replace(/\./g, '') // node.js → nodejs
-      .replace(/[-_]/g, ' ') // next-js → next js
-      .replace(/api(s)?/g, 'api') // apis → api
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
 
   async processResume(onboarding: OnboardingResponse) {
     let resumeText = onboarding.resumeText;
 
-    // If user uploaded file instead of text
+    // If user uploaded file instead of text, extract it first
     if (!resumeText && onboarding.resumeUrl) {
       resumeText = await this.resumeExtractor.extractText(
         onboarding.resumeUrl!,
@@ -48,68 +37,30 @@ export class ResumeSkillProcessor {
 
     if (!resumeText) return;
 
-    // 1) Deterministic / existing extractor
-    const detectedSkills =
-      await this.skillExtractionService.extractSkills(resumeText);
-
-    // 2) AI extractor returns string skill names
-    const aiSkills =
-      await this.aiSkillExtractorService.extractSkills(resumeText);
-
-    const normalizedAiSkills = aiSkills.map((skill) =>
-      this.normalizeSkillText(skill),
-    );
-
-    // 3) Load all skills once and build lookup by name + aliases
-    const allDbSkills = await this.skillRepo.find();
-
-    const skillLookup = new Map<string, Skill>();
-
-    for (const skill of allDbSkills) {
-      // Match by canonical name
-
-      skillLookup.set(this.normalizeSkillText(skill.name), skill);
-
-      // Match by aliases if present
-      if (Array.isArray(skill.aliases)) {
-        for (const alias of skill.aliases) {
-          skillLookup.set(this.normalizeSkillText(alias), skill);
-        }
-      }
+    // ── 1. AI keyword extraction ─────────────────────────────────────────────
+    // Extract ALL keywords from the resume: role, technologies, tools,
+    // cloud services, domain concepts, certifications, etc.
+    // Stored in resumeKeywords and used directly by task generation.
+    let resumeKeywords: string[] = [];
+    try {
+      resumeKeywords = await this.aiSkillExtractorService.extractKeywords(resumeText);
+    } catch (err) {
+      this.logger.warn('AI keyword extraction failed — proceeding without keywords');
     }
 
-    // 4) Match AI skills to DB skills using name OR alias
-    const aiMatchedSkills: Skill[] = [];
-    for (const aiSkill of normalizedAiSkills) {
-      // 1️⃣ fast exact/alias lookup
-      let matchedSkill: Skill | null | undefined = skillLookup.get(aiSkill);
-
-      // 2️⃣ if not found, use embedding matcher
-      if (!matchedSkill) {
-        matchedSkill = await this.skillMatcherService.findBestMatch(aiSkill);
-      }
-
-      if (!matchedSkill) continue;
-
-      aiMatchedSkills.push(matchedSkill);
+    // Save extracted keywords to the onboarding record
+    if (resumeKeywords.length > 0) {
+      await this.onboardingRepo.update(onboarding.id, { resumeKeywords });
+      this.logger.log(`Saved ${resumeKeywords.length} keywords for user ${onboarding.userId}`);
     }
 
-    // 5) Combine detected skills + AI matched skills without duplicates
-    const combinedSkills = new Map<number, Skill>();
+    // ── 2. Deterministic catalog matching (for profile skills display) ───────
+    // This never calls Gemini and shows skills in the profile UI.
+    const catalogSkills = await this.skillExtractionService.extractSkills(resumeText);
 
-    for (const skill of detectedSkills) {
-      combinedSkills.set(skill.id, skill);
-    }
+    await this.userSkillRepo.delete({ userId: onboarding.userId, source: 'resume' });
 
-    for (const skill of aiMatchedSkills) {
-      combinedSkills.set(skill.id, skill);
-    }
-
-    const finalSkills = Array.from(combinedSkills.values());
-
-    // 6) Save into user_skills
-    // upsert + unique(userId, skillId) means no duplicates
-    for (const skill of finalSkills) {
+    for (const skill of catalogSkills) {
       await this.userSkillRepo.upsert(
         {
           userId: onboarding.userId,

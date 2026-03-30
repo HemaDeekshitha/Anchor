@@ -10,9 +10,10 @@ import { ResumeSkillProcessor } from './resume-skill.processor';
 import { SkillMatcherService } from './skill-matcher.service';
 import { ResumeExtractorService } from 'src/resume/resume-extractor.service';
 import { EmbeddingService } from 'src/ai/embedding.service';
+import { OnboardingResponse } from 'src/onboarding/onboarding.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Skill, UserSkill])],
+  imports: [TypeOrmModule.forFeature([Skill, UserSkill, OnboardingResponse])],
   providers: [
     SkillSeederService,
     SkillExtractionService,
