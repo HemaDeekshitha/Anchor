@@ -16,7 +16,7 @@ import {
   Button,
 } from "@mui/material";
 import { BriefcaseBusiness, ListTodo, LogOut, Trophy, User } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -29,6 +29,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const router = useRouter();
+  const pathname = usePathname();
+
+  const navItems = [
+    { href: "/dashboard", label: "My Plan", icon: <ListTodo size={20} /> },
+    { href: "/rewards", label: "Rewards", icon: <Trophy size={20} /> },
+    { href: "/profile", label: "Profile", icon: <User size={20} /> },
+    { href: "/application-tracker", label: "Jobs", icon: <BriefcaseBusiness size={20} /> },
+  ];
 
   const handleLogOut = async () => {
     try {
@@ -100,78 +108,35 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
 
         {/* Navigation */}
         <List sx={{ px: 1, mt: 1 }}>
-          <ListItemButton
-            component={Link}
-            href="/dashboard"
-            sx={{
-              borderRadius: 2,
-              mb: 1,
-              color: "#713f12",
-              "&:hover": {
-                bgcolor: "#fff1f2",
-                color: "#be123c",
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <ListTodo size={20} />
-            </ListItemIcon>
-            <ListItemText primary="My Plan" />
-          </ListItemButton>
-
-          <ListItemButton
-            sx={{
-              borderRadius: 2,
-              mb: 1,
-              color: "#713f12",
-              "&:hover": {
-                bgcolor: "#fff1f2",
-                color: "#be123c",
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <Trophy size={20} />
-            </ListItemIcon>
-            <ListItemText primary="Rewards" />
-          </ListItemButton>
-
-          <ListItemButton
-            component={Link}
-            href="/profile"
-            sx={{
-              borderRadius: 2,
-              mb: 1,
-              color: "#713f12",
-              "&:hover": {
-                bgcolor: "#fff1f2",
-                color: "#be123c",
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <User size={20} />
-            </ListItemIcon>
-            <ListItemText primary="Profile" />
-          </ListItemButton>
-
-          <ListItemButton
-            component={Link}
-            href="/application-tracker"
-            sx={{
-              borderRadius: 2,
-              color: "#713f12",
-              "&:hover": {
-                bgcolor: "#fff1f2",
-                color: "#be123c",
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <BriefcaseBusiness size={20} />
-            </ListItemIcon>
-            <ListItemText primary="Jobs" />
-          </ListItemButton>
+          {navItems.map(({ href, label, icon }) => {
+            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            return (
+              <ListItemButton
+                key={href}
+                component={Link}
+                href={href}
+                sx={{
+                  borderRadius: 2,
+                  mb: 1,
+                  color: active ? "#be123c" : "#713f12",
+                  bgcolor: active ? "#fff1f2" : "transparent",
+                  fontWeight: active ? 700 : 400,
+                  "&:hover": {
+                    bgcolor: "#fff1f2",
+                    color: "#be123c",
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                  {icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={label}
+                  primaryTypographyProps={{ fontWeight: active ? 700 : 400, fontSize: "0.9rem" }}
+                />
+              </ListItemButton>
+            );
+          })}
         </List>
       </Box>
       <Box
