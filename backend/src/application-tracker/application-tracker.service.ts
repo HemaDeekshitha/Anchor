@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { GmailConnection } from './entities/gmail-connection.entity';
 import { JobApplication } from './entities/job-application.entity';
 import { GmailService } from './gmail.service';
+import { ManualJobDto } from './dto/manual-job.dto';
+import { UpdateJobDto } from './dto/update-job.dto';
 
 interface ParsedJob {
   company: string;
@@ -794,6 +796,33 @@ export class ApplicationTrackerService {
       order: { appliedDate: 'DESC' },
       relations: ['user'],
     });
+  }
+
+  async createManualJob(userId: string, dto: ManualJobDto): Promise<JobApplication> {
+    return this.jobRepo.save(
+      this.jobRepo.create({
+        user: { id: userId },
+        company: dto.company,
+        role: dto.role,
+        status: dto.status ?? 'Applied',
+        appliedDate: dto.appliedDate ? new Date(dto.appliedDate) : new Date(),
+        notes: dto.notes ?? undefined,
+        source: 'manual',
+      }),
+    );
+  }
+
+  async updateJob(userId: string, jobId: string, dto: UpdateJobDto): Promise<JobApplication> {
+    const job = await this.jobRepo.findOne({
+      where: { id: jobId, user: { id: userId } },
+      relations: ['user'],
+    });
+    if (!job) throw new NotFoundException('Job not found');
+
+    if (dto.status !== undefined) job.status = dto.status;
+    if (dto.notes !== undefined) job.notes = dto.notes;
+
+    return this.jobRepo.save(job);
   }
 
   async deleteJob(userId: string, jobId: string): Promise<{ message: string }> {

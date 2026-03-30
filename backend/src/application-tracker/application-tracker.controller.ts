@@ -1,11 +1,13 @@
 // C:\Users\nsais\Anchor\backend\src\application-tracker\application-tracker.controller.ts
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
   Logger,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -19,6 +21,8 @@ import { GmailService } from './gmail.service';
 import { GmailConnection } from './entities/gmail-connection.entity';
 import { ApplicationTrackerService } from './application-tracker.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
+import { ManualJobDto } from './dto/manual-job.dto';
+import { UpdateJobDto } from './dto/update-job.dto';
 
 @Controller('application-tracker/gmail')
 export class ApplicationTrackerController {
@@ -142,6 +146,22 @@ export class ApplicationTrackerController {
     }
 
     return this.applicationTrackerService.getJobsForUser(userId);
+  }
+
+  @Post('jobs')
+  @UseGuards(JwtAuthGuard)
+  async createJob(@Req() req, @Body() dto: ManualJobDto) {
+    const userId = req.user?.userId;
+    if (!userId) throw new BadRequestException('userId is required');
+    return this.applicationTrackerService.createManualJob(userId, dto);
+  }
+
+  @Patch('jobs/:id')
+  @UseGuards(JwtAuthGuard)
+  async updateJob(@Req() req, @Param('id') jobId: string, @Body() dto: UpdateJobDto) {
+    const userId = req.user?.userId;
+    if (!userId) throw new BadRequestException('userId is required');
+    return this.applicationTrackerService.updateJob(userId, jobId, dto);
   }
 
   @Delete('jobs/:id')

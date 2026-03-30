@@ -5,8 +5,7 @@ import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import SubmissionModal from "./SubmissionModal";
 import PreviousSubmissionModal from "./PreviousSubmissionModal";
-import AnchorPointsCard from "../points/AnchorPointsCard";
-import { api, PointsSummary, SubmissionResult } from "@/lib/api";
+import { api, SubmissionResult } from "@/lib/api";
 import {
   Box,
   Card,
@@ -46,9 +45,6 @@ const Dashboard = () => {
     useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
-  // Incrementing this tells AnchorPointsCard to silently re-fetch its balance
-  const [pointsRefreshKey, setPointsRefreshKey] = useState(0);
-  const [pointsData, setPointsData] = useState<PointsSummary | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [userName, setUserName] = useState("");
 
@@ -57,16 +53,14 @@ const Dashboard = () => {
       try {
         setIsLoading(true);
 
-        const [tasksRes, submissions, points] = await Promise.all([
+        const [tasksRes, submissions] = await Promise.all([
           fetch("http://localhost:3001/rag/tasks", {
             credentials: "include",
           }),
           api.getMySubmissions(),
-          api.getMyPoints(),
         ]);
 
         const data = await tasksRes.json();
-        setPointsData(points);
         setSubmissions(submissions);
 
         // SMART PLAN
@@ -293,7 +287,7 @@ const Dashboard = () => {
                 display: "grid",
                 gridTemplateColumns: {
                   xs: "1fr",
-                  md: "repeat(3, 1fr)",
+                  md: "repeat(2, 1fr)",
                 },
                 gap: 3,
                 mb: 5,
@@ -520,18 +514,6 @@ const Dashboard = () => {
                   </Box>
                 </CardContent>
               </Card>
-              {/* ANCHOR POINTS CARD */}
-              <Box
-                sx={{
-                  flex: 1,
-                  border: "1px solid rgba(251,191,36,0.25)",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-                }}
-              >
-                <AnchorPointsCard refreshKey={pointsRefreshKey} />
-              </Box>
             </Box>
 
             {/* TASKS SECTION */}
@@ -670,6 +652,21 @@ const Dashboard = () => {
                             >
                               {task.title}
                             </Typography>
+                            {task.status !== "completed" && (
+                              <Typography
+                                sx={{
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: "#c2410c",
+                                  mt: 0.4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.4,
+                                }}
+                              >
+                                ⚡ +25 AP
+                              </Typography>
+                            )}
                           </Box>
                         </Box>
 
