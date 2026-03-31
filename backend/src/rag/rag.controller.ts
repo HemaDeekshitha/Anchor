@@ -61,18 +61,21 @@ export class RagController {
     const userId = req.user.userId;
     return this.analyticsService.getAnalytics(userId, period);
   }
+  @UseGuards(JwtAuthGuard)
+  @Get('activity')
+  getActivity(@Req() req, @Query('period') period: string) {
+    const userId = req.user.userId;
 
+    if (!period) {
+      throw new BadRequestException('period is required');
+    }
+
+    return this.analyticsService.getActivity(userId, period);
+  }
   @UseGuards(JwtAuthGuard)
   @Get('weekly-activity')
   async getWeeklyActivity(@Req() req) {
     const userId = req.user.userId;
     return this.analyticsService.getWeeklyActivity(userId);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('weekly-recap')
-  async getWeeklyRecap(@Req() req) {
-    const userId = req.user.userId;
-    return this.insightsService.getWeeklyRecap(userId);
   }
 }

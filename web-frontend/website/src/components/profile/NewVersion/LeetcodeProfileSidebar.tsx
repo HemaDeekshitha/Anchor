@@ -51,26 +51,21 @@ export default function LeetcodeProfileSidebar({
   setOpenResumeText,
 }: ProfileSectionProps) {
   const [showAllSkills, setShowAllSkills] = React.useState(false);
-  const skills = profile?.skills?.map((s) => s.name) ?? [
-    "Frontend",
-    "Backend",
-    "AI",
-    "React",
-    "NodeJS",
-    "System Design",
-  ];
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const skillsCount = profile?.skills?.length ?? 0;
+
+  const formatCategoryLabel = (category: string) => {
+    if (!category) return "Other";
+    return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+  };
 
   const groupedSkills = React.useMemo(() => {
-    if (!profile?.skills) return {};
+    if (!profile?.skills?.length) return {};
 
     return profile.skills.reduce(
       (acc: Record<string, ProfileSkill[]>, skill) => {
-        const category = skill.category || "other";
+        const category = skill.category?.trim().toLowerCase() || "other";
 
         if (!acc[category]) acc[category] = [];
-
         acc[category].push(skill);
 
         return acc;
@@ -79,9 +74,16 @@ export default function LeetcodeProfileSidebar({
     );
   }, [profile?.skills]);
 
-  const categories = Object.entries(groupedSkills);
+  const categories = React.useMemo(() => {
+    return Object.entries(groupedSkills);
+  }, [groupedSkills]);
 
-  const visibleCategories = showAllSkills ? categories : categories.slice(0, 2); // show only first 2 categories
+  const topSkills = React.useMemo(() => {
+    if (!profile?.skills?.length) return [];
+    return profile.skills.slice(0, 5);
+  }, [profile?.skills]);
+
+  const visibleCategories = showAllSkills ? categories : categories.slice(0, 3);
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -96,9 +98,10 @@ export default function LeetcodeProfileSidebar({
     <Card
       sx={{
         width: {
-          xs: "100%", // mobile
+          xs: "100%",
           sm: "100%",
-          md: 380, // desktop fixed width
+          md: "100%", // 👈 IMPORTANT
+          lg: 380, // only fixed on large screens
         },
 
         flexShrink: 0,
@@ -106,8 +109,8 @@ export default function LeetcodeProfileSidebar({
         borderRadius: 3,
         p: 3,
 
-        background: "#0f0f0f",
-        color: "#fff",
+        background: "transparent",
+        color: "black",
       }}
     >
       {/* PROFILE HEADER */}
@@ -405,30 +408,81 @@ export default function LeetcodeProfileSidebar({
       {(profile?.skills?.length ?? 0) > 0 && (
         <>
           <Divider sx={{ my: 3, borderColor: "#2a2a2a" }} />
+
           <Typography fontWeight={700} mb={2}>
-            Skills
+            Skills ({(profile?.skills?.length ?? 0).toLocaleString()})
           </Typography>
 
-          {visibleCategories.map(([category, skills]) => (
-            <Box key={category} mb={2}>
+          {/* TOP SKILLS */}
+          {topSkills.length > 0 && (
+            <Box mb={2}>
               <Typography
                 fontSize={13}
                 fontWeight={600}
+                sx={{ color: "#9aa0a6", mb: 1 }}
+              >
+                Top Skills
+              </Typography>
+
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {topSkills.map((skill) => (
+                  <Chip
+                    key={skill.name}
+                    label={skill.name}
+                    sx={{
+                      background: "#1f2937",
+                      color: "#fff",
+                      fontWeight: 600,
+                      fontSize: 13,
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {/* OTHER SKILLS BY CATEGORY */}
+          {visibleCategories.map(([category, skills]) => (
+            <Box key={category} mb={2}>
+              <Box
                 sx={{
-                  color: categoryColors[category.toLowerCase()] ?? "#cfcfcf",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 1,
                 }}
               >
-                {category}
-              </Typography>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: categoryColors[category] ?? "#6b7280",
+                  }}
+                />
+
+                <Typography
+                  fontSize={13}
+                  fontWeight={600}
+                  sx={{
+                    color: "#cfcfcf",
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {formatCategoryLabel(category)} ({skills.length})
+                </Typography>
+              </Box>
 
               <Box display="flex" flexWrap="wrap" gap={1}>
                 {skills.map((skill) => (
                   <Chip
                     key={skill.name}
                     label={skill.name}
+                    size="small"
                     sx={{
                       background: "#2a2a2a",
-                      color: "#fff",
+                      color: "#e4e4e4",
                       fontSize: 12,
                     }}
                   />
@@ -437,7 +491,8 @@ export default function LeetcodeProfileSidebar({
             </Box>
           ))}
 
-          {categories.length > 2 && (
+          {/* SHOW MORE */}
+          {categories.length > 3 && (
             <Box
               mt={1}
               sx={{

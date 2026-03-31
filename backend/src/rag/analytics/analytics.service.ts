@@ -32,6 +32,265 @@ export class AnalyticsService {
     return user?.timezone || 'UTC';
   }
 
+  private async getDateRange(userId: string, period: string) {
+    const timezone = await this.getUserTimezone(userId);
+
+    const today = getTodayInTimezone(timezone);
+
+    let startDate: string | null = null;
+    let endDate: string | null = today;
+
+    if (period === '7d') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 6);
+      startDate = d.toISOString().slice(0, 10);
+    }
+
+    if (period === 'this_week') {
+      startDate = getWeekStartInTimezone(timezone);
+    }
+
+    if (period === 'last_month') {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() - 1);
+      d.setDate(1);
+
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
+      startDate = d.toISOString().slice(0, 10);
+      endDate = end.toISOString().slice(0, 10);
+    }
+
+    if (period === 'all') {
+      startDate = null;
+      endDate = null;
+    }
+
+    return { startDate, endDate, timezone };
+  }
+  async getActivity(userId: string, period: string) {
+    const { startDate, endDate } = await this.getDateRange(userId, period);
+
+    let rows;
+
+    // ---------------- LAST MONTH (W1–W4) ----------------
+    if (period === 'last_month') {
+      rows = await this.userDailyRepo
+        .createQueryBuilder('udt')
+        .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+        .select(
+          `
+          CASE
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 1 AND 7 THEN 'W1'
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 8 AND 14 THEN 'W2'
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 15 AND 21 THEN 'W3'
+            ELSE 'W4'
+          END
+        `,
+          'label',
+        )
+        .addSelect(
+          `
+          CASE
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 1 AND 7 THEN 1
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 8 AND 14 THEN 2
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 15 AND 21 THEN 3
+            ELSE 4
+          END
+        `,
+          'weekIndex',
+        )
+        .addSelect('COUNT(*)', 'tasks')
+        .addSelect("COUNT(*) FILTER (WHERE task.category = 'DSA')", 'leetcode')
+        .addSelect(
+          "COUNT(*) FILTER (WHERE task.category = 'APPLICATION')",
+          'applications',
+        )
+        .addSelect("COUNT(*) FILTER (WHERE task.difficulty = 'easy')", 'easy')
+        .addSelect(
+          "COUNT(*) FILTER (WHERE task.difficulty = 'medium')",
+          'medium',
+        )
+        .where('udt.user_id = :userId', { userId })
+        .andWhere('udt.status = :status', { status: 'completed' })
+        .andWhere('DATE(udt.task_date) BETWEEN :start AND :end', {
+          start: startDate,
+          end: endDate,
+        })
+        .groupBy('label')
+        .addGroupBy(
+          `
+          CASE
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 1 AND 7 THEN 1
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 8 AND 14 THEN 2
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 15 AND 21 THEN 3
+            ELSE 4
+          END
+        `,
+        )
+        .orderBy(
+          `
+          CASE
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 1 AND 7 THEN 1
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 8 AND 14 THEN 2
+            WHEN EXTRACT(DAY FROM udt.task_date) BETWEEN 15 AND 21 THEN 3
+            ELSE 4
+          END
+        `,
+          'ASC',
+        )
+        .getRawMany();
+    }
+
+    // ---------------- ALL TIME (MONTHS) ----------------
+    else if (period === 'all') {
+      rows = await this.userDailyRepo
+        .createQueryBuilder('udt')
+        .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+        .select("TO_CHAR(udt.task_date, 'Mon')", 'label')
+        .addSelect('EXTRACT(MONTH FROM udt.task_date)', 'monthIndex')
+        .addSelect('COUNT(*)', 'tasks')
+        .addSelect("COUNT(*) FILTER (WHERE task.category = 'DSA')", 'leetcode')
+        .addSelect(
+          "COUNT(*) FILTER (WHERE task.category = 'APPLICATION')",
+          'applications',
+        )
+        .addSelect("COUNT(*) FILTER (WHERE task.difficulty = 'easy')", 'easy')
+        .addSelect(
+          "COUNT(*) FILTER (WHERE task.difficulty = 'medium')",
+          'medium',
+        )
+        .where('udt.user_id = :userId', { userId })
+        .andWhere('udt.status = :status', { status: 'completed' })
+        .groupBy("TO_CHAR(udt.task_date, 'Mon')")
+        .addGroupBy('EXTRACT(MONTH FROM udt.task_date)')
+        .orderBy('EXTRACT(MONTH FROM udt.task_date)', 'ASC')
+        .getRawMany();
+    }
+
+    // ---------------- WEEK / 7D ----------------
+    else {
+      const query = this.userDailyRepo
+        .createQueryBuilder('udt')
+        .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+        .select("TRIM(TO_CHAR(udt.task_date, 'Dy'))", 'label') // 🔥 FIXED
+        .addSelect('EXTRACT(DOW FROM udt.task_date)', 'dayIndex')
+        .addSelect('COUNT(*)', 'tasks')
+        .addSelect("COUNT(*) FILTER (WHERE task.category = 'DSA')", 'leetcode')
+        .addSelect(
+          "COUNT(*) FILTER (WHERE task.category = 'APPLICATION')",
+          'applications',
+        )
+        .addSelect("COUNT(*) FILTER (WHERE task.difficulty = 'easy')", 'easy')
+        .addSelect(
+          "COUNT(*) FILTER (WHERE task.difficulty = 'medium')",
+          'medium',
+        )
+        .where('udt.user_id = :userId', { userId })
+        .andWhere('udt.status = :status', { status: 'completed' });
+
+      if (startDate && endDate) {
+        query.andWhere('DATE(udt.task_date) BETWEEN :start AND :end', {
+          start: startDate,
+          end: endDate,
+        });
+      }
+
+      rows = await query
+        .groupBy("TRIM(TO_CHAR(udt.task_date, 'Dy'))")
+        .addGroupBy('EXTRACT(DOW FROM udt.task_date)')
+        .orderBy('EXTRACT(DOW FROM udt.task_date)', 'ASC')
+        .getRawMany();
+    }
+
+    // ---------------- NORMALIZE ----------------
+    const data = rows.map((r) => ({
+      label: r.label,
+      tasks: Number(r.tasks) || 0,
+      leetcode: Number(r.leetcode) || 0,
+      applications: Number(r.applications) || 0,
+      easy: Number(r.easy) || 0,
+      medium: Number(r.medium) || 0,
+    }));
+
+    let finalData = data;
+
+    // WEEK
+    if (period === '7d' || period === 'this_week') {
+      const orderedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const map = new Map(data.map((d) => [d.label, d]));
+
+      finalData = orderedDays.map(
+        (day) =>
+          map.get(day) || {
+            label: day,
+            tasks: 0,
+            leetcode: 0,
+            applications: 0,
+            easy: 0,
+            medium: 0,
+          },
+      );
+    }
+
+    // LAST MONTH
+    if (period === 'last_month') {
+      const weeks = ['W1', 'W2', 'W3', 'W4'];
+      const map = new Map(data.map((d) => [d.label, d]));
+
+      finalData = weeks.map(
+        (w) =>
+          map.get(w) || {
+            label: w,
+            tasks: 0,
+            leetcode: 0,
+            applications: 0,
+            easy: 0,
+            medium: 0,
+          },
+      );
+    }
+
+    // ALL TIME
+    if (period === 'all') {
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+
+      const map = new Map(data.map((d) => [d.label, d]));
+
+      finalData = months.map(
+        (m) =>
+          map.get(m) || {
+            label: m,
+            tasks: 0,
+            leetcode: 0,
+            applications: 0,
+            easy: 0,
+            medium: 0,
+          },
+      );
+    }
+
+    return {
+      period,
+      startDate,
+      endDate,
+      data: finalData,
+    };
+  }
+
   async getAnalytics(userId: string, period: string = 'this_week') {
     const timezone = await this.getUserTimezone(userId);
 
