@@ -1,6 +1,7 @@
 export class MomentumProfileDto {
   name: string;
   email: string;
+  createdAt?: Date;
 
   primaryFocus: string[];
   resumeName: string | null;

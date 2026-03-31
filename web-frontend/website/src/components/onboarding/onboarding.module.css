@@ -166,7 +166,7 @@
   width: 100%;
   padding: 1.1rem 1.5rem;
   background-color: var(--local-chip-bg);
-  border: 1px solid var(--local-border);
+  border: 2px solid var(--local-border);
   border-radius: 12px;
   font-family: "Inter", sans-serif;
   font-size: 1rem;
@@ -179,13 +179,15 @@
 .optionChip:hover {
   background-color: var(--local-chip-hover);
   border-color: var(--local-subtext);
+  border-width: 2px;
 }
 
 .selectedChip {
-  border: 2px solid #ec4899;
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
-  font-weight: 500;
+  border: 3.5px solid #ec4899;
+  box-shadow: 0 4px 16px rgba(236, 72, 153, 0.25);
+  font-weight: 600;
   color: var(--foreground);
+  background-color: rgba(236, 72, 153, 0.06);
   padding: 1.1rem 1.4rem;
 }
 

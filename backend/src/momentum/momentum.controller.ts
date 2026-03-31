@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { MomentumService } from './momentum.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
@@ -20,5 +20,12 @@ export class MomentumController {
     const userId = req.user.userId;
 
     return this.momentumService.streamResume(userId, res);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('resync-skills')
+  async resyncSkills(@Req() req) {
+    const userId = req.user.userId;
+    return this.momentumService.resyncSkills(userId);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ONBOARDING_STEPS } from './onboarding.data';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OnboardingResponse } from './onboarding.entity';
@@ -6,9 +6,12 @@ import { Repository } from 'typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { User } from 'src/users/user.entity';
 import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
+import { RagService } from 'src/rag/rag.service';
 
 @Injectable()
 export class OnboardingService {
+  private readonly logger = new Logger(OnboardingService.name);
+
   constructor(
     @InjectRepository(OnboardingResponse)
     private readonly repo: Repository<OnboardingResponse>,
@@ -18,6 +21,7 @@ export class OnboardingService {
 
     private readonly cloudinary: CloudinaryService,
     private readonly resumeSkillProcessor: ResumeSkillProcessor,
+    private readonly ragService: RagService,
   ) {}
 
   getSteps() {
@@ -59,6 +63,12 @@ export class OnboardingService {
     await this.userRepo.update(userId, {
       onboardingCompleted: true,
     });
+
+    // Pre-generate day-1 tasks immediately so the dashboard is ready on first visit.
+    // Fire-and-forget — don't block the onboarding response.
+    this.ragService.getDailyTasks(userId).catch((err) =>
+      this.logger.error(`Failed to pre-generate day-1 tasks for ${userId}: ${err}`),
+    );
 
     return {
       success: true,

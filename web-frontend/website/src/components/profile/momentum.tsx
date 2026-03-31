@@ -118,8 +118,6 @@ export default function momentum() {
         setLoading(false);
       }
     }
-
-    loadDashboardData();
   }, [period]);
 
   if (loading) {

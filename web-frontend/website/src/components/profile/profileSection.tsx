@@ -4,15 +4,18 @@ import {
   Card,
   Chip,
   Divider,
+  CircularProgress,
   IconButton,
   Modal,
+  Tooltip,
   Typography,
   Fade,
   Backdrop,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import CloseIcon from "@mui/icons-material/Close";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import React from "react";
+import CloseIcon from "@mui/icons-material/Close";
 
 type ProfileSkill = {
   name: string;
@@ -31,14 +34,32 @@ type ProfileSectionProps = {
   };
   weeklyRecap: string;
   setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
+  onSkillsRefreshed?: () => void;
 };
 
 export default function ProfileSection({
   profile,
   weeklyRecap,
   setOpenResumeText,
+  onSkillsRefreshed,
 }: ProfileSectionProps) {
   const [openSkillsModal, setOpenSkillsModal] = React.useState(false);
+  const [resyncing, setResyncing] = React.useState(false);
+
+  const handleResyncSkills = async () => {
+    setResyncing(true);
+    try {
+      await fetch("http://localhost:3001/momentum/resync-skills", {
+        method: "POST",
+        credentials: "include",
+      });
+      onSkillsRefreshed?.();
+    } catch (err) {
+      console.error("Failed to resync skills", err);
+    } finally {
+      setResyncing(false);
+    }
+  };
 
   const skillsCount = profile?.skills?.length ?? 0;
 
@@ -128,23 +149,141 @@ export default function ProfileSection({
               "Complete your today's plan to unlock streaks and rewards"}
           </Typography>
         </Box>
+        {/* Skills */}
+        <Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Typography
+              variant="caption"
+              textTransform="uppercase"
+              sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+            >
+              Skills
+            </Typography>
+            <Tooltip title="Re-extract skills from resume">
+              <IconButton
+                size="small"
+                onClick={handleResyncSkills}
+                disabled={resyncing}
+                sx={{ p: 0.3, color: "rgb(209,112,51)" }}
+              >
+                {resyncing ? (
+                  <CircularProgress
+                    size={12}
+                    sx={{ color: "rgb(209,112,51)" }}
+                  />
+                ) : (
+                  <RefreshIcon sx={{ fontSize: 14 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Divider />
+          {/* SKILLS */}
+          <Box sx={{ px: 3, py: 2 }}>
+            <Typography
+              sx={{
+                fontSize: 12,
+                textTransform: "uppercase",
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                color: "text.secondary",
+                mb: 1,
+              }}
+            >
+              Skills
+            </Typography>
+            {skillsCount > 5 && (
+              <Typography
+                onClick={() => setOpenSkillsModal(true)}
+                sx={{
+                  mt: 1.5,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgb(209,112,51)",
+                  cursor: "pointer",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                + {skillsCount - 5} more skills
+              </Typography>
+            )}
+          </Box>
+          ) : (
+          <Typography variant="body2" color="text.secondary">
+            Upload your resume to extract skills automatically.
+          </Typography>
+          )
+        </Box>
 
-        <Divider />
-
-        {/* SKILLS */}
-        <Box sx={{ px: 3, py: 2 }}>
+        {/* resume */}
+        <Box>
           <Typography
+            variant="caption"
+            textTransform="uppercase"
             sx={{
-              fontSize: 12,
-              textTransform: "uppercase",
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: 0.5,
-              color: "text.secondary",
-              mb: 1,
+              color: "text.primary",
             }}
           >
-            Skills
+            Resume
           </Typography>
+
+          <Box>
+            {profile?.resumeUrl ? (
+              <Typography
+                component="a"
+                href="http://localhost:3001/momentum/resume"
+                target="_blank"
+                sx={{
+                  color: "rgb(209,112,51)",
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  "&:hover": {
+                    textDecoration: "underline",
+                  },
+                }}
+              >
+                {profile.resumeName}
+              </Typography>
+            ) : profile?.resumeText ? (
+              // CASE 2: Resume TEXT provided
+              <Typography
+                onClick={() => setOpenResumeText(true)}
+                sx={{
+                  color: "rgb(209,112,51)",
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  cursor: "pointer",
+                  "&:hover": {
+                    textDecoration: "underline",
+                  },
+                }}
+              >
+                View Resume Text
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Upload your resume to unlock personalized AI insights.
+              </Typography>
+            )}
+          </Box>
+        </Box>
+        {/* focus */}
+        <Box>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Typography
+              variant="caption"
+              textTransform="uppercase"
+              sx={{
+                fontWeight: 600,
+                letterSpacing: 0.5,
+                color: "text.primary",
+              }}
+            >
+              Focus
+            </Typography>
+          </Box>
 
           {profile?.skills?.length ? (
             <>

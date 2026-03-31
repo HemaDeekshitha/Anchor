@@ -15,10 +15,12 @@ import { SkillSeederService } from 'src/skills/skill-seeder.service';
 import { AiSkillExtractorService } from 'src/skills/ai-skill-extractor.service';
 import { EmbeddingService } from 'src/ai/embedding.service';
 import { SkillsModule } from 'src/skills/skill.module';
+import { RagModule } from 'src/rag/rag.module';
 
 @Module({
   imports: [
     SkillsModule,
+    RagModule,
     TypeOrmModule.forFeature([OnboardingResponse, User, UserSkill, Skill]),
   ],
   controllers: [OnboardingController],

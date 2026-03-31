@@ -10,6 +10,7 @@ import { Response } from 'express';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { UserSkill } from 'src/skills/user-skills.entity';
 import { Skill } from 'src/skills/skills.entity';
+import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
 
 @Injectable()
 export class MomentumService {
@@ -25,6 +26,8 @@ export class MomentumService {
 
     @InjectRepository(Skill)
     private skillRepository: Repository<Skill>,
+
+    private readonly resumeSkillProcessor: ResumeSkillProcessor,
   ) {}
 
   async getProfile(userId: string): Promise<MomentumProfileDto> {
@@ -40,6 +43,7 @@ export class MomentumService {
     return {
       name: user?.name || '',
       email: user?.email || '',
+      createdAt: user?.createdAt,
 
       primaryFocus: onboarding?.primaryFocus ?? [],
       resumeName: onboarding?.resumeName ?? null,
@@ -89,5 +93,19 @@ export class MomentumService {
       .getRawMany();
 
     return skills;
+  }
+
+  async resyncSkills(userId: string): Promise<{ count: number }> {
+    const onboarding = await this.onboardingRepository.findOne({
+      where: { userId },
+    });
+
+    if (!onboarding) {
+      throw new NotFoundException('Onboarding data not found');
+    }
+
+    await this.resumeSkillProcessor.processResume(onboarding);
+    const skills = await this.getUserSkills(userId);
+    return { count: skills.length };
   }
 }

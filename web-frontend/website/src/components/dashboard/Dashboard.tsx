@@ -5,8 +5,7 @@ import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import SubmissionModal from "./SubmissionModal";
 import PreviousSubmissionModal from "./PreviousSubmissionModal";
-import AnchorPointsCard from "../points/AnchorPointsCard";
-import { api, PointsSummary, SubmissionResult } from "@/lib/api";
+import { api, SubmissionResult } from "@/lib/api";
 import {
   Box,
   Card,
@@ -32,6 +31,8 @@ interface Task {
   category?: string;
   taskId?: number;
   priority?: "low" | "medium" | "high";
+  difficulty?: "easy" | "medium" | "hard";
+  leetcodeUrl?: string | null;
 }
 
 const Dashboard = () => {
@@ -44,9 +45,6 @@ const Dashboard = () => {
     useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
-  // Incrementing this tells AnchorPointsCard to silently re-fetch its balance
-  const [pointsRefreshKey, setPointsRefreshKey] = useState(0);
-  const [pointsData, setPointsData] = useState<PointsSummary | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [userName, setUserName] = useState("");
 
@@ -55,16 +53,14 @@ const Dashboard = () => {
       try {
         setIsLoading(true);
 
-        const [tasksRes, submissions, points] = await Promise.all([
+        const [tasksRes, submissions] = await Promise.all([
           fetch("http://localhost:3001/rag/tasks", {
             credentials: "include",
           }),
           api.getMySubmissions(),
-          api.getMyPoints(),
         ]);
 
         const data = await tasksRes.json();
-        setPointsData(points);
         setSubmissions(submissions);
 
         // SMART PLAN
@@ -291,7 +287,7 @@ const Dashboard = () => {
                 display: "grid",
                 gridTemplateColumns: {
                   xs: "1fr",
-                  md: "repeat(3, 1fr)",
+                  md: "repeat(2, 1fr)",
                 },
                 gap: 3,
                 mb: 5,
@@ -518,18 +514,6 @@ const Dashboard = () => {
                   </Box>
                 </CardContent>
               </Card>
-              {/* ANCHOR POINTS CARD */}
-              <Box
-                sx={{
-                  flex: 1,
-                  border: "1px solid rgba(251,191,36,0.25)",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                  boxShadow: "0 10px 28px rgba(0,0,0,0.08)",
-                }}
-              >
-                <AnchorPointsCard refreshKey={pointsRefreshKey} />
-              </Box>
             </Box>
 
             {/* TASKS SECTION */}
@@ -664,14 +648,25 @@ const Dashboard = () => {
                                   task.status === "completed"
                                     ? "#9ca3af"
                                     : "#1f2937",
-                                textDecoration:
-                                  task.status === "completed"
-                                    ? "line-through"
-                                    : "none",
                               }}
                             >
                               {task.title}
                             </Typography>
+                            {task.status !== "completed" && (
+                              <Typography
+                                sx={{
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: "#c2410c",
+                                  mt: 0.4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.4,
+                                }}
+                              >
+                                ⚡ +25 AP
+                              </Typography>
+                            )}
                           </Box>
                         </Box>
 
@@ -680,11 +675,11 @@ const Dashboard = () => {
                           sx={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 2,
+                            gap: 1.5,
                           }}
                         >
-                          {/* Priority Badge */}
-                          {task.priority && (
+                          {/* Difficulty Badge */}
+                          {task.difficulty && (
                             <Box
                               sx={{
                                 px: 1.2,
@@ -693,20 +688,54 @@ const Dashboard = () => {
                                 fontWeight: 700,
                                 borderRadius: 2,
                                 background:
-                                  task.priority === "high"
+                                  task.difficulty === "hard"
                                     ? "#fee2e2"
-                                    : task.priority === "medium"
+                                    : task.difficulty === "medium"
                                     ? "#fef3c7"
                                     : "#dcfce7",
                                 color:
-                                  task.priority === "high"
+                                  task.difficulty === "hard"
                                     ? "#b91c1c"
-                                    : task.priority === "medium"
+                                    : task.difficulty === "medium"
                                     ? "#92400e"
                                     : "#065f46",
                               }}
                             >
-                              {task.priority.toUpperCase()}
+                              {task.difficulty.toUpperCase()}
+                            </Box>
+                          )}
+
+                          {/* LeetCode link for DSA tasks */}
+                          {task.leetcodeUrl && (
+                            <Box
+                              component="a"
+                              href={task.leetcodeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e: React.MouseEvent) =>
+                                e.stopPropagation()
+                              }
+                              title="Open on LeetCode"
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 28,
+                                height: 28,
+                                borderRadius: "6px",
+                                background: "#fff7ed",
+                                border: "1px solid #fed7aa",
+                                color: "#ea580c",
+                                textDecoration: "none",
+                                fontSize: 14,
+                                flexShrink: 0,
+                                "&:hover": {
+                                  background: "#ffedd5",
+                                  borderColor: "#fb923c",
+                                },
+                              }}
+                            >
+                              ↗
                             </Box>
                           )}
 

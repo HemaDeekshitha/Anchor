@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./onboarding.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 type OnboardingRole = {
   id: string;
   title: string;
@@ -144,6 +143,179 @@ const renderIcon = (id: string) => {
   }
 };
 
+// ── AI loading steps shown after user clicks FINISH ──────────────────────────
+const AI_LOADING_STEPS = [
+  { emoji: "📄", text: "Reading your resume…" },
+  { emoji: "🔍", text: "Identifying your skills…" },
+  { emoji: "📊", text: "Analysing your goals…" },
+  { emoji: "🧠", text: "Building your personalised plan…" },
+  { emoji: "✨", text: "Running AI analysis…" },
+  { emoji: "✅", text: "AI analysis complete!" },
+];
+
+function AILoadingOverlay({
+  onDone,
+  fetchPromise,
+}: {
+  onDone: () => void;
+  fetchPromise: Promise<void>;
+}) {
+  const [step, setStep] = React.useState(0);
+  const [progress, setProgress] = React.useState(0);
+  const [animDone, setAnimDone] = React.useState(false);
+  const [fetchDone, setFetchDone] = React.useState(false);
+  const calledDone = React.useRef(false);
+
+  // Resolve once the real backend call finishes (success or error)
+  React.useEffect(() => {
+    fetchPromise
+      .then(() => setFetchDone(true))
+      .catch(() => setFetchDone(true));
+  }, [fetchPromise]);
+
+  // Navigate only when BOTH animation and fetch are complete
+  React.useEffect(() => {
+    if (animDone && fetchDone && !calledDone.current) {
+      calledDone.current = true;
+      setTimeout(onDone, 500);
+    }
+  }, [animDone, fetchDone, onDone]);
+
+  React.useEffect(() => {
+    const STEP_MS = 1600;
+    let current = 0;
+
+    const interval = setInterval(() => {
+      current += 1;
+      if (current >= AI_LOADING_STEPS.length) {
+        clearInterval(interval);
+        setAnimDone(true);
+        return;
+      }
+      setStep(current);
+    }, STEP_MS);
+
+    // Smooth progress bar that keeps filling until fetch is done
+    const progressInterval = setInterval(() => {
+      setProgress((p) => {
+        // Stall at 90% until fetchDone kicks in, then we'll already be at animDone
+        if (p >= 90 && !fetchDone) return p;
+        return Math.min(p + 1, 100);
+      });
+    }, (STEP_MS * AI_LOADING_STEPS.length) / 100);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(progressInterval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const current = AI_LOADING_STEPS[step];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+        background: "linear-gradient(135deg, #0a0a14, #120d22)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "2.5rem",
+      }}
+    >
+      {/* Spinning ring */}
+      <div style={{ position: "relative", width: 120, height: 120 }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            border: "4px solid transparent",
+            borderTopColor: "#f59e0b",
+            animation: "spin 1s linear infinite",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 12,
+            borderRadius: "50%",
+            border: "3px solid transparent",
+            borderBottomColor: "#a855f7",
+            animation: "spin 1.4s linear infinite reverse",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 26,
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(245,158,11,0.3), transparent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "2rem",
+          }}
+        >
+          {current.emoji}
+        </div>
+      </div>
+
+      {/* Status text */}
+      <div style={{ textAlign: "center" }}>
+        <p
+          style={{
+            color: "#fff",
+            fontSize: "1.25rem",
+            fontWeight: 600,
+            fontFamily: "Inter, sans-serif",
+            margin: 0,
+          }}
+        >
+          {current.text}
+        </p>
+        <p
+          style={{
+            color: "rgba(255,255,255,0.4)",
+            fontSize: "0.85rem",
+            marginTop: "0.5rem",
+            fontFamily: "Inter, sans-serif",
+          }}
+        >
+          Please wait while we set everything up for you
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div
+        style={{
+          width: 280,
+          height: 6,
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${progress}%`,
+            background: "linear-gradient(to right, #f59e0b, #f97316)",
+            borderRadius: 999,
+            transition: "width 0.3s ease",
+          }}
+        />
+      </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 export default function Steps() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -156,6 +328,8 @@ export default function Steps() {
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
+  const [showAILoading, setShowAILoading] = useState(false);
+  const [fetchPromise, setFetchPromise] = useState<Promise<void> | null>(null);
 
   // --- GLOBAL THEME LOGIC ---
   useEffect(() => {
@@ -228,62 +402,42 @@ export default function Steps() {
     }
   };
 
-  const submitHandler = async () => {
-    // e.preventDefault();
-
-    // Require at least one resume input
+  const submitHandler = (): Promise<void> => {
     if (!resumeFile && !resumeText.trim()) {
       alert("Please upload a resume or paste resume text");
-      return;
+      return Promise.resolve();
     }
 
     const formData = new FormData();
 
-    // 📎 Resume file (optional)
     if (resumeFile) {
       formData.append("resume", resumeFile);
     }
 
-    // 📝 Resume text (optional)
     if (resumeText.trim()) {
       formData.append("resumeText", resumeText.trim());
     }
 
-    // 🧠 Onboarding answers
-    // formData.append(
-    //   "answers",
-    //   JSON.stringify({
-    //     ...selections,
-    //     customInterest: customInterest,
-    //   }),
-    // );
     const mergedAnswers: Record<string, string[]> = { ...selections };
 
-    // merge "Other" input into same role array
     Object.entries(customInterest).forEach(([roleId, value]) => {
       if (!value.trim()) return;
-
       mergedAnswers[roleId] = [...(mergedAnswers[roleId] || []), value.trim()];
     });
 
     formData.append("answers", JSON.stringify(mergedAnswers));
 
-    try {
-      const res = await fetch("http://localhost:3001/onboarding/answers", {
-        method: "POST",
-        body: formData,
-        credentials: "include", // Include cookies for authentication
+    return fetch("http://localhost:3001/onboarding/answers", {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Submission failed");
+      })
+      .catch((err) => {
+        console.error("Onboarding submission error:", err);
       });
-
-      if (!res.ok) {
-        throw new Error("Submission failed");
-      }
-
-      alert("Onboarding submitted successfully!");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to submit onboarding data");
-    }
   };
 
   return (
@@ -482,9 +636,10 @@ export default function Steps() {
           {activeIndex === roles.length - 1 ? (
             <button
               className={styles.continueBtn}
-              onClick={async () => {
-                await submitHandler(); // call submit
-                router.push("/dashboard"); // then go to dashboard
+              onClick={() => {
+                const promise = submitHandler();
+                setFetchPromise(promise);
+                setShowAILoading(true);
               }}
             >
               FINISH <span className={styles.btnArrow}>→</span>
@@ -496,6 +651,14 @@ export default function Steps() {
           )}
         </div>
       </div>
+
+      {/* AI loading overlay — shown after FINISH is clicked */}
+      {showAILoading && fetchPromise && (
+        <AILoadingOverlay
+          fetchPromise={fetchPromise}
+          onDone={() => router.push("/dashboard")}
+        />
+      )}
     </div>
   );
 }
