@@ -14,6 +14,59 @@ type SimpleBar = {
   value: number;
 };
 
+const dummySubmissions = [
+  {
+    id: "1",
+    title: "Two Sum",
+    createdAt: "2026-03-30T18:30:00Z", // few hours ago
+  },
+  {
+    id: "2",
+    title: "Valid Parentheses",
+    createdAt: "2026-03-29T14:10:00Z", // yesterday
+  },
+  {
+    id: "3",
+    title: "LRU Cache",
+    createdAt: "2026-03-27T10:00:00Z", // few days ago
+  },
+  {
+    id: "4",
+    title: "Binary Tree Level Order Traversal",
+    createdAt: "2026-03-24T09:00:00Z", // ~1 week
+  },
+  {
+    id: "5",
+    title: "Number of Islands",
+    createdAt: "2026-03-18T16:45:00Z", // ~2 weeks
+  },
+  {
+    id: "6",
+    title: "Longest Substring Without Repeating Characters",
+    createdAt: "2026-03-10T12:00:00Z", // ~3 weeks
+  },
+  {
+    id: "7",
+    title: "Merge Intervals",
+    createdAt: "2026-02-28T11:20:00Z", // ~1 month
+  },
+  {
+    id: "8",
+    title: "Find All Anagrams in a String",
+    createdAt: "2026-02-15T08:00:00Z", // ~1.5 months
+  },
+  {
+    id: "9",
+    title: "Minimum Height Trees",
+    createdAt: "2026-01-25T17:30:00Z", // ~2 months
+  },
+  {
+    id: "10",
+    title: "Search in Rotated Sorted Array",
+    createdAt: "2025-12-30T13:00:00Z", // ~3 months
+  },
+];
+
 export default function momentum() {
   const [profile, setProfile] = useState<any>(null);
   const [openResumeText, setOpenResumeText] = useState(false);
@@ -118,6 +171,7 @@ export default function momentum() {
         setLoading(false);
       }
     }
+    loadDashboardData();
   }, [period]);
 
   if (loading) {
@@ -180,7 +234,7 @@ export default function momentum() {
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
-              gap: 3,
+              gap: 0,
               maxWidth: {
                 xs: "100%",
                 md: "100%",
@@ -192,7 +246,7 @@ export default function momentum() {
               period={period}
               setPeriod={setPeriod}
             />
-            <TaskHeatmap />
+            <TaskHeatmap submissions={dummySubmissions} />
           </Box>
         </Box>
       </Box>

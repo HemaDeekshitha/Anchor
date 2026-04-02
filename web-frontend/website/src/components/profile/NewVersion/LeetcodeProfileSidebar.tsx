@@ -109,7 +109,7 @@ export default function LeetcodeProfileSidebar({
         borderRadius: 3,
         p: 3,
 
-        background: "transparent",
+        background: "linear-gradient(135deg,#ffffff,#fff7ed)",
         color: "black",
       }}
     >
@@ -126,8 +126,8 @@ export default function LeetcodeProfileSidebar({
         >
           <Avatar
             sx={{
-              width: 72,
-              height: 72,
+              width: 80,
+              height: 80,
               bgcolor: "#d9d9d9",
               borderRadius: 3,
             }}
@@ -135,23 +135,34 @@ export default function LeetcodeProfileSidebar({
           />
 
           <Box>
-            <Typography
+            <Box
               sx={{
-                fontWeight: 700,
-                fontSize: 20,
-              }}
-            >
-              {profile?.name || "Guest User"}
-            </Typography>
+                display: "flex",
+                gap: 0,
 
-            <Typography
-              sx={{
-                color: "#8c8c8c",
-                fontSize: 14,
+                flexDirection: "column",
+                alignItems: "flex-start",
               }}
             >
-              {profile?.email || "No email provided"}
-            </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: 20,
+                  color: "black",
+                  mb: -0.5,
+                }}
+              >
+                {profile?.name || "Guest User"}
+              </Typography>
+              <Typography
+                sx={{
+                  color: "grey",
+                  fontSize: 14,
+                }}
+              >
+                {profile?.email || "No email provided"}
+              </Typography>
+            </Box>
 
             <Box sx={{ mt: 0.5 }}>
               <Typography
@@ -159,7 +170,7 @@ export default function LeetcodeProfileSidebar({
                 sx={{
                   // fontWeight: 600,
                   fontSize: 14,
-                  color: "#fff",
+                  color: "black",
                 }}
               >
                 Resume{" "}
@@ -173,6 +184,7 @@ export default function LeetcodeProfileSidebar({
                     color: "rgb(209,112,51)",
                     fontWeight: 600,
                     textDecoration: "none",
+                    fontSize: 14,
                     "&:hover": { textDecoration: "underline" },
                   }}
                 >
@@ -184,6 +196,7 @@ export default function LeetcodeProfileSidebar({
                   sx={{
                     color: "rgb(209,112,51)",
                     fontWeight: 600,
+                    fontSize: 14,
                     cursor: "pointer",
                     "&:hover": { textDecoration: "underline" },
                   }}
@@ -203,11 +216,11 @@ export default function LeetcodeProfileSidebar({
         <Box
           sx={{
             display: "flex",
-            gap: 1.5,
+            gap: 1,
             mt: 2,
             alignItems: "center",
             fontSize: 14,
-            color: "#cfcfcf",
+            color: "#black",
           }}
         >
           <Typography>Focus</Typography>
@@ -222,7 +235,7 @@ export default function LeetcodeProfileSidebar({
                 size="small"
                 sx={{
                   background: "#2a2a2a",
-                  color: "#fff",
+                  color: "rgb(209,112,51)",
                   fontWeight: 500,
                 }}
               />
@@ -235,13 +248,13 @@ export default function LeetcodeProfileSidebar({
                   onClick={handleOpen}
                   sx={{
                     background: "#1e1e1e",
-                    color: "#fff",
+                    color: "#black",
                     cursor: "pointer",
                   }}
                 />
               )
             ) : (
-              <Typography fontSize={14} sx={{ color: "#fff" }}>
+              <Typography fontSize={14} sx={{ color: "rgb(209,112,51)" }}>
                 Add your focus
               </Typography>
             )}
@@ -289,13 +302,11 @@ export default function LeetcodeProfileSidebar({
             textTransform: "none",
             fontWeight: 600,
             fontSize: 16,
-            color: "#35d07f",
-            background:
-              "linear-gradient(90deg, rgba(30,80,40,0.9) 0%, rgba(18,60,30,0.9) 100%)",
-
+            background: "linear-gradient(to right, rgb(209 51 51), #E5B526)",
+            color: "black",
+            boxShadow: "0 0 25px rgba(255, 138, 61, 0.4)",
             "&:hover": {
-              background:
-                "linear-gradient(90deg, rgba(30,80,40,1) 0%, rgba(18,60,30,1) 100%)",
+              background: "linear-gradient(to left, rgb(209 51 51), #E5B526)",
             },
           }}
         >

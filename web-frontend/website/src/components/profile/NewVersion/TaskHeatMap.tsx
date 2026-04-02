@@ -1,179 +1,163 @@
 "use client";
 
-import React, { useMemo, useRef, useEffect, useState } from "react";
-import { Box, Typography, Tooltip } from "@mui/material";
+import React from "react";
+import { Box, Typography, Card, Stack } from "@mui/material";
+import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
 
-// ─── constants ─────────────────────────────────────────
-type DayCell = {
-  date: string;
-  count: number;
-  weekday: number;
-  month: number;
+// ---- types ----
+type Submission = {
+  id: string;
+  title: string;
+  createdAt: string; // ISO date
 };
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 
-const FILLS = [
-  "rgba(255,255,255,0.05)",
-  "rgba(34,197,94,0.35)",
-  "rgba(34,197,94,0.55)",
-  "rgba(34,197,94,0.75)",
-  "rgba(34,197,94,1)",
-];
+// ---- helper: time ago ----
+function getTimeAgo(dateString: string) {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-const BORDER_COLORS = [
-  "rgba(255,255,255,0.08)",
-  "rgba(34,197,94,0.3)",
-  "rgba(34,197,94,0.5)",
-  "rgba(34,197,94,0.75)",
-  "rgba(34,197,94,1)",
-];
+  const units = [
+    { label: "year", value: 60 * 60 * 24 * 365 },
+    { label: "month", value: 60 * 60 * 24 * 30 },
+    { label: "week", value: 60 * 60 * 24 * 7 },
+    { label: "day", value: 60 * 60 * 24 },
+    { label: "hour", value: 60 * 60 },
+    { label: "minute", value: 60 },
+  ];
 
-const CELL = 12;
-const GAP = 4;
-
-// ─── helpers ─────────────────────────────────────────
-
-function generateDummyData(): Record<string, number> {
-  const map: Record<string, number> = {};
-  const today = new Date();
-
-  for (let i = 0; i < 365; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    map[d.toISOString().split("T")[0]] = Math.floor(Math.random() * 5);
-  }
-
-  return map;
-}
-
-function level(count: number) {
-  if (count === 0) return 0;
-  if (count <= 2) return 1;
-  if (count <= 4) return 2;
-  if (count <= 7) return 3;
-  return 4;
-}
-
-// ─── 🔥 CONTINUOUS GRID (IMPORTANT FIX) ───────────────
-
-function buildContinuousGrid(data: Record<string, number>): DayCell[][] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const days: DayCell[] = [];
-
-  const rows: DayCell[][] = Array.from({ length: 7 }, () => []);
-
-  for (let i = 364; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-
-    const key = d.toISOString().split("T")[0];
-
-    days.push({
-      date: key,
-      count: data[key] ?? 0,
-      weekday: d.getDay(),
-      month: d.getMonth(),
-    });
-  }
-
-  // group by weekday rows (Sun → Sat)
-
-  days.forEach((day) => {
-    rows[day.weekday].push(day);
-  });
-
-  return rows;
-}
-
-// ─── cell ─────────────────────────────────────────────
-
-function HeatCell({ cell }: any) {
-  const l = level(cell.count);
-
-  return (
-    <Tooltip title={cell.date}>
-      <Box
-        sx={{
-          width: CELL,
-          height: CELL,
-          borderRadius: "3px",
-          background: FILLS[l],
-          border: `1px solid ${BORDER_COLORS[l]}`,
-        }}
-      />
-    </Tooltip>
-  );
-}
-
-// ─── main ─────────────────────────────────────────────
-
-export default function TaskHeatmap() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [visibleCols, setVisibleCols] = useState(30);
-
-  const data = useMemo(generateDummyData, []);
-  const rows = useMemo(() => buildContinuousGrid(data), [data]);
-  // 👇 responsive columns count
-  useEffect(() => {
-    function calculate() {
-      if (!containerRef.current) return;
-
-      const width = containerRef.current.offsetWidth;
-
-      const colWidth = CELL + GAP;
-      const count = Math.floor(width / colWidth);
-
-      setVisibleCols(count);
+  for (let unit of units) {
+    const count = Math.floor(diff / unit.value);
+    if (count >= 1) {
+      return `${count} ${unit.label}${count > 1 ? "s" : ""} ago`;
     }
+  }
 
-    calculate();
-    window.addEventListener("resize", calculate);
-    return () => window.removeEventListener("resize", calculate);
-  }, []);
+  return "just now";
+}
+
+// ---- main component ----
+type Props = {
+  submissions: Submission[];
+};
+
+const RecentSubmissions = ({ submissions }: Props) => {
+  const latest = submissions
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 10);
 
   return (
-    <Box
+    <Card
       sx={{
-        width: "100%",
-        borderRadius: 4,
+        mt: 3,
         p: 3,
+        borderRadius: 3,
+
         background: `
-          radial-gradient(circle at 80% 20%, rgba(34,197,94,0.08), transparent 35%),
-          radial-gradient(circle at 10% 80%, rgba(16,185,129,0.10), transparent 30%),
-          linear-gradient(180deg, #0f172a 0%, #020617 100%)
+          radial-gradient(circle at 18% 24%, rgba(99,102,241,0.16), transparent 32%),
+          radial-gradient(circle at 82% 72%, rgba(249,115,22,0.12), transparent 30%),
+          linear-gradient(180deg, #0f1020 0%, #06070d 100%)
         `,
+
+        border: "1px solid rgba(255,255,255,0.08)",
       }}
     >
-      <Typography sx={{ color: "#fff", fontWeight: 700, mb: 2 }}>
-        Task Activity
-      </Typography>
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: "1.1rem",
+            fontWeight: 600,
+            color: "#fff",
+          }}
+        >
+          Recent Submissions
+        </Typography>
 
-      <Box ref={containerRef}>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: `${GAP}px` }}>
-          {rows.map((row, ri) => (
-            <Box key={ri} sx={{ display: "flex", gap: `${GAP}px` }}>
-              {row.slice(-visibleCols).map((cell, ci) => (
-                <HeatCell key={ci} cell={cell} />
-              ))}
-            </Box>
-          ))}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            cursor: "pointer",
+            color: "rgba(255,255,255,0.6)",
+            fontSize: "0.9rem",
+            "&:hover": { color: "#fff" },
+          }}
+        >
+          <Typography sx={{ fontSize: "0.85rem" }}>
+            View all submissions
+          </Typography>
+          <ArrowForwardIosRoundedIcon sx={{ fontSize: 12 }} />
         </Box>
       </Box>
-    </Box>
+
+      {/* List */}
+      <Stack spacing={1}>
+        {latest.length === 0 ? (
+          <Typography
+            sx={{
+              color: "rgba(255,255,255,0.5)",
+              fontSize: "0.9rem",
+              textAlign: "center",
+              py: 2,
+            }}
+          >
+            No submissions yet
+          </Typography>
+        ) : (
+          latest.map((item) => (
+            <Box
+              key={item.id}
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                px: 2,
+                py: 1.5,
+                borderRadius: 2,
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  background: "rgba(255,255,255,0.05)",
+                },
+              }}
+            >
+              {/* Title */}
+              <Typography
+                sx={{
+                  color: "#fff",
+                  fontSize: "0.95rem",
+                  fontWeight: 500,
+                }}
+              >
+                {item.title}
+              </Typography>
+
+              {/* Time */}
+              <Typography
+                sx={{
+                  color: "rgba(255,255,255,0.5)",
+                  fontSize: "0.8rem",
+                }}
+              >
+                {getTimeAgo(item.createdAt)}
+              </Typography>
+            </Box>
+          ))
+        )}
+      </Stack>
+    </Card>
   );
-}
+};
+
+export default RecentSubmissions;
