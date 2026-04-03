@@ -7,7 +7,7 @@ import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import { useRouter } from "next/navigation";
 
 import MomentumGraphCard from "./NewVersion/MomentumGraphCard";
-import TaskHeatmap from "./NewVersion/TaskHeatMap";
+import TaskHeatmap from "./NewVersion/RecentSubmission";
 
 type SimpleBar = {
   label: string;

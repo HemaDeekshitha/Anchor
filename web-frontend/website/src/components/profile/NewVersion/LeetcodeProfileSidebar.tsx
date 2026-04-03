@@ -232,11 +232,12 @@ export default function LeetcodeProfileSidebar({
               <Chip
                 key={focus}
                 label={focus}
-                size="small"
+                size="medium"
                 sx={{
                   background: "#2a2a2a",
-                  color: "rgb(209,112,51)",
+                  color: "#fff",
                   fontWeight: 500,
+                  fontSize: 12,
                 }}
               />
             ))}

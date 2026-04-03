@@ -10,6 +10,9 @@ export class JobApplication {
   @ManyToOne(() => User)
   user: User;
 
+  @Column({ name: 'userId', nullable: true })
+  userId: string;
+
   @Column()
   company: string;
 

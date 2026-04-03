@@ -10,6 +10,7 @@ import {
   Chip,
   Stack,
 } from "@mui/material";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import {
   ResponsiveContainer,
@@ -24,11 +25,31 @@ import {
 
 // ---------------- PERIODS ----------------
 const PERIODS = [
-  { label: "Last 7 Days", value: "7d", title: "Last 7 Days Progress" },
   { label: "This Week", value: "this_week", title: "Weekly Progress" },
+  { label: "Last 7 Days", value: "7d", title: "Last 7 Days Progress" },
   { label: "Last Month", value: "last_month", title: "Monthly Progress" },
   { label: "To Date", value: "all", title: "All-Time Progress" },
 ];
+
+// ---------------- EMPTY STATE MESSAGES ----------------
+const EMPTY_STATE_MESSAGES: Record<string, { title: string; sub: string }> = {
+  "7d": {
+    title: "Nothing logged Last week yet",
+    sub: "Start today — complete a task, solve a LeetCode problem, or send an application to see your streak come alive.",
+  },
+  this_week: {
+    title: "No activity this week yet",
+    sub: "Log something today and your momentum graph will start building.",
+  },
+  last_month: {
+    title: "No data for last month",
+    sub: "Once you start tracking, your monthly consistency will show up here.",
+  },
+  all: {
+    title: "You haven't tracked anything yet",
+    sub: "Every streak starts with day one. Log your first task, problem, or application to begin.",
+  },
+};
 
 // ---------------- ACTIVE DOT ----------------
 function GlowActiveDot(props: any) {
@@ -162,6 +183,152 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+// ---------------- EMPTY STATE ----------------
+function EmptyState({ period }: { period: string }) {
+  const msg = EMPTY_STATE_MESSAGES[period] ?? EMPTY_STATE_MESSAGES["7d"];
+
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 1.5,
+        borderRadius: 3,
+        border: "1px dashed rgba(255,255,255,0.08)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Ghost chart lines */}
+      <Box
+        component="svg"
+        viewBox="0 0 600 260"
+        preserveAspectRatio="none"
+        sx={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          opacity: 0.07,
+          pointerEvents: "none",
+        }}
+      >
+        <polyline
+          points="0,200 80,160 160,180 240,100 320,130 400,80 480,110 600,60"
+          fill="none"
+          stroke="#ff7a1a"
+          strokeWidth="2"
+        />
+        <polyline
+          points="0,220 80,200 160,210 240,160 320,180 400,150 480,160 600,120"
+          fill="none"
+          stroke="#a855f7"
+          strokeWidth="1.5"
+        />
+        <polyline
+          points="0,240 80,220 160,230 240,190 320,210 400,180 480,200 600,160"
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth="1.5"
+        />
+      </Box>
+
+      {/* Icon */}
+      <Box
+        sx={{
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          background: "rgba(249,115,22,0.1)",
+          border: "1px solid rgba(249,115,22,0.18)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <BoltRoundedIcon sx={{ color: "#fb923c", fontSize: 22 }} />
+      </Box>
+
+      {/* Title */}
+      <Typography
+        sx={{
+          color: "#f8fafc",
+          fontWeight: 600,
+          fontSize: 15,
+          zIndex: 1,
+          textAlign: "center",
+        }}
+      >
+        {msg.title}
+      </Typography>
+
+      {/* Subtitle */}
+      <Typography
+        sx={{
+          color: "#6b7280",
+          fontSize: 13,
+          textAlign: "center",
+          maxWidth: 320,
+          lineHeight: 1.6,
+          zIndex: 1,
+          px: 2,
+        }}
+      >
+        {msg.sub}
+      </Typography>
+
+      {/* Category pills */}
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ zIndex: 1, mt: 0.5 }}
+        flexWrap="wrap"
+        justifyContent="center"
+      >
+        {[
+          {
+            label: "Task",
+            color: "#fb923c",
+            bg: "rgba(249,115,22,0.1)",
+            border: "rgba(249,115,22,0.18)",
+          },
+          {
+            label: "LeetCode",
+            color: "#c084fc",
+            bg: "rgba(168,85,247,0.1)",
+            border: "rgba(168,85,247,0.18)",
+          },
+          {
+            label: "Application",
+            color: "#38bdf8",
+            bg: "rgba(56,189,248,0.1)",
+            border: "rgba(56,189,248,0.18)",
+          },
+        ].map(({ label, color, bg, border }) => (
+          <Chip
+            key={label}
+            size="small"
+            label={label}
+            sx={{
+              height: 24,
+              color,
+              background: bg,
+              border: `1px solid ${border}`,
+              fontWeight: 600,
+            }}
+          />
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
 // ---------------- MAIN ----------------
 export default function MomentumGraphCard({
   data,
@@ -175,6 +342,7 @@ export default function MomentumGraphCard({
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const selected = PERIODS.find((p) => p.value === period);
+
   return (
     <Box
       sx={{
@@ -215,7 +383,6 @@ export default function MomentumGraphCard({
             {selected?.title}
           </Typography>
 
-          {/* 🔥 TAGLINE */}
           <Typography
             sx={{
               color: "#9ca3af",
@@ -313,153 +480,160 @@ export default function MomentumGraphCard({
           height: { xs: 230, sm: 280, md: 320 },
         }}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={data}
-            margin={{
-              top: 12,
-              right: 24,
-              bottom: 8,
-              left: 8,
-            }}
-          >
-            <defs>
-              <linearGradient
-                id="tasksAreaGradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop offset="0%" stopColor="rgba(249,115,22,0.28)" />
-                <stop offset="65%" stopColor="rgba(249,115,22,0.08)" />
-                <stop offset="100%" stopColor="rgba(249,115,22,0)" />
-              </linearGradient>
+        {data.length === 0 ||
+        data.every(
+          (d) => d.tasks === 0 && d.leetcode === 0 && d.applications === 0
+        ) ? (
+          <EmptyState period={period} />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={data}
+              margin={{
+                top: 12,
+                right: 24,
+                bottom: 8,
+                left: 8,
+              }}
+            >
+              <defs>
+                <linearGradient
+                  id="tasksAreaGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="rgba(249,115,22,0.28)" />
+                  <stop offset="65%" stopColor="rgba(249,115,22,0.08)" />
+                  <stop offset="100%" stopColor="rgba(249,115,22,0)" />
+                </linearGradient>
 
-              <linearGradient
-                id="hoverCursorGradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
-                <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
-              </linearGradient>
-            </defs>
+                <linearGradient
+                  id="hoverCursorGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
+                </linearGradient>
+              </defs>
 
-            <CartesianGrid
-              strokeDasharray="4 5"
-              stroke="rgba(255,255,255,0.045)"
-              vertical={true}
-              horizontal={true}
-            />
+              <CartesianGrid
+                strokeDasharray="4 5"
+                stroke="rgba(255,255,255,0.045)"
+                vertical={true}
+                horizontal={true}
+              />
 
-            <XAxis
-              dataKey="label"
-              axisLine={false}
-              tickLine={false}
-              padding={{ left: 4, right: 8 }}
-              tick={{
-                fill: "#8f98ab",
-                fontSize: 12,
-                fontWeight: 500,
-              }}
-            />
+              <XAxis
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                padding={{ left: 4, right: 8 }}
+                tick={{
+                  fill: "#8f98ab",
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              />
 
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              width={34}
-              tick={{
-                fill: "#8f98ab",
-                fontSize: 12,
-                fontWeight: 500,
-              }}
-            />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                width={34}
+                tick={{
+                  fill: "#8f98ab",
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              />
 
-            <Tooltip
-              content={<CustomTooltip />}
-              cursor={{
-                stroke: "rgba(255,255,255,0.16)",
-                strokeWidth: 1,
-                strokeDasharray: "4 5",
-              }}
-              wrapperStyle={{
-                outline: "none",
-              }}
-            />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{
+                  stroke: "rgba(255,255,255,0.16)",
+                  strokeWidth: 1,
+                  strokeDasharray: "4 5",
+                }}
+                wrapperStyle={{
+                  outline: "none",
+                }}
+              />
 
-            <Area
-              type="monotone"
-              dataKey="tasks"
-              fill="url(#tasksAreaGradient)"
-              stroke="none"
-              isAnimationActive
-              animationDuration={500}
-            />
+              <Area
+                type="monotone"
+                dataKey="tasks"
+                fill="url(#tasksAreaGradient)"
+                stroke="none"
+                isAnimationActive
+                animationDuration={500}
+              />
 
-            <Line
-              type="monotone"
-              dataKey="tasks"
-              stroke="#ff7a1a"
-              strokeWidth={3.5}
-              strokeLinecap="round"
-              dot={{
-                r: 3.2,
-                fill: "#ff7a1a",
-                stroke: "#ffd8b0",
-                strokeWidth: 1.5,
-              }}
-              activeDot={<GlowActiveDot stroke="#ff7a1a" />}
-              isAnimationActive
-              animationDuration={550}
-              style={{
-                filter: "drop-shadow(0 0 8px rgba(249,115,22,0.28))",
-              }}
-            />
+              <Line
+                type="monotone"
+                dataKey="tasks"
+                stroke="#ff7a1a"
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                dot={{
+                  r: 3.2,
+                  fill: "#ff7a1a",
+                  stroke: "#ffd8b0",
+                  strokeWidth: 1.5,
+                }}
+                activeDot={<GlowActiveDot stroke="#ff7a1a" />}
+                isAnimationActive
+                animationDuration={550}
+                style={{
+                  filter: "drop-shadow(0 0 8px rgba(249,115,22,0.28))",
+                }}
+              />
 
-            <Line
-              type="monotone"
-              dataKey="leetcode"
-              stroke="#a855f7"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              dot={{
-                r: 3,
-                fill: "#a855f7",
-                stroke: "#eadcff",
-                strokeWidth: 1.2,
-              }}
-              activeDot={<GlowActiveDot stroke="#a855f7" />}
-              isAnimationActive
-              animationDuration={550}
-              style={{
-                filter: "drop-shadow(0 0 8px rgba(168,85,247,0.22))",
-              }}
-            />
+              <Line
+                type="monotone"
+                dataKey="leetcode"
+                stroke="#a855f7"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                dot={{
+                  r: 3,
+                  fill: "#a855f7",
+                  stroke: "#eadcff",
+                  strokeWidth: 1.2,
+                }}
+                activeDot={<GlowActiveDot stroke="#a855f7" />}
+                isAnimationActive
+                animationDuration={550}
+                style={{
+                  filter: "drop-shadow(0 0 8px rgba(168,85,247,0.22))",
+                }}
+              />
 
-            <Line
-              type="monotone"
-              dataKey="applications"
-              stroke="#38bdf8"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              dot={{
-                r: 3,
-                fill: "#38bdf8",
-                stroke: "#d3f1ff",
-                strokeWidth: 1.2,
-              }}
-              activeDot={<GlowActiveDot stroke="#38bdf8" />}
-              isAnimationActive
-              animationDuration={550}
-              style={{
-                filter: "drop-shadow(0 0 8px rgba(56,189,248,0.22))",
-              }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+              <Line
+                type="monotone"
+                dataKey="applications"
+                stroke="#38bdf8"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                dot={{
+                  r: 3,
+                  fill: "#38bdf8",
+                  stroke: "#d3f1ff",
+                  strokeWidth: 1.2,
+                }}
+                activeDot={<GlowActiveDot stroke="#38bdf8" />}
+                isAnimationActive
+                animationDuration={550}
+                style={{
+                  filter: "drop-shadow(0 0 8px rgba(56,189,248,0.22))",
+                }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </Box>
     </Box>
   );
