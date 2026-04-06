@@ -7,7 +7,7 @@ import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import { useRouter } from "next/navigation";
 
 import MomentumGraphCard from "./NewVersion/MomentumGraphCard";
-import TaskHeatmap from "./NewVersion/RecentSubmission";
+import RecentSubmissions from "./NewVersion/RecentSubmission";
 
 type SimpleBar = {
   label: string;
@@ -74,6 +74,7 @@ export default function momentum() {
   const [milestones, setMilestones] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [weeklyActivity, setWeeklyActivity] = useState<SimpleBar[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const allMilestonesCompleted =
@@ -135,6 +136,7 @@ export default function momentum() {
           milestonesRes,
           analyticsRes,
           weeklyRes,
+          submissionsRes,
         ] = await Promise.all([
           fetch("http://localhost:3001/momentum/profile", {
             credentials: "include",
@@ -152,6 +154,10 @@ export default function momentum() {
           fetch("http://localhost:3001/rag/weekly-activity", {
             credentials: "include",
           }),
+          fetch("http://localhost:3001/momentum/recent-submissions", {
+            // 👈 add
+            credentials: "include",
+          }),
         ]);
 
         const profileData = await profileRes.json();
@@ -159,12 +165,14 @@ export default function momentum() {
         const milestonesData = await milestonesRes.json();
         const analyticsData = await analyticsRes.json();
         const weeklyData = await weeklyRes.json();
+        const submissionsData = await submissionsRes.json(); // 👈 add
 
         setProfile(profileData);
         setActivity(activityData);
         setMilestones(milestonesData.tasks || []);
         setAnalytics(analyticsData);
         setWeeklyActivity(weeklyData.weeklyActivity);
+        setSubmissions(submissionsData);
       } catch (err) {
         console.error("Failed to load dashboard data", err);
       } finally {
@@ -246,7 +254,7 @@ export default function momentum() {
               period={period}
               setPeriod={setPeriod}
             />
-            <TaskHeatmap submissions={dummySubmissions} />
+            <RecentSubmissions submissions={submissions} />
           </Box>
         </Box>
       </Box>

@@ -11,10 +11,19 @@ import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { UserSkill } from 'src/skills/user-skills.entity';
 import { Skill } from 'src/skills/skills.entity';
 import { SkillsModule } from 'src/skills/skill.module';
+import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
+import { RagTask } from 'src/rag/rag-task.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, OnboardingResponse, UserSkill, Skill]),
+    TypeOrmModule.forFeature([
+      User,
+      OnboardingResponse,
+      UserSkill,
+      Skill,
+      UserDailyTask,
+      RagTask,
+    ]),
     SkillsModule,
   ],
   controllers: [MomentumController],

@@ -28,4 +28,10 @@ export class MomentumController {
     const userId = req.user.userId;
     return this.momentumService.resyncSkills(userId);
   }
+
+  @UseGuards(JwtAuthGuard) // or whatever guard you use
+  @Get('recent-submissions')
+  async getRecentSubmissions(@Req() req) {
+    return this.momentumService.getRecentSubmissions(req.user.userId);
+  }
 }

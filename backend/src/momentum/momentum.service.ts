@@ -11,6 +11,8 @@ import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { UserSkill } from 'src/skills/user-skills.entity';
 import { Skill } from 'src/skills/skills.entity';
 import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
+import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
+import { RagTask } from 'src/rag/rag-task.entity';
 
 @Injectable()
 export class MomentumService {
@@ -28,6 +30,11 @@ export class MomentumService {
     private skillRepository: Repository<Skill>,
 
     private readonly resumeSkillProcessor: ResumeSkillProcessor,
+    @InjectRepository(UserDailyTask)
+    private readonly userDailyRepo: Repository<UserDailyTask>,
+
+    @InjectRepository(RagTask)
+    private ragTaskRepo: Repository<RagTask>,
   ) {}
 
   async getProfile(userId: string): Promise<MomentumProfileDto> {
@@ -107,5 +114,28 @@ export class MomentumService {
     await this.resumeSkillProcessor.processResume(onboarding);
     const skills = await this.getUserSkills(userId);
     return { count: skills.length };
+  }
+
+  async getRecentSubmissions(userId: string, limit: number = 10) {
+    const rows = await this.userDailyRepo
+      .createQueryBuilder('udt')
+      .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+      .select('udt.id', 'id')
+      .addSelect('task.title', 'title')
+      .addSelect('task.category', 'category') // 👈 include category for display
+      .addSelect('udt.task_date', 'createdAt')
+      .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status = :status', { status: 'completed' })
+      // 👈 no category filter — all tasks
+      .orderBy('udt.task_date', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((r) => ({
+      id: String(r.id),
+      title: r.title,
+      category: r.category,
+      createdAt: new Date(r.createdAt).toISOString(),
+    }));
   }
 }

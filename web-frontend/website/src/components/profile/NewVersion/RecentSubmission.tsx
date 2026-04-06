@@ -5,10 +5,11 @@ import { Box, Typography, Card, Stack } from "@mui/material";
 import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
 
 // ---- types ----
-type Submission = {
+export type Submission = {
   id: string;
   title: string;
-  createdAt: string; // ISO date
+  category: string; // 👈 add
+  createdAt: string;
 };
 
 // ---- helper: time ago ----
