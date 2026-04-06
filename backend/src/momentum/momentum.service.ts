@@ -11,6 +11,9 @@ import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { UserSkill } from 'src/skills/user-skills.entity';
 import { Skill } from 'src/skills/skills.entity';
 import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
+import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
+import { RagTask } from 'src/rag/rag-task.entity';
+import { TaskSubmission } from 'src/submissions/submission.entity';
 
 @Injectable()
 export class MomentumService {
@@ -28,6 +31,13 @@ export class MomentumService {
     private skillRepository: Repository<Skill>,
 
     private readonly resumeSkillProcessor: ResumeSkillProcessor,
+    @InjectRepository(UserDailyTask)
+    private readonly userDailyRepo: Repository<UserDailyTask>,
+
+    @InjectRepository(RagTask)
+    private ragTaskRepo: Repository<RagTask>,
+    @InjectRepository(TaskSubmission)
+    private taskSubmissionRepo: Repository<TaskSubmission>,
   ) {}
 
   async getProfile(userId: string): Promise<MomentumProfileDto> {
@@ -49,6 +59,10 @@ export class MomentumService {
       resumeName: onboarding?.resumeName ?? null,
       resumeUrl: onboarding?.resumeUrl ? '/momentum/resume' : null,
       resumeText: onboarding?.resumeText ?? null,
+      status: onboarding?.currentStatus ?? [],
+      preferredRoles: onboarding?.preferredRole ?? [],
+      intrests: onboarding?.areasOfInterest ?? [],
+      employmentType: onboarding?.employmentType ?? [],
 
       skills,
       //   imageUrl?: onboarding?.imageUrl ?? null;  // future: user profile image stored in cloudinary
@@ -103,5 +117,39 @@ export class MomentumService {
     await this.resumeSkillProcessor.processResume(onboarding);
     const skills = await this.getUserSkills(userId);
     return { count: skills.length };
+  }
+
+  async getRecentSubmissions(userId: string) {
+    const rows = await this.userDailyRepo
+      .createQueryBuilder('udt')
+      .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+      .leftJoin(
+        (qb) =>
+          qb
+            .select('s.task_id', 'task_id')
+            .addSelect("MAX((s.ai_result->>'score')::numeric)", 'best_score')
+            .from(TaskSubmission, 's')
+            .where('s.user_id = :subUserId', { subUserId: userId })
+            .groupBy('s.task_id'),
+        'best_sub',
+        'best_sub.task_id = udt.task_id',
+      )
+      .select('udt.id', 'id')
+      .addSelect('task.title', 'title')
+      .addSelect('task.category', 'category')
+      .addSelect('udt.task_date', 'createdAt')
+      .addSelect('best_sub.best_score', 'score')
+      .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status = :status', { status: 'completed' })
+      .orderBy('udt.task_date', 'DESC')
+      .getRawMany();
+
+    return rows.map((r) => ({
+      id: String(r.id),
+      title: r.title,
+      category: r.category,
+      createdAt: new Date(r.createdAt).toISOString(),
+      score: r.score != null ? Number(r.score) : null,
+    }));
   }
 }

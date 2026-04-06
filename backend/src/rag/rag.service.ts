@@ -68,7 +68,8 @@ export class RagService {
       const canonicalPlan: UserDailyTask[] = [];
 
       for (const row of existingPlan) {
-        if (seenTaskIds.has(row.task_id) || canonicalPlan.length >= limit) continue;
+        if (seenTaskIds.has(row.task_id) || canonicalPlan.length >= limit)
+          continue;
         seenTaskIds.add(row.task_id);
         canonicalPlan.push(row);
       }
@@ -115,11 +116,16 @@ export class RagService {
     // Seen-task history is now fetched inside TaskGenerationService from the
     // user_seen_tasks table — no need to pass recentTitles from here.
     if (this.generationFailedOnDate.get(userId) === today) {
-      console.warn(`⚠️ Skipping generation for ${userName} — already failed today.`);
+      console.warn(
+        `⚠️ Skipping generation for ${userName} — already failed today.`,
+      );
       return { userName, tasks: [] };
     }
 
-    const generated = await this.taskGenerationService.generateTasksForToday(userId, mix);
+    const generated = await this.taskGenerationService.generateTasksForToday(
+      userId,
+      mix,
+    );
 
     // ── 6. Race-condition guard: re-check before saving ───────────────────────
     // A concurrent call (e.g. onboarding fire-and-forget + dashboard load)
@@ -135,7 +141,8 @@ export class RagService {
       const seenTaskIds = new Set<number>();
       const canonicalPlan: UserDailyTask[] = [];
       for (const row of raceCheckPlan) {
-        if (seenTaskIds.has(row.task_id) || canonicalPlan.length >= limit) continue;
+        if (seenTaskIds.has(row.task_id) || canonicalPlan.length >= limit)
+          continue;
         seenTaskIds.add(row.task_id);
         canonicalPlan.push(row);
       }
@@ -146,12 +153,16 @@ export class RagService {
     // If LLM failed (quota), mark it so we don't retry again today
     if (generated.length === 0) {
       this.generationFailedOnDate.set(userId, today);
-      console.warn(`⚠️ No tasks generated for ${userName} — quota exhausted. Will not retry today.`);
+      console.warn(
+        `⚠️ No tasks generated for ${userName} — quota exhausted. Will not retry today.`,
+      );
       return { userName, tasks: [] };
     }
 
     this.generationFailedOnDate.delete(userId); // clear any stale failure flag
-    console.log(`✨ Generated ${generated.length} tasks for ${userName} (mix: ${JSON.stringify(mix)})`);
+    console.log(
+      `✨ Generated ${generated.length} tasks for ${userName} (mix: ${JSON.stringify(mix)})`,
+    );
 
     // ── 7. Persist the daily plan ─────────────────────────────────────────────
     const dailyRows = generated.map((task) =>
@@ -215,7 +226,9 @@ export class RagService {
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
       .andWhere('udt.status = :status', { status: 'pending' })
-      .andWhere('DATE(udt.task_date) >= :weekStart', { weekStart: weekStartDate })
+      .andWhere('DATE(udt.task_date) >= :weekStart', {
+        weekStart: weekStartDate,
+      })
       .andWhere('DATE(udt.task_date) < :today', { today })
       .select([
         'udt.id as "id"',
@@ -242,41 +255,6 @@ export class RagService {
       .execute();
 
     return result.affected;
-  }
-
-  async getWeeklyMilestones(userId: string) {
-    const timezone = await this.getUserTimezone(userId);
-    const weekStartDate = getWeekStartInTimezone(timezone);
-
-    const tasks = await this.userDailyRepo
-      .createQueryBuilder('udt')
-      .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
-      .where('udt.user_id = :userId', { userId })
-      .andWhere('DATE(udt.task_date) >= :weekStart', { weekStart: weekStartDate })
-      .andWhere('task.priority = :priority', { priority: 'high' })
-      .select([
-        'udt.id as "id"',
-        'task.title as "title"',
-        'task.priority as "priority"',
-        'udt.status as "status"',
-        'udt.task_date as "date"',
-      ])
-      .orderBy('udt.task_date', 'ASC')
-      .limit(5)
-      .getRawMany();
-
-    const completed = tasks.filter((t) => t.status === 'completed').length;
-
-    return {
-      summary: { completed, total: tasks.length },
-      tasks: tasks.map((t) => ({
-        id: t.id,
-        title: t.title,
-        completed: t.status === 'completed',
-        date: t.date,
-        priority: t.priority,
-      })),
-    };
   }
 
   /**
@@ -354,7 +332,9 @@ export class RagService {
       }
 
       const total = rows.length;
-      const completedCount = rows.filter((r) => r.completionStatus === 'completed').length;
+      const completedCount = rows.filter(
+        (r) => r.completionStatus === 'completed',
+      ).length;
 
       const tasks = rows.map((row) => {
         const sub = submissionMap.get(row.taskId as number);

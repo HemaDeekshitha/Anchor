@@ -15,6 +15,7 @@ import { InsightsService } from './insights/insights.service';
 import { TaskGenerationService } from './task-generation.service';
 import { PerformanceService } from './performance.service';
 import { TaskSchedulerService } from './task-scheduler.service';
+import { JobApplication } from 'src/application-tracker/entities/job-application.entity';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TaskSchedulerService } from './task-scheduler.service';
       OnboardingResponse,
       UserSkill,
       UserSeenTask,
+      JobApplication,
     ]),
   ],
   controllers: [RagController],
