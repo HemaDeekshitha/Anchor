@@ -13,6 +13,7 @@ import { Skill } from 'src/skills/skills.entity';
 import { SkillsModule } from 'src/skills/skill.module';
 import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
 import { RagTask } from 'src/rag/rag-task.entity';
+import { TaskSubmission } from 'src/submissions/submission.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { RagTask } from 'src/rag/rag-task.entity';
       Skill,
       UserDailyTask,
       RagTask,
+      TaskSubmission,
     ]),
     SkillsModule,
   ],

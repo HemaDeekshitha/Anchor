@@ -13,6 +13,7 @@ import { Skill } from 'src/skills/skills.entity';
 import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
 import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
 import { RagTask } from 'src/rag/rag-task.entity';
+import { TaskSubmission } from 'src/submissions/submission.entity';
 
 @Injectable()
 export class MomentumService {
@@ -35,6 +36,8 @@ export class MomentumService {
 
     @InjectRepository(RagTask)
     private ragTaskRepo: Repository<RagTask>,
+    @InjectRepository(TaskSubmission)
+    private taskSubmissionRepo: Repository<TaskSubmission>,
   ) {}
 
   async getProfile(userId: string): Promise<MomentumProfileDto> {
@@ -116,19 +119,29 @@ export class MomentumService {
     return { count: skills.length };
   }
 
-  async getRecentSubmissions(userId: string, limit: number = 10) {
+  async getRecentSubmissions(userId: string) {
     const rows = await this.userDailyRepo
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
+      .leftJoin(
+        (qb) =>
+          qb
+            .select('s.task_id', 'task_id')
+            .addSelect("MAX((s.ai_result->>'score')::numeric)", 'best_score')
+            .from(TaskSubmission, 's')
+            .where('s.user_id = :subUserId', { subUserId: userId })
+            .groupBy('s.task_id'),
+        'best_sub',
+        'best_sub.task_id = udt.task_id',
+      )
       .select('udt.id', 'id')
       .addSelect('task.title', 'title')
-      .addSelect('task.category', 'category') // 👈 include category for display
+      .addSelect('task.category', 'category')
       .addSelect('udt.task_date', 'createdAt')
+      .addSelect('best_sub.best_score', 'score')
       .where('udt.user_id = :userId', { userId })
       .andWhere('udt.status = :status', { status: 'completed' })
-      // 👈 no category filter — all tasks
       .orderBy('udt.task_date', 'DESC')
-      .limit(limit)
       .getRawMany();
 
     return rows.map((r) => ({
@@ -136,6 +149,7 @@ export class MomentumService {
       title: r.title,
       category: r.category,
       createdAt: new Date(r.createdAt).toISOString(),
+      score: r.score != null ? Number(r.score) : null,
     }));
   }
 }

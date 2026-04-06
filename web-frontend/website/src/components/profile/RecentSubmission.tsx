@@ -3,6 +3,7 @@
 import React from "react";
 import { Box, Typography, Card, Stack } from "@mui/material";
 import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
+import { useRouter } from "next/navigation";
 
 // ---- types ----
 export type Submission = {
@@ -50,6 +51,8 @@ const RecentSubmissions = ({ submissions }: Props) => {
     )
     .slice(0, 10);
 
+  const route = useRouter();
+
   return (
     <Card
       sx={{
@@ -86,6 +89,7 @@ const RecentSubmissions = ({ submissions }: Props) => {
         </Typography>
 
         <Box
+          onClick={() => route.push("/profile/submissions")}
           sx={{
             display: "flex",
             alignItems: "center",
