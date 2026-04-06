@@ -5,6 +5,21 @@ import { Box, Typography, Card, Stack } from "@mui/material";
 import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
 import { useRouter } from "next/navigation";
 
+const C = {
+  accent: "rgb(209,112,51)",
+  accentGold: "#E5B526",
+  accentBg: "rgba(209,112,51,0.08)",
+  accentBorder: "rgba(209,112,51,0.15)",
+  accentFaint: "rgba(209,112,51,0.1)",
+  accentHover: "rgba(226, 114, 44, 0.06)",
+  accentSelected: "rgba(209,112,51,0.13)",
+  accentGrad: "linear-gradient(to right, rgb(209,112,51), #E5B526)",
+  cardBg: "#ffffff",
+  divider: "rgba(0,0,0,0.06)",
+  textMuted: "black",
+  textSub: "rgba(0,0,0,0.5)",
+} as const;
+
 // ---- types ----
 export type Submission = {
   id: string;
@@ -59,14 +74,10 @@ const RecentSubmissions = ({ submissions }: Props) => {
         mt: 3,
         p: 3,
         borderRadius: 3,
-
-        background: `
-          radial-gradient(circle at 18% 24%, rgba(99,102,241,0.16), transparent 32%),
-          radial-gradient(circle at 82% 72%, rgba(249,115,22,0.12), transparent 30%),
-          linear-gradient(180deg, #0f1020 0%, #06070d 100%)
-        `,
-
-        border: "1px solid rgba(255,255,255,0.08)",
+        borderTop: `4px solid ${C.accentFaint}`,
+        borderImage: `linear-gradient(to right, ${C.accent}, ${C.accentGold}) 1`,
+        background: C.cardBg,
+        boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
       }}
     >
       {/* Header */}
@@ -76,13 +87,14 @@ const RecentSubmissions = ({ submissions }: Props) => {
           justifyContent: "space-between",
           alignItems: "center",
           mb: 2,
+          flexWrap: "wrap",
         }}
       >
         <Typography
           sx={{
             fontSize: "1.1rem",
             fontWeight: 600,
-            color: "#fff",
+            color: C.accent,
           }}
         >
           Recent Submissions
@@ -95,9 +107,9 @@ const RecentSubmissions = ({ submissions }: Props) => {
             alignItems: "center",
             gap: 0.5,
             cursor: "pointer",
-            color: "rgba(255,255,255,0.6)",
+            color: C.textSub,
             fontSize: "0.9rem",
-            "&:hover": { color: "#fff" },
+            "&:hover": { color: C.accent },
           }}
         >
           <Typography sx={{ fontSize: "0.85rem" }}>
@@ -112,7 +124,7 @@ const RecentSubmissions = ({ submissions }: Props) => {
         {latest.length === 0 ? (
           <Typography
             sx={{
-              color: "rgba(255,255,255,0.5)",
+              color: C.textSub,
               fontSize: "0.9rem",
               textAlign: "center",
               py: 2,
@@ -121,7 +133,7 @@ const RecentSubmissions = ({ submissions }: Props) => {
             No submissions yet
           </Typography>
         ) : (
-          latest.map((item) => (
+          latest.map((item, idx) => (
             <Box
               key={item.id}
               sx={{
@@ -132,26 +144,46 @@ const RecentSubmissions = ({ submissions }: Props) => {
                 py: 1.5,
                 borderRadius: 2,
                 transition: "all 0.2s ease",
+                bgcolor: idx % 2 === 0 ? "transparent" : C.accentHover,
                 "&:hover": {
-                  background: "rgba(255,255,255,0.05)",
+                  background: C.accentHover,
                 },
+                flexWrap: "wrap",
               }}
             >
-              {/* Title */}
-              <Typography
+              <Box
                 sx={{
-                  color: "#fff",
-                  fontSize: "0.95rem",
-                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
                 }}
               >
-                {item.title}
-              </Typography>
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    opacity: 0.7,
+                    bgcolor: "rgb(209,112,51)",
+                  }}
+                />
+                {/* Title */}
+                <Typography
+                  sx={{
+                    color: "text.primary",
+                    fontSize: "0.95rem",
+                    fontWeight: 500,
+                  }}
+                >
+                  {item.title}
+                </Typography>
+              </Box>
 
               {/* Time */}
               <Typography
                 sx={{
-                  color: "rgba(255,255,255,0.5)",
+                  color: C.textSub,
                   fontSize: "0.8rem",
                 }}
               >

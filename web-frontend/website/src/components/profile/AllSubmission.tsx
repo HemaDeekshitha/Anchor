@@ -488,7 +488,11 @@ export default function AllSubmissions() {
 
   return (
     <LayoutWithSidebar>
-      <Box sx={{ width: "100%" }}>
+      <Box
+        sx={{
+          width: "100%",
+        }}
+      >
         <Box sx={{ maxWidth: 1200, mx: "auto" }}>
           <Card
             sx={{
@@ -531,6 +535,7 @@ export default function AllSubmissions() {
                     px: 3,
                     pt: 2.5,
                     pb: 1,
+
                     "& .MuiCardHeader-title": {
                       fontWeight: 700,
                       background: C.accentGrad,
@@ -586,6 +591,7 @@ export default function AllSubmissions() {
                     {/* LEFT — table */}
                     <Box
                       sx={{
+                        overflowX: "scroll",
                         borderRight: {
                           xs: "none",
                           lg: `1px solid ${C.divider}`,
@@ -596,6 +602,7 @@ export default function AllSubmissions() {
                         },
                         display: "flex",
                         flexDirection: "column",
+                        flexWrap: "wrap",
                       }}
                     >
                       {/* Column headers */}
@@ -753,9 +760,10 @@ export default function AllSubmissions() {
                                             display: "flex",
                                             alignItems: "center",
                                             gap: 1.2,
-                                            minWidth: 0,
-                                            pr: 5,
+                                            pr: 5, // reduce right padding on xs
                                             overflow: "hidden",
+
+                                            minWidth: 150,
                                           }}
                                         >
                                           <Box
@@ -1018,6 +1026,8 @@ export default function AllSubmissions() {
                         bgcolor: "rgba(0,0,0,0.012)",
                         gridRow: { xs: 1, lg: "auto" },
                         order: { xs: -1, lg: 0 },
+                        // transform: { xs: "scale(0.8)", sm: "scale(1)" },
+                        // transformOrigin: "top left",
                       }}
                     >
                       <Typography

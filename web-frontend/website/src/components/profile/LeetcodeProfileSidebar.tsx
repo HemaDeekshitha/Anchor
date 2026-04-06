@@ -13,6 +13,21 @@ import {
   Popover,
 } from "@mui/material";
 
+const C = {
+  accent: "rgb(209,112,51)",
+  accentGold: "#E5B526",
+  accentBg: "rgba(209,112,51,0.08)",
+  accentBorder: "rgba(209,112,51,0.15)",
+  accentFaint: "rgba(209,112,51,0.1)",
+  accentHover: "rgba(226, 114, 44, 0.06)",
+  accentSelected: "rgba(209,112,51,0.13)",
+  accentGrad: "linear-gradient(to right, rgb(209,112,51), #E5B526)",
+  cardBg: "#ffffff",
+  divider: "rgba(0,0,0,0.06)",
+  textMuted: "black",
+  textSub: "rgba(0,0,0,0.5)",
+} as const;
+
 type ProfileSkill = {
   name: string;
   category: string;
@@ -102,6 +117,9 @@ export default function LeetcodeProfileSidebar({
           sm: "100%",
           md: "100%", // 👈 IMPORTANT
           lg: 380, // only fixed on large screens
+          borderRadius: 3,
+          borderTop: `4px solid ${C.accentFaint}`,
+          borderImage: `linear-gradient(to right, ${C.accent}, ${C.accentGold}) 1`,
         },
 
         flexShrink: 0,
