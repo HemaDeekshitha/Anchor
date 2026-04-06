@@ -1,6 +1,6 @@
 // src/app/profile/page.tsx
-import Momentum from "@/components/profile/momentum";
+import Profile from "@/components/profile/profile";
 
 export default function ProfilePage() {
-  return <Momentum />;
+  return <Profile />;
 }
