@@ -15,6 +15,17 @@ export class MomentumProfileDto {
 
   skills?: string[];
 
-  // optional for future (profile image)
-  imageUrl?: string | null;
+  avatarUrl?: string | null;
+}
+// momentum-profile.dto.ts - add UpdateMomentumProfileDto
+export class UpdateMomentumProfileDto {
+  name?: string;
+  email?: string; // ← add
+  location?: string;
+  primaryFocus?: string[];
+  currentStatus?: string[];
+  preferredRole?: string[];
+  areasOfInterest?: string[];
+  employmentType?: string[];
+  resumeText?: string | null;
 }
