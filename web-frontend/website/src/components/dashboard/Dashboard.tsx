@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Check, ChevronRight, ClipboardCheck, Loader2 } from "lucide-react";
+import { Check, ChevronRight, ClipboardCheck, Loader2, ExternalLink } from "lucide-react";
 import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import SubmissionModal from "./SubmissionModal";
@@ -33,6 +33,19 @@ interface Task {
   priority?: "low" | "medium" | "high";
   difficulty?: "easy" | "medium" | "hard";
   leetcodeUrl?: string | null;
+}
+
+/** Returns a LeetCode URL for the task. Uses the stored URL if available,
+ *  otherwise derives it from the title (e.g. "LeetCode Hard: Two Sum" → two-sum). */
+function getLeetcodeUrl(task: Task): string | null {
+  if (task.leetcodeUrl) return task.leetcodeUrl;
+  if (/leetcode/i.test(task.title)) {
+    // Strip any "LeetCode Easy/Medium/Hard:" prefix, then slugify
+    const name = task.title.replace(/^leetcode\s*(easy|medium|hard)?\s*:\s*/i, "").trim();
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return `https://leetcode.com/problems/${slug}/`;
+  }
+  return null;
 }
 
 const Dashboard = () => {
@@ -648,9 +661,43 @@ const Dashboard = () => {
                                   task.status === "completed"
                                     ? "#9ca3af"
                                     : "#1f2937",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
                               }}
                             >
                               {task.title}
+                              {getLeetcodeUrl(task) && (
+                                <Box
+                                  component="a"
+                                  href={getLeetcodeUrl(task)!}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e: React.MouseEvent) =>
+                                    e.stopPropagation()
+                                  }
+                                  title="Open on LeetCode"
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "4px",
+                                    background: "#fff7ed",
+                                    border: "1px solid #fed7aa",
+                                    color: "#ea580c",
+                                    textDecoration: "none",
+                                    flexShrink: 0,
+                                    "&:hover": {
+                                      background: "#ffedd5",
+                                      borderColor: "#f97316",
+                                    },
+                                  }}
+                                >
+                                  <ExternalLink size={12} strokeWidth={2.5} />
+                                </Box>
+                              )}
                             </Typography>
                             {task.status !== "completed" && (
                               <Typography
@@ -705,39 +752,6 @@ const Dashboard = () => {
                             </Box>
                           )}
 
-                          {/* LeetCode link for DSA tasks */}
-                          {task.leetcodeUrl && (
-                            <Box
-                              component="a"
-                              href={task.leetcodeUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e: React.MouseEvent) =>
-                                e.stopPropagation()
-                              }
-                              title="Open on LeetCode"
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: 28,
-                                height: 28,
-                                borderRadius: "6px",
-                                background: "#fff7ed",
-                                border: "1px solid #fed7aa",
-                                color: "#ea580c",
-                                textDecoration: "none",
-                                fontSize: 14,
-                                flexShrink: 0,
-                                "&:hover": {
-                                  background: "#ffedd5",
-                                  borderColor: "#fb923c",
-                                },
-                              }}
-                            >
-                              ↗
-                            </Box>
-                          )}
 
                           <ChevronRight size={20} color="#fb7185" />
                         </Box>

@@ -55,7 +55,8 @@ export class SubmissionService {
     'Interview Practice',
   ];
 
-  const minChars = selfReportCategories.includes(task.category) ? 10 : 50;
+  const isLeetcode = !!task.leetcodeUrl || /leetcode/i.test(task.title);
+  const minChars = isLeetcode || selfReportCategories.includes(task.category) ? 10 : 50;
 
   if (dto.textContent.trim().length < minChars) {
     throw new BadRequestException(

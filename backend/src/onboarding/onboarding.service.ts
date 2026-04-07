@@ -45,11 +45,18 @@ export class OnboardingService {
 
     const parsed = answers ? JSON.parse(answers) : {};
 
+    const preferredRoles: string[] | null = parsed['preferred-role'] || null;
+
+    // The first selection on the "preferred role" question is the user's single
+    // committed target role — everything else is supplementary context.
+    const dedicatedRole = preferredRoles?.[0] ?? null;
+
     const entry = this.repo.create({
       userId,
       primaryFocus: parsed['primary-focus'] || null,
       currentStatus: parsed['current-status'] || null,
-      preferredRole: parsed['preferred-role'] || null,
+      preferredRole: preferredRoles,
+      dedicatedRole,
       areasOfInterest: parsed['areas-interest'] || null,
       employmentType: parsed['employment-type'] || null,
 

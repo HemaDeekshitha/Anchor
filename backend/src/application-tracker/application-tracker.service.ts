@@ -6,6 +6,7 @@ import { JobApplication } from './entities/job-application.entity';
 import { GmailService } from './gmail.service';
 import { ManualJobDto } from './dto/manual-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ParsedJob {
   company: string;
@@ -94,10 +95,19 @@ export class ApplicationTrackerService {
       'subject:("product manager")',
       'subject:("data engineer")',
       'subject:("data scientist")',
+      'subject:("data analyst")',
+      'subject:("business analyst")',
       'subject:("full stack")',
       'subject:("frontend developer")',
       'subject:("backend developer")',
       'subject:("devops engineer")',
+      'subject:("marketing manager")',
+      'subject:("account manager")',
+      'subject:("ux designer")',
+      'subject:("product designer")',
+      'subject:("technical recruiter")',
+      'subject:("program manager")',
+      'subject:("project manager")',
       'from:(greenhouse.io)',
       'from:(lever.co)',
       'from:(myworkdayjobs.com)',
@@ -120,6 +130,7 @@ export class ApplicationTrackerService {
     let processed = 0;
     let stored = 0;
     let skipped = 0;
+    let aiRateLimited = false; // once rate-limited, skip AI for all remaining threads in this scan
 
     for (const thread of threads) {
       if (!thread.id) continue;
@@ -143,9 +154,29 @@ export class ApplicationTrackerService {
       }
 
       // Parse company + role (ATS-specific first, then generic body)
-      const { company, role } = this.parseEmail(subject, from, body);
+      let { company, role } = this.parseEmail(subject, from, body);
 
-      // Confidence threshold — skip if we extracted nothing useful
+      // AI fallback — only called when regex left at least one field unknown
+      if (!aiRateLimited && (company === 'Unknown Company' || role === 'Unknown Role')) {
+        try {
+          const aiResult = await this.extractWithAI(subject, from, body);
+          // Only fill in the fields that regex couldn't determine — never overwrite a good regex result
+          if (company === 'Unknown Company' && aiResult.company !== 'Unknown Company') company = aiResult.company;
+          if (role === 'Unknown Role' && aiResult.role !== 'Unknown Role') role = aiResult.role;
+        } catch (err) {
+          const errMsg = String(err);
+          if (/429|rate.?limit|quota.?exceeded|resource.?exhausted/i.test(errMsg)) {
+            // Rate limited — skip AI for all remaining threads in this scan, fall back to regex
+            aiRateLimited = true;
+            this.logger.warn(`gemini-rate-limited — AI fallback disabled for remainder of scan`);
+          } else {
+            // Other error (network, bad JSON, etc.) — keep regex values as-is
+            this.logger.warn(`ai-fallback-failed thread=${thread.id}: ${errMsg}`);
+          }
+        }
+      }
+
+      // Confidence threshold — skip if even AI couldn't extract anything useful
       if (company === 'Unknown Company' && role === 'Unknown Role') {
         this.logger.debug(`skip-low-confidence thread=${thread.id} subject="${subject}"`);
         skipped += 1;
@@ -403,8 +434,10 @@ export class ApplicationTrackerService {
    */
   private extractCompanyFromText(text: string): string {
     const patterns = [
-      // "applying to [Company] for"
-      /\bappl(?:ying|ied|ication)\s+(?:to|with)\s+([A-Z][A-Za-z0-9&\- ]{1,50}?)(?:\s+for\b|\s*[,.]|\n)/i,
+      // "Thank you for applying to [Company]" — subject-style with ! terminator
+      /\bthank\s+you\s+for\s+applying\s+to\s+([A-Z][A-Za-z0-9&\- ]{1,50?})(?:\s+for\b|\s*[,.!]|\n|$)/i,
+      // "applying to [Company] for/,/./!"
+      /\bappl(?:ying|ied|ication)\s+(?:to|with)\s+([A-Z][A-Za-z0-9&\- ]{1,50}?)(?:\s+for\b|\s*[,.!]|\n)/i,
       // "your interest in [Company]"
       /\binterest\s+in\s+([A-Z][A-Za-z0-9&\- ]{1,50}?)(?:\s+for\b|\s*[,.]|\n)/i,
       // "on behalf of [Company]"
@@ -499,7 +532,7 @@ export class ApplicationTrackerService {
       // "the [Role] role"
       /\bthe\s+([^,.\n@]{4,60}?)\s+role\b/i,
       // Standalone job title keyword pattern — most reliable, used as final fallback
-      /((?:(?:senior|junior|lead|principal|staff|mid.?level|entry.?level|associate|founding)\s+)?(?:software|frontend|back.?end|full.?stack|data|machine\s+learning|ml|ai|devops|cloud|mobile|ios|android|product|project|program|engineering|qa|quality\s+assurance|test|security|platform|site\s+reliability|sre|solutions|ui|ux|embedded|firmware)\s+(?:engineer|developer|manager|analyst|scientist|architect|specialist|consultant|intern|director|designer))/i,
+      /((?:(?:senior|sr\.?|junior|jr\.?|lead|principal|staff|mid.?level|entry.?level|associate|founding|executive|head\s+of)\s+)?(?:software|frontend|back.?end|full.?stack|data|machine\s+learning|ml|ai|devops|cloud|mobile|ios|android|product|project|program|engineering|qa|quality\s+assurance|test|security|platform|site\s+reliability|sre|solutions|ui|ux|embedded|firmware|hardware|network|infrastructure|systems|cybersecurity|game|robotics|marketing|sales|finance|legal|operations|business|content|technical|human\s+resources|hr|customer\s+success|customer\s+support|graphic|supply\s+chain|logistics|compliance|risk|growth|brand|creative)\s+(?:engineer|developer|manager|analyst|scientist|architect|specialist|consultant|intern|director|designer|recruiter|coordinator|administrator|writer|editor|accountant|technician|officer|representative|advisor|supervisor|generalist|strategist|producer|planner|auditor|associate|lead))/i,
     ];
 
     for (const pattern of patterns) {
@@ -507,11 +540,14 @@ export class ApplicationTrackerService {
       if (!match || match.length < 4 || match.length > 80) continue;
 
       const cleaned = match
-        // Strip "role of …" / "the role of …" prefix that bleeds in from body sentences
-        .replace(/^(?:the\s+)?role\s+of\s+/i, '')
+        // Strip "role of …" / "the role of …" or "position of …" prefix
+        .replace(/^(?:the\s+)?(?:role|position)\s+of\s+/i, '')
+        // Strip leading "position " when used as a descriptor (e.g. "position Software Engineer")
+        .replace(/^position\s+(?!of\b)/i, '')
         // Strip leading ATS tracking IDs like "R158633 " or "ID-12345 "
         .replace(/^(?:[A-Z]{0,3}[0-9]{4,}[-\s]+)+/g, '')
-        // Strip trailing tracking IDs like "-325063" or " (Job number: 12345)"
+        // Strip inline/trailing tracking IDs: "(ID: 10380298)", "(Job ID: 12345)", "- REQ-999"
+        .replace(/\s*\(\s*(?:id|job\s*(?:number|id|#|req)?|req(?:uisition)?)\s*:?\s*[A-Z0-9-]{3,}\s*\)/gi, '')
         .replace(/\s*[-–(]\s*(?:job\s*(?:number|id|#)?:?\s*)?[A-Z0-9]{4,}\s*\)?$/gi, '')
         .replace(/\s+at\s+\S+.*$/i, '')
         .replace(/\s+with\s+\S+.*$/i, '')
@@ -545,6 +581,50 @@ export class ApplicationTrackerService {
 
     // Must contain at least one job-related keyword
     return this.looksLikeJobTitle(text);
+  }
+
+  // ─── AI fallback extraction ──────────────────────────────────────────────────
+
+  private async extractWithAI(subject: string, from: string, body: string): Promise<ParsedJob> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return { company: 'Unknown Company', role: 'Unknown Role' };
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `You are parsing a job application email. Extract the company name and job role/title.
+
+Email subject: ${subject}
+Email from: ${from}
+Email body (first 800 chars): ${body.slice(0, 800)}
+
+Reply with ONLY a JSON object in this exact format, nothing else:
+{"company": "Company Name", "role": "Job Title"}
+
+Rules:
+- If you cannot determine the company, use "Unknown Company"
+- If you cannot determine the role, use "Unknown Role"
+- For role, use the exact title from the email (e.g. "SDE II", "Software Engineer", "Product Manager")
+- Do not include tracking IDs or job IDs in the role`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    // Strip markdown code fences if present
+    const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      // Gemini returned something that isn't valid JSON — fall back to regex
+      throw new Error(`Gemini returned non-JSON response: ${jsonText.slice(0, 100)}`);
+    }
+
+    return {
+      company: typeof parsed.company === 'string' && parsed.company ? parsed.company : 'Unknown Company',
+      role: typeof parsed.role === 'string' && parsed.role ? parsed.role : 'Unknown Role',
+    };
   }
 
   // ─── Status detection ────────────────────────────────────────────────────────
@@ -683,8 +763,14 @@ export class ApplicationTrackerService {
    */
   private looksLikeJobTitle(text: string): boolean {
     return (
-      /\b(engineer|developer|manager|analyst|scientist|designer|architect|intern|director|specialist|consultant|lead|associate)\b/i.test(text) ||
-      /\b(software|frontend|backend|full.?stack|data|devops|cloud|mobile|product|program|project|qa|security|platform|sre|ml|ai)\b/i.test(text)
+      // Role title keywords — covers tech and non-tech positions
+      /\b(engineer|developer|manager|analyst|scientist|designer|architect|intern|director|specialist|consultant|lead|associate|recruiter|coordinator|administrator|writer|editor|accountant|technician|officer|representative|planner|strategist|executive|advisor|supervisor|auditor|operator|producer|generalist|copywriter|researcher|librarian)\b/i.test(text) ||
+      // Tech domain keywords
+      /\b(software|frontend|backend|full.?stack|data|devops|cloud|mobile|product|program|project|qa|security|platform|sre|ml|ai|hardware|network|infrastructure|systems|embedded|firmware|cybersecurity|blockchain|game|robotics|ui|ux)\b/i.test(text) ||
+      // Non-tech domain keywords
+      /\b(marketing|sales|finance|legal|operations|business|content|technical|communications|graphic|supply\s+chain|logistics|compliance|risk|growth|brand|creative|human\s+resources|customer\s+success|customer\s+support)\b/i.test(text) ||
+      // Common role abbreviations
+      /\b(SDE|SWE|SRE|TPM|PM|MLE|SDM|EM|IC|SDET|QA|VP|HR)\b/.test(text)
     );
   }
 

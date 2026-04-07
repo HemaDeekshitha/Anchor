@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Inter } from "next/font/google";
+import MuiRegistry from "@/components/MuiRegistry";
 // import ThemeToggle from "@/components/ThemeToggle";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -23,7 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {/* <ThemeToggle /> */}
-        {children}
+        <MuiRegistry>{children}</MuiRegistry>
       </body>
     </html>
   );

@@ -136,6 +136,26 @@ export class AuthService {
     return { accessToken, refreshToken, user };
   }
 
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const user = await this.userRepo.findOne({ where: { id: payload.sub } });
+      if (!user) throw new UnauthorizedException('User not found');
+
+      const newAccessToken = this.jwtService.sign(
+        { sub: user.id, email: user.email },
+        { expiresIn: '15m' },
+      );
+
+      return { accessToken: newAccessToken };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
   async checkEmailExists(email: string) {
     if (!email) {
       return { exists: false };
