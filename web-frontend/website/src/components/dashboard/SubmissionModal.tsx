@@ -15,7 +15,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import { Zap } from "lucide-react";
+import { Zap, ExternalLink } from "lucide-react";
 import { api, SubmissionResult } from "@/lib/api";
 
 interface Task {
@@ -23,6 +23,7 @@ interface Task {
   title: string;
   category?: string;
   date?: string;
+  leetcodeUrl?: string | null;
 }
 
 interface SubmissionModalProps {
@@ -43,6 +44,17 @@ const SELF_REPORT_CATEGORIES = [
   'Projects & Portfolio',
   'Interview Practice',
 ];
+
+function getLeetcodeUrl(task: Task | null): string | null {
+  if (!task) return null;
+  if (task.leetcodeUrl) return task.leetcodeUrl;
+  if (/leetcode/i.test(task.title)) {
+    const name = task.title.replace(/^leetcode\s*(easy|medium|hard)?\s*:\s*/i, "").trim();
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return `https://leetcode.com/problems/${slug}/`;
+  }
+  return null;
+}
 
 export default function SubmissionModal({
   open,
@@ -136,8 +148,41 @@ export default function SubmissionModal({
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
               Submit Your Answer
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+            >
               {task.title}
+              {getLeetcodeUrl(task) && (
+                <Box
+                  component="a"
+                  href={getLeetcodeUrl(task)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  title="Open on LeetCode"
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 20,
+                    height: 20,
+                    borderRadius: "4px",
+                    background: "#fff7ed",
+                    border: "1px solid #fed7aa",
+                    color: "#ea580c",
+                    textDecoration: "none",
+                    flexShrink: 0,
+                    "&:hover": {
+                      background: "#ffedd5",
+                      borderColor: "#f97316",
+                    },
+                  }}
+                >
+                  <ExternalLink size={11} strokeWidth={2.5} />
+                </Box>
+              )}
             </Typography>
             {task.category && (
               <Chip 

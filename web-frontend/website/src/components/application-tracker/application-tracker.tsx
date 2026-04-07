@@ -247,6 +247,22 @@ export default function ApplicationTracker() {
           {job.notes.length > 80 ? job.notes.slice(0, 80) + "…" : job.notes}
         </div>
       )}
+
+      {job.threadId && (
+        <a
+          className={styles.gmailButton}
+          href={`https://mail.google.com/mail/u/0/#inbox/${job.threadId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Open in Gmail"
+          aria-label="Open email thread in Gmail"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z" fill="currentColor"/>
+          </svg>
+        </a>
+      )}
     </article>
   );
 

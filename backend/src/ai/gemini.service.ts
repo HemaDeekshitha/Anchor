@@ -36,10 +36,14 @@ export class GeminiService {
     task: RagTask,
     userAnswer: string,
   ): Promise<EvaluationResult> {
-    // Determine which type of evaluation to use based on task category
-    const evaluationType = this.getEvaluationType(task.category);
+    // LeetCode tasks: the user pastes their accepted code — evaluate code directly,
+    // no written explanation required. All other evaluations are unchanged.
+    // Detect by stored URL or by title containing "LeetCode".
+    if (task.leetcodeUrl || /leetcode/i.test(task.title)) {
+      return this.evaluateLeetcodeCode(task, userAnswer);
+    }
 
-    // Route to the appropriate evaluation method
+    const evaluationType = this.getEvaluationType(task.category);
     switch (evaluationType) {
       case 'star':
         return this.evaluateSTAR(task, userAnswer);
@@ -52,6 +56,54 @@ export class GeminiService {
       default:
         return this.evaluateGeneral(task, userAnswer);
     }
+  }
+
+  /**
+   * Evaluates a raw code solution for a LeetCode problem.
+   * No explanation required — code alone is sufficient to pass.
+   */
+  private async evaluateLeetcodeCode(
+    task: RagTask,
+    userCode: string,
+  ): Promise<EvaluationResult> {
+    const prompt = `
+You are a senior software engineer reviewing a LeetCode solution.
+
+PROBLEM: "${task.title}"
+LeetCode URL: ${task.leetcodeUrl}
+Difficulty: ${task.difficulty}
+
+USER'S CODE:
+\`\`\`
+${userCode}
+\`\`\`
+
+The user solved this problem on LeetCode and pasted their accepted code here.
+Evaluate ONLY the code — do NOT penalise for missing explanations.
+
+CRITERIA:
+1. Is this a plausible correct solution for "${task.title}"?
+2. Is the syntax valid in at least one major language (Python, Java, C++, JavaScript, etc.)?
+3. Does it cover common edge cases?
+4. Is the time/space complexity reasonable for a ${task.difficulty} LeetCode problem?
+
+Be generous: if the code looks like a legitimate accepted solution, approve it.
+Only reject if the submission is empty, completely unrelated, or clearly incorrect.
+
+Return ONLY valid JSON (no markdown, no backticks):
+{
+  "score": 8.0,
+  "isCorrect": true,
+  "isValidSyntax": true,
+  "handlesEdgeCases": true,
+  "hasReasonableComplexity": true,
+  "feedback": "Clean and efficient solution.",
+  "approved": true,
+  "confidence": 0.90
+}
+`;
+    // LeetCode code needs a very low threshold — any legitimate code should pass.
+    return this.callGeminiAndParse(prompt, 'leetcode');
   }
 
   /**
@@ -352,9 +404,10 @@ private async callGeminiAndParse(
    */
   private getPassingScore(difficulty: string): number {
     const scores: Record<string, number> = {
+      leetcode: 5.0, // Any legitimate code passes — very lenient
       easy: 6.0,
       medium: 7.0,
-      hard: 8.0,
+      hard: 7.0,
     };
     return scores[difficulty] || 6.0;
   }

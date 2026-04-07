@@ -101,6 +101,11 @@ export class TaskGenerationService {
 
     const prompt = this.buildDailyPrompt(profile, skillNames, mix, seenTitles);
 
+    // Debug: confirm what data is reaching the LLM
+    this.logger.log(`🎯 Role: ${profile?.dedicatedRole ?? profile?.preferredRole?.[0]}`);
+    this.logger.log(`🔑 Keywords (${(profile?.resumeKeywords ?? skillNames).length}): ${(profile?.resumeKeywords ?? skillNames).join(', ')}`);
+    this.logger.log(`📚 Interests: ${profile?.areasOfInterest?.join(', ')}`);
+
     let generated: GeneratedTaskDto[] = [];
     const text = await this.callGeminiWithFallback(prompt);
     if (text) {
@@ -168,12 +173,15 @@ export class TaskGenerationService {
     return title.toLowerCase().trim();
   }
 
-  // ─── Software role detection ────────────────────────────────────────────────
-  /** Returns true when the user has selected a software/frontend/backend role. */
-  private isSoftwareRole(preferredRole: string[] | null): boolean {
-    if (!preferredRole || preferredRole.length === 0) return false;
-    const haystack = preferredRole.join(' ').toLowerCase();
-    return /\b(software|frontend|front-end|backend|back-end|full.?stack)\b/.test(haystack);
+  // ─── Coding role detection ───────────────────────────────────────────────────
+  /**
+   * Returns true for any CS / coding-heavy role that benefits from LeetCode DSA practice.
+   * Non-CS engineering (mechanical, civil, etc.) and non-technical roles return false.
+   */
+  private isSoftwareRole(roleInput: string | string[] | null): boolean {
+    if (!roleInput) return false;
+    const haystack = (Array.isArray(roleInput) ? roleInput.join(' ') : roleInput).toLowerCase();
+    return /\b(software|frontend|front.?end|backend|back.?end|full.?stack|computer\s+science|data\s+engineer|data\s+scientist|machine\s+learning|ml\s+engineer|ai\s+engineer|ios|android|mobile\s+develop|devops|dev\s+ops|cloud\s+engineer|embedded|firmware|site\s+reliability|sre|platform\s+engineer|cybersecurity|security\s+engineer|game\s+develop|swe|sde)\b/.test(haystack);
   }
 
   /**
@@ -194,10 +202,16 @@ export class TaskGenerationService {
     recentTitles: string[] = [],
   ): string {
     const resumeText    = profile?.resumeText?.slice(0, 3000) ?? '(not provided)';
-    const targetRoles   = profile?.preferredRole?.join(', ')   || '(not specified)';
     const currentStatus = profile?.currentStatus?.join(', ')   || '(not specified)';
     const primaryFocus  = profile?.primaryFocus?.join(', ')    || '(not specified)';
     const interests     = profile?.areasOfInterest?.join(', ') || '(not specified)';
+
+    // dedicatedRole = the user's single committed target role (first preferredRole selection).
+    // This is the authoritative role used for task generation and role-type detection.
+    // All other profile fields are supplementary context.
+    const dedicatedRole = profile?.dedicatedRole
+      ?? profile?.preferredRole?.[0]
+      ?? '(not specified)';
 
     // AI-extracted resume keywords take priority; fall back to catalog skills
     const aiKeywords = profile?.resumeKeywords ?? [];
@@ -208,16 +222,16 @@ export class TaskGenerationService {
           ? skills.join(', ')
           : '(extract from resume)';
 
-    const softwareRole = this.isSoftwareRole(profile?.preferredRole ?? null);
+    const softwareRole = this.isSoftwareRole(profile?.dedicatedRole ?? profile?.preferredRole ?? null);
 
     const avoidSection =
       recentTitles.length > 0
-        ? `\n8. Do NOT repeat any of these recently assigned tasks (titles to avoid):\n${recentTitles.map((t) => `   - ${t}`).join('\n')}`
+        ? `\n\nTASKS ALREADY SEEN BY THIS USER — DO NOT GENERATE ANY OF THESE OR CLOSE VARIATIONS:\n${recentTitles.map((t) => `  - ${t}`).join('\n')}\nEvery title above must be treated as strictly off-limits. Generate completely different Questions.`
         : '';
 
-    // When a software role is selected, one task is always a LeetCode problem.
+    // When a CS/coding role is selected, one task is always a LeetCode problem.
     // That task consumes one difficulty slot from the mix; compute the remainder.
-    let leetcodeSection = '';
+    let roleSpecificSection = '';
     let remainingMix = { ...mix };
     if (softwareRole) {
       const lcDiff = this.leetcodeDifficulty(mix);
@@ -226,42 +240,94 @@ export class TaskGenerationService {
         [lcDiff]: mix[lcDiff] - 1,
         total: mix.total - 1,
       };
-      leetcodeSection = `
-LEETCODE REQUIREMENT (software role detected):
+      roleSpecificSection = `
+CS/CODING ROLE TASK REQUIREMENTS:
+
+1 — MANDATORY LEETCODE DSA TASK:
 - Exactly 1 of the ${mix.total} tasks MUST be a real LeetCode DSA problem.
 - Set its difficulty to "${lcDiff}", category to "DSA".
-- Set leetcodeUrl to the actual LeetCode problem URL in the format: https://leetcode.com/problems/<problem-slug>/
+- Set leetcodeUrl to the actual LeetCode problem URL: https://leetcode.com/problems/<problem-slug>/
 - Choose a classic, well-known problem (e.g. two-sum, valid-parentheses, binary-search, merge-intervals) — do NOT invent a URL.
-- The remaining ${remainingMix.total} tasks follow the normal breakdown: ${remainingMix.easy} easy, ${remainingMix.medium} medium, ${remainingMix.hard} hard — NO leetcodeUrl for these.`;
+
+${remainingMix.total} — REMAINING TASKS (${remainingMix.easy} easy, ${remainingMix.medium} medium, ${remainingMix.hard} hard):
+- These must cover core CS/software interview topics. Rotate through categories such as:
+    • "System Design"       — e.g. design a rate limiter, URL shortener, notification system
+    • "Technical Concepts"  — e.g. OS (processes vs threads, virtual memory), Database (indexing, transactions, ACID), Networking (TCP vs UDP, HTTP/HTTPS, DNS), OOP/SOLID principles
+    • "Behavioral"          — STAR format questions on teamwork, conflict, leadership, project delivery
+    • "Learning & Upskilling" — deep-dive into a tool/framework from the user's resume
+- Pick categories based on the user's resume and target role — do NOT repeat the same category twice.
+- leetcodeUrl must be null for all of these.`;
+    } else {
+      roleSpecificSection = `
+NON-TECHNICAL ROLE DETECTED — Dedicated role: "${dedicatedRole}"
+- Do NOT generate DSA, LeetCode, System Design, or any software-engineering tasks.
+- All tasks must be real interview questions a hiring manager would ask for "${dedicatedRole}".
+- Every task title MUST be phrased as a direct interview question or scenario — NOT as an activity or gerund phrase.
+  ✅ CORRECT: "How would you use MATLAB to model the thermal behavior of a heat exchanger?"
+  ✅ CORRECT: "Walk me through your process for selecting a material for a load-bearing component."
+  ✅ CORRECT: "Tell me about a time you used SolidWorks to solve a design problem."
+  ❌ WRONG:   "Designing for Manufacturability" (gerund phrase — banned)
+  ❌ WRONG:   "Material Selection for Medical Device" (topic phrase — banned)
+- Use the user's RESUME KEYWORDS directly inside the question title (e.g. if they know SolidWorks, ANSYS, MATLAB — ask about those tools specifically, not generics).
+- Use categories that genuinely match this profession. Examples by field:
+    • Mechanical Engineering: "Technical Concepts", "Engineering Design", "Behavioral", "CAD & Simulation", "Materials & Manufacturing"
+    • Law / Legal: "Case Analysis", "Legal Research", "Statutory Interpretation", "Legal Writing", "Behavioral"
+    • Finance / Accounting: "Financial Modeling", "Valuation", "Accounting Principles", "Case Study", "Behavioral"
+    • Business Analysis: "Requirements Elicitation", "Process Modeling", "Stakeholder Management", "Case Study", "Behavioral"
+    • Any role: "Behavioral" (STAR format "Tell me about a time you…") is always appropriate.
+- Every question must reference a specific tool, concept, or experience from the user's actual resume keywords.
+- leetcodeUrl must be null for every task.`;
     }
 
     return `
-You are an expert career coach. Generate today's personalized interview practice tasks for this job seeker.
+You are an expert technical interviewer generating highly personalised interview practice questions.
 
-USER PROFILE
-Target role(s): ${targetRoles}
-Current status: ${currentStatus}
-Primary focus:  ${primaryFocus}
-Interests:      ${interests}
-Keywords extracted from resume: ${keywordList}
-
-Resume:
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TARGET ROLE:  ${dedicatedRole}
+INTERESTS:    ${interests}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUME KEYWORDS (the user actually knows these — use them directly in question titles):
+${keywordList}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUME TEXT:
 ${resumeText}
----
-${leetcodeSection}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${roleSpecificSection}
 
-INSTRUCTIONS
-1. Use the extracted keywords and resume to understand the user's domain, target role, and specific tools/technologies they have worked with.
-2. Generate EXACTLY ${mix.total} tasks: ${mix.easy} easy, ${mix.medium} medium, ${mix.hard} hard.
-   - easy: foundational — something a junior in this field should know
-   - medium: applies 2+ concepts or requires multi-step thinking
-   - hard: deep expertise, design decisions, or complex problem-solving
-3. Task titles must be specific and actionable — NOT vague topics.
-4. Choose categories that match the user's actual domain (e.g. "DSA", "System Design", "Technical Concepts", "Behavioral", "Engineering Design", etc.). Do NOT force software categories on non-software roles.
-5. Behavioral tasks should use STAR format ("Tell me about a time you…").
-6. Only set leetcodeUrl for real LeetCode problems (only when the LEETCODE REQUIREMENT above applies). For all other tasks set leetcodeUrl to null.
-7. Every task must reference tools, technologies, or concepts from the user's actual resume.${avoidSection}
+STRICT RULES — read every rule before generating:
+
+RULE 1 — QUESTION FORMAT (mandatory):
+  Every task title MUST be a complete interview question. Use one of these openers:
+    "How would you…", "Explain how…", "Walk me through…", "What is the difference between…",
+    "Why would you choose…", "Tell me about a time you…", "You are given X — how would you…"
+  ❌ BANNED — never start a title with a gerund/noun phrase:
+    "Designing…", "Optimizing…", "Building…", "Material Selection…", "Analysis of…"
+
+RULE 2 — USE RESUME KEYWORDS IN TITLES (mandatory):
+  Each title MUST contain at least one specific keyword from the RESUME KEYWORDS list above.
+  ✅ GOOD: "How would you use MATLAB to simulate the fluid flow in a pipe network?"
+  ✅ GOOD: "Walk me through how you would perform a static stress analysis in ANSYS for a composite bracket."
+  ✅ GOOD: "Why would you choose SolidWorks over CATIA for sheet-metal part design?"
+  ❌ BAD:  "How would you solve a design problem?" (no keyword, too vague)
+  ❌ BAD:  "Explain material selection for a component." (no keyword, generic)
+
+RULE 3 — SPECIFICITY:
+  Questions must name exact tools, techniques, or scenarios — not abstract concepts.
+  Treat each question as if a real interviewer at a top company is asking it.
+
+RULE 4 — DIFFICULTY LEVELS:
+  easy   — directly tests knowledge of one specific tool/concept from the keywords list
+  medium — requires combining 2+ keywords or concepts, or multi-step reasoning
+  hard   — requires deep trade-off analysis, design decisions, or a project-level scenario
+
+RULE 5 — CATEGORIES must match the role domain. No software/CS categories for non-CS roles.
+
+RULE 6 — Behavioral tasks use STAR format: "Tell me about a time you…"
+
+RULE 7 — Only set leetcodeUrl for real LeetCode problems. Set it to null for everything else.
+${avoidSection}
+
+Generate EXACTLY ${mix.total} tasks: ${mix.easy} easy, ${mix.medium} medium, ${mix.hard} hard.
 
 Return ONLY a JSON array of exactly ${mix.total} objects:
 [{"title":"...","description":"...","category":"...","difficulty":"easy|medium|hard","priority":"low|medium|high","tags":["..."],"time_minutes":25,"leetcodeUrl":null}]

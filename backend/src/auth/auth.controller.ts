@@ -7,6 +7,7 @@ import {
   UseGuards,
   Req,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
@@ -125,6 +126,28 @@ export class AuthController {
   async resetPassword(@Body() body: { token: string; password: string }) {
     return this.authService.resetPassword(body.token, body.password);
   }
+  @Post('refresh')
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = (req as any).cookies?.['refresh_token'];
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token');
+    }
+
+    const { accessToken } = await this.authService.refreshAccessToken(refreshToken);
+
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
+    });
+
+    return { message: 'Token refreshed' };
+  }
+
   @Post('logout')
   async logOut(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('access_token', {

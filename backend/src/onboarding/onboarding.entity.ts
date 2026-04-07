@@ -23,6 +23,11 @@ export class OnboardingResponse {
   @Column('text', { array: true, nullable: true })
   preferredRole: string[] | null;
 
+  // The single committed role derived from the user's first/primary preferredRole selection.
+  // Used as the authoritative base for task generation and role-type detection.
+  @Column({ type: 'text', nullable: true })
+  dedicatedRole: string | null;
+
   @Column('text', { array: true, nullable: true })
   areasOfInterest: string[] | null;
 

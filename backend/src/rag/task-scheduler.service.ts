@@ -39,16 +39,35 @@ export class TaskSchedulerService {
 
     this.logger.log(`Found ${users.length} onboarded users`);
 
-    // Stagger requests slightly to avoid hammering the LLM API
+    const failed: typeof users = [];
+
+    // First pass — 5 s between users keeps us well under Gemini 15 RPM free-tier limit.
+    // (25 users × 5 s = ~2 min total, safely under the rate limit)
     for (const user of users) {
       try {
         await this.ragService.getDailyTasks(user.id);
         this.logger.log(`✅ Generated daily plan for ${user.email}`);
       } catch (err) {
         this.logger.error(`❌ Failed for ${user.email}: ${err}`);
+        failed.push(user);
       }
-      // Small delay between users to stay under LLM rate limits
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+
+    // Retry pass — wait 2 minutes then retry all failed users once
+    if (failed.length > 0) {
+      this.logger.warn(`⏳ Retrying ${failed.length} failed users in 2 minutes…`);
+      await new Promise((r) => setTimeout(r, 120_000));
+
+      for (const user of failed) {
+        try {
+          await this.ragService.getDailyTasks(user.id);
+          this.logger.log(`✅ Retry succeeded for ${user.email}`);
+        } catch (err) {
+          this.logger.error(`❌ Retry also failed for ${user.email}: ${err}`);
+        }
+        await new Promise((r) => setTimeout(r, 5000));
+      }
     }
 
     this.logger.log('⏰ Daily task generation cron finished');
