@@ -23,6 +23,24 @@ import {
   Area,
 } from "recharts";
 
+// ---- Shared color tokens (matches RecentSubmissions) ----
+const C = {
+  accent: "rgb(209,112,51)",
+  accentGold: "#E5B526",
+  accentTeal: "#2E9B8F", // complementary third color
+  accentBg: "rgba(209,112,51,0.06)",
+  accentBorder: "rgba(209,112,51,0.15)",
+  accentFaint: "rgba(209,112,51,0.1)",
+  accentHover: "rgba(226,114,44,0.06)",
+  accentSelected: "rgba(209,112,51,0.12)",
+  accentGrad: "linear-gradient(to right, rgb(209,112,51), #E5B526)",
+  cardBg: "#ffffff",
+  textPrimary: "#000000",
+  textSub: "rgba(0,0,0,0.5)",
+  textMuted: "rgba(0,0,0,0.35)",
+  divider: "rgba(0,0,0,0.06)",
+} as const;
+
 // ---------------- PERIODS ----------------
 const PERIODS = [
   { label: "This Week", value: "this_week", title: "Weekly Progress" },
@@ -34,7 +52,7 @@ const PERIODS = [
 // ---------------- EMPTY STATE MESSAGES ----------------
 const EMPTY_STATE_MESSAGES: Record<string, { title: string; sub: string }> = {
   "7d": {
-    title: "Nothing logged Last week yet",
+    title: "Nothing logged last week yet",
     sub: "Start today — complete a task, solve a LeetCode problem, or send an application to see your streak come alive.",
   },
   this_week: {
@@ -53,12 +71,11 @@ const EMPTY_STATE_MESSAGES: Record<string, { title: string; sub: string }> = {
 
 // ---------------- ACTIVE DOT ----------------
 function GlowActiveDot(props: any) {
-  const { cx, cy, stroke = "#f97316" } = props;
-
+  const { cx, cy, stroke = C.accent } = props;
   return (
     <g>
-      <circle cx={cx} cy={cy} r={14} fill={stroke} opacity={0.14} />
-      <circle cx={cx} cy={cy} r={9} fill={stroke} opacity={0.22} />
+      <circle cx={cx} cy={cy} r={14} fill={stroke} opacity={0.1} />
+      <circle cx={cx} cy={cy} r={9} fill={stroke} opacity={0.18} />
       <circle
         cx={cx}
         cy={cy}
@@ -74,7 +91,6 @@ function GlowActiveDot(props: any) {
 // ---------------- TOOLTIP ----------------
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
-
   const data = payload[0]?.payload;
   if (!data) return null;
 
@@ -85,63 +101,37 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         maxWidth: 260,
         p: 2,
         borderRadius: 3,
-        background:
-          "linear-gradient(180deg, rgba(17,18,28,0.97) 0%, rgba(10,11,18,0.97) 100%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 16px 40px rgba(0,0,0,0.42)",
-        backdropFilter: "blur(16px)",
+        background: "#fff",
+        border: `1px solid ${C.accentBorder}`,
+        boxShadow: "0 8px 28px rgba(0,0,0,0.10)",
       }}
     >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={1.25}
+      <Typography
+        sx={{ color: C.textPrimary, fontWeight: 700, fontSize: 15, mb: 1.25 }}
       >
-        <Typography sx={{ color: "#f8fafc", fontWeight: 700, fontSize: 15 }}>
-          {label}
-        </Typography>
-      </Stack>
+        {label}
+      </Typography>
 
       <Stack spacing={0.75}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <Typography sx={{ color: "#fb923c", fontSize: 13, fontWeight: 600 }}>
-            Tasks
-          </Typography>
-          <Typography sx={{ color: "#e5e7eb", fontSize: 13 }}>
-            {data.tasks}
-          </Typography>
-        </Stack>
-
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <Typography sx={{ color: "#c084fc", fontSize: 13, fontWeight: 600 }}>
-            LeetCode
-          </Typography>
-          <Typography sx={{ color: "#e5e7eb", fontSize: 13 }}>
-            {data.leetcode}
-          </Typography>
-        </Stack>
-
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <Typography sx={{ color: "#38bdf8", fontSize: 13, fontWeight: 600 }}>
-            Applications
-          </Typography>
-          <Typography sx={{ color: "#e5e7eb", fontSize: 13 }}>
-            {data.applications}
-          </Typography>
-        </Stack>
+        {[
+          { label: "Tasks", key: "tasks", color: C.accent },
+          { label: "LeetCode", key: "leetcode", color: C.accentGold },
+          { label: "Applications", key: "applications", color: C.accentTeal },
+        ].map(({ label, key, color }) => (
+          <Stack
+            key={key}
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography sx={{ color, fontSize: 13, fontWeight: 600 }}>
+              {label}
+            </Typography>
+            <Typography sx={{ color: C.textSub, fontSize: 13 }}>
+              {data[key]}
+            </Typography>
+          </Stack>
+        ))}
       </Stack>
 
       <Stack direction="row" spacing={1} mt={1.5} flexWrap="wrap">
@@ -150,9 +140,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           label={`${data.easy} Easy`}
           sx={{
             height: 24,
-            color: "#fde68a",
-            background: "rgba(245,158,11,0.12)",
-            border: "1px solid rgba(245,158,11,0.18)",
+            color: C.accentGold,
+            background: "rgba(229,181,38,0.10)",
+            border: `1px solid rgba(229,181,38,0.22)`,
             fontWeight: 600,
           }}
         />
@@ -161,21 +151,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           label={`${data.medium} Medium`}
           sx={{
             height: 24,
-            color: "#fca5a5",
-            background: "rgba(239,68,68,0.10)",
-            border: "1px solid rgba(239,68,68,0.16)",
+            color: C.accent,
+            background: C.accentBg,
+            border: `1px solid ${C.accentBorder}`,
             fontWeight: 600,
           }}
         />
       </Stack>
 
       <Typography
-        sx={{
-          mt: 1.5,
-          fontSize: 12,
-          fontWeight: 600,
-          color: "#fb923c",
-        }}
+        sx={{ mt: 1.5, fontSize: 12, fontWeight: 600, color: C.accent }}
       >
         🔥 +{data.streak} Momentum Streak
       </Typography>
@@ -186,6 +171,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 // ---------------- EMPTY STATE ----------------
 function EmptyState({ period }: { period: string }) {
   const msg = EMPTY_STATE_MESSAGES[period] ?? EMPTY_STATE_MESSAGES["7d"];
+
+  const pills = [
+    { label: "Task", color: C.accent, bg: C.accentBg, border: C.accentBorder },
+    {
+      label: "LeetCode",
+      color: C.accentGold,
+      bg: "rgba(229,181,38,0.08)",
+      border: "rgba(229,181,38,0.20)",
+    },
+    {
+      label: "Application",
+      color: C.accentTeal,
+      bg: "rgba(46,155,143,0.08)",
+      border: "rgba(46,155,143,0.20)",
+    },
+  ];
 
   return (
     <Box
@@ -198,7 +199,7 @@ function EmptyState({ period }: { period: string }) {
         justifyContent: "center",
         gap: 1.5,
         borderRadius: 3,
-        border: "1px dashed rgba(255,255,255,0.08)",
+        border: `1px dashed ${C.accentBorder}`,
         position: "relative",
         overflow: "hidden",
       }}
@@ -213,26 +214,26 @@ function EmptyState({ period }: { period: string }) {
           inset: 0,
           width: "100%",
           height: "100%",
-          opacity: 0.07,
+          opacity: 0.06,
           pointerEvents: "none",
         }}
       >
         <polyline
           points="0,200 80,160 160,180 240,100 320,130 400,80 480,110 600,60"
           fill="none"
-          stroke="#ff7a1a"
+          stroke={C.accent}
           strokeWidth="2"
         />
         <polyline
           points="0,220 80,200 160,210 240,160 320,180 400,150 480,160 600,120"
           fill="none"
-          stroke="#a855f7"
+          stroke={C.accentGold}
           strokeWidth="1.5"
         />
         <polyline
           points="0,240 80,220 160,230 240,190 320,210 400,180 480,200 600,160"
           fill="none"
-          stroke="#38bdf8"
+          stroke={C.accentTeal}
           strokeWidth="1.5"
         />
       </Box>
@@ -243,8 +244,8 @@ function EmptyState({ period }: { period: string }) {
           width: 48,
           height: 48,
           borderRadius: "50%",
-          background: "rgba(249,115,22,0.1)",
-          border: "1px solid rgba(249,115,22,0.18)",
+          background: C.accentBg,
+          border: `1px solid ${C.accentBorder}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -252,13 +253,12 @@ function EmptyState({ period }: { period: string }) {
           zIndex: 1,
         }}
       >
-        <BoltRoundedIcon sx={{ color: "#fb923c", fontSize: 22 }} />
+        <BoltRoundedIcon sx={{ color: C.accent, fontSize: 22 }} />
       </Box>
 
-      {/* Title */}
       <Typography
         sx={{
-          color: "#f8fafc",
+          color: C.textPrimary,
           fontWeight: 600,
           fontSize: 15,
           zIndex: 1,
@@ -268,10 +268,9 @@ function EmptyState({ period }: { period: string }) {
         {msg.title}
       </Typography>
 
-      {/* Subtitle */}
       <Typography
         sx={{
-          color: "#6b7280",
+          color: C.textSub,
           fontSize: 13,
           textAlign: "center",
           maxWidth: 320,
@@ -283,7 +282,6 @@ function EmptyState({ period }: { period: string }) {
         {msg.sub}
       </Typography>
 
-      {/* Category pills */}
       <Stack
         direction="row"
         spacing={1}
@@ -291,26 +289,7 @@ function EmptyState({ period }: { period: string }) {
         flexWrap="wrap"
         justifyContent="center"
       >
-        {[
-          {
-            label: "Task",
-            color: "#fb923c",
-            bg: "rgba(249,115,22,0.1)",
-            border: "rgba(249,115,22,0.18)",
-          },
-          {
-            label: "LeetCode",
-            color: "#c084fc",
-            bg: "rgba(168,85,247,0.1)",
-            border: "rgba(168,85,247,0.18)",
-          },
-          {
-            label: "Application",
-            color: "#38bdf8",
-            bg: "rgba(56,189,248,0.1)",
-            border: "rgba(56,189,248,0.18)",
-          },
-        ].map(({ label, color, bg, border }) => (
+        {pills.map(({ label, color, bg, border }) => (
           <Chip
             key={label}
             size="small"
@@ -340,7 +319,6 @@ export default function MomentumGraphCard({
   setPeriod: (p: string) => void;
 }) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-
   const selected = PERIODS.find((p) => p.value === period);
 
   return (
@@ -351,13 +329,11 @@ export default function MomentumGraphCard({
         p: { xs: 2, sm: 3 },
         overflow: "hidden",
         position: "relative",
-        background: `
-          radial-gradient(circle at 18% 24%, rgba(99,102,241,0.16), transparent 32%),
-          radial-gradient(circle at 82% 72%, rgba(249,115,22,0.12), transparent 30%),
-          linear-gradient(180deg, #0f1020 0%, #06070d 100%)
-        `,
-        border: "1px solid rgba(255,255,255,0.05)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        background: C.cardBg,
+        borderTop: `4px solid ${C.accentBorder}`,
+
+        borderImage: `${C.accentGrad} 1`,
+        boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
       }}
     >
       {/* HEADER */}
@@ -374,7 +350,7 @@ export default function MomentumGraphCard({
         <Box>
           <Typography
             sx={{
-              color: "#f8fafc",
+              color: C.accent,
               fontWeight: 700,
               fontSize: { xs: 20, sm: 24 },
               letterSpacing: "-0.02em",
@@ -382,21 +358,14 @@ export default function MomentumGraphCard({
           >
             {selected?.title}
           </Typography>
-
-          <Typography
-            sx={{
-              color: "#9ca3af",
-              fontSize: 13,
-              mt: 0.5,
-            }}
-          >
+          <Typography sx={{ color: C.textSub, fontSize: 13, mt: 0.5 }}>
             Track your consistency across tasks, coding, and applications
           </Typography>
         </Box>
 
         <Button
           onClick={(e) => setAnchorEl(e.currentTarget)}
-          endIcon={<KeyboardArrowDownRoundedIcon sx={{ color: "#e5e7eb" }} />}
+          endIcon={<KeyboardArrowDownRoundedIcon sx={{ color: C.textSub }} />}
           sx={{
             alignSelf: { xs: "flex-start", sm: "auto" },
             minWidth: 148,
@@ -405,16 +374,15 @@ export default function MomentumGraphCard({
             px: 2.25,
             py: 1.2,
             borderRadius: 2.5,
-            color: "#f8fafc",
+            color: C.textPrimary,
             fontSize: 14,
             fontWeight: 600,
-            background: "rgba(255,255,255,0.045)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            backdropFilter: "blur(8px)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            background: C.accentBg,
+            border: `1px solid ${C.accentBorder}`,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
             "&:hover": {
-              background: "rgba(255,255,255,0.075)",
-              borderColor: "rgba(255,255,255,0.12)",
+              background: "rgba(209,112,51,0.10)",
+              borderColor: "rgba(209,112,51,0.25)",
             },
           }}
         >
@@ -432,18 +400,15 @@ export default function MomentumGraphCard({
               mt: 1,
               minWidth: 180,
               borderRadius: 2.5,
-              background:
-                "linear-gradient(180deg, rgba(20,20,28,0.98) 0%, rgba(12,12,18,0.98) 100%)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 18px 45px rgba(0,0,0,0.38)",
-              backdropFilter: "blur(12px)",
+              background: "#fff",
+              border: `1px solid ${C.accentBorder}`,
+              boxShadow: "0 8px 28px rgba(0,0,0,0.10)",
               overflow: "hidden",
             },
           }}
         >
           {PERIODS.map((p) => {
             const isSelected = p.value === period;
-
             return (
               <MenuItem
                 key={p.value}
@@ -454,16 +419,11 @@ export default function MomentumGraphCard({
                 sx={{
                   py: 1.2,
                   px: 1.75,
-                  color: isSelected ? "#fff" : "#cbd5e1",
+                  color: isSelected ? C.accent : C.textSub,
                   fontSize: 14,
                   fontWeight: isSelected ? 700 : 500,
-                  background: isSelected
-                    ? "rgba(255,255,255,0.05)"
-                    : "transparent",
-                  "&:hover": {
-                    background: "rgba(255,255,255,0.06)",
-                    color: "#fff",
-                  },
+                  background: isSelected ? C.accentSelected : "transparent",
+                  "&:hover": { background: C.accentHover, color: C.accent },
                 }}
               >
                 {p.label}
@@ -474,12 +434,7 @@ export default function MomentumGraphCard({
       </Box>
 
       {/* GRAPH */}
-      <Box
-        sx={{
-          width: "100%",
-          height: { xs: 230, sm: 280, md: 320 },
-        }}
-      >
+      <Box sx={{ width: "100%", height: { xs: 230, sm: 280, md: 320 } }}>
         {data.length === 0 ||
         data.every(
           (d) => d.tasks === 0 && d.leetcode === 0 && d.applications === 0
@@ -489,12 +444,7 @@ export default function MomentumGraphCard({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={data}
-              margin={{
-                top: 12,
-                right: 24,
-                bottom: 8,
-                left: 8,
-              }}
+              margin={{ top: 12, right: 24, bottom: 8, left: 8 }}
             >
               <defs>
                 <linearGradient
@@ -504,26 +454,15 @@ export default function MomentumGraphCard({
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor="rgba(249,115,22,0.28)" />
-                  <stop offset="65%" stopColor="rgba(249,115,22,0.08)" />
-                  <stop offset="100%" stopColor="rgba(249,115,22,0)" />
-                </linearGradient>
-
-                <linearGradient
-                  id="hoverCursorGradient"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
-                  <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
+                  <stop offset="0%" stopColor="rgba(209,112,51,0.20)" />
+                  <stop offset="65%" stopColor="rgba(209,112,51,0.05)" />
+                  <stop offset="100%" stopColor="rgba(209,112,51,0)" />
                 </linearGradient>
               </defs>
 
               <CartesianGrid
                 strokeDasharray="4 5"
-                stroke="rgba(255,255,255,0.045)"
+                stroke={C.divider}
                 vertical={true}
                 horizontal={true}
               />
@@ -533,34 +472,24 @@ export default function MomentumGraphCard({
                 axisLine={false}
                 tickLine={false}
                 padding={{ left: 4, right: 8 }}
-                tick={{
-                  fill: "#8f98ab",
-                  fontSize: 12,
-                  fontWeight: 500,
-                }}
+                tick={{ fill: C.textMuted, fontSize: 12, fontWeight: 500 }}
               />
 
               <YAxis
                 axisLine={false}
                 tickLine={false}
                 width={34}
-                tick={{
-                  fill: "#8f98ab",
-                  fontSize: 12,
-                  fontWeight: 500,
-                }}
+                tick={{ fill: C.textMuted, fontSize: 12, fontWeight: 500 }}
               />
 
               <Tooltip
                 content={<CustomTooltip />}
                 cursor={{
-                  stroke: "rgba(255,255,255,0.16)",
+                  stroke: C.accentBorder,
                   strokeWidth: 1,
                   strokeDasharray: "4 5",
                 }}
-                wrapperStyle={{
-                  outline: "none",
-                }}
+                wrapperStyle={{ outline: "none" }}
               />
 
               <Area
@@ -575,61 +504,52 @@ export default function MomentumGraphCard({
               <Line
                 type="monotone"
                 dataKey="tasks"
-                stroke="#ff7a1a"
+                stroke={C.accent}
                 strokeWidth={3.5}
                 strokeLinecap="round"
                 dot={{
                   r: 3.2,
-                  fill: "#ff7a1a",
-                  stroke: "#ffd8b0",
+                  fill: C.accent,
+                  stroke: "rgba(209,112,51,0.3)",
                   strokeWidth: 1.5,
                 }}
-                activeDot={<GlowActiveDot stroke="#ff7a1a" />}
+                activeDot={<GlowActiveDot stroke={C.accent} />}
                 isAnimationActive
                 animationDuration={550}
-                style={{
-                  filter: "drop-shadow(0 0 8px rgba(249,115,22,0.28))",
-                }}
               />
 
               <Line
                 type="monotone"
                 dataKey="leetcode"
-                stroke="#a855f7"
+                stroke={C.accentGold}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 dot={{
                   r: 3,
-                  fill: "#a855f7",
-                  stroke: "#eadcff",
+                  fill: C.accentGold,
+                  stroke: "rgba(229,181,38,0.3)",
                   strokeWidth: 1.2,
                 }}
-                activeDot={<GlowActiveDot stroke="#a855f7" />}
+                activeDot={<GlowActiveDot stroke={C.accentGold} />}
                 isAnimationActive
                 animationDuration={550}
-                style={{
-                  filter: "drop-shadow(0 0 8px rgba(168,85,247,0.22))",
-                }}
               />
 
               <Line
                 type="monotone"
                 dataKey="applications"
-                stroke="#38bdf8"
+                stroke={C.accentTeal}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 dot={{
                   r: 3,
-                  fill: "#38bdf8",
-                  stroke: "#d3f1ff",
+                  fill: C.accentTeal,
+                  stroke: "rgba(46,155,143,0.3)",
                   strokeWidth: 1.2,
                 }}
-                activeDot={<GlowActiveDot stroke="#38bdf8" />}
+                activeDot={<GlowActiveDot stroke={C.accentTeal} />}
                 isAnimationActive
                 animationDuration={550}
-                style={{
-                  filter: "drop-shadow(0 0 8px rgba(56,189,248,0.22))",
-                }}
               />
             </LineChart>
           </ResponsiveContainer>

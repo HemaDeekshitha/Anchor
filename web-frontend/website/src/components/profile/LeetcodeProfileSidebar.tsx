@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Avatar,
   Box,
@@ -49,6 +49,7 @@ type ProfileSectionProps = {
   };
   weeklyRecap?: string;
   setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
+  onEditClick: () => void;
 };
 const categoryColors: Record<string, string> = {
   ai: "#c084fc",
@@ -62,8 +63,8 @@ const categoryColors: Record<string, string> = {
 
 export default function LeetcodeProfileSidebar({
   profile,
-  weeklyRecap,
   setOpenResumeText,
+  onEditClick,
 }: ProfileSectionProps) {
   const [showAllSkills, setShowAllSkills] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -303,8 +304,12 @@ export default function LeetcodeProfileSidebar({
                 label={focus}
                 size="small"
                 sx={{
-                  background: "#2a2a2a",
-                  color: "#fff",
+                  background: C.accentBg,
+                  color: C.accent,
+                  border: `1px solid ${C.accentBorder}`,
+                  fontWeight: 600,
+                  fontSize: 12,
+                  borderRadius: "8px",
                 }}
               />
             ))}
@@ -314,6 +319,7 @@ export default function LeetcodeProfileSidebar({
         {/* Edit profile button */}
         <Button
           fullWidth
+          onClick={onEditClick}
           sx={{
             mt: 2.5,
             py: 1.2,
@@ -321,11 +327,11 @@ export default function LeetcodeProfileSidebar({
             textTransform: "none",
             fontWeight: 600,
             fontSize: 16,
-            background: "linear-gradient(to right, rgb(209 51 51), #E5B526)",
-            color: "black",
-            boxShadow: "0 0 25px rgba(255, 138, 61, 0.4)",
+            background: C.accentGrad,
+            color: "#fff",
+            boxShadow: "0 0 25px rgba(255,138,61,0.35)",
             "&:hover": {
-              background: "linear-gradient(to left, rgb(209 51 51), #E5B526)",
+              background: "linear-gradient(to left, rgb(209,112,51), #E5B526)",
             },
           }}
         >
@@ -353,7 +359,9 @@ export default function LeetcodeProfileSidebar({
             Status
           </Typography>
           <Typography fontSize={14}>
-            {profile?.status?.length || "No status set yet"}
+            {profile?.status?.length
+              ? profile.status.join(", ")
+              : "No status set yet"}
           </Typography>
         </Box>
 
@@ -362,9 +370,9 @@ export default function LeetcodeProfileSidebar({
             Seeking
           </Typography>
           <Typography fontSize={14}>
-            {" "}
-            {profile?.employmentType?.length ||
-              "Open to all employment opportunities"}
+            {profile?.employmentType?.length
+              ? profile.employmentType.join(", ")
+              : "Open to all employment opportunities"}
           </Typography>
         </Box>
 
@@ -391,9 +399,13 @@ export default function LeetcodeProfileSidebar({
               label={role}
               size="small"
               sx={{
-                background: "#2a2a2a",
-                color: "#fff",
+                height: 26,
+                fontSize: 12,
                 fontWeight: 500,
+                background: "#f5f5f5",
+                color: "rgba(0,0,0,0.70)",
+                border: "1px solid rgba(0,0,0,0.07)",
+                borderRadius: "6px",
               }}
             />
           ))
@@ -421,9 +433,13 @@ export default function LeetcodeProfileSidebar({
               label={intrest}
               size="small"
               sx={{
-                background: "#2a2a2a",
-                color: "#fff",
+                height: 26,
+                fontSize: 12,
                 fontWeight: 500,
+                background: "#f5f5f5",
+                color: "rgba(0,0,0,0.70)",
+                border: "1px solid rgba(0,0,0,0.07)",
+                borderRadius: "6px",
               }}
             />
           ))
@@ -435,36 +451,56 @@ export default function LeetcodeProfileSidebar({
       </Box>
 
       {/* SKILLS */}
+      {/* SKILLS */}
       {(profile?.skills?.length ?? 0) > 0 && (
         <>
-          <Divider sx={{ my: 3, borderColor: "#2a2a2a" }} />
+          <Divider sx={{ my: 3, borderColor: C.divider }} />
 
-          <Typography fontWeight={700} mb={2}>
-            Skills ({(profile?.skills?.length ?? 0).toLocaleString()})
-          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography fontWeight={700} color="black">
+              Skills
+            </Typography>
+            <Typography fontSize={12} sx={{ color: C.textSub }}>
+              {profile?.skills?.length} total
+            </Typography>
+          </Box>
 
           {/* TOP SKILLS */}
           {topSkills.length > 0 && (
-            <Box mb={2}>
+            <Box mb={2.5}>
               <Typography
-                fontSize={13}
-                fontWeight={600}
-                sx={{ color: "#9aa0a6", mb: 1 }}
+                fontSize={11}
+                fontWeight={700}
+                sx={{
+                  color: C.textSub,
+                  mb: 1,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
+                }}
               >
                 Top Skills
               </Typography>
-
-              <Box display="flex" flexWrap="wrap" gap={1}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
                 {topSkills.map((skill) => (
                   <Chip
                     key={skill.name}
                     label={skill.name}
+                    size="small"
                     sx={{
-                      background: "#1f2937",
-                      color: "#fff",
+                      height: 28,
+                      fontSize: 12,
                       fontWeight: 600,
-                      fontSize: 13,
-                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: C.accentBg,
+                      color: C.accent,
+                      border: `1px solid ${C.accentBorder}`,
+                      borderRadius: "8px",
                     }}
                   />
                 ))}
@@ -472,48 +508,62 @@ export default function LeetcodeProfileSidebar({
             </Box>
           )}
 
-          {/* OTHER SKILLS BY CATEGORY */}
+          {/* SKILLS BY CATEGORY */}
           {visibleCategories.map(([category, skills]) => (
             <Box key={category} mb={2}>
+              {/* category label with colored dot */}
               <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  mb: 1,
-                }}
+                sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}
               >
                 <Box
                   sx={{
-                    width: 8,
-                    height: 8,
+                    width: 7,
+                    height: 7,
                     borderRadius: "50%",
-                    background: categoryColors[category] ?? "#6b7280",
+                    flexShrink: 0,
+                    background: categoryColors[category] ?? C.accent,
+                    boxShadow: `0 0 6px ${
+                      categoryColors[category] ?? C.accent
+                    }60`,
                   }}
                 />
-
                 <Typography
-                  fontSize={13}
-                  fontWeight={600}
+                  fontSize={11}
+                  fontWeight={700}
                   sx={{
-                    color: "#cfcfcf",
-                    letterSpacing: 0.2,
+                    color: C.textSub,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
                   }}
                 >
-                  {formatCategoryLabel(category)} ({skills.length})
+                  {formatCategoryLabel(category)}
+                </Typography>
+                <Typography fontSize={11} sx={{ color: C.textMuted }}>
+                  · {skills.length}
                 </Typography>
               </Box>
 
-              <Box display="flex" flexWrap="wrap" gap={1}>
+              {/* skill chips */}
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.65 }}>
                 {skills.map((skill) => (
                   <Chip
                     key={skill.name}
                     label={skill.name}
                     size="small"
                     sx={{
-                      background: "#2a2a2a",
-                      color: "#e4e4e4",
+                      height: 24,
                       fontSize: 12,
+                      fontWeight: 500,
+                      background: "#f5f5f5",
+                      color: "rgba(0,0,0,0.70)",
+                      border: "1px solid rgba(0,0,0,0.07)",
+                      borderRadius: "6px",
+                      "&:hover": {
+                        background: C.accentBg,
+                        color: C.accent,
+                        border: `1px solid ${C.accentBorder}`,
+                      },
+                      transition: "all 0.15s",
                     }}
                   />
                 ))}
@@ -524,16 +574,22 @@ export default function LeetcodeProfileSidebar({
           {/* SHOW MORE */}
           {categories.length > 3 && (
             <Box
-              mt={1}
-              sx={{
-                cursor: "pointer",
-                color: "#9aa0a6",
-                fontSize: 14,
-                "&:hover": { color: "#fff" },
-              }}
               onClick={() => setShowAllSkills(!showAllSkills)}
+              sx={{
+                mt: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.5,
+                fontSize: 13,
+                fontWeight: 600,
+                color: C.accent,
+                cursor: "pointer",
+                "&:hover": { textDecoration: "underline" },
+              }}
             >
-              {showAllSkills ? "Show less" : "Show more"}
+              {showAllSkills
+                ? "Show less ↑"
+                : `Show ${categories.length - 3} more categories ↓`}
             </Box>
           )}
         </>

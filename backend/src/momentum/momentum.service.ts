@@ -4,7 +4,10 @@ import { Repository } from 'typeorm';
 
 import { User } from '../users/user.entity';
 import { OnboardingResponse } from '../onboarding/onboarding.entity';
-import { MomentumProfileDto } from './dto/momentum-profile.dto';
+import {
+  MomentumProfileDto,
+  UpdateMomentumProfileDto,
+} from './dto/momentum-profile.dto';
 import axios from 'axios';
 import { Response } from 'express';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
@@ -63,11 +66,105 @@ export class MomentumService {
       preferredRoles: onboarding?.preferredRole ?? [],
       intrests: onboarding?.areasOfInterest ?? [],
       employmentType: onboarding?.employmentType ?? [],
+      avatarUrl: onboarding?.profileImageUrl ?? null, // ← added
 
       skills,
-      //   imageUrl?: onboarding?.imageUrl ?? null;  // future: user profile image stored in cloudinary
     };
   }
+
+  // ── NEW ─────────────────────────────────────────────────────────────────────
+  async updateProfile(userId: string, dto: UpdateMomentumProfileDto) {
+    if (dto.name !== undefined || dto.email !== undefined) {
+      const userUpdate: Partial<User> = {};
+      if (dto.name !== undefined) userUpdate.name = dto.name;
+      if (dto.email !== undefined) userUpdate.email = dto.email;
+      await this.userRepository.update(userId, userUpdate);
+    }
+
+    const onboarding = await this.onboardingRepository.findOne({
+      where: { userId },
+    });
+
+    if (!onboarding) {
+      const fresh = this.onboardingRepository.create({
+        userId,
+        primaryFocus: dto.primaryFocus ?? null,
+        currentStatus: dto.currentStatus ?? null,
+        preferredRole: dto.preferredRole ?? null,
+        areasOfInterest: dto.areasOfInterest ?? null,
+        employmentType: dto.employmentType ?? null,
+        resumeText: dto.resumeText ?? null,
+      });
+      await this.onboardingRepository.save(fresh);
+      return { success: true };
+    }
+
+    if (dto.primaryFocus !== undefined)
+      onboarding.primaryFocus = dto.primaryFocus;
+    if (dto.currentStatus !== undefined)
+      onboarding.currentStatus = dto.currentStatus;
+    if (dto.preferredRole !== undefined)
+      onboarding.preferredRole = dto.preferredRole;
+    if (dto.areasOfInterest !== undefined)
+      onboarding.areasOfInterest = dto.areasOfInterest;
+    if (dto.employmentType !== undefined)
+      onboarding.employmentType = dto.employmentType;
+    if (dto.resumeText !== undefined) onboarding.resumeText = dto.resumeText;
+
+    await this.onboardingRepository.save(onboarding);
+    return { success: true };
+  }
+
+  async updateResume(userId: string, file: Express.Multer.File) {
+    const resumeUrl = await this.cloudinaryService.uploadFile(file);
+    const resumeName = file.originalname;
+
+    const onboarding = await this.onboardingRepository.findOne({
+      where: { userId },
+    });
+
+    if (onboarding) {
+      onboarding.resumeUrl = resumeUrl;
+      onboarding.resumeName = resumeName;
+      onboarding.resumeText = null;
+      await this.onboardingRepository.save(onboarding);
+      await this.resumeSkillProcessor.processResume(onboarding);
+    } else {
+      const fresh = this.onboardingRepository.create({
+        userId,
+        resumeUrl,
+        resumeName,
+        resumeText: null,
+      });
+      await this.onboardingRepository.save(fresh);
+      await this.resumeSkillProcessor.processResume(fresh);
+    }
+
+    return { success: true, resumeName };
+  }
+
+  async updateAvatar(userId: string, file: Express.Multer.File) {
+    const imageUrl = await this.cloudinaryService.uploadFile(file);
+
+    const onboarding = await this.onboardingRepository.findOne({
+      where: { userId },
+    });
+
+    if (onboarding) {
+      onboarding.profileImageUrl = imageUrl;
+      await this.onboardingRepository.save(onboarding);
+    } else {
+      const fresh = this.onboardingRepository.create({
+        userId,
+        profileImageUrl: imageUrl,
+      });
+      await this.onboardingRepository.save(fresh);
+    }
+
+    return { success: true, imageUrl };
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   async streamResume(userId: string, res: Response) {
     const onboarding = await this.onboardingRepository.findOne({
       where: { userId },
@@ -78,12 +175,9 @@ export class MomentumService {
     }
 
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-
     const resumeUrl = `https://res.cloudinary.com/${cloudName}/raw/upload/${onboarding.resumeUrl}`;
 
-    const file = await axios.get(resumeUrl, {
-      responseType: 'stream',
-    });
+    const file = await axios.get(resumeUrl, { responseType: 'stream' });
 
     res.set({
       'Content-Type': 'application/pdf',
