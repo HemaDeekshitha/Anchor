@@ -1,194 +1,336 @@
 /* onboarding.module.css */
 
-/* --- COMPONENT VARIABLES --- */
-
 .splitLayout {
-  background: linear-gradient(to right, rgb(209 51 51), #e5b526);
-  /* background-color: var(--background); */
+  background: #ede8e0;
   color: var(--foreground);
 
-  /* Component Specific Defaults (Light Mode) */
-  --local-border: #e5e7eb;
-  --local-chip-bg: #ffffff;
-  --local-chip-hover: #f9fafb;
-
-  /* LEFT PANEL VARIABLES */
-  --local-left-bg: #f3f4f6; /* Light gray background */
-  --local-icon-active: #171717; /* Dark icon stroke */
-
-  --local-btn-bg: #171717;
+  --local-border: #e8ddd0;
+  --local-chip-bg: #fdfaf7;
+  --local-chip-hover: #f5ede0;
+  --local-left-bg: #f5ede0;
+  --local-btn-bg: #b87444;
   --local-btn-text: #ffffff;
-  --local-subtext: #6b7280;
+  --local-subtext: #8c6a50;
 
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   z-index: 9999;
   display: flex;
   width: 100vw;
   height: 100vh;
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
   overflow: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* --- DARK MODE OVERRIDES --- */
-:global([data-theme="dark"]) .splitLayout {
-  --local-border: #333333;
-  --local-chip-bg: #171717;
-  --local-chip-hover: #262626;
-
-  /* Dark Panel Colors */
-  --local-left-bg: #111111;
-  --local-icon-active: #ffffff; /* White icon stroke */
-
-  --local-btn-bg: #ededed;
-  --local-btn-text: #000000;
-  --local-subtext: #a1a1aa;
-}
-
-/* --- LEFT PANEL --- */
-.colorPanel {
-  flex: 0 0 45%;
-  position: relative;
-  height: 100%;
-  /* background-color: var(--local-left-bg); */
   transition: background-color 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
 }
 
-.iconWrapper {
-  width: 100%;
+:global([data-theme="dark"]) .splitLayout {
+  --local-border: #3d2a1a;
+  --local-chip-bg: #2c1a0a;
+  --local-chip-hover: #3d2a1a;
+  --local-left-bg: #1e1208;
+  --local-btn-bg: #b87444;
+  --local-btn-text: #ffffff;
+  --local-subtext: #b8a090;
+}
+
+/* ── SIDEBAR 30% ─────────────────────────────────────────────── */
+.colorPanel {
+  width: 30%;
+  flex-shrink: 0;
   height: 100%;
+  background-color: var(--local-left-bg);
+  border-right: 1px solid var(--local-border);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f75252;
-
-  position: absolute;
-  z-index: 1; /* Behind text */
+  flex-direction: column;
+  padding: 80px 80px;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
 }
 
-.panelText {
-  position: absolute;
-  bottom: 3rem;
-  left: 3rem;
-  color: black;
+.sidebarLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.sidebarLogoIcon {
+  width: 36px; height: 36px;
+  background: #b87444;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebarLogoName {
+  font-family: "Playfair Display", serif;
+  font-size: 40px;
+  color: #2c1a0a;
+  font-weight: 400;
+}
+
+.sidebarSectionLabel {
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #b8a090;
+  text-transform: uppercase;
+  padding: 0 14px;
+  margin-bottom: 8px;
+}
+
+.sidebarSectionDesc {
   font-family: "Inter", sans-serif;
   font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  opacity: 0.6;
-  white-space: nowrap;
-  z-index: 10; /* On top of icon */
+  color: #8c6a50;
+  padding: 0 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
 }
 
-/* --- RIGHT PANEL --- */
+
+.sidebarSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0.85;
+  justify-content: center;
+}
+
+.uploadLabel {
+  display: block;
+  width: 100%;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: default;
+  transition: background 0.2s;
+}
+
+.sidebarItemActive {
+  background: #ffffff;
+  border: 0.5px solid var(--local-border);
+}
+
+.sidebarNum {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: #e8ddd0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 600;
+  color: #8c6a50;
+  flex-shrink: 0;
+  font-family: "Inter", sans-serif;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sidebarNumActive { background: #b87444; color: #ffffff; }
+.sidebarNumDone   { background: #b87444; color: #ffffff; }
+
+.sidebarName {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: #8c6a50;
+  font-weight: 400;
+  line-height: 1.5;
+  transition: color 0.2s;
+}
+
+.sidebarNameActive { font-weight: 600; color: #2c1a0a; }
+
+.iconWrapper { display: none; }
+.panelText   { display: none; }
+
+/* ── RIGHT PANEL ─────────────────────────────────────────────── */
 .contentPanel {
   flex: 1;
-  position: relative;
-  flex-direction: column;
   display: flex;
-  /* align-items: center; */
-  justify-content: space-between;
-  /* padding: 0 4rem; */
-  padding: 3rem;
-  /* background-color: var(--background); */
+  flex-direction: column;
+  background-color: #ffffff;
+  overflow: hidden;
   transition: background-color 0.3s ease;
-  z-index: 5;
 }
 
+/* No max-width — fills the full 70% panel */
 .contentWrapper {
-  width: 100%;
-  max-width: 500px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  margin: 0 auto;
+  padding: 80px 80px 0;
+  width: 90%;
+  min-height: 0;
 }
 
-/* --- TYPOGRAPHY --- */
-.stepHeader {
-  margin-bottom: 2rem;
-}
+/* ── HEADER ──────────────────────────────────────────────────── */
+.stepHeader { flex-shrink: 0; margin-bottom: 10px; }
 
 .serifHeading {
-  font-family: "DM Serif Display", serif;
-  font-size: 3.5rem;
-  font-weight: 400;
-  color: var(--foreground);
-  margin: 0 0 0.5rem 0;
-  line-height: 1.1;
+  font-family: "Playfair Display", serif;
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #2c1a0a;
+  margin: 0 0 6px 0;
+  line-height: 1.15;
   transition: color 0.3s ease;
 }
 
 .subText {
   font-family: "Inter", sans-serif;
-  font-size: 1.1rem;
-  color: black;
+  font-size: 1rem;
+  color: #8c6a50;
   margin: 0;
   line-height: 1.5;
-  transition: color 0.3s ease;
 }
 
 .divider {
   width: 100%;
   height: 1px;
   background-color: var(--local-border);
-  margin-bottom: 2.5rem;
-  transition: background-color 0.3s ease;
+  margin: 24px 0 28px;
+  flex-shrink: 0;
 }
 
-/* --- FORM ELEMENTS --- */
+/* ── FORM BODY — grows to fill all remaining height ──────────── */
+.formBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── UPLOAD ──────────────────────────────────────────────────── */
+.uploadContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+}
+
+/* Drop zone — fixed tall height */
+.uploadBox {
+  width: 100%;
+  height: auto;
+  padding: 1rem 0;
+  border: 1.5px dashed var(--local-border);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--local-chip-hover);
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.uploadBox:hover {
+  border-color: #b87444;
+  background-color: #ecddc8;
+}
+
+.uploadBoxInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.uploadIcon    { font-size: 2.2rem; }
+.uploadMainText { font-weight: 500; color: #2c1a0a; font-size: 15px; margin: 0; }
+.uploadSubText  { font-size: 0.82rem; color: #8c6a50; margin: 0; }
+
+/* Paste section stretches to fill the rest */
+.pasteSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 10px;
+  min-height: 0;
+}
+
+.pasteTextarea {
+  flex: 1;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  padding: 1.1rem 1.4rem;
+  background-color: var(--local-chip-bg);
+  border: 1.5px solid var(--local-border);
+  border-radius: 14px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.95rem;
+  color: #2c1a0a;
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+  min-height: 0;
+  transition: border-color 0.2s;
+}
+.pasteTextarea::placeholder { color: #b8a090; }
+.pasteTextarea:focus { border-color: #b87444; }
+
+/* ── SELECTION ───────────────────────────────────────────────── */
+.selectionContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
 .inputLabel {
   display: block;
   font-family: "Inter", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  color: black;
+  letter-spacing: 0.12em;
+  color: #b8a090;
   text-transform: uppercase;
-  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
+/* 1-column grid, chips stretch to fill */
 .optionsGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  /* flex: 1; */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-content: start;
 }
 
 .optionChip {
   width: 100%;
-  padding: 1.1rem 1.5rem;
+  padding: 1.1rem 1.4rem;
   background-color: var(--local-chip-bg);
-  border: 2px solid var(--local-border);
+  border: 1.5px solid var(--local-border);
   border-radius: 12px;
   font-family: "Inter", sans-serif;
-  font-size: 1rem;
-  color: var(--foreground);
+  font-size: 0.95rem;
+  color: #2c1a0a;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.18s, background-color 0.18s;
+  line-height: 1.4;
 }
 
 .optionChip:hover {
   background-color: var(--local-chip-hover);
-  border-color: var(--local-subtext);
-  border-width: 2px;
+  border-color: #b87444;
 }
 
 .selectedChip {
-  border: 3.5px solid #ec4899;
-  box-shadow: 0 4px 16px rgba(236, 72, 153, 0.25);
+  border: 2px solid #b87444;
+  box-shadow: 0 2px 12px rgba(184, 116, 68, 0.15);
   font-weight: 600;
-  color: var(--foreground);
-  background-color: rgba(236, 72, 153, 0.06);
-  padding: 1.1rem 1.4rem;
+  color: #b87444;
+  background-color: rgba(184, 116, 68, 0.06);
 }
 
 .customInput {
@@ -197,211 +339,201 @@
   border: none;
   border-bottom: 1px solid var(--local-border);
   font-size: 1rem;
-  margin-top: 1rem;
+  margin-top: 8px;
   outline: none;
   background: transparent;
-  color: black;
+  color: #2c1a0a;
+  font-family: "Inter", sans-serif;
   transition: border-color 0.2s;
 }
-.customInput::placeholder {
-  color: white;
-}
-.customInput:focus {
-  border-bottom-color: white;
-}
+.customInput::placeholder { color: #b8a090; }
+.customInput:focus { border-bottom-color: #b87444; }
 
-/* --- UPLOAD UI --- */
-.uploadBox {
-  border: 1px dashed var(--local-border);
-  border-radius: 16px;
-  padding: 3rem;
-  text-align: center;
-  background-color: var(--local-chip-hover);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.uploadBox:hover {
-  border-color: var(--foreground);
-}
-.uploadIcon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-.uploadMainText {
-  font-weight: 500;
-  color: var(--foreground);
-  margin: 0;
-}
-.uploadSubText {
-  font-size: 0.85rem;
-  color: var(--local-subtext);
-  margin-top: 0.25rem;
-}
-
-/* --- FOOTER NAV --- */
+/* ── FOOTER ──────────────────────────────────────────────────── */
 .footerNav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  width: 100%;
-  max-width: 500px; /* MATCH contentWrapper */
-  margin: 3rem auto 0 auto; /* center it */
-
-  padding-bottom: 3rem;
+  padding: 24px 72px 36px;
+  border-top: 1px solid var(--local-border);
+  background: #ffffff;
+  flex-shrink: 0;
+  margin-top: 28px;
 }
 
 .backBtn {
-  background: none;
-  border: none;
-  font-family: "Inter", sans-serif;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: black;
-  cursor: pointer;
-  text-transform: uppercase;
-  transition: color 0.2s;
-  padding: 0.9rem 2.25rem;
+  background-color: var(--local-btn-bg);
+  color: var(--local-btn-text);
+  padding: 0.85rem 2.4rem;
   border-radius: 100px;
   border: none;
   font-family: "Inter", sans-serif;
   font-weight: 600;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   transition: transform 0.2s, background-color 0.2s;
 }
-.backBtn:hover {
-  background: black;
-  color: white;
-}
+.backBtn:hover { background: #2c1a0a; color: #ffffff; }
 
 .continueBtn {
   background-color: var(--local-btn-bg);
   color: var(--local-btn-text);
-  padding: 0.9rem 2.25rem;
+  padding: 0.85rem 2.4rem;
   border-radius: 100px;
   border: none;
   font-family: "Inter", sans-serif;
   font-weight: 600;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   transition: transform 0.2s, background-color 0.2s;
 }
-.continueBtn:hover {
-  transform: translateY(-2px);
-  opacity: 0.9;
-}
-.btnArrow {
-  transition: transform 0.2s;
-}
-.continueBtn:hover .btnArrow {
-  transform: translateX(3px);
+.continueBtn:hover { transform: translateY(-2px); background-color: #a0622e; }
+
+.btnArrow { transition: transform 0.2s; }
+.continueBtn:hover .btnArrow { transform: translateX(3px); }
+
+/* ── LOADING ─────────────────────────────────────────────────── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: #8c6a50;
+  background: #ede8e0;
 }
 
-/* MOBILE RESPONSIVE */
+/* ── MOBILE ──────────────────────────────────────────────────── */
 @media (max-width: 600px) {
-  /* 1. STACK LAYOUT (No Split) */
-  .splitLayout {
-    flex-direction: column;
-    /* height: auto; */
-    max-height: 100vh;
-    overflow: hidden;
-    position: fixed;
-  }
+  .splitLayout { flex-direction: column; }
 
-  /* 2. PUSH CONTENT TO CENTER (Using VH to center vertically) */
-  .contentPanel {
-    /* 25vh pushes the content down to roughly the vertical center start */
-    padding: 3rem 1.5rem 15vh 2.3rem;
-    align-items: flex-start;
-    justify-content: center;
-  }
-
-  /* 3. REPOSITION ICON (Synced with Content) */
   .colorPanel {
-    flex: none;
-    width: auto;
-    height: auto;
-    background-color: transparent;
-    position: absolute;
-    /* Aligns with the text at 25vh + small adjustment for visual alignment */
-    top: calc(3rem + 0rem);
-
-    /* Match the left padding of the content so it aligns */
-    left: 2rem;
-    z-index: 20;
-    padding: 0;
+    width: 100%; height: auto;
+    flex-direction: row; align-items: center;
+    padding: 12px 16px; gap: 6px;
+    border-right: none; border-bottom: 1px solid var(--local-border);
+    overflow-x: auto; flex-shrink: 0;
   }
 
-  .iconWrapper {
-    position: static;
-    width: 28px;
-    height: 28px;
-    color: var(--foreground);
-    justify-content: flex-start;
+  .sidebarLogo { display: none; }
+  .sidebarSteps { flex-direction: row; justify-content: flex-start; flex: unset; gap: 4px; }
+
+  .sidebarItem {
+    flex-direction: column; gap: 3px;
+    padding: 6px 8px; align-items: center;
+    border-radius: 8px; min-width: 48px;
   }
 
-  .panelText {
-    display: none;
-  }
+  .sidebarName { font-size: 9px; text-align: center; white-space: normal; line-height: 1.2; }
 
-  /* 4. ALIGN TEXT WITH ICON */
-  .serifHeading {
-    font-size: 2rem;
-    margin-top: 0;
-    margin-left: 2.5rem; /* Gap for the icon */
-  }
-
-  .subText {
-    margin-left: 2.5rem;
-    font-size: 1rem;
-  }
-
-  /* 5. MISC ADJUSTMENTS */
-  /* .divider {
-    margin-top: 1rem;
-    margin-bottom: 2rem;
-  } */
+  .contentWrapper { padding: 24px 20px 0; }
+  .serifHeading { font-size: 1.9rem; }
+  .optionsGrid { grid-template-columns: 1fr; }
 
   .footerNav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0; /* ✅ important */
-    width: 100%;
-
-    max-width: none; /* ✅ overrides desktop max-width */
-    margin: 0; /* ✅ overrides desktop centering */
-
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    padding: 1rem 1.5rem 2rem 2.3rem; /* ✅ match contentPanel left padding */
-    background-color: #ffffff;
-    z-index: 100;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    margin: 0; padding: 14px 20px 24px; z-index: 100;
   }
 }
 
-/* Tablet (601px - 1024px) */
-@media (min-width: 601px) and (max-width: 1024px) {
-  .contentWrapper {
-    max-width: 90%;
-  }
+@media (min-width: 601px) and (max-width: 900px) {
+  .colorPanel { width: 30%; }
+  .contentWrapper { padding: 40px 40px 0; }
+  .footerNav { padding: 24px 40px 32px; }
+  .optionsGrid { grid-template-columns: 1fr; }
 }
 
-/* Large Screens (> 1200px) */
-@media (min-width: 1200px) {
-  .contentWrapper {
-    max-width: 1100px;
-  }
+
+/* ── MORE ABOUT YOU extras ───────────────────────────────────── */
+.profileRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.profilePhotoLabel { display: inline-block; cursor: pointer; }
+
+.profilePhotoCircle {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 2px dashed var(--local-border);
+  background-color: var(--local-chip-hover);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.profilePhotoCircle:hover { border-color: #b87444; }
+
+.profilePhotoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profilePhotoPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.profileFieldsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+.profileField {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.locationInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.9rem 1.2rem;
+  background-color: var(--local-chip-bg);
+  border: 1.5px solid var(--local-border);
+  border-radius: 12px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.95rem;
+  color: #2c1a0a;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.locationInput::placeholder { color: #b8a090; }
+.locationInput:focus { border-color: #b87444; }
+
+.yoeChips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.yoeChips .optionChip {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .profileFieldsRow { grid-template-columns: 1fr; }
+  .yoeChips .optionChip { flex: unset; width: calc(50% - 5px); }
 }
