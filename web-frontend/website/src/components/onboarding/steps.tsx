@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./onboarding.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
+
 type OnboardingRole = {
   id: string;
   title: string;
@@ -14,136 +15,7 @@ type OnboardingRole = {
   customHeader?: string;
 };
 
-// --- ICON RENDERING HELPER ---
-const renderIcon = (id: string) => {
-  switch (id) {
-    case "resume-upload":
-      return (
-        <svg
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          color="white"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            opacity: 0.7, // Set to 0.4 for a more subtle look
-          }}
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-      );
-    case "primary-focus":
-      return (
-        <svg
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          color="white"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            opacity: 0.7, // Set to 0.4 for a more subtle look
-          }}
-        >
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-        </svg>
-      );
-    case "current-status":
-      return (
-        <svg
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          color="white"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            opacity: 0.7, // Set to 0.4 for a more subtle look
-          }}
-        >
-          {/* The Gear */}
-          <path d="M12 2a10 10 0 1 0 10 10 10 10 0 0 0-10-10zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
-        </svg>
-      );
-    case "preferred-role":
-      return (
-        <svg
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          color="white"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            opacity: 0.7, // Set to 0.4 for a more subtle look
-          }}
-        >
-          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-        </svg>
-      );
-    case "areas-interest":
-      return (
-        <svg
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          color="white"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            opacity: 0.7, // Set to 0.4 for a more subtle look
-          }}
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="2" y1="12" x2="22" y2="12"></line>
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-        </svg>
-      );
-    case "employment-type":
-      return (
-        <svg
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          color="white"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            opacity: 0.7, // Set to 0.4 for a more subtle look
-          }}
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
-        </svg>
-      );
-    default:
-      return null;
-  }
-};
-
-// ── AI loading steps shown after user clicks FINISH ──────────────────────────
+// ── AI loading steps ─────────────────────────────────────────────────────────
 const AI_LOADING_STEPS = [
   { emoji: "📄", text: "Reading your resume…" },
   { emoji: "🔍", text: "Identifying your skills…" },
@@ -166,14 +38,10 @@ function AILoadingOverlay({
   const [fetchDone, setFetchDone] = React.useState(false);
   const calledDone = React.useRef(false);
 
-  // Resolve once the real backend call finishes (success or error)
   React.useEffect(() => {
-    fetchPromise
-      .then(() => setFetchDone(true))
-      .catch(() => setFetchDone(true));
+    fetchPromise.then(() => setFetchDone(true)).catch(() => setFetchDone(true));
   }, [fetchPromise]);
 
-  // Navigate only when BOTH animation and fetch are complete
   React.useEffect(() => {
     if (animDone && fetchDone && !calledDone.current) {
       calledDone.current = true;
@@ -184,7 +52,6 @@ function AILoadingOverlay({
   React.useEffect(() => {
     const STEP_MS = 1600;
     let current = 0;
-
     const interval = setInterval(() => {
       current += 1;
       if (current >= AI_LOADING_STEPS.length) {
@@ -195,10 +62,8 @@ function AILoadingOverlay({
       setStep(current);
     }, STEP_MS);
 
-    // Smooth progress bar that keeps filling until fetch is done
     const progressInterval = setInterval(() => {
       setProgress((p) => {
-        // Stall at 90% until fetchDone kicks in, then we'll already be at animDone
         if (p >= 90 && !fetchDone) return p;
         return Math.min(p + 1, 100);
       });
@@ -208,7 +73,7 @@ function AILoadingOverlay({
       clearInterval(interval);
       clearInterval(progressInterval);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const current = AI_LOADING_STEPS[step];
@@ -219,7 +84,7 @@ function AILoadingOverlay({
         position: "fixed",
         inset: 0,
         zIndex: 99999,
-        background: "linear-gradient(135deg, #0a0a14, #120d22)",
+        background: "#f5ede0",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -227,88 +92,25 @@ function AILoadingOverlay({
         gap: "2.5rem",
       }}
     >
-      {/* Spinning ring */}
       <div style={{ position: "relative", width: 120, height: 120 }}>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            border: "4px solid transparent",
-            borderTopColor: "#f59e0b",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 12,
-            borderRadius: "50%",
-            border: "3px solid transparent",
-            borderBottomColor: "#a855f7",
-            animation: "spin 1.4s linear infinite reverse",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 26,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(245,158,11,0.3), transparent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "2rem",
-          }}
-        >
+        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "4px solid transparent", borderTopColor: "#b87444", animation: "spin 1s linear infinite" }} />
+        <div style={{ position: "absolute", inset: 12, borderRadius: "50%", border: "3px solid transparent", borderBottomColor: "#a0622e", animation: "spin 1.4s linear infinite reverse" }} />
+        <div style={{ position: "absolute", inset: 26, borderRadius: "50%", background: "radial-gradient(circle, rgba(184,116,68,0.15), transparent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>
           {current.emoji}
         </div>
       </div>
 
-      {/* Status text */}
       <div style={{ textAlign: "center" }}>
-        <p
-          style={{
-            color: "#fff",
-            fontSize: "1.25rem",
-            fontWeight: 600,
-            fontFamily: "Inter, sans-serif",
-            margin: 0,
-          }}
-        >
+        <p style={{ color: "#2c1a0a", fontSize: "1.25rem", fontWeight: 600, fontFamily: "'Playfair Display', serif", margin: 0 }}>
           {current.text}
         </p>
-        <p
-          style={{
-            color: "rgba(255,255,255,0.4)",
-            fontSize: "0.85rem",
-            marginTop: "0.5rem",
-            fontFamily: "Inter, sans-serif",
-          }}
-        >
+        <p style={{ color: "#8c6a50", fontSize: "0.85rem", marginTop: "0.5rem", fontFamily: "Inter, sans-serif" }}>
           Please wait while we set everything up for you
         </p>
       </div>
 
-      {/* Progress bar */}
-      <div
-        style={{
-          width: 280,
-          height: 6,
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: 999,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width: `${progress}%`,
-            background: "linear-gradient(to right, #f59e0b, #f97316)",
-            borderRadius: 999,
-            transition: "width 0.3s ease",
-          }}
-        />
+      <div style={{ width: 280, height: 6, background: "#e8ddd0", borderRadius: 999, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(to right, #b87444, #a0622e)", borderRadius: 999, transition: "width 0.3s ease" }} />
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -321,22 +123,21 @@ export default function Steps() {
   const searchParams = useSearchParams();
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
-  const [customInterest, setCustomInterest] = useState<Record<string, string>>(
-    {}
-  );
+  const [customInterest, setCustomInterest] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string>("");
+  const [location, setLocation] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
   const [showAILoading, setShowAILoading] = useState(false);
   const [fetchPromise, setFetchPromise] = useState<Promise<void> | null>(null);
 
-  // --- GLOBAL THEME LOGIC ---
   useEffect(() => {
     const stepParam = searchParams.get("step");
     const newIndex = stepParam ? parseInt(stepParam) : 0;
-
-    // Safety check to ensure index is valid
     if (newIndex >= 0 && newIndex < roles.length) {
       setActiveIndex(newIndex);
     }
@@ -346,13 +147,9 @@ export default function Steps() {
     const fetchOnboardingSteps = async () => {
       try {
         const res = await fetch("http://localhost:3001/onboarding/steps", {
-          credentials: "include", // Include cookies for authentication
+          credentials: "include",
         });
-
-        if (!res.ok) {
-          throw new Error("Failed to fetch onboarding steps");
-        }
-
+        if (!res.ok) throw new Error("Failed to fetch onboarding steps");
         const data = await res.json();
         setRoles(data.steps);
       } catch (error) {
@@ -361,7 +158,6 @@ export default function Steps() {
         setLoading(false);
       }
     };
-
     fetchOnboardingSteps();
   }, []);
 
@@ -380,24 +176,23 @@ export default function Steps() {
       return { ...prev, [roleId]: [...current, option] };
     });
   };
+
   const updateStepInUrl = (index: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("step", index.toString());
     router.push(`?${params.toString()}`);
   };
+
   const handleNext = () => {
     if (activeIndex < roles.length - 1) {
-      // Instead of setActiveIndex, we update URL
       updateStepInUrl(activeIndex + 1);
     } else {
       submitHandler();
-      // alert("All steps completed!");
     }
   };
 
   const handleBack = () => {
     if (activeIndex > 0) {
-      // Instead of setActiveIndex, we update URL
       updateStepInUrl(activeIndex - 1);
     }
   };
@@ -407,24 +202,18 @@ export default function Steps() {
       alert("Please upload a resume or paste resume text");
       return Promise.resolve();
     }
-
     const formData = new FormData();
-
-    if (resumeFile) {
-      formData.append("resume", resumeFile);
-    }
-
-    if (resumeText.trim()) {
-      formData.append("resumeText", resumeText.trim());
-    }
+    if (resumeFile) formData.append("resume", resumeFile);
+    if (resumeText.trim()) formData.append("resumeText", resumeText.trim());
+    if (profilePhoto) formData.append("profilePhoto", profilePhoto);
+    if (location.trim()) formData.append("location", location.trim());
+    if (yearsOfExperience) formData.append("yearsOfExperience", yearsOfExperience);
 
     const mergedAnswers: Record<string, string[]> = { ...selections };
-
     Object.entries(customInterest).forEach(([roleId, value]) => {
       if (!value.trim()) return;
       mergedAnswers[roleId] = [...(mergedAnswers[roleId] || []), value.trim()];
     });
-
     formData.append("answers", JSON.stringify(mergedAnswers));
 
     return fetch("http://localhost:3001/onboarding/answers", {
@@ -432,51 +221,74 @@ export default function Steps() {
       body: formData,
       credentials: "include",
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Submission failed");
-      })
-      .catch((err) => {
-        console.error("Onboarding submission error:", err);
-      });
+      .then((res) => { if (!res.ok) throw new Error("Submission failed"); })
+      .catch((err) => { console.error("Onboarding submission error:", err); });
   };
 
   return (
     <div className={styles.splitLayout}>
-      {/* LEFT PANEL: ICON DISPLAY */}
-      <div className={styles.colorPanel}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`icon-${activeRole.id}`}
-            initial={{ opacity: 0, scale: 0.9 }}
-            /* Set to 0.4 so it is VISIBLE but not overwhelming */
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ duration: 0.5 }}
-            className={styles.iconWrapper}
-          >
-            {renderIcon(activeRole.id)}
-          </motion.div>
-        </AnimatePresence>
 
-        <div className={styles.panelText}>
-          <span>
-            0{activeIndex + 1} / {roles.length} &nbsp;—&nbsp; STEPS
-          </span>
+      {/* ── SIDEBAR ── */}
+      <div className={styles.colorPanel}>
+        <div className={styles.sidebarLogo}>
+          <div className={styles.sidebarLogoIcon}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+              <rect x="3" y="13" width="14" height="2.5" rx="1.2" fill="white" />
+              <rect x="3" y="8.5" width="14" height="2.5" rx="1.2" fill="white" opacity="0.7" />
+              <rect x="3" y="4" width="14" height="2.5" rx="1.2" fill="white" opacity="0.4" />
+            </svg>
+          </div>
+          <span className={styles.sidebarLogoName}>Anchor</span>
+        </div>
+
+        <div className={styles.sidebarSteps}>
+          <div className={styles.sidebarSectionLabel}>
+            Getting Started
+          </div>
+          <div className={styles.sidebarSectionDesc}>
+            Tell us a bit about yourself so we can personalise your experience.
+          </div>
+          
+          {roles.map((role, index) => {
+            const isActive = index === activeIndex;
+            const isDone = index < activeIndex;
+            return (
+              <div
+                key={role.id}
+                className={`${styles.sidebarItem} ${isActive ? styles.sidebarItemActive : ""}`}
+                onClick={() => updateStepInUrl(index)}
+                style={{ cursor: "pointer" }}
+              >
+                <div className={`${styles.sidebarNum} ${isActive ? styles.sidebarNumActive : isDone ? styles.sidebarNumDone : ""}`}>
+                  {isDone ? (
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="2 6 5 9 10 3" />
+                    </svg>
+                  ) : (
+                    index + 1
+                  )}
+                </div>
+                <span className={`${styles.sidebarName} ${isActive ? styles.sidebarNameActive : ""}`}>
+                  {role.title}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* RIGHT PANEL: CONTENT */}
+      {/* ── RIGHT PANEL ── */}
       <div className={styles.contentPanel}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeRole.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.32, ease: "easeOut" }}
             className={styles.contentWrapper}
           >
-            {/* STEP HEADER */}
+            {/* Header */}
             <div className={styles.stepHeader}>
               <h2 className={styles.serifHeading}>{activeRole.title}</h2>
               <p className={styles.subText}>{activeRole.subtitle}</p>
@@ -484,116 +296,128 @@ export default function Steps() {
 
             <div className={styles.divider} />
 
-            {/* FORM BODY */}
+            {/* Form body */}
             <div className={styles.formBody}>
               {activeRole.isUpload ? (
-                /* UPLOAD STATE */
+                /* ── UPLOAD STATE ── */
                 <div className={styles.uploadContainer}>
-                  {/* <label className={styles.inputLabel}>YOUR RESUME</label> */}
-                  <label>
-                    <div className={styles.uploadBox}>
-                      {resumeFile ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            width: "100%",
-                            padding: "0 1rem",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "10px",
-                            }}
-                          >
-                            <span style={{ fontSize: "1.5rem" }}>📄</span>
-                            <span style={{ fontWeight: 500 }}>
-                              {resumeFile.name}
-                            </span>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault(); // Prevent opening file dialog
-                              e.stopPropagation();
-                              setResumeFile(null);
-                            }}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              fontSize: "1.2rem",
-                              color: "currentColor",
-                              padding: "5px",
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        // Standard View when no file is uploaded
-                        <>
-                          <div className={styles.uploadIcon}>📄</div>
-                          <p className={styles.uploadMainText}>
-                            Click to Upload or Drag & Drop
-                          </p>
-                          <p className={styles.uploadSubText}>
-                            PDF, DOCX up to 10MB
-                          </p>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        hidden
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setResumeFile(e.target.files[0]);
-                          }
-                        }}
-                      />
-                    </div>
-                  </label>
 
-                  <label
-                    className={styles.inputLabel}
-                    style={{ marginTop: "2rem", display: "block" }}
-                  >
-                    OR PASTE TEXT
+                {/* ── Profile Photo ── */}
+                <div className={styles.profileRow}>
+                  <label className={styles.inputLabel}>PROFILE PHOTO</label>
+                  <label className={styles.profilePhotoLabel}>
+                    <div className={styles.profilePhotoCircle}>
+                      {profilePhotoPreview ? (
+                        <img src={profilePhotoPreview} alt="Profile" className={styles.profilePhotoImg} />
+                      ) : (
+                        <div className={styles.profilePhotoPlaceholder}>
+                          <span style={{ fontSize: "1.6rem" }}>📷</span>
+                          <span className={styles.uploadSubText}>Upload photo</span>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setProfilePhoto(f);
+                        setProfilePhotoPreview(URL.createObjectURL(f));
+                      }}
+                    />
                   </label>
-                  <textarea
-                    className={
-                      styles.optionChip
-                    } /* Reuses your existing card styling */
-                    style={{
-                      minHeight: "150px",
-                      resize: "vertical",
-                      cursor: "text",
-                      fontFamily: "inherit",
-                      lineHeight: "1.5",
-                    }}
-                    placeholder="Paste your resume content here..."
-                    value={resumeText}
-                    onChange={(e) => setResumeText(e.target.value)}
-                  />
+                </div>
+
+                {/* ── Location + Years of Experience ── */}
+                <div className={styles.profileFieldsRow}>
+                  <div className={styles.profileField}>
+                    <label className={styles.inputLabel}>LOCATION</label>
+                    <input
+                      type="text"
+                      className={styles.locationInput}
+                      placeholder="e.g. San Francisco, CA"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.profileField}>
+                    <label className={styles.inputLabel}>YEARS OF EXPERIENCE</label>
+                    <div className={styles.yoeChips}>
+                      {["0–1 yrs", "1–3 yrs", "3–5 yrs", "5+ yrs"].map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`${styles.optionChip} ${yearsOfExperience === opt ? styles.selectedChip : ""}`}
+                          onClick={() => setYearsOfExperience(opt)}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Resume Upload ── */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <label className={styles.inputLabel}>RESUME</label>
+                <label className={styles.uploadLabel}>
+                  <div className={styles.uploadBox}>
+                    {resumeFile ? (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "0 2rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontSize: "1.8rem" }}>📄</span>
+                          <span style={{ fontWeight: 500, color: "#2c1a0a", fontSize: "15px" }}>{resumeFile.name}</span>
+                        </div>
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setResumeFile(null); }}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "1.1rem", color: "#8c6a50", padding: "6px" }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className={styles.uploadBoxInner}>
+                        <div className={styles.uploadIcon}>📄</div>
+                        <p className={styles.uploadMainText}>Click to Upload or Drag & Drop</p>
+                        <p className={styles.uploadSubText}>PDF, DOCX up to 10MB</p>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      hidden
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) setResumeFile(e.target.files[0]);
+                      }}
+                    />
+                  </div>
+                </label>
+              </div>
+
+                  {/* Paste section */}
+                  <div className={styles.pasteSection}>
+                    <label className={styles.inputLabel}>OR PASTE TEXT</label>
+                    <textarea
+                      className={styles.pasteTextarea}
+                      placeholder="Paste your resume content here..."
+                      value={resumeText}
+                      onChange={(e) => setResumeText(e.target.value)}
+                    />
+                  </div>
                 </div>
               ) : (
-                /* SELECTION STATE */
+                /* ── SELECTION STATE ── */
                 <div className={styles.selectionContainer}>
                   <label className={styles.inputLabel}>SELECT OPTIONS</label>
                   <div className={styles.optionsGrid}>
                     {activeRole.options.map((option) => {
-                      const isSelected = (
-                        selections[activeRole.id] || []
-                      ).includes(option);
+                      const isSelected = (selections[activeRole.id] || []).includes(option);
                       return (
                         <button
                           key={option}
-                          className={`${styles.optionChip} ${
-                            isSelected ? styles.selectedChip : ""
-                          }`}
+                          className={`${styles.optionChip} ${isSelected ? styles.selectedChip : ""}`}
                           onClick={() => toggleSelection(option)}
                         >
                           {option}
@@ -602,28 +426,24 @@ export default function Steps() {
                     })}
                   </div>
 
-                  {/* CUSTOM INPUT */}
                   {(activeRole as any).isInterest && (
                     <input
                       type="text"
                       className={styles.customInput}
-                      placeholder="Other (Type to add...)"
+                      placeholder="Other (type to add…)"
                       value={customInterest[activeRole.id] || ""}
                       onChange={(e) =>
-                        setCustomInterest((prev) => ({
-                          ...prev,
-                          [activeRole.id]: e.target.value,
-                        }))
+                        setCustomInterest((prev) => ({ ...prev, [activeRole.id]: e.target.value }))
                       }
                     />
                   )}
                 </div>
               )}
             </div>
-
-            {/* FOOTER NAV */}
           </motion.div>
         </AnimatePresence>
+
+        {/* Footer */}
         <div className={styles.footerNav}>
           <button
             className={styles.backBtn}
@@ -652,12 +472,8 @@ export default function Steps() {
         </div>
       </div>
 
-      {/* AI loading overlay — shown after FINISH is clicked */}
       {showAILoading && fetchPromise && (
-        <AILoadingOverlay
-          fetchPromise={fetchPromise}
-          onDone={() => router.push("/dashboard")}
-        />
+        <AILoadingOverlay fetchPromise={fetchPromise} onDone={() => router.push("/dashboard")} />
       )}
     </div>
   );

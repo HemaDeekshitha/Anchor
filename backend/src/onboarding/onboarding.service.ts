@@ -34,14 +34,21 @@ export class OnboardingService {
     file: Express.Multer.File | undefined,
     answers: string,
     resumeText?: string,
+    profilePhotoFile?: Express.Multer.File,  
+    location?: string,                         
+    yearsOfExperience?: string, 
   ) {
     let resumeUrl: string | undefined;
     let resumeName: string | undefined;
+    let profilePhotoUrl: string | undefined; 
 
     if (file) {
       resumeUrl = await this.cloudinary.uploadFile(file);
       resumeName = file.originalname;
     }
+    if (profilePhotoFile) {               
+    profilePhotoUrl = await this.cloudinary.uploadFile(profilePhotoFile);
+  }
 
     const parsed = answers ? JSON.parse(answers) : {};
 
@@ -56,6 +63,9 @@ export class OnboardingService {
       resumeText: resumeText ?? null,
       resumeName,
       resumeUrl,
+      profileImageUrl: profilePhotoUrl,                       
+      location: location ?? null,             
+      yearsOfExperience: yearsOfExperience ?? null, 
     });
 
     await this.repo.save(entry);

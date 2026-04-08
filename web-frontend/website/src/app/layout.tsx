@@ -1,6 +1,5 @@
-import "./globals.css";
 import { Inter } from "next/font/google";
-// import ThemeToggle from "@/components/ThemeToggle";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -8,11 +7,9 @@ export const metadata = {
   title: "Anchor",
   description: "Anchor – stay grounded, one step at a time",
   icons: {
-    icon: "/favicon.ico", // ✅ Uses src/app/favicon.ico
+    icon: "/favicon.ico",
   },
 };
-
-// export const dynamic = "force-dynamic";
 
 export default function RootLayout({
   children,
@@ -22,8 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* <ThemeToggle /> */}
-        {children}
+        <AppRouterCacheProvider>
+          {children}
+        </AppRouterCacheProvider>
       </body>
     </html>
   );

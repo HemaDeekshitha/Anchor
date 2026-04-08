@@ -47,4 +47,10 @@ export class OnboardingResponse {
   createdAt: Date;
   @Column({ nullable: true })
   profileImageUrl: string;
+
+  @Column({ type: 'varchar' , nullable: true })
+  location: string | null;
+
+  @Column({ type: 'varchar' , nullable: true })
+  yearsOfExperience: string | null;
 }

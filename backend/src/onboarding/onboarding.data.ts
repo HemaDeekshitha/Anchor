@@ -1,7 +1,7 @@
 export const ONBOARDING_STEPS = [
   {
     id: 'resume-upload',
-    title: 'Upload Resume',
+    title: 'More About You',
     subtitle: "Let's start with the basics.",
     isUpload: true,
     options: [],

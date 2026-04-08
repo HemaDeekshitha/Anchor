@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 
 // Images
-import anchorLogo from "../../../public/assets/logo.png";
 import googleIcon from "../../../public/assets/images/google.png";
 import linkedinIcon from "../login/images/linkedin.png";
 import githubIcon from "../login/images/github.png";
@@ -25,17 +24,16 @@ import { motion } from "framer-motion";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 export default function SignupPage() {
-  // 🔹 form state
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
-const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{8,}$/;
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{8,}$/;
 
-const isStrongPassword = (password: string) => passwordRegex.test(password);
+  const isStrongPassword = (password: string) => passwordRegex.test(password);
 
   const [touched, setTouched] = useState({
     name: false,
@@ -53,18 +51,13 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
 
   const router = useRouter();
 
-  // 🔹 helpers
   const isValidEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const nameError = touched.name && !form.name;
-
   const emailError =
     touched.email && (!form.email || !isValidEmail(form.email));
-
-  const passwordError =
-  touched.password && !isStrongPassword(form.password);
-
+  const passwordError = touched.password && !isStrongPassword(form.password);
   const confirmPasswordError =
     touched.confirmPassword &&
     (!form.confirmPassword || form.confirmPassword !== form.password);
@@ -86,7 +79,6 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
 
   const checkEmailExists = async (email: string) => {
     if (!isValidEmail(email)) return;
-
     try {
       setCheckingEmail(true);
       const res = await fetch(
@@ -103,31 +95,21 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
 
   const handleSignup = async () => {
     if (!isFormValid) return;
-
     setLoading(true);
     setApiError("");
-
     try {
       const res = await fetch(`http://localhost:3001/auth/signup`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // important to include cookies
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: form.name,
           email: form.email,
           password: form.password,
         }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Signup failed");
-      }
-
-      // ✅ Success → go to login
+      if (!res.ok) throw new Error(data.message || "Signup failed");
       router.push("/steps");
     } catch (err: any) {
       setApiError(err.message);
@@ -136,110 +118,133 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
     }
   };
 
+  // ─── Shared TextField sx (Anchor palette) ───────────────────────────────────
+  const textFieldSx = {
+    borderRadius: 1,
+    "& .MuiInputLabel-root": { color: "#8c6a50" },
+    "& .MuiInputLabel-root.Mui-focused": { color: "#b87444" },
+    "& .MuiInputLabel-root.Mui-error": { color: "#b45309" },
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "10px",
+      "& fieldset": { borderColor: "#e8ddd0" },
+      "&:hover fieldset": { borderColor: "#b87444" },
+      "&.Mui-focused fieldset": { borderColor: "#b87444", borderWidth: 1 },
+      "& .MuiOutlinedInput-input": {
+        "&:-webkit-autofill": {
+          WebkitBoxShadow: "0 0 0 1000px #fdfaf7 inset",
+          WebkitTextFillColor: "#2c1a0a",
+          caretColor: "#2c1a0a",
+        },
+        "&:-webkit-autofill:hover": {
+          WebkitBoxShadow: "0 0 0 1000px #fdfaf7 inset",
+        },
+        "&:-webkit-autofill:focus": {
+          WebkitBoxShadow: "0 0 0 1000px #fdfaf7 inset",
+        },
+        "&:-webkit-autofill:active": {
+          WebkitBoxShadow: "0 0 0 1000px #fdfaf7 inset",
+        },
+      },
+    },
+  };
+
   return (
     <Box
       minHeight="100vh"
       display="flex"
       flexDirection={{ xs: "column", md: "row" }}
     >
-      {/* LEFT PANEL */}
+      {/* ── LEFT PANEL ── */}
       <Box
-        flex={1}
+        flex={0.5}
         sx={{
-          background: "linear-gradient(to right, rgb(209 51 51), #E5B526)",
+          background: "#f5ede0",
+          borderRight: "1px solid #e8ddd0",
+          padding: "80px 80px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
         }}
-        color="#3b1d16"
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        px={4}
-        py={6}
       >
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 1.6,
-            ease: [0.16, 1, 0.3, 1], // premium easing
-          }}
-        >
-          <Paper
-            elevation={0}
+        {/* LOGO ROW */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Box
             sx={{
-              px: 7,
-              py: 6,
-              borderRadius: 4,
-
-              background:
-                "linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.12))",
-              backdropFilter: "blur(22px)",
-              WebkitBackdropFilter: "blur(22px)",
-
-              border: "1px solid rgba(255, 255, 255, 0.35)",
-
-              boxShadow: `
-        0 20px 50px rgba(0,0,0,0.25),
-        inset 0 1px 0 rgba(255,255,255,0.4)
-      `,
+              width: 36, height: 36,
+              background: "#b87444",
+              borderRadius: "9px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
             }}
           >
-            <Stack spacing={4} alignItems="center">
-              {/* LOGO */}
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Image
-                  src={anchorLogo}
-                  alt="Anchor logo"
-                  width={52}
-                  height={52}
-                />
-                <Typography
-                  variant="h3"
-                  sx={{
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    color: "#24160F",
-                  }}
-                >
-                  Anchor
-                </Typography>
-              </Stack>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="3" y="13" width="14" height="2.5" rx="1.2" fill="white" />
+              <rect x="3" y="8.5" width="14" height="2.5" rx="1.2" fill="white" opacity="0.7" />
+              <rect x="3" y="4" width="14" height="2.5" rx="1.2" fill="white" opacity="0.4" />
+            </svg>
+          </Box>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 40, color: "#2c1a0a", fontWeight: 400 }}>
+            Anchor
+          </Typography>
+        </Box>
 
-              {/* TEXT */}
-              <Stack spacing={1.5} alignItems="center">
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 800,
-                    color: "#24160F",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  Welcome to Anchor
-                </Typography>
+        {/* MIDDLE — Welcome text + tagline */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "16px", py: 4 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
+            Welcome to
+          </Typography>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
+            Anchor
+          </Typography>
+          <Typography sx={{ fontSize: 20, color: "#8c6a50", lineHeight: 1.6, maxWidth: 400 }}>
+            Your job search, organized.
+          </Typography>
+          <Typography sx={{ fontSize: 14, color: "#2c1a0a", lineHeight: 1.6, maxWidth: 400 }}>
+            Track applications, manage interviews, and stay consistent—without the overwhelm.
+          </Typography>
+        </Box>
 
-                <Typography
-                  textAlign="center"
-                  sx={{
-                    color: "#24160F",
-                    opacity: 0.78,
-                    maxWidth: 380,
-                    fontSize: 16,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  A simple space to reflect, grow, and stay consistent.
-                </Typography>
-              </Stack>
-            </Stack>
-          </Paper>
-        </motion.div>
+        {/* PREVIEW CARD */}
+        <Box
+          sx={{
+            background: "white",
+            borderRadius: "14px",
+            padding: "32px",
+            border: "1px solid #e8ddd0",
+          }}
+        >
+          {/* Avatar */}
+          <Box
+            sx={{
+              width: 50, height: 50, borderRadius: "50%",
+              background: "#f0e6d8",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 14px",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b87444" strokeWidth="1.5">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+            </svg>
+          </Box>
+
+          {/* Progress bars */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: "6px", mb: "10px" }}>
+            <Box sx={{ height: 6, borderRadius: 3, background: "#b87444", width: "40%" }} />
+            <Box sx={{ height: 6, borderRadius: 3, background: "#e8ddd0", width: "70%" }} />
+            <Box sx={{ height: 6, borderRadius: 3, background: "#e8ddd0", width: "50%" }} />
+          </Box>
+
+          <Typography sx={{ fontSize: 16, color: "#8c6a50" }}>
+            Your journey starts here.
+          </Typography>
+        </Box>
       </Box>
 
-      {/* RIGHT PANEL */}
+      {/* ── RIGHT PANEL ── */}
       <Box
         flex={1}
-        bgcolor="white"
+        sx={{ background: "linear-gradient(160deg, #FFFFFF 0%, #fdfaf7 100%)" }}
         display="flex"
         justifyContent="center"
         alignItems="center"
@@ -250,117 +255,60 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
           style={{ width: "100%", display: "flex", justifyContent: "center" }}
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{
-            delay: 0.2, // comes after left
-            duration: 1.4, // slower than default
-            ease: [0.16, 1, 0.3, 1],
-          }}
+          transition={{ delay: 0.2, duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
         >
           <Paper
             elevation={3}
             sx={{
-              position: "relative", // 👈 REQUIRED
+              position: "relative",
               overflow: "hidden",
               width: "100%",
               maxWidth: 420,
-              p: 4,
-              borderRadius: 3,
-
-              // 🌫 Glass effect
+              p: 6,
+              borderRadius: 5,
               background:
-                "linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55))",
+                "linear-gradient(135deg, rgba(255,255,255,0.85), rgba(250,247,243,0.75))",
               backdropFilter: "blur(18px)",
               WebkitBackdropFilter: "blur(18px)",
-
-              // ✨ Soft border + depth
-              border: "1px solid rgba(255,255,255,0.6)",
+              border: "1px solid rgba(212,200,184,0.5)",
               boxShadow: `
-                0 25px 50px rgba(0,0,0,0.12),
-                inset 0 1px 0 rgba(255,255,255,0.6)
+                0 25px 50px rgba(90,60,30,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.7)
               `,
             }}
           >
             <Stack spacing={2}>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                 alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <Typography variant="h6" fontWeight={600}>
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="h5" fontWeight={600} sx={{ color: "#2c1a0a" }}>
                   Create an account
                 </Typography>
-                <Typography color="text.secondary">
-                  It takes less than a minute
+                <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>
+                  Start organizing your job search in seconds
                 </Typography>
               </Box>
 
-              <Stack spacing={1} direction={"column"}>
+              <Stack spacing={1} direction="column">
                 {/* FULL NAME */}
                 <TextField
+                  id="signup-name"
                   label="Full name"
                   fullWidth
+                  autoComplete="name"
                   value={form.name}
                   onChange={handleChange("name")}
                   onBlur={handleBlur("name")}
                   error={nameError}
                   helperText={nameError ? "Full name is required" : " "}
-                  sx={{
-                    borderRadius: 1,
-
-                    // 👇 Label default color
-                    "& .MuiInputLabel-root": {
-                      color: "#6b7280", // gray
-                    },
-
-                    // 👇 Label when focused
-                    "& .MuiInputLabel-root.Mui-focused": {
-                      color: "#be123c", // your red
-                    },
-
-                    // 👇 Label when error
-                    "& .MuiInputLabel-root.Mui-error": {
-                      color: "#dc2626",
-                    },
-
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "#ddd",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#be123c",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#be123c",
-                        borderWidth: 1,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        "&:-webkit-autofill": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                          WebkitTextFillColor: "#000",
-                          caretColor: "#000",
-                        },
-                        "&:-webkit-autofill:hover": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:focus": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:active": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                      },
-                    },
-                  }}
+                  sx={textFieldSx}
                 />
 
                 {/* EMAIL */}
                 <TextField
+                  id="signup-email"
                   label="Email address"
                   type="email"
                   fullWidth
+                  autoComplete="email"
                   value={form.email}
                   onChange={handleChange("email")}
                   onBlur={() => {
@@ -370,19 +318,11 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
                   error={emailError}
                   helperText={
                     emailError ? (
-                      !form.email ? (
-                        "Email is required"
-                      ) : (
-                        "Enter a valid email"
-                      )
+                      !form.email ? "Email is required" : "Enter a valid email"
                     ) : emailExists ? (
                       <span>
                         This email is already registered.{" "}
-                        <Link
-                          href="/login"
-                          sx={{ color: "red" }}
-                          underline="hover"
-                        >
+                        <Link href="/login" sx={{ color: "#b87444" }} underline="hover">
                           Log in instead
                         </Link>
                       </span>
@@ -390,71 +330,25 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
                       " "
                     )
                   }
-                  sx={{
-                    borderRadius: 1,
-
-                    // 👇 Label default color
-                    "& .MuiInputLabel-root": {
-                      color: "#6b7280", // gray
-                    },
-
-                    // 👇 Label when focused
-                    "& .MuiInputLabel-root.Mui-focused": {
-                      color: "#be123c", // your red
-                    },
-
-                    // 👇 Label when error
-                    "& .MuiInputLabel-root.Mui-error": {
-                      color: "#dc2626",
-                    },
-
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "#ddd",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#be123c",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#be123c",
-                        borderWidth: 1,
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        "&:-webkit-autofill": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                          WebkitTextFillColor: "#000",
-                          caretColor: "#000",
-                        },
-                        "&:-webkit-autofill:hover": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:focus": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "&:-webkit-autofill:active": {
-                          WebkitBoxShadow: "0 0 0 1000px #ffffff inset",
-                        },
-                        "& .MuiFormHelperText-root": {
-                          color: emailExists ? "#92400e" : "#6b7280",
-                        },
-                      },
-                    },
-                  }}
+                  sx={textFieldSx}
                 />
 
                 {/* PASSWORD */}
                 <TextField
+                  id="signup-password"
                   label="Password"
                   type={showPassword ? "text" : "password"}
                   fullWidth
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={handleChange("password")}
                   onBlur={handleBlur("password")}
                   error={passwordError}
                   helperText={
-                    passwordError ? "At least 8 characters with uppercase, lowercase, number, and symbol."  : " "
-                    }
-
+                    passwordError
+                      ? "At least 8 characters with uppercase, lowercase, number, and symbol."
+                      : " "
+                  }
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -462,77 +356,46 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
                           onClick={() => setShowPassword((prev) => !prev)}
                           edge="end"
                           onMouseDown={(e) => e.preventDefault()}
-                          sx={{ color: "#6b7280" }}
+                          sx={{ color: "#8c6a50" }}
                         >
                           {showPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
                     ),
                   }}
-                  sx={{
-                    borderRadius: 1,
-                    "& .MuiInputLabel-root": { color: "#6b7280" },
-                    "& .MuiInputLabel-root.Mui-focused": { color: "#be123c" },
-                    "& .MuiInputLabel-root.Mui-error": { color: "#dc2626" },
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": { borderColor: "#ddd" },
-                      "&:hover fieldset": { borderColor: "#be123c" },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#be123c",
-                        borderWidth: 1,
-                      },
-                    },
-                  }}
+                  sx={textFieldSx}
                 />
 
                 {/* CONFIRM PASSWORD */}
                 <TextField
+                  id="signup-confirm-password"
                   label="Confirm password"
                   type={showConfirmPassword ? "text" : "password"}
                   fullWidth
+                  autoComplete="new-password"
                   value={form.confirmPassword}
                   onChange={handleChange("confirmPassword")}
                   onBlur={handleBlur("confirmPassword")}
                   error={confirmPasswordError}
-                  helperText={
-                    confirmPasswordError ? "Passwords do not match" : " "
-                  }
+                  helperText={confirmPasswordError ? "Passwords do not match" : " "}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
-                          onClick={() =>
-                            setShowConfirmPassword((prev) => !prev)
-                          }
+                          onClick={() => setShowConfirmPassword((prev) => !prev)}
                           edge="end"
                           onMouseDown={(e) => e.preventDefault()}
-                          sx={{ color: "#6b7280" }}
+                          sx={{ color: "#8c6a50" }}
                         >
-                          {showConfirmPassword ? (
-                            <VisibilityOff />
-                          ) : (
-                            <Visibility />
-                          )}
+                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
                     ),
                   }}
-                  sx={{
-                    borderRadius: 1,
-                    "& .MuiInputLabel-root": { color: "#6b7280" },
-                    "& .MuiInputLabel-root.Mui-focused": { color: "#be123c" },
-                    "& .MuiInputLabel-root.Mui-error": { color: "#dc2626" },
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": { borderColor: "#ddd" },
-                      "&:hover fieldset": { borderColor: "#be123c" },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#be123c",
-                        borderWidth: 1,
-                      },
-                    },
-                  }}
+                  sx={textFieldSx}
                 />
               </Stack>
+
               {/* SIGN UP BUTTON */}
               <Button
                 variant="contained"
@@ -540,28 +403,49 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
                 fullWidth
                 disabled={!isFormValid}
                 sx={{
+                  borderRadius: "10px",
                   opacity: isFormValid ? 1 : 0.6,
-                  backgroundColor: "#ff7a5c",
+                  backgroundColor: "#b87444",
+                  color: "#fdfaf7",
+                  textTransform: "none",
+                  "&:hover": { backgroundColor: "#a0622e" },
+                  "&.Mui-disabled": {
+                    backgroundColor: "#b87444",
+                    color: "#fdfaf7",
+                  },
                 }}
                 onClick={handleSignup}
               >
-                {loading ? "Creating account..." : "Sign up"}
+                {loading ? "Creating account..." : "Create account"}
               </Button>
+
               {apiError && (
                 <Typography color="error" textAlign="center">
                   {apiError}
                 </Typography>
               )}
 
-              <Divider>OR</Divider>
+              <Divider sx={{ color: "#b8a090", "&::before, &::after": { borderColor: "#e8ddd0" } }}>
+                OR
+              </Divider>
 
-              {/* SOCIAL LOGIN */}
+              {/* GOOGLE */}
               <Button
                 variant="outlined"
                 fullWidth
                 startIcon={
                   <Image src={googleIcon} alt="Google" width={20} height={20} />
                 }
+                sx={{
+                  borderRadius: "10px",
+                  borderColor: "#e8ddd0",
+                  color: "#8c6a50",
+                  textTransform: "none",
+                  "&:hover": {
+                    borderColor: "#b87444",
+                    backgroundColor: "rgba(196,119,59,0.04)",
+                  },
+                }}
                 onClick={() => {
                   window.location.href = "http://localhost:3001/auth/google";
                 }}
@@ -569,45 +453,15 @@ const isStrongPassword = (password: string) => passwordRegex.test(password);
                 Continue with Google
               </Button>
 
-              {/* <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={
-                  <Image
-                    src={linkedinIcon}
-                    alt="LinkedIn"
-                    width={22}
-                    height={22}
-                  />
-                }
-              >
-                LinkedIn
-              </Button>
-
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={
-                  <Image src={githubIcon} alt="GitHub" width={22} height={22} />
-                }
-              >
-                GitHub
-              </Button>
-            </Stack> */}
-
-              <Typography textAlign="center">
+              <Typography textAlign="center" sx={{ color: "#8c6a50" }}>
                 Already have an account?{" "}
                 <Link
                   href="/login"
                   sx={{
-                    // fontSize: 14,
-                    color: "#000",
+                    color: "#b87444",
                     textDecoration: "none",
-                    "&:hover": {
-                      textDecoration: "underline",
-                      color: "#be123c",
-                    },
+                    fontWeight: 600,
+                    "&:hover": { textDecoration: "underline", color: "#a0622e" },
                   }}
                 >
                   Log in
