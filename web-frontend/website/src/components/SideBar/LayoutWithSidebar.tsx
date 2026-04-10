@@ -34,10 +34,12 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
       <Box
         component="main"
         sx={{
-          flexGrow: 1,
-          p: 3,
+          ml: { xs: 0, md: `${drawerWidth}px` },
+          width: { xs: "100%", md: `calc(100% - ${drawerWidth}px)` },
+          minWidth: 0,
+          boxSizing: "border-box",
+          p: { xs: 2, sm: 3 },
           bgcolor: "#fafafa",
-          ml: !isMobile ? `${drawerWidth}px` : 0,
           transition: "margin 0.3s ease",
         }}
       >

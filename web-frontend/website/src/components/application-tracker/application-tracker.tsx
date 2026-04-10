@@ -145,7 +145,7 @@ export default function ApplicationTracker() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: form.status, notes: form.notes }),
+          body: JSON.stringify({ company: form.company, role: form.role, status: form.status, notes: form.notes }),
         });
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.message || "Failed to update job"); }
         const updated: JobApplication = await res.json();
@@ -228,15 +228,15 @@ export default function ApplicationTracker() {
         <span className={styles.manualBadge}>Manual</span>
       )}
 
-      <h3 className={styles.jobTitle}>{job.role || "Unknown Role"}</h3>
+      <h3 className={styles.jobTitle}>{job.company || "Unknown Company"}</h3>
 
       <span className={`${styles.statusBadge} ${getStatusClass(job.status || "")}`}>
         {job.status || "-"}
       </span>
 
       <div className={styles.jobField}>
-        <span>Company</span>
-        <strong>{job.company || "Unknown Company"}</strong>
+        <span>Role</span>
+        <strong>{job.role || "Unknown Role"}</strong>
       </div>
       <div className={styles.jobField}>
         <span>Date Applied</span>
@@ -308,24 +308,22 @@ export default function ApplicationTracker() {
           </div>
 
           <div className={styles.formGroup}>
+            <label className={styles.formLabel}>Company *</label>
+            <input
+              className={styles.formInput}
+              value={form.company}
+              onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
+              placeholder="e.g. Amazon"
+            />
+          </div>
+
+          <div className={styles.formGroup}>
             <label className={styles.formLabel}>Role *</label>
             <input
               className={styles.formInput}
               value={form.role}
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
               placeholder="e.g. Software Engineer"
-              disabled={isEdit}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Company *</label>
-            <input
-              className={styles.formInput}
-              value={form.company}
-              onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
-              placeholder="e.g. Stripe"
-              disabled={isEdit}
             />
           </div>
 
@@ -398,6 +396,11 @@ export default function ApplicationTracker() {
           <button className={styles.connectButton} onClick={handleConnectGmail}>Connect Gmail</button>
           <button className={styles.scanButton} onClick={handleScanGmail} disabled={isScanning}>{isScanning ? "Scanning…" : "Scan Gmail"}</button>
           <button className={styles.addJobButton} onClick={openCreateModal}>+ Add Job</button>
+          {isScanning && (
+            <span className={styles.scanningMessage}>
+              ⏳ Scanning your email. This may take a while…
+            </span>
+          )}
         </div>
 
         {errorMessage && !modal.open ? <p className={styles.errorMessage}>{errorMessage}</p> : null}

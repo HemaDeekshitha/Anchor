@@ -39,9 +39,13 @@ export default function momentum() {
         }),
       ]);
 
-      setProfile(await profileRes.json());
-      setActivity(await activityRes.json());
-      setSubmissions(await submissionsRes.json());
+      const profileData = await profileRes.json();
+      const activityData = await activityRes.json();
+      const submissionsData = await submissionsRes.json();
+
+      setProfile(profileData);
+      setActivity(activityData);
+      setSubmissions(Array.isArray(submissionsData) ? submissionsData : []);
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
@@ -52,11 +56,20 @@ export default function momentum() {
   async function handleProfileSave(
     updated: EditableProfile,
     avatarFile: File | null,
-    resumeFile: File | null
+    resumeFile: File | null,
+    removeAvatar: boolean
   ) {
     setSaving(true);
     try {
-      // 1. Upload avatar if changed
+      // 1a. Remove avatar if requested
+      if (removeAvatar && !avatarFile) {
+        await fetch(`${API}/momentum/profile/avatar`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+      }
+
+      // 1b. Upload new avatar if changed (backend deletes the old one automatically)
       if (avatarFile) {
         const fd = new FormData();
         fd.append("file", avatarFile);
@@ -86,6 +99,7 @@ export default function momentum() {
         body: JSON.stringify({
           name: updated.name,
           email: updated.email,
+          location: updated.location,
           primaryFocus: updated.primaryFocus,
           currentStatus: updated.status,
           preferredRole: updated.preferredRoles,
@@ -130,59 +144,37 @@ export default function momentum() {
     <LayoutWithSidebar>
       <Box
         sx={{
-          width: "100%",
           display: "flex",
-          justifyContent: "center",
-          px: { xs: 2, md: 3 },
-          py: 3,
-          background: "transparent",
-
+          gap: 2,
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: "flex-start",
+          width: "100%",
+          boxSizing: "border-box",
           color: "black",
         }}
       >
+        <LeetcodeProfileSidebar
+          profile={profile}
+          setOpenResumeText={setOpenResumeText}
+          onEditClick={() => setEditOpen(true)}
+        />
+
         <Box
           sx={{
-            width: "100%",
-            maxWidth: 1400,
-
+            flex: 1,
+            minWidth: 0,
             display: "flex",
-            gap: 2,
-
-            flexDirection: {
-              xs: "column",
-              lg: "row", // 🔥 ONLY switch at large screens
-            },
-
-            alignItems: "flex-start",
+            flexDirection: "column",
+            gap: 0,
+            width: 0, // forces flex to respect minWidth:0 boundary
           }}
         >
-          <LeetcodeProfileSidebar
-            profile={profile}
-            setOpenResumeText={setOpenResumeText}
-            onEditClick={() => setEditOpen(true)}
+          <MomentumGraphCard
+            data={activity?.data || []}
+            period={period}
+            setPeriod={setPeriod}
           />
-
-          <Box
-            sx={{
-              flex: 1,
-              width: "100%", // 🔥 ADD THIS
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 0,
-              maxWidth: {
-                xs: "100%",
-                md: "100%",
-              },
-            }}
-          >
-            <MomentumGraphCard
-              data={activity?.data || []}
-              period={period}
-              setPeriod={setPeriod}
-            />
-            <RecentSubmissions submissions={submissions} />
-          </Box>
+          <RecentSubmissions submissions={submissions} />
         </Box>
       </Box>
       <EditProfileModal

@@ -453,7 +453,7 @@ const Dashboard = () => {
                       letterSpacing: ".08em",
                     }}
                   >
-                    🎯 PENDING TASKS
+                    🎯 PENDING TASKS (PREV. WEEK)
                   </Typography>
 
                   {/* MAIN ROW */}
@@ -653,7 +653,7 @@ const Dashboard = () => {
 
                           {/* Task Text */}
                           <Box>
-                            <Typography
+                            <Box
                               sx={{
                                 fontSize: 16,
                                 fontWeight: 600,
@@ -661,12 +661,19 @@ const Dashboard = () => {
                                   task.status === "completed"
                                     ? "#9ca3af"
                                     : "#1f2937",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 0.5,
+                                lineHeight: 1.45,
                               }}
                             >
-                              {task.title}
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: "inherit",
+                                  fontWeight: "inherit",
+                                  color: "inherit",
+                                }}
+                              >
+                                {task.title}
+                              </Typography>
                               {getLeetcodeUrl(task) && (
                                 <Box
                                   component="a"
@@ -681,24 +688,25 @@ const Dashboard = () => {
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    width: 22,
-                                    height: 22,
+                                    width: 20,
+                                    height: 20,
                                     borderRadius: "4px",
                                     background: "#fff7ed",
                                     border: "1px solid #fed7aa",
                                     color: "#ea580c",
                                     textDecoration: "none",
-                                    flexShrink: 0,
+                                    verticalAlign: "middle",
+                                    ml: 0.75,
                                     "&:hover": {
                                       background: "#ffedd5",
                                       borderColor: "#f97316",
                                     },
                                   }}
                                 >
-                                  <ExternalLink size={12} strokeWidth={2.5} />
+                                  <ExternalLink size={11} strokeWidth={2.5} />
                                 </Box>
                               )}
-                            </Typography>
+                            </Box>
                             {task.status !== "completed" && (
                               <Typography
                                 sx={{
@@ -823,7 +831,7 @@ const Dashboard = () => {
                     color: "#5b1025",
                   }}
                 >
-                  Pending Tasks
+                  Pending Tasks (Previous Week)
                 </Typography>
 
                 <Box

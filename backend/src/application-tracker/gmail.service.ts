@@ -75,7 +75,8 @@ export class GmailService {
   async fetchRecentThreads(
     accessToken: string,
     searchQuery: string,
-    maxResults = 100
+    maxResults = 100,
+    pageToken?: string,
   ) {
     this.oauth2Client.setCredentials({ access_token: accessToken });
     const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
@@ -84,9 +85,13 @@ export class GmailService {
       userId: 'me',
       q: searchQuery,
       maxResults,
+      pageToken,
     });
 
-    return response.data.threads || [];
+    return {
+      threads: response.data.threads || [],
+      nextPageToken: response.data.nextPageToken ?? undefined,
+    };
   }
 
   /**

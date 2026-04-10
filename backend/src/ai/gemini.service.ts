@@ -4,26 +4,73 @@ import { ConfigService } from '@nestjs/config';
 import { RagTask } from '../rag/rag-task.entity';
 import { EvaluationResult } from './interfaces/evaluation-result.interface';
 
+// Models tried in order when the primary is overloaded
+const MODEL_FALLBACKS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+];
+
 @Injectable()
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
   private model: any;
 
- constructor(private configService: ConfigService) {
-  const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-  
-  if (!apiKey) {
-    throw new Error(
-      'GEMINI_API_KEY is not defined in environment variables. ' +
-      'Please add it to your .env file.'
-    );
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+
+    if (!apiKey) {
+      throw new Error(
+        'GEMINI_API_KEY is not defined in environment variables. ' +
+          'Please add it to your .env file.',
+      );
+    }
+
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = this.genAI.getGenerativeModel({ model: MODEL_FALLBACKS[0] });
   }
-  
-  this.genAI = new GoogleGenerativeAI(apiKey);
-  this.model = this.genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash'
-  });
-}
+
+  /** Sleep helper for retry backoff */
+  private sleep(ms: number) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  /**
+   * Calls a single model, throws on any error (caller handles retry/fallback).
+   */
+  private async callModel(modelName: string, prompt: string): Promise<string> {
+    const m = this.genAI.getGenerativeModel({ model: modelName });
+    const result = await m.generateContent(prompt);
+    return result.response.text();
+  }
+
+  /**
+   * Tries each model in MODEL_FALLBACKS in order.
+   * Retries the primary model twice with backoff before moving on.
+   */
+  private async callWithFallback(prompt: string): Promise<string> {
+    for (const modelName of MODEL_FALLBACKS) {
+      const attempts = modelName === MODEL_FALLBACKS[0] ? 3 : 1;
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+          return await this.callModel(modelName, prompt);
+        } catch (err: any) {
+          const is503 =
+            err?.message?.includes('503') ||
+            err?.message?.includes('Service Unavailable') ||
+            err?.message?.includes('high demand');
+          if (is503 && (attempt < attempts || modelName !== MODEL_FALLBACKS[MODEL_FALLBACKS.length - 1])) {
+            const delay = attempt * 2000; // 2s, 4s
+            console.warn(`[Gemini] ${modelName} overloaded (attempt ${attempt}), retrying in ${delay}ms…`);
+            await this.sleep(delay);
+            continue;
+          }
+          throw err; // non-503 or last fallback — bubble up
+        }
+      }
+    }
+    throw new Error('All Gemini models unavailable');
+  }
 
   /**
    * Main method: Evaluates a user's submission based on task type
@@ -347,9 +394,7 @@ private async callGeminiAndParse(
   difficulty: string,
 ): Promise<EvaluationResult> {
   try {
-    // Send prompt to Gemini
-    const result = await this.model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await this.callWithFallback(prompt);
 
     // Extract JSON from response (Gemini might wrap it in markdown)
     const jsonMatch = text.match(/\{[\s\S]*\}/);

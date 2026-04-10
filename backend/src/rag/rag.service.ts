@@ -14,11 +14,11 @@ import { PerformanceService } from './performance.service';
 
 @Injectable()
 export class RagService {
-  // Tracks users whose task generation already failed today.
-  // Key: userId, Value: date string (YYYY-MM-DD).
-  // Prevents repeated Gemini calls when quota is exhausted — the dashboard
-  // would otherwise retry on every page load since nothing is saved to DB on failure.
-  private readonly generationFailedOnDate = new Map<string, string>();
+  // Tracks the timestamp of the last failed generation attempt per user.
+  // Retries are allowed after 5 minutes so transient Gemini errors self-heal
+  // on the user's next dashboard load without blocking them for the whole day.
+  private readonly generationFailedAt = new Map<string, number>();
+  private readonly RETRY_AFTER_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(
     @InjectRepository(RagTask)
@@ -36,6 +36,12 @@ export class RagService {
     private readonly taskGenerationService: TaskGenerationService,
     private readonly performanceService: PerformanceService,
   ) {}
+
+  /** Clears the failure throttle for a user and immediately re-runs task generation. */
+  async forceRegenerateTasks(userId: string) {
+    this.generationFailedAt.delete(userId);
+    return this.getDailyTasks(userId);
+  }
 
   private async getUserTimezone(userId: string): Promise<string> {
     const user = await this.userRepo.findOne({
@@ -115,9 +121,11 @@ export class RagService {
     // ── 4. Generate exactly 4 fresh tasks via LLM ────────────────────────────
     // Seen-task history is now fetched inside TaskGenerationService from the
     // user_seen_tasks table — no need to pass recentTitles from here.
-    if (this.generationFailedOnDate.get(userId) === today) {
+    const lastFailedAt = this.generationFailedAt.get(userId);
+    if (lastFailedAt && Date.now() - lastFailedAt < this.RETRY_AFTER_MS) {
+      const minsLeft = Math.ceil((this.RETRY_AFTER_MS - (Date.now() - lastFailedAt)) / 60000);
       console.warn(
-        `⚠️ Skipping generation for ${userName} — already failed today.`,
+        `⚠️ Skipping generation for ${userName} — failed recently, retry in ${minsLeft} min.`,
       );
       return { userName, tasks: [] };
     }
@@ -150,16 +158,16 @@ export class RagService {
       return { userName, tasks: tasks.slice(0, limit) };
     }
 
-    // If LLM failed (quota), mark it so we don't retry again today
+    // If LLM failed (quota/error), throttle retries to once per hour
     if (generated.length === 0) {
-      this.generationFailedOnDate.set(userId, today);
+      this.generationFailedAt.set(userId, Date.now());
       console.warn(
-        `⚠️ No tasks generated for ${userName} — quota exhausted. Will not retry today.`,
+        `⚠️ No tasks generated for ${userName} — quota exhausted. Will retry after 1 hour.`,
       );
       return { userName, tasks: [] };
     }
 
-    this.generationFailedOnDate.delete(userId); // clear any stale failure flag
+    this.generationFailedAt.delete(userId); // clear any stale failure flag
     console.log(
       `✨ Generated ${generated.length} tasks for ${userName} (mix: ${JSON.stringify(mix)})`,
     );
