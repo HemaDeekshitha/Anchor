@@ -44,17 +44,18 @@ export class OnboardingResponse {
   @Column({ type: 'text', nullable: true })
   resumeText: string | null;
 
+  // Auto-extracted or manually set location (e.g. "Fremont, CA")
+  @Column({ type: 'text', nullable: true })
+  location: string | null;
+
   // AI-extracted keywords from the resume (role, tools, domain concepts, etc.)
   @Column('text', { array: true, nullable: true })
   resumeKeywords: string[] | null;
 
   @CreateDateColumn()
   createdAt: Date;
-  @Column({ nullable: true })
-  profileImageUrl: string;
-
-  @Column({ type: 'varchar' , nullable: true })
-  location: string | null;
+  @Column({ type: 'text', nullable: true })
+  profileImageUrl: string | null;
 
   @Column({ type: 'varchar' , nullable: true })
   yearsOfExperience: string | null;

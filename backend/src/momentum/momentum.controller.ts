@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -42,9 +43,15 @@ export class MomentumController {
 
   @UseGuards(JwtAuthGuard)
   @Post('profile/avatar')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
     return this.momentumService.updateAvatar(req.user.userId, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('profile/avatar')
+  async removeAvatar(@Req() req) {
+    return this.momentumService.removeAvatar(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

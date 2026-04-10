@@ -438,7 +438,8 @@ type Props = {
   onSave: (
     updated: EditableProfile,
     avatarFile: File | null,
-    resumeFile: File | null
+    resumeFile: File | null,
+    removeAvatar: boolean
   ) => void;
   saving?: boolean;
 };
@@ -460,6 +461,7 @@ export default function EditProfileModal({
   const [tab, setTab] = useState(0);
   const avatarRef = useRef<HTMLInputElement>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [pendingAvatarRemove, setPendingAvatarRemove] = useState(false);
   const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
 
   const [form, setForm] = useState<EditableProfile>({
@@ -481,6 +483,7 @@ export default function EditProfileModal({
     if (open) {
       setTab(0);
       setPendingAvatarFile(null);
+      setPendingAvatarRemove(false);
       setPendingResumeFile(null);
       setForm({
         name: profile.name ?? "",
@@ -504,11 +507,18 @@ export default function EditProfileModal({
 
   const handleAvatarFile = (file: File) => {
     setPendingAvatarFile(file);
+    setPendingAvatarRemove(false);
     set("avatarUrl", URL.createObjectURL(file)); // preview only
   };
+
+  const handleRemoveAvatar = () => {
+    setPendingAvatarFile(null);
+    setPendingAvatarRemove(true);
+    set("avatarUrl", null);
+  };
+
   const handleSave = () => {
-    console.log("form at save:", form);
-    onSave(form, pendingAvatarFile, pendingResumeFile);
+    onSave(form, pendingAvatarFile, pendingResumeFile, pendingAvatarRemove);
   };
 
   return (
@@ -640,12 +650,14 @@ export default function EditProfileModal({
               <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
                 <Box sx={{ position: "relative", flexShrink: 0 }}>
                   <Avatar
-                    src={form.avatarUrl ?? "/assets/images/pro.jpg"}
+                    src={form.avatarUrl ?? undefined}
                     sx={{
                       width: 80,
                       height: 80,
                       borderRadius: "18px",
                       border: `2px solid ${C.accentBorder}`,
+                      bgcolor: C.accentBg,
+                      color: C.accent,
                     }}
                   />
                   <Box
@@ -693,24 +705,46 @@ export default function EditProfileModal({
                   >
                     Hover the photo and click to upload
                   </Typography>
-                  <Button
-                    size="small"
-                    onClick={() => avatarRef.current?.click()}
-                    sx={{
-                      textTransform: "none",
-                      fontWeight: 600,
-                      fontSize: 12,
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: "8px",
-                      color: C.accent,
-                      border: `1px solid ${C.accentBorder}`,
-                      background: C.accentBg,
-                      "&:hover": { background: C.accentFaint },
-                    }}
-                  >
-                    Choose photo
-                  </Button>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Button
+                      size="small"
+                      onClick={() => avatarRef.current?.click()}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: 12,
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: "8px",
+                        color: C.accent,
+                        border: `1px solid ${C.accentBorder}`,
+                        background: C.accentBg,
+                        "&:hover": { background: C.accentFaint },
+                      }}
+                    >
+                      Choose photo
+                    </Button>
+                    {(form.avatarUrl || profile.avatarUrl) && !pendingAvatarRemove && (
+                      <Button
+                        size="small"
+                        onClick={handleRemoveAvatar}
+                        sx={{
+                          textTransform: "none",
+                          fontWeight: 600,
+                          fontSize: 12,
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: "8px",
+                          color: "#dc2626",
+                          border: "1px solid rgba(220,38,38,0.25)",
+                          background: "rgba(220,38,38,0.06)",
+                          "&:hover": { background: "rgba(220,38,38,0.12)" },
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
               </Box>
 

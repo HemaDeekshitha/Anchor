@@ -115,7 +115,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <Stack spacing={0.75}>
         {[
           { label: "Tasks", key: "tasks", color: C.accent },
-          { label: "LeetCode", key: "leetcode", color: C.accentGold },
           { label: "Applications", key: "applications", color: C.accentTeal },
         ].map(({ label, key, color }) => (
           <Stack
@@ -174,12 +173,6 @@ function EmptyState({ period }: { period: string }) {
 
   const pills = [
     { label: "Task", color: C.accent, bg: C.accentBg, border: C.accentBorder },
-    {
-      label: "LeetCode",
-      color: C.accentGold,
-      bg: "rgba(229,181,38,0.08)",
-      border: "rgba(229,181,38,0.20)",
-    },
     {
       label: "Application",
       color: C.accentTeal,
@@ -514,23 +507,6 @@ export default function MomentumGraphCard({
                   strokeWidth: 1.5,
                 }}
                 activeDot={<GlowActiveDot stroke={C.accent} />}
-                isAnimationActive
-                animationDuration={550}
-              />
-
-              <Line
-                type="monotone"
-                dataKey="leetcode"
-                stroke={C.accentGold}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                dot={{
-                  r: 3,
-                  fill: C.accentGold,
-                  stroke: "rgba(229,181,38,0.3)",
-                  strokeWidth: 1.2,
-                }}
-                activeDot={<GlowActiveDot stroke={C.accentGold} />}
                 isAnimationActive
                 animationDuration={550}
               />

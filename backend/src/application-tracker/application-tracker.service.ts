@@ -11,6 +11,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 interface ParsedJob {
   company: string;
   role: string;
+  status?: string;
 }
 
 @Injectable()
@@ -76,20 +77,32 @@ export class ApplicationTrackerService {
 
     // Gmail search query — targeted at job email subjects and known ATS senders
     const searchQuery = [
+      // Application confirmation subjects
       'subject:("your application")',
       'subject:("application received")',
       'subject:("thank you for applying")',
+      'subject:("thank you for your interest")',
       'subject:("we received your application")',
       'subject:("application for")',
       'subject:("applied for")',
+      'subject:("update on your application")',
+      'subject:("decision on your application")',
+      'subject:("regarding your application")',
+      'subject:("your interest in")',
+      // Interview subjects
       'subject:("interview invitation")',
       'subject:("interview request")',
       'subject:("interview scheduled")',
+      'subject:("next steps")',
+      'subject:("move forward")',
+      // Offer / Rejection subjects
       'subject:("job offer")',
       'subject:("offer letter")',
       'subject:("we regret")',
       'subject:("unfortunately")',
-      'subject:("next steps")',
+      'subject:("after careful consideration")',
+      'subject:("we have decided")',
+      // Role title subjects
       'subject:("software engineer")',
       'subject:("software developer")',
       'subject:("product manager")',
@@ -108,6 +121,7 @@ export class ApplicationTrackerService {
       'subject:("technical recruiter")',
       'subject:("program manager")',
       'subject:("project manager")',
+      // ATS / recruiting platform senders
       'from:(greenhouse.io)',
       'from:(lever.co)',
       'from:(myworkdayjobs.com)',
@@ -119,20 +133,52 @@ export class ApplicationTrackerService {
       'from:(brassring.com)',
       'from:(ripplematchweb.com)',
       'from:(ashbyhq.com)',
+      // Direct company career domains
+      'from:(careers.microsoft.com)',
+      'from:(amazon.jobs)',
+      'from:(google.com)',
+      'from:(linkedin.com)',
+      'from:(workday.com)',
+      'from:(oracle.com)',
+      'from:(salesforce.com)',
+      'from:(meta.com)',
+      'from:(apple.com)',
     ].join(' OR ');
 
-    const threads = await this.gmailService.fetchRecentThreads(
-      accessToken,
-      `(${searchQuery}) newer_than:90d`,
-      100
-    );
+    // Paginate until we have 50 unique companies stored OR processed 300 threads
+    const TARGET_COMPANIES = 50;
+    const MAX_THREADS = 300;
+    const allThreads: Array<{ id?: string | null }> = [];
+    let pageToken: string | undefined;
+
+    do {
+      const page = await this.gmailService.fetchRecentThreads(
+        accessToken,
+        `(${searchQuery}) newer_than:365d`,
+        100,
+        pageToken,
+      );
+      allThreads.push(...page.threads);
+      pageToken = page.nextPageToken;
+
+      // Check how many unique companies we already have in DB
+      const uniqueCount = await this.jobRepo
+        .createQueryBuilder('j')
+        .select('COUNT(DISTINCT j.company)', 'cnt')
+        .where('j.user = :userId', { userId })
+        .andWhere("j.company != 'Unknown Company'")
+        .getRawOne<{ cnt: string }>();
+      if (parseInt(uniqueCount?.cnt ?? '0', 10) >= TARGET_COMPANIES) break;
+    } while (pageToken && allThreads.length < MAX_THREADS);
+
+    this.logger.log(`scan-threads-collected user=${userId} count=${allThreads.length}`);
 
     let processed = 0;
     let stored = 0;
     let skipped = 0;
     let aiRateLimited = false; // once rate-limited, skip AI for all remaining threads in this scan
 
-    for (const thread of threads) {
+    for (const thread of allThreads) {
       if (!thread.id) continue;
       processed += 1;
 
@@ -157,12 +203,15 @@ export class ApplicationTrackerService {
       let { company, role } = this.parseEmail(subject, from, body);
 
       // AI fallback — only called when regex left at least one field unknown
+      let aiStatus: string | undefined;
       if (!aiRateLimited && (company === 'Unknown Company' || role === 'Unknown Role')) {
         try {
           const aiResult = await this.extractWithAI(subject, from, body);
           // Only fill in the fields that regex couldn't determine — never overwrite a good regex result
           if (company === 'Unknown Company' && aiResult.company !== 'Unknown Company') company = aiResult.company;
           if (role === 'Unknown Role' && aiResult.role !== 'Unknown Role') role = aiResult.role;
+          // Capture AI-detected status as a baseline (regex loop below can still upgrade it)
+          if (aiResult.status) aiStatus = aiResult.status;
         } catch (err) {
           const errMsg = String(err);
           if (/429|rate.?limit|quota.?exceeded|resource.?exhausted/i.test(errMsg)) {
@@ -183,8 +232,9 @@ export class ApplicationTrackerService {
         continue;
       }
 
-      // Determine final status from ALL messages in thread (highest priority wins)
-      let finalStatus = 'Applied';
+      // Determine final status from ALL messages in thread (highest priority wins).
+      // Start from AI-detected status if available, otherwise "Applied".
+      let finalStatus = aiStatus ?? 'Applied';
       for (const msg of messages) {
         const msgHeaders = msg.payload?.headers || [];
         const msgSubject = this.getHeader(msgHeaders, 'subject');
@@ -213,10 +263,10 @@ export class ApplicationTrackerService {
 
     const latencyMs = Number(process.hrtime.bigint() - scanStartedAt) / 1_000_000;
     this.logger.log(
-      `scan-summary user=${userId} threads=${threads.length} processed=${processed} stored=${stored} skipped=${skipped} latencyMs=${latencyMs.toFixed(1)}`
+      `scan-summary user=${userId} threads=${allThreads.length} processed=${processed} stored=${stored} skipped=${skipped} latencyMs=${latencyMs.toFixed(1)}`
     );
 
-    return { totalFetched: threads.length, processed, stored, skipped };
+    return { totalFetched: allThreads.length, processed, stored, skipped };
   }
 
   // ─── Email parsing: routes to ATS-specific or generic ───────────────────────
@@ -449,11 +499,28 @@ export class ApplicationTrackerService {
     ];
 
     for (const pattern of patterns) {
-      const match = text.match(pattern)?.[1]?.trim();
+      let match = text.match(pattern)?.[1]?.trim();
       if (!match || match.length <= 1 || match.length >= 60) continue;
 
-      // Reject if the capture starts with a sentence fragment indicator
-      if (/^(the|your|our|we|following|steps|time|please|thank|apply|applying|joining|welcome|regarding|an?\b|visiting|check|browse|explore|by\b)/i.test(match)) continue;
+      // If the match contains " and [lowercase/gerund]", trim at the conjunction.
+      // e.g. "Coursera and applying" → "Coursera"
+      match = match.replace(/\s+and\s+[a-z].*/i, '').trim();
+      if (!match || match.length <= 1) continue;
+
+      // If the match contains " at [Capital]", extract just the company after " at ".
+      // e.g. "other roles at Anthropic" → try "Anthropic" directly
+      const atIdx = match.search(/\s+at\s+[A-Z]/i);
+      if (atIdx !== -1) {
+        const afterAt = match.slice(atIdx).replace(/^\s+at\s+/i, '').trim();
+        if (afterAt.length > 1) match = afterAt;
+      }
+
+      // Reject if the capture starts with a sentence fragment / verb / adjective indicator
+      if (/^(the|this|a\s|an\s|your|our|we|following|steps|time|please|thank|apply|applying|joining|welcome|regarding|visiting|check|browse|explore|by\b|here|there|above|below|any|some|all|each|every|no\b|other|more|further|additional|similar|different|various|future|open|current|available|discussing|considering|reviewing|evaluating|moving|proceeding|interested|expressing|thinking|looking|seeking|exploring|finding|making)/i.test(match)) continue;
+
+      // Reject if match contains " position" or " role" inside — it's a title, not a company name
+      if (/\b(position|role|roles|opportunity|opportunities|opening)\b/i.test(match)) continue;
+
       // Reject if it contains words that only appear inside sentences, not company names
       const fnWords = (match.match(/\b(which|will|would|have|has|been|was|is|are|were|do|does|did|can|may|visiting|browsing|checking|exploring|clicking|updating|completing|by\s+visiting)\b/gi) || []).length;
       if (fnWords >= 1) continue;
@@ -592,20 +659,26 @@ export class ApplicationTrackerService {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    const prompt = `You are parsing a job application email. Extract the company name and job role/title.
+    const prompt = `You are parsing a job application email. Extract the company name, job role/title, and application status.
 
 Email subject: ${subject}
 Email from: ${from}
 Email body (first 800 chars): ${body.slice(0, 800)}
 
 Reply with ONLY a JSON object in this exact format, nothing else:
-{"company": "Company Name", "role": "Job Title"}
+{"company": "Company Name", "role": "Job Title", "status": "Applied"}
 
 Rules:
 - If you cannot determine the company, use "Unknown Company"
 - If you cannot determine the role, use "Unknown Role"
 - For role, use the exact title from the email (e.g. "SDE II", "Software Engineer", "Product Manager")
-- Do not include tracking IDs or job IDs in the role`;
+- Do not include tracking IDs or job IDs in the role
+- For status, use ONLY one of: "Applied", "Interview", "Offer", "Rejected"
+  - "Applied": application received/confirmed, thank you for applying
+  - "Interview": interview invitation, phone screen, technical assessment scheduled
+  - "Offer": job offer extended, offer letter
+  - "Rejected": not moving forward, unfortunately, we regret to inform
+  - Default to "Applied" if unsure`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
@@ -621,9 +694,11 @@ Rules:
       throw new Error(`Gemini returned non-JSON response: ${jsonText.slice(0, 100)}`);
     }
 
+    const validStatuses = ['Applied', 'Interview', 'Offer', 'Rejected'];
     return {
       company: typeof parsed.company === 'string' && parsed.company ? parsed.company : 'Unknown Company',
       role: typeof parsed.role === 'string' && parsed.role ? parsed.role : 'Unknown Role',
+      status: typeof parsed.status === 'string' && validStatuses.includes(parsed.status) ? parsed.status : undefined,
     };
   }
 
@@ -635,12 +710,28 @@ Rules:
     // Rejection
     if (
       /\b(we\s+regret|regret\s+to\s+inform|we('re| are)\s+sorry\s+to)\b/.test(text) ||
-      /\bunfortunately\b.{0,80}\b(application|candidacy|not\s+moving|candidate)\b/.test(text) ||
+      // "Unfortunately ... candidates / moving forward / candidacy" — broadened window + plurals
+      /\bunfortunately\b.{0,200}\b(application|candidacy|candidates?|other\s+candidates?|moving\s+forward|not\s+moving)\b/s.test(text) ||
+      // "will not be moving forward / proceeding"
       /\bwill\s+not\s+be\s+(moving\s+forward|proceeding|continuing)\b/.test(text) ||
+      // "not (be) moving forward with your"
       /\bnot\s+(be\s+)?moving\s+forward\s+with\s+your\b/.test(text) ||
+      // "decided / chosen not to move forward"  ← catches Microsoft-style
+      /\b(decided|chosen|opted)\s+not\s+to\s+(move|proceed|continue)\s+forward\b/.test(text) ||
+      // "decided not to move forward with your candidacy"
+      /\bnot\s+to\s+move\s+forward\s+with\s+your\b/.test(text) ||
+      // "after careful consideration ... not moving forward"
+      /\bafter\s+careful\s+consideration\b.{0,200}\b(not\s+to\s+move|will\s+not\s+be|decided\s+not)\b/s.test(text) ||
       /\bnot\s+selected\b/.test(text) ||
       /\bdecided\s+to\s+(move\s+forward|proceed)\s+with\s+(other|another)\b/.test(text) ||
-      /\bchosen\s+(not\s+to\s+move\s+forward|other\s+candidates)\b/.test(text)
+      /\bchosen\s+(not\s+to\s+move\s+forward|other\s+candidates?)\b/.test(text) ||
+      /\b(chosen|decided|opted)\s+to\s+(?:move\s+forward|proceed|continue)\s+with\s+other\b/.test(text) ||
+      /\bwe\s+(?:are|have|will\s+be)\s+moving\s+forward\s+with\s+other\b/.test(text) ||
+      /\bmoving\s+forward\s+with\s+other\s+candidates?\b/.test(text) ||
+      /\bwe\s+(?:have\s+)?(?:chosen|decided|selected)\s+(?:to\s+(?:move|proceed|continue)\s+with\s+)?other\s+candidates?\b/.test(text) ||
+      /\bpursue\s+other\s+candidates?\b/.test(text) ||
+      /\b(skills|experience|qualifications)\s+(?:more\s+)?closely\s+align\b.{0,100}\b(other|another)\b/s.test(text) ||
+      /\byour\s+(application|candidacy|profile)\s+(was\s+not|has\s+not\s+been|did\s+not)\b/.test(text)
     ) {
       return 'Rejected';
     }
@@ -715,7 +806,9 @@ Rules:
       /\bjob\s+offer\b/,
       /\boffer\s+letter\b/,
       /\bwe\s+regret\s+to\s+(inform|let\s+you\s+know)\b/,
-      /\bunfortunately\b.{0,80}\b(application|candidacy|candidate)\b/,
+      /\b(decided|chosen)\s+not\s+to\s+move\s+forward\b/,
+      /\bmoving\s+forward\s+with\s+other\s+candidates?\b/,
+      /\bunfortunately\b.{0,200}\b(application|candidacy|candidates?|moving\s+forward)\b/s,
       /\bapplied\s+for\s+the\s+(position|role|job|opening)\b/,
       /\byour\s+candidacy\b/,
       /\brecruiting\s+team\b/,
@@ -835,10 +928,10 @@ Rules:
       existing.lastMessageId = params.lastMessageId;
       existing.sourceEmail   = params.sourceEmail;
       if (!existing.appliedDate) existing.appliedDate = params.appliedDate;
-      if ((!existing.company || existing.company === 'Unknown Company') && params.company !== 'Unknown Company') {
+      if (this.isFalsePositiveValue(existing.company) && params.company !== 'Unknown Company') {
         existing.company = params.company;
       }
-      if ((!existing.role || existing.role === 'Unknown Role') && params.role !== 'Unknown Role') {
+      if (this.isFalsePositiveValue(existing.role) && params.role !== 'Unknown Role') {
         existing.role = params.role;
       }
       await this.jobRepo.save(existing);
@@ -856,6 +949,28 @@ Rules:
         })
       );
     }
+  }
+
+  /**
+   * Returns true when a stored company / role value looks like a false-positive
+   * extracted from email boilerplate.  These get overwritten on the next scan.
+   *
+   * Examples of false-positive company names:
+   *   "this address", "our website", "discussing the position further", "other roles at Anthropic"
+   * Examples of false-positive role names:
+   *   "position Software Engineer", "the Software Engineer role"
+   */
+  private isFalsePositiveValue(value: string): boolean {
+    if (!value || value === 'Unknown Company' || value === 'Unknown Role') return true;
+    // Boilerplate words found in company names
+    if (/\b(address|email\s+address|inbox|page|link|website|url|form|here|there)\b/i.test(value)) return true;
+    // Company candidate is actually a sentence fragment (contains " at ", "role", "position", verbs)
+    if (/\b(position|role|roles|opportunity|discussing|considering|reviewing|proceeding|others?)\b/i.test(value)) return true;
+    // Role starts with "position " artifact from parsing
+    if (/^position\s+/i.test(value)) return true;
+    // Value contains " and [lowercase verb/word]" — sentence fragment stitched together
+    if (/\s+and\s+[a-z]/i.test(value)) return true;
+    return false;
   }
 
   /**
@@ -905,6 +1020,8 @@ Rules:
     });
     if (!job) throw new NotFoundException('Job not found');
 
+    if (dto.company?.trim()) job.company = dto.company.trim();
+    if (dto.role?.trim()) job.role = dto.role.trim();
     if (dto.status !== undefined) job.status = dto.status;
     if (dto.notes !== undefined) job.notes = dto.notes;
 

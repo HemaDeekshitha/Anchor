@@ -73,6 +73,8 @@ type Submission = {
   category: string;
   score?: number | null;
   createdAt: string;
+  answer?: string | null;
+  feedback?: string | null;
 };
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -429,6 +431,7 @@ export default function AllSubmissions() {
 
   const [sortKey, setSortKey] = useState<ColKey | null>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function handleSort(key: ColKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -444,7 +447,7 @@ export default function AllSubmissions() {
       credentials: "include",
     })
       .then((r) => r.json())
-      .then(setSubmissions)
+      .then((data) => setSubmissions(Array.isArray(data) ? data : []))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
@@ -734,6 +737,13 @@ export default function AllSubmissions() {
                                 {grouped[month].map((item, idx) => (
                                   <React.Fragment key={item.id}>
                                     <Box
+                                      onClick={() =>
+                                        setExpandedId(
+                                          expandedId === item.id
+                                            ? null
+                                            : item.id
+                                        )
+                                      }
                                       sx={{
                                         display: "grid",
                                         gridTemplateColumns: GRID_COLS,
@@ -741,11 +751,14 @@ export default function AllSubmissions() {
                                         px: 3,
                                         py: 1.4,
                                         transition: "background 0.15s",
+                                        cursor: "pointer",
                                         bgcolor:
-                                          idx % 2 === 0
+                                          expandedId === item.id
+                                            ? C.accentBg
+                                            : idx % 2 === 0
                                             ? "transparent"
                                             : C.accentHover,
-                                        "&:hover": { cursor: "pointer" },
+                                        "&:hover": { bgcolor: C.accentBg },
                                       }}
                                     >
                                       {/* Task */}
@@ -866,6 +879,90 @@ export default function AllSubmissions() {
                                         </Typography>
                                       </Box>
                                     </Box>
+
+                                    {/* Expanded submission detail — outside the grid row */}
+                                    {expandedId === item.id && (
+                                      <Box
+                                        sx={{
+                                          px: 3,
+                                          py: 2,
+                                          bgcolor: "rgba(209,112,51,0.04)",
+                                          borderTop: `1px dashed ${C.accentBorder}`,
+                                          borderBottom: `1px dashed ${C.accentBorder}`,
+                                        }}
+                                      >
+                                        {item.answer ? (
+                                          <>
+                                            <Typography
+                                              sx={{
+                                                fontSize: "0.72rem",
+                                                fontWeight: 700,
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.07em",
+                                                color: C.textSub,
+                                                mb: 0.75,
+                                              }}
+                                            >
+                                              Your Submission
+                                            </Typography>
+                                            <Typography
+                                              sx={{
+                                                fontSize: "0.85rem",
+                                                color: "text.primary",
+                                                whiteSpace: "pre-wrap",
+                                                mb: item.feedback ? 2 : 0,
+                                                maxHeight: 200,
+                                                overflowY: "auto",
+                                                bgcolor: "#fafafa",
+                                                border: `1px solid ${C.divider}`,
+                                                borderRadius: 1.5,
+                                                p: 1.5,
+                                                lineHeight: 1.6,
+                                                fontFamily: "monospace",
+                                                fontSize: "0.8rem",
+                                              }}
+                                            >
+                                              {item.answer}
+                                            </Typography>
+                                            {item.feedback && (
+                                              <>
+                                                <Typography
+                                                  sx={{
+                                                    fontSize: "0.72rem",
+                                                    fontWeight: 700,
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.07em",
+                                                    color: C.textSub,
+                                                    mb: 0.75,
+                                                  }}
+                                                >
+                                                  AI Feedback
+                                                </Typography>
+                                                <Typography
+                                                  sx={{
+                                                    fontSize: "0.85rem",
+                                                    color: "text.secondary",
+                                                    lineHeight: 1.7,
+                                                    whiteSpace: "pre-wrap",
+                                                  }}
+                                                >
+                                                  {item.feedback}
+                                                </Typography>
+                                              </>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <Typography
+                                            sx={{
+                                              fontSize: "0.85rem",
+                                              color: C.textSub,
+                                            }}
+                                          >
+                                            No submission content available.
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    )}
 
                                     {idx < grouped[month].length - 1 && (
                                       <Divider

@@ -59,7 +59,7 @@ type Props = {
 };
 
 const RecentSubmissions = ({ submissions }: Props) => {
-  const latest = submissions
+  const latest = (Array.isArray(submissions) ? [...submissions] : [])
     .sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

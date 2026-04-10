@@ -57,6 +57,7 @@ export class MomentumService {
       name: user?.name || '',
       email: user?.email || '',
       createdAt: user?.createdAt,
+      location: onboarding?.location ?? null,
 
       primaryFocus: onboarding?.primaryFocus ?? [],
       resumeName: onboarding?.resumeName ?? null,
@@ -66,7 +67,7 @@ export class MomentumService {
       preferredRoles: onboarding?.preferredRole ?? [],
       intrests: onboarding?.areasOfInterest ?? [],
       employmentType: onboarding?.employmentType ?? [],
-      avatarUrl: onboarding?.profileImageUrl ?? null, // ← added
+      avatarUrl: onboarding?.profileImageUrl ?? null,
 
       skills,
     };
@@ -110,9 +111,26 @@ export class MomentumService {
     if (dto.employmentType !== undefined)
       onboarding.employmentType = dto.employmentType;
     if (dto.resumeText !== undefined) onboarding.resumeText = dto.resumeText;
+    if (dto.location !== undefined) {
+      onboarding.location = dto.location?.trim() || null;
+    } else if (!onboarding.location && dto.resumeText) {
+      // Auto-extract location from pasted resume text
+      const extracted = this.extractLocationFromResume(dto.resumeText);
+      if (extracted) onboarding.location = extracted;
+    }
 
     await this.onboardingRepository.save(onboarding);
     return { success: true };
+  }
+
+  /** Extracts a city/state or city/country location from raw resume text. */
+  private extractLocationFromResume(text: string): string | null {
+    if (!text) return null;
+    // Match patterns like "Fremont, CA" / "New York, NY" / "Austin, Texas" / "London, UK"
+    const match = text.match(
+      /\b([A-Z][a-zA-Z\s]{1,20}),\s*([A-Z]{2}|[A-Z][a-zA-Z]{3,20})\b/,
+    );
+    return match ? match[0] : null;
   }
 
   async updateResume(userId: string, file: Express.Multer.File) {
@@ -129,6 +147,18 @@ export class MomentumService {
       onboarding.resumeText = null;
       await this.onboardingRepository.save(onboarding);
       await this.resumeSkillProcessor.processResume(onboarding);
+
+      // Re-fetch to get the resumeText populated by the processor
+      if (!onboarding.location) {
+        const refreshed = await this.onboardingRepository.findOne({ where: { userId } });
+        if (refreshed?.resumeText) {
+          const loc = this.extractLocationFromResume(refreshed.resumeText);
+          if (loc) {
+            refreshed.location = loc;
+            await this.onboardingRepository.save(refreshed);
+          }
+        }
+      }
     } else {
       const fresh = this.onboardingRepository.create({
         userId,
@@ -144,11 +174,16 @@ export class MomentumService {
   }
 
   async updateAvatar(userId: string, file: Express.Multer.File) {
-    const imageUrl = await this.cloudinaryService.uploadFile(file);
-
     const onboarding = await this.onboardingRepository.findOne({
       where: { userId },
     });
+
+    // Delete previous avatar from Cloudinary before uploading new one
+    if (onboarding?.profileImageUrl) {
+      await this.cloudinaryService.deleteImage(onboarding.profileImageUrl);
+    }
+
+    const imageUrl = await this.cloudinaryService.uploadImage(file);
 
     if (onboarding) {
       onboarding.profileImageUrl = imageUrl;
@@ -162,6 +197,20 @@ export class MomentumService {
     }
 
     return { success: true, imageUrl };
+  }
+
+  async removeAvatar(userId: string) {
+    const onboarding = await this.onboardingRepository.findOne({
+      where: { userId },
+    });
+
+    if (onboarding?.profileImageUrl) {
+      await this.cloudinaryService.deleteImage(onboarding.profileImageUrl);
+      onboarding.profileImageUrl = null;
+      await this.onboardingRepository.save(onboarding);
+    }
+
+    return { success: true };
   }
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -214,29 +263,36 @@ export class MomentumService {
   }
 
   async getRecentSubmissions(userId: string) {
-    const rows = await this.userDailyRepo
-      .createQueryBuilder('udt')
-      .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
-      .leftJoin(
-        (qb) =>
-          qb
-            .select('s.task_id', 'task_id')
-            .addSelect("MAX((s.ai_result->>'score')::numeric)", 'best_score')
-            .from(TaskSubmission, 's')
-            .where('s.user_id = :subUserId', { subUserId: userId })
-            .groupBy('s.task_id'),
-        'best_sub',
-        'best_sub.task_id = udt.task_id',
-      )
-      .select('udt.id', 'id')
-      .addSelect('task.title', 'title')
-      .addSelect('task.category', 'category')
-      .addSelect('udt.task_date', 'createdAt')
-      .addSelect('best_sub.best_score', 'score')
-      .where('udt.user_id = :userId', { userId })
-      .andWhere('udt.status = :status', { status: 'completed' })
-      .orderBy('udt.task_date', 'DESC')
-      .getRawMany();
+    // Use DISTINCT ON to get the best submission per task (by score) in one query.
+    // This avoids any extra round trips when the user expands a row in the UI.
+    const rows = await this.userDailyRepo.query(
+      `
+      SELECT
+        udt.id,
+        task.title,
+        task.category,
+        udt.task_date AS "createdAt",
+        best_sub.best_score AS score,
+        best_sub.text_content AS answer,
+        best_sub.feedback
+      FROM user_daily_tasks udt
+      INNER JOIN rag_tasks task ON task.id = udt.task_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (s.task_id)
+          s.task_id,
+          s.text_content,
+          (s.ai_result->>'score')::numeric AS best_score,
+          s.ai_result->>'feedback' AS feedback
+        FROM task_submissions s
+        WHERE s.user_id::text = $1::text
+        ORDER BY s.task_id, (s.ai_result->>'score')::numeric DESC
+      ) best_sub ON best_sub.task_id = udt.task_id
+      WHERE udt.user_id::text = $1::text
+        AND udt.status = 'completed'
+      ORDER BY udt.task_date DESC
+      `,
+      [userId],
+    );
 
     return rows.map((r) => ({
       id: String(r.id),
@@ -244,6 +300,8 @@ export class MomentumService {
       category: r.category,
       createdAt: new Date(r.createdAt).toISOString(),
       score: r.score != null ? Number(r.score) : null,
+      answer: r.answer ?? null,
+      feedback: r.feedback ?? null,
     }));
   }
 }

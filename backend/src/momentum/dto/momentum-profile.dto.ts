@@ -2,6 +2,7 @@ export class MomentumProfileDto {
   name: string;
   email: string;
   createdAt?: Date;
+  location?: string | null;
 
   primaryFocus: string[];
   resumeName: string | null;

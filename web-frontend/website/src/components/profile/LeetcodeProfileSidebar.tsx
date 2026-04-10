@@ -37,6 +37,8 @@ type ProfileSectionProps = {
   profile: {
     name?: string;
     email?: string;
+    avatarUrl?: string | null;
+    location?: string | null;
     primaryFocus?: string[];
     resumeName?: string | null;
     resumeUrl?: string | null;
@@ -94,11 +96,6 @@ export default function LeetcodeProfileSidebar({
     return Object.entries(groupedSkills);
   }, [groupedSkills]);
 
-  const topSkills = React.useMemo(() => {
-    if (!profile?.skills?.length) return [];
-    return profile.skills.slice(0, 5);
-  }, [profile?.skills]);
-
   const visibleCategories = showAllSkills ? categories : categories.slice(0, 3);
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -113,21 +110,12 @@ export default function LeetcodeProfileSidebar({
   return (
     <Card
       sx={{
-        width: {
-          xs: "100%",
-          sm: "100%",
-          md: "100%", // 👈 IMPORTANT
-          lg: 380, // only fixed on large screens
-          borderRadius: 3,
-          borderTop: `4px solid ${C.accentFaint}`,
-          borderImage: `linear-gradient(to right, ${C.accent}, ${C.accentGold}) 1`,
-        },
-
+        width: { xs: "100%", md: 300, lg: 360 },
         flexShrink: 0,
-
         borderRadius: 3,
+        borderTop: `4px solid ${C.accentFaint}`,
+        borderImage: `linear-gradient(to right, ${C.accent}, ${C.accentGold}) 1`,
         p: 3,
-
         background: "linear-gradient(135deg,#ffffff,#fff7ed)",
         color: "black",
       }}
@@ -150,7 +138,7 @@ export default function LeetcodeProfileSidebar({
               bgcolor: "#d9d9d9",
               borderRadius: 3,
             }}
-            src="/assets/images/pro.jpg"
+            src={profile?.avatarUrl ?? undefined}
           />
 
           <Box>
@@ -380,7 +368,9 @@ export default function LeetcodeProfileSidebar({
           <Typography fontSize={13} color="gray">
             Location
           </Typography>
-          <Typography fontSize={14}>Fremont, CA</Typography>
+          <Typography fontSize={14}>
+            {profile?.location || "Not specified"}
+          </Typography>
         </Box>
       </Stack>
       <Divider sx={{ my: 3, borderColor: "#2a2a2a" }} />
@@ -471,42 +461,6 @@ export default function LeetcodeProfileSidebar({
               {profile?.skills?.length} total
             </Typography>
           </Box>
-
-          {/* TOP SKILLS */}
-          {topSkills.length > 0 && (
-            <Box mb={2.5}>
-              <Typography
-                fontSize={11}
-                fontWeight={700}
-                sx={{
-                  color: C.textSub,
-                  mb: 1,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.8,
-                }}
-              >
-                Top Skills
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                {topSkills.map((skill) => (
-                  <Chip
-                    key={skill.name}
-                    label={skill.name}
-                    size="small"
-                    sx={{
-                      height: 28,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: C.accentBg,
-                      color: C.accent,
-                      border: `1px solid ${C.accentBorder}`,
-                      borderRadius: "8px",
-                    }}
-                  />
-                ))}
-              </Box>
-            </Box>
-          )}
 
           {/* SKILLS BY CATEGORY */}
           {visibleCategories.map(([category, skills]) => (
