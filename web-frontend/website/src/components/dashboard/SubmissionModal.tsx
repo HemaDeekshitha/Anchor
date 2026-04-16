@@ -1,16 +1,8 @@
 "use client";
 import React, { useState } from "react";
 import {
-  Box,
-  Modal,
-  Typography,
-  TextField,
-  Button,
-  IconButton,
-  Alert,
-  Chip,
-  LinearProgress,
-  Paper,
+  Box, Modal, Typography, TextField, Button,
+  IconButton, Alert, Chip, LinearProgress, Paper,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -30,19 +22,12 @@ interface SubmissionModalProps {
   open: boolean;
   onClose: () => void;
   task: Task | null;
-  /** Called when the user dismisses the result screen. Receives the full result
-   *  so the parent (Dashboard) can sync the Anchor Points balance. */
   onSuccess?: (result: SubmissionResult) => void;
 }
 
-// Categories that only need 10 characters minimum
 const SELF_REPORT_CATEGORIES = [
-  'Job Applications',
-  'Networking',
-  'Resume & LinkedIn',
-  'Reflection & Planning',
-  'Projects & Portfolio',
-  'Interview Practice',
+  'Job Applications', 'Networking', 'Resume & LinkedIn',
+  'Reflection & Planning', 'Projects & Portfolio', 'Interview Practice',
 ];
 
 function getLeetcodeUrl(task: Task | null): string | null {
@@ -56,40 +41,25 @@ function getLeetcodeUrl(task: Task | null): string | null {
   return null;
 }
 
-export default function SubmissionModal({
-  open,
-  onClose,
-  task,
-  onSuccess,
-}: SubmissionModalProps) {
+export default function SubmissionModal({ open, onClose, task, onSuccess }: SubmissionModalProps) {
   const [answer, setAnswer] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Determine minimum characters based on task category
   const isSelfReport = task?.category && SELF_REPORT_CATEGORIES.includes(task.category);
   const minChars = isSelfReport ? 10 : 50;
-
   const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
   const charCount = answer.trim().length;
   const isValid = charCount >= minChars;
 
   const handleSubmit = async () => {
     if (!task || !isValid) return;
-
     setIsSubmitting(true);
     setError(null);
-
     try {
-      const response = await api.submitAnswer({
-        taskId: task.id,
-        taskDate: task.date,
-        textContent: answer,
-      });
-
+      const response = await api.submitAnswer({ taskId: task.id, taskDate: task.date, textContent: answer });
       setResult(response);
-      // ✅ Don't close or call onSuccess here - let user read feedback
     } catch (err: any) {
       setError(err.message || "Failed to submit answer");
     } finally {
@@ -98,357 +68,174 @@ export default function SubmissionModal({
   };
 
   const handleClose = () => {
-    setAnswer("");
-    setResult(null);
-    setError(null);
-    onClose();
+    setAnswer(""); setResult(null); setError(null); onClose();
   };
 
   if (!task) return null;
 
   return (
-    <Modal
-      open={open}
-      onClose={handleClose}
-      slotProps={{
-        backdrop: {
-          sx: {
-            backdropFilter: "blur(6px)",
-            backgroundColor: "rgba(0,0,0,0.25)",
-          },
-        },
-      }}
-    >
-      <Box
-        sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 700,
-          maxWidth: "90vw",
-          bgcolor: "#fff",
-          borderRadius: 3,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-          p: 4,
-          maxHeight: "85vh",
-          overflowY: "auto",
-        }}
-      >
+    <Modal open={open} onClose={handleClose}
+      slotProps={{ backdrop: { sx: { backdropFilter: "blur(6px)", backgroundColor: "rgba(44,26,10,0.2)" } } }}>
+      <Box sx={{
+        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        width: 700, maxWidth: "90vw", bgcolor: "#ffffff", borderRadius: 3,
+        boxShadow: "0 20px 60px rgba(44,26,10,0.16)",
+        border: "1px solid #e8ddd0",
+        p: 4, maxHeight: "85vh", overflowY: "auto",
+      }}>
         {/* Header */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            mb: 3,
-          }}
-        >
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3 }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
               Submit Your Answer
             </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-            >
+            <Typography variant="body2" sx={{ color: "#8c6a50", display: "flex", alignItems: "center", gap: 0.5 }}>
               {task.title}
               {getLeetcodeUrl(task) && (
-                <Box
-                  component="a"
-                  href={getLeetcodeUrl(task)!}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Box component="a" href={getLeetcodeUrl(task)!} target="_blank" rel="noopener noreferrer"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                  title="Open on LeetCode"
                   sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 20,
-                    height: 20,
-                    borderRadius: "4px",
-                    background: "#fff7ed",
-                    border: "1px solid #fed7aa",
-                    color: "#ea580c",
-                    textDecoration: "none",
-                    flexShrink: 0,
-                    "&:hover": {
-                      background: "#ffedd5",
-                      borderColor: "#f97316",
-                    },
-                  }}
-                >
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 20, height: 20, borderRadius: "4px",
+                    background: "#f5ede0", border: "1px solid #d4b898",
+                    color: "#b87444", textDecoration: "none", flexShrink: 0,
+                    "&:hover": { background: "#ecddc8", borderColor: "#b87444" },
+                  }}>
                   <ExternalLink size={11} strokeWidth={2.5} />
                 </Box>
               )}
             </Typography>
             {task.category && (
-              <Chip 
-                label={task.category} 
-                size="small" 
-                sx={{ mt: 1 }}
-                color={isSelfReport ? "default" : "primary"}
-              />
+              <Chip label={task.category} size="small" sx={{
+                mt: 1,
+                backgroundColor: "#f5ede0",
+                color: "#b87444",
+                border: "1px solid #e8ddd0",
+                fontWeight: 500,
+              }} />
             )}
           </Box>
-
-          <IconButton
-            onClick={handleClose}
-            sx={{
-              color: "#9ca3af",
-              "&:hover": {
-                color: "#be123c",
-                backgroundColor: "rgba(190,18,60,0.08)",
-              },
-            }}
-          >
+          <IconButton onClick={handleClose}
+            sx={{ color: "#8c6a50", "&:hover": { color: "#b87444", backgroundColor: "rgba(184,116,68,0.08)" } }}>
             <CloseIcon />
           </IconButton>
         </Box>
 
-        {/* Show result if submitted */}
+        {/* Result view */}
         {result ? (
           <Box>
-            <Paper
-              sx={{
-                p: 3,
-                mb: 3,
-                backgroundColor: result.approved ? "#f0fdf4" : "#fef2f2",
-                border: `2px solid ${result.approved ? "#86efac" : "#fca5a5"}`,
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 2,
-                }}
-              >
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            <Paper sx={{
+              p: 3, mb: 3,
+              backgroundColor: result.approved ? "#f5ede0" : "#fef2f2",
+              border: `2px solid ${result.approved ? "#b87444" : "#fca5a5"}`,
+              boxShadow: "none",
+            }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: "#2c1a0a" }}>
                   Score: {result.score}/10
                 </Typography>
-
                 <Chip
-                  icon={
-                    result.approved ? <CheckCircleIcon /> : <CancelIcon />
-                  }
+                  icon={result.approved ? <CheckCircleIcon /> : <CancelIcon />}
                   label={result.approved ? "Approved" : "Rejected"}
-                  color={result.approved ? "success" : "error"}
-                  sx={{ fontWeight: 600 }}
+                  sx={{
+                    fontWeight: 600,
+                    backgroundColor: result.approved ? "#b87444" : "#fca5a5",
+                    color: "#fff",
+                    "& .MuiChip-icon": { color: "#fff" },
+                  }}
                 />
               </Box>
-
-              <Typography
-                variant="body1"
-                sx={{ mb: 2, color: "#374151", lineHeight: 1.6 }}
-              >
+              <Typography variant="body1" sx={{ mb: 2, color: "#2c1a0a", lineHeight: 1.6 }}>
                 {result.feedback}
               </Typography>
 
-              {/* Anchor Points earned banner — only shown on approval */}
               {result.approved && result.anchorPointsEarned > 0 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    mt: 1,
-                    mb: 1,
-                    px: 2,
-                    py: 1,
-                    borderRadius: 2,
-                    bgcolor: "#fef9c3",
-                    border: "1px solid #fde68a",
-                  }}
-                >
-                  <Zap size={16} color="#f59e0b" fill="#f59e0b" />
-                  <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 700, color: "#854d0e" }}
-                  >
+                <Box sx={{
+                  display: "flex", alignItems: "center", gap: 1, mt: 1, mb: 1,
+                  px: 2, py: 1, borderRadius: 2,
+                  bgcolor: "#fdfaf7", border: "1px solid #e8ddd0",
+                }}>
+                  <Zap size={16} color="#b87444" fill="#b87444" />
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: "#a0622e" }}>
                     +{result.anchorPointsEarned} Anchor Points earned!
                   </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ ml: "auto", color: "#92400e" }}
-                  >
+                  <Typography variant="caption" sx={{ ml: "auto", color: "#8c6a50" }}>
                     Total: {result.newAnchorPointsBalance} AP
                   </Typography>
                 </Box>
               )}
 
-              {/* Details */}
               {result.details && !result.details.selfReport && (
-                <Box
-                  sx={{
-                    mt: 2,
-                    pt: 2,
-                    borderTop: "1px solid #d1d5db",
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{ display: "block", mb: 1, color: "#6b7280" }}
-                  >
+                <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #e8ddd0" }}>
+                  <Typography variant="caption" sx={{ display: "block", mb: 1, color: "#8c6a50" }}>
                     Analysis Details:
                   </Typography>
-
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                    {result.details.wordCount && (
-                      <Chip
-                        label={`${result.details.wordCount} words`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
-                    {result.details.passingScore && (
-                      <Chip
-                        label={`Needed: ${result.details.passingScore}/10`}
-                        size="small"
-                        variant="outlined"
-                        color={result.approved ? "success" : "error"}
-                      />
-                    )}
-                    {result.details.hasSituation && (
-                      <Chip
-                        label="✓ Has Situation"
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    )}
-                    {result.details.hasTask && (
-                      <Chip
-                        label="✓ Has Task"
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    )}
-                    {result.details.hasAction && (
-                      <Chip
-                        label="✓ Has Action"
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    )}
-                    {result.details.hasResult && (
-                      <Chip
-                        label="✓ Has Result"
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    )}
+                    {result.details.wordCount && <Chip label={`${result.details.wordCount} words`} size="small" variant="outlined" sx={{ borderColor: "#e8ddd0", color: "#8c6a50" }} />}
+                    {result.details.passingScore && <Chip label={`Needed: ${result.details.passingScore}/10`} size="small" variant="outlined" sx={{ borderColor: result.approved ? "#b87444" : "#fca5a5", color: result.approved ? "#b87444" : "#ef4444" }} />}
+                    {result.details.hasSituation && <Chip label="✓ Has Situation" size="small" sx={{ backgroundColor: "#f5ede0", color: "#b87444" }} />}
+                    {result.details.hasTask && <Chip label="✓ Has Task" size="small" sx={{ backgroundColor: "#f5ede0", color: "#b87444" }} />}
+                    {result.details.hasAction && <Chip label="✓ Has Action" size="small" sx={{ backgroundColor: "#f5ede0", color: "#b87444" }} />}
+                    {result.details.hasResult && <Chip label="✓ Has Result" size="small" sx={{ backgroundColor: "#f5ede0", color: "#b87444" }} />}
                   </Box>
                 </Box>
               )}
             </Paper>
 
-            {/* ✅ Close button that refreshes data */}
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => {
-                if (onSuccess && result) {
-                  onSuccess(result); // Pass full result so Dashboard can refresh points
-                }
-                handleClose();
-              }}
-              sx={{
-                bgcolor: "#be123c",
-                "&:hover": { bgcolor: "#9f1239" },
-                textTransform: "none",
-                py: 1.5,
-              }}
-            >
+            <Button fullWidth variant="contained"
+              onClick={() => { if (onSuccess && result) onSuccess(result); handleClose(); }}
+              sx={{ bgcolor: "#b87444", "&:hover": { bgcolor: "#a0622e" }, textTransform: "none", py: 1.5, fontWeight: 600 }}>
               Close
             </Button>
           </Box>
         ) : (
           <>
-            {/* Text Input */}
-            <TextField
-              multiline
-              rows={isSelfReport ? 4 : 12}
-              fullWidth
-              placeholder={
-                isSelfReport 
-                  ? "Briefly describe what you did (minimum 10 characters)..."
-                  : "Write your detailed answer here (minimum 50 characters)..."
-              }
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              disabled={isSubmitting}
+            <TextField multiline rows={isSelfReport ? 4 : 12} fullWidth
+              placeholder={isSelfReport ? "Briefly describe what you did (minimum 10 characters)..." : "Write your detailed answer here (minimum 50 characters)..."}
+              value={answer} onChange={(e) => setAnswer(e.target.value)} disabled={isSubmitting}
               sx={{
                 mb: 2,
                 "& .MuiOutlinedInput-root": {
-                  fontFamily: "inherit",
-                  fontSize: "15px",
+                  fontFamily: "Inter, sans-serif", fontSize: "15px",
+                  "& fieldset": { borderColor: "#e8ddd0" },
+                  "&:hover fieldset": { borderColor: "#b87444" },
+                  "&.Mui-focused fieldset": { borderColor: "#b87444" },
                 },
               }}
             />
 
-            {/* Character/Word Count */}
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "#8c6a50" }}>
                 {wordCount} words • {charCount} characters
               </Typography>
-              <Typography
-                variant="caption"
-                color={isValid ? "success.main" : "error.main"}
-                sx={{ fontWeight: 600 }}
-              >
-                {isValid 
-                  ? "✓ Ready to submit" 
-                  : `Minimum ${minChars} characters required`
-                }
+              <Typography variant="caption" sx={{ fontWeight: 600, color: isValid ? "#b87444" : "#ef4444" }}>
+                {isValid ? "✓ Ready to submit" : `Minimum ${minChars} characters required`}
               </Typography>
             </Box>
 
-            {/* Info Message for Self-Report */}
             {isSelfReport && (
-              <Alert severity="info" sx={{ mb: 2 }}>
+              <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: "#2c1a0a", border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
                 This is a self-report task. Just briefly confirm you completed it!
               </Alert>
             )}
 
-            {/* Error Alert */}
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-            {/* Loading */}
             {isSubmitting && (
               <Box sx={{ mb: 2 }}>
-                <LinearProgress />
-                <Typography variant="caption" sx={{ display: "block", mt: 1, textAlign: "center" }}>
+                <LinearProgress sx={{ "& .MuiLinearProgress-bar": { backgroundColor: "#b87444" }, backgroundColor: "#f5ede0" }} />
+                <Typography variant="caption" sx={{ display: "block", mt: 1, textAlign: "center", color: "#8c6a50" }}>
                   {isSelfReport ? "Submitting..." : "AI is evaluating your answer..."}
                 </Typography>
               </Box>
             )}
 
-            {/* Submit Button */}
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={!isValid || isSubmitting}
+            <Button fullWidth variant="contained" onClick={handleSubmit} disabled={!isValid || isSubmitting}
               sx={{
-                bgcolor: "#be123c",
-                "&:hover": { bgcolor: "#9f1239" },
-                "&:disabled": { bgcolor: "#fca5a5", color: "#fff" },
-                textTransform: "none",
-                py: 1.5,
-                fontWeight: 600,
-              }}
-            >
+                bgcolor: "#b87444", "&:hover": { bgcolor: "#a0622e" },
+                "&:disabled": { bgcolor: "#d4b898", color: "#fff" },
+                textTransform: "none", py: 1.5, fontWeight: 600,
+              }}>
               {isSubmitting ? "Submitting..." : "Submit Answer"}
             </Button>
           </>
