@@ -19,7 +19,6 @@ import {
   Modal,
   Typography,
 } from "@mui/material";
-
 import CloseIcon from "@mui/icons-material/Close";
 
 interface Task {
@@ -35,12 +34,9 @@ interface Task {
   leetcodeUrl?: string | null;
 }
 
-/** Returns a LeetCode URL for the task. Uses the stored URL if available,
- *  otherwise derives it from the title (e.g. "LeetCode Hard: Two Sum" → two-sum). */
 function getLeetcodeUrl(task: Task): string | null {
   if (task.leetcodeUrl) return task.leetcodeUrl;
   if (/leetcode/i.test(task.title)) {
-    // Strip any "LeetCode Easy/Medium/Hard:" prefix, then slugify
     const name = task.title.replace(/^leetcode\s*(easy|medium|hard)?\s*:\s*/i, "").trim();
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     return `https://leetcode.com/problems/${slug}/`;
@@ -54,8 +50,7 @@ const Dashboard = () => {
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [openPendingModal, setOpenPendingModal] = useState(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
-  const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] =
-    useState(false);
+  const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -65,34 +60,23 @@ const Dashboard = () => {
     async function loadDashboardData() {
       try {
         setIsLoading(true);
-
         const [tasksRes, submissions] = await Promise.all([
-          fetch("http://localhost:3001/rag/tasks", {
-            credentials: "include",
-          }),
+          fetch("http://localhost:3001/rag/tasks", { credentials: "include" }),
           api.getMySubmissions(),
         ]);
-
         const data = await tasksRes.json();
         setSubmissions(submissions);
-
-        // SMART PLAN
         if (data.smartPlan?.tasks) {
           setSmartPlan(data.smartPlan.tasks);
           setUserName(data.smartPlan.userName || "");
         }
-
-        // PENDING TASKS
         if (data.pendingTasks) {
-          const normalizedPendingTasks: Task[] = data.pendingTasks.map(
-            (task: any) => ({
-              ...task,
-              id: Number(task.id),
-              taskId: Number(task.taskId ?? task.taskid ?? task.id),
-              status: task.status ?? "pending",
-            })
-          );
-
+          const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
+            ...task,
+            id: Number(task.id),
+            taskId: Number(task.taskId ?? task.taskid ?? task.id),
+            status: task.status ?? "pending",
+          }));
           setPendingTasks(normalizedPendingTasks);
         }
       } catch (error) {
@@ -101,20 +85,15 @@ const Dashboard = () => {
         setIsLoading(false);
       }
     }
-
     loadDashboardData();
   }, []);
 
   const handleTaskClick = async (task: Task) => {
     const submissionTaskId = task.taskId ?? task.id;
     const taskForSubmission = { ...task, id: submissionTaskId };
-
     if (task.status === "completed") {
       try {
-        const taskSubmission = submissions.find(
-          (s: any) => s.taskId === submissionTaskId
-        );
-
+        const taskSubmission = submissions.find((s: any) => s.taskId === submissionTaskId);
         if (taskSubmission) {
           const fullSubmission = await api.getSubmission(taskSubmission.id);
           setSelectedSubmission(fullSubmission);
@@ -128,62 +107,27 @@ const Dashboard = () => {
       setSubmissionModalOpen(true);
     }
   };
-  const completedCount = smartPlan.filter(
-    (t) => t.status === "completed"
-  ).length;
-  const progress =
-    smartPlan.length > 0
-      ? Math.round((completedCount / smartPlan.length) * 100)
-      : 0;
+
+  const completedCount = smartPlan.filter((t) => t.status === "completed").length;
+  const progress = smartPlan.length > 0 ? Math.round((completedCount / smartPlan.length) * 100) : 0;
 
   return (
     <LayoutWithSidebar>
       <div className={styles.dashboardContainer}>
         {isLoading ? (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              mt: 8,
-            }}
-          >
-            <Card
-              sx={{
-                p: 4,
-                borderRadius: 4,
-                width: 420,
-                textAlign: "center",
-                background: "linear-gradient(135deg,#fff6f6,#fffdfd)",
-                border: "1px solid rgba(244,114,182,0.25)",
-                boxShadow: "0 16px 40px rgba(190,24,60,0.08)",
-              }}
-            >
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
+            <Card sx={{
+              p: 4, borderRadius: 4, width: 420, textAlign: "center",
+              background: "linear-gradient(135deg, #fdfaf7, #ffffff)",
+              border: "1px solid #e8ddd0",
+              boxShadow: "0 16px 40px rgba(44,26,10,0.08)",
+            }}>
               <CardContent>
-                <CircularProgress
-                  size={48}
-                  sx={{
-                    color: "#fb7185",
-                    mb: 2,
-                  }}
-                />
-
-                <Typography
-                  sx={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: "#5b1025",
-                    mb: 1,
-                  }}
-                >
+                <CircularProgress size={48} sx={{ color: "#b87444", mb: 2 }} />
+                <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#2c1a0a", mb: 1, fontFamily: "'Playfair Display', serif" }}>
                   Generating your Smart Plan
                 </Typography>
-
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    color: "#8b6b76",
-                  }}
-                >
+                <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>
                   Analyzing your goals and preparing today's tasks...
                 </Typography>
               </CardContent>
@@ -191,577 +135,213 @@ const Dashboard = () => {
           </Box>
         ) : (
           <>
-            <Box
-              sx={{
-                mb: 5,
-                px: 4,
-                py: 4,
-                borderRadius: 4,
-                background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,245,247,0.9))",
-                border: "1px solid rgba(244,114,182,0.25)",
-                boxShadow: "0 10px 30px rgba(190,24,60,0.08)",
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 2,
-                }}
-              >
-                {/* LEFT SIDE */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1.8,
-                    maxWidth: 520,
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: "2.4rem",
-                      fontWeight: 800,
-                      color: "#5b1025",
-                      lineHeight: 1.2,
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
+            {/* ── HERO HEADER ── */}
+            <Box sx={{
+              mb: 5, px: 4, py: 4, borderRadius: 4,
+              background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
+              border: "1px solid #e8ddd0",
+              boxShadow: "0 10px 30px rgba(44,26,10,0.06)",
+            }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.8, maxWidth: 520 }}>
+                  <Typography sx={{
+                    fontSize: "2.4rem", fontWeight: 800, color: "#2c1a0a",
+                    lineHeight: 1.2, letterSpacing: "-0.02em",
+                    fontFamily: "'Playfair Display', serif",
+                  }}>
                     Hello, {userName} 👋
                   </Typography>
-
-                  <Typography
-                    sx={{
-                      fontSize: 15,
-                      color: "#7c2d44",
-                      lineHeight: 1.6,
-                    }}
-                  >
+                  <Typography sx={{ fontSize: 15, color: "#8c6a50", lineHeight: 1.6 }}>
                     {new Date().toDateString()} • "Keep pushing!"
                   </Typography>
                 </Box>
 
-                {/* RIGHT SIDE STATUS CARD */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: 2,
-                    borderRadius: 3,
-                    background: "linear-gradient(135deg, #fff4f4, #fff9fb)",
-                    border: "1px solid rgba(251,191,36,0.25)",
-                    boxShadow: "0 6px 20px rgba(190,24,60,0.06)",
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 2,
-                      background: "linear-gradient(135deg, #fff1c2, #ffe0b2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 20,
-                    }}
-                  >
+                {/* Status card */}
+                <Box sx={{
+                  display: "flex", alignItems: "center", gap: 2, p: 2,
+                  borderRadius: 3,
+                  background: "linear-gradient(135deg, #fdfaf7, #f5ede0)",
+                  border: "1px solid #e8ddd0",
+                  boxShadow: "0 6px 20px rgba(44,26,10,0.06)",
+                }}>
+                  <Box sx={{
+                    width: 40, height: 40, borderRadius: 2,
+                    background: "linear-gradient(135deg, #f5ede0, #e8d4bc)",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+                  }}>
                     ✦
                   </Box>
-
                   <Box>
-                    <Typography
-                      sx={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: "#5b1025",
-                      }}
-                    >
+                    <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#2c1a0a" }}>
                       Smart Plan Ready
                     </Typography>
-
-                    <Typography
-                      sx={{
-                        fontSize: 13,
-                        color: "#8b6b76",
-                      }}
-                    >
+                    <Typography sx={{ fontSize: 13, color: "#8c6a50" }}>
                       Your tasks are ready today
                     </Typography>
                   </Box>
                 </Box>
               </Box>
             </Box>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  md: "repeat(2, 1fr)",
-                },
-                gap: 3,
-                mb: 5,
-                alignItems: "stretch",
-              }}
-            >
-              {/* DAILY PROGRESS CARD */}
-              <CardContent
-                sx={{
-                  px: 4,
-                  py: 3,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2.5,
-                  background: "linear-gradient(135deg,#ffffff,#fff5f7)",
-                  border: "1px solid rgba(244,114,182,0.22)",
-                  boxShadow: "0 12px 30px rgba(190,24,60,0.10)",
-                  borderRadius: 4,
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 18px 40px rgba(190,24,60,0.15)",
-                  },
-                }}
-              >
-                {/* TITLE */}
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#be123c",
-                    letterSpacing: ".08em",
-                  }}
-                >
+
+            {/* ── STATS CARDS ── */}
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 3, mb: 5, alignItems: "stretch" }}>
+
+              {/* Daily Progress */}
+              <CardContent sx={{
+                px: 4, py: 3, display: "flex", flexDirection: "column", gap: 2.5,
+                background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
+                border: "1px solid #e8ddd0",
+                boxShadow: "0 12px 30px rgba(44,26,10,0.08)",
+                borderRadius: 4,
+                "&:hover": { transform: "translateY(-4px)", boxShadow: "0 18px 40px rgba(44,26,10,0.12)" },
+              }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#b87444", letterSpacing: ".08em" }}>
                   🔥 DAILY PROGRESS
                 </Typography>
-
-                {/* MAIN ROW */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  {/* LEFT TEXT */}
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <Box>
-                    <Typography
-                      sx={{
-                        fontSize: 40,
-                        fontWeight: 800,
-                        color: "#5b1025",
-                        lineHeight: 1,
-                      }}
-                    >
+                    <Typography sx={{ fontSize: 40, fontWeight: 800, color: "#2c1a0a", lineHeight: 1 }}>
                       {progress}%
                     </Typography>
-
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        color: "#8b6b76",
-                        mt: 0.5,
-                      }}
-                    >
+                    <Typography sx={{ fontSize: 14, color: "#8c6a50", mt: 0.5 }}>
                       {completedCount} / {smartPlan.length} tasks completed
                     </Typography>
                   </Box>
-
-                  {/* CIRCLE */}
                   <Box sx={{ position: "relative" }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={100}
-                      size={80}
-                      thickness={4}
-                      sx={{ color: "#fde2e8" }}
-                    />
-
-                    <CircularProgress
-                      variant="determinate"
-                      value={progress}
-                      size={80}
-                      thickness={4}
-                      sx={{
-                        color: "#fb7185",
-                        position: "absolute",
-                        left: 0,
-                      }}
-                    />
-
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: 14,
-                          color: "#7f1d1d",
-                        }}
-                      >
-                        {progress}%
-                      </Typography>
+                    <CircularProgress variant="determinate" value={100} size={80} thickness={4} sx={{ color: "#f5ede0" }} />
+                    <CircularProgress variant="determinate" value={progress} size={80} thickness={4} sx={{ color: "#b87444", position: "absolute", left: 0 }} />
+                    <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#2c1a0a" }}>{progress}%</Typography>
                     </Box>
                   </Box>
                 </Box>
               </CardContent>
 
-              {/* PENDING TASKS CARD */}
-              <Card
-                sx={{
-                  borderRadius: 4,
-                  cursor: pendingTasks.length > 0 ? "pointer" : "default",
-                  background: "linear-gradient(135deg,#ffffff,#fff7ed)",
-                  border: "1px solid rgba(251,191,36,0.35)",
-                  boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
-                  transition: "all .2s ease",
-
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 18px 40px rgba(0,0,0,0.12)",
-                  },
-                }}
-                onClick={() => {
-                  if (pendingTasks.length > 0) {
-                    setOpenPendingModal(true);
-                  }
-                }}
+              {/* Pending Tasks */}
+              <Card sx={{
+                borderRadius: 4,
+                cursor: pendingTasks.length > 0 ? "pointer" : "default",
+                background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
+                border: "1px solid #e8ddd0",
+                boxShadow: "0 12px 30px rgba(44,26,10,0.08)",
+                transition: "all .2s ease",
+                "&:hover": { transform: "translateY(-4px)", boxShadow: "0 18px 40px rgba(44,26,10,0.12)" },
+              }}
+                onClick={() => { if (pendingTasks.length > 0) setOpenPendingModal(true); }}
               >
-                <CardContent
-                  sx={{
-                    px: 4,
-                    py: 3,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2.5,
-                  }}
-                >
-                  {/* TITLE */}
-                  <Typography
-                    sx={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: "#d97706",
-                      letterSpacing: ".08em",
-                    }}
-                  >
-                    🎯 PENDING TASKS (PREV. WEEK)
+                <CardContent sx={{ px: 4, py: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#a0622e", letterSpacing: ".08em" }}>
+                    🎯 PENDING TASKS
                   </Typography>
-
-                  {/* MAIN ROW */}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    {/* NUMBER */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>
-                      <Typography
-                        sx={{
-                          fontSize: 40,
-                          fontWeight: 800,
-                          color: "#7c2d12",
-                          lineHeight: 1,
-                        }}
-                      >
+                      <Typography sx={{ fontSize: 40, fontWeight: 800, color: "#2c1a0a", lineHeight: 1 }}>
                         {pendingTasks.length}
                       </Typography>
-
-                      <Typography
-                        sx={{
-                          fontSize: 14,
-                          color: "#8b6b76",
-                          mt: 0.5,
-                        }}
-                      >
-                        {pendingTasks.length === 0
-                          ? "No pending tasks at the moment"
-                          : "Tasks waiting for your action"}
+                      <Typography sx={{ fontSize: 14, color: "#8c6a50", mt: 0.5 }}>
+                        {pendingTasks.length === 0 ? "No pending tasks at the moment" : "Tasks waiting for your action"}
                       </Typography>
                       {pendingTasks.length > 0 && (
-                        <Typography
-                          sx={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: "#d97706",
-                            mt: 0.6,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                          }}
-                        >
+                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#b87444", mt: 0.6, display: "flex", alignItems: "center", gap: 0.5 }}>
                           View pending tasks →
                         </Typography>
                       )}
                     </Box>
-
-                    {/* ICON AREA */}
-                    <Box
-                      sx={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: 3,
-                        background: "linear-gradient(135deg,#fff1c2,#ffe8b5)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 28,
-                      }}
-                    >
-                      <ClipboardCheck
-                        size={30}
-                        color="#d97706"
-                        strokeWidth={2.2}
-                      />
+                    <Box sx={{
+                      width: 64, height: 64, borderRadius: 3,
+                      background: "linear-gradient(135deg, #f5ede0, #e8d4bc)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <ClipboardCheck size={30} color="#b87444" strokeWidth={2.2} />
                     </Box>
                   </Box>
                 </CardContent>
               </Card>
             </Box>
 
-            {/* TASKS SECTION */}
+            {/* ── TASKS SECTION ── */}
             <div className={styles.gridContainer}>
               <section>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    mb: 2.5,
-                    flexWrap: "wrap",
-                    gap: 1,
-                  }}
-                >
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2.5, flexWrap: "wrap", gap: 1 }}>
                   <Box>
-                    <Typography
-                      sx={{
-                        fontSize: 22,
-                        fontWeight: 800,
-                        color: "#5b1025",
-                        letterSpacing: "-0.02em",
-                      }}
-                    >
+                    <Typography sx={{ fontSize: 22, fontWeight: 800, color: "#2c1a0a", letterSpacing: "-0.02em", fontFamily: "'Playfair Display', serif" }}>
                       Today's Smart Plan
                     </Typography>
-
-                    <Typography
-                      sx={{
-                        fontSize: 13,
-                        color: "#8b6b76",
-                        mt: 0.3,
-                      }}
-                    >
+                    <Typography sx={{ fontSize: 13, color: "#8c6a50", mt: 0.3 }}>
                       Focus on these tasks to build your momentum today
                     </Typography>
                   </Box>
-
-                  {/* AI Badge */}
-                  <Box
-                    sx={{
-                      px: 1.6,
-                      py: 0.6,
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.8,
-                      background: "linear-gradient(135deg,#fff3cd,#fff7e6)",
-                      border: "1px solid rgba(251,191,36,0.35)",
-                      color: "#92400e",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-                    }}
-                  >
+                  <Box sx={{
+                    px: 1.6, py: 0.6, borderRadius: 999, fontSize: 12, fontWeight: 700,
+                    display: "flex", alignItems: "center", gap: 0.8,
+                    background: "linear-gradient(135deg, #f5ede0, #ecddc8)",
+                    border: "1px solid #e8ddd0", color: "#a0622e",
+                    boxShadow: "0 4px 12px rgba(44,26,10,0.06)",
+                  }}>
                     ✦ AI Generated
                   </Box>
                 </Box>
 
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                  }}
-                >
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {smartPlan.map((task) => (
-                    <Card
-                      key={task.id}
-                      onClick={() => handleTaskClick(task)}
-                      sx={{
-                        borderRadius: 3,
-                        cursor: "pointer",
-                        transition: "all .18s ease",
-                        border: "1px solid rgba(244,114,182,0.15)",
-                        background: "linear-gradient(135deg,#ffffff,#fff9fb)",
-                        boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
-
-                        "&:hover": {
-                          transform: "translateY(-3px)",
-                          boxShadow: "0 14px 34px rgba(0,0,0,0.12)",
-                        },
-
-                        ...(task.status === "completed" && {
-                          opacity: 0.6,
-                        }),
-                      }}
-                    >
-                      <CardContent
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        {/* LEFT SIDE */}
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 2,
-                          }}
-                        >
-                          {/* Checkbox */}
-                          <Box
-                            sx={{
-                              width: 26,
-                              height: 26,
-                              borderRadius: "50%",
-                              border: "2px solid #fb7185",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              background:
-                                task.status === "completed"
-                                  ? "#fb7185"
-                                  : "transparent",
-                            }}
-                          >
-                            {task.status === "completed" && (
-                              <Check size={16} color="white" />
-                            )}
+                    <Card key={task.id} onClick={() => handleTaskClick(task)} sx={{
+                      borderRadius: 3, cursor: "pointer", transition: "all .18s ease",
+                      border: "1px solid #e8ddd0",
+                      background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
+                      boxShadow: "0 6px 20px rgba(44,26,10,0.05)",
+                      "&:hover": { transform: "translateY(-3px)", boxShadow: "0 14px 34px rgba(44,26,10,0.10)" },
+                      ...(task.status === "completed" && { opacity: 0.6 }),
+                    }}>
+                      <CardContent sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <Box sx={{
+                            width: 26, height: 26, borderRadius: "50%",
+                            border: "2px solid #b87444",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            background: task.status === "completed" ? "#b87444" : "transparent",
+                          }}>
+                            {task.status === "completed" && <Check size={16} color="white" />}
                           </Box>
-
-                          {/* Task Text */}
                           <Box>
-                            <Box
-                              sx={{
-                                fontSize: 16,
-                                fontWeight: 600,
-                                color:
-                                  task.status === "completed"
-                                    ? "#9ca3af"
-                                    : "#1f2937",
-                                lineHeight: 1.45,
-                              }}
-                            >
-                              <Typography
-                                component="span"
-                                sx={{
-                                  fontSize: "inherit",
-                                  fontWeight: "inherit",
-                                  color: "inherit",
-                                }}
-                              >
-                                {task.title}
-                              </Typography>
+                            <Typography sx={{
+                              fontSize: 16, fontWeight: 600,
+                              color: task.status === "completed" ? "#9ca3af" : "#2c1a0a",
+                              display: "flex", alignItems: "center", gap: 0.5,
+                            }}>
+                              {task.title}
                               {getLeetcodeUrl(task) && (
-                                <Box
-                                  component="a"
-                                  href={getLeetcodeUrl(task)!}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e: React.MouseEvent) =>
-                                    e.stopPropagation()
-                                  }
-                                  title="Open on LeetCode"
+                                <Box component="a" href={getLeetcodeUrl(task)!} target="_blank" rel="noopener noreferrer"
+                                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
                                   sx={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: 20,
-                                    height: 20,
-                                    borderRadius: "4px",
-                                    background: "#fff7ed",
-                                    border: "1px solid #fed7aa",
-                                    color: "#ea580c",
-                                    textDecoration: "none",
-                                    verticalAlign: "middle",
-                                    ml: 0.75,
-                                    "&:hover": {
-                                      background: "#ffedd5",
-                                      borderColor: "#f97316",
-                                    },
-                                  }}
-                                >
-                                  <ExternalLink size={11} strokeWidth={2.5} />
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                    width: 22, height: 22, borderRadius: "4px",
+                                    background: "#f5ede0", border: "1px solid #d4b898",
+                                    color: "#b87444", textDecoration: "none", flexShrink: 0,
+                                    "&:hover": { background: "#ecddc8", borderColor: "#b87444" },
+                                  }}>
+                                  <ExternalLink size={12} strokeWidth={2.5} />
                                 </Box>
                               )}
-                            </Box>
+                            </Typography>
                             {task.status !== "completed" && (
-                              <Typography
-                                sx={{
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: "#c2410c",
-                                  mt: 0.4,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 0.4,
-                                }}
-                              >
+                              <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#a0622e", mt: 0.4, display: "flex", alignItems: "center", gap: 0.4 }}>
                                 ⚡ +25 AP
                               </Typography>
                             )}
                           </Box>
                         </Box>
 
-                        {/* RIGHT SIDE */}
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                          }}
-                        >
-                          {/* Difficulty Badge */}
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                           {task.difficulty && (
-                            <Box
-                              sx={{
-                                px: 1.2,
-                                py: 0.3,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                borderRadius: 2,
-                                background:
-                                  task.difficulty === "hard"
-                                    ? "#fee2e2"
-                                    : task.difficulty === "medium"
-                                    ? "#fef3c7"
-                                    : "#dcfce7",
-                                color:
-                                  task.difficulty === "hard"
-                                    ? "#b91c1c"
-                                    : task.difficulty === "medium"
-                                    ? "#92400e"
-                                    : "#065f46",
-                              }}
-                            >
+                            <Box sx={{
+                              px: 1.2, py: 0.3, fontSize: 11, fontWeight: 700, borderRadius: 2,
+                              background: task.difficulty === "hard" ? "#f5ede0" : task.difficulty === "medium" ? "#fef3c7" : "#f0fdf4",
+                              color: task.difficulty === "hard" ? "#a0622e" : task.difficulty === "medium" ? "#92400e" : "#065f46",
+                            }}>
                               {task.difficulty.toUpperCase()}
                             </Box>
                           )}
-
-
-                          <ChevronRight size={20} color="#fb7185" />
+                          <ChevronRight size={20} color="#b87444" />
                         </Box>
                       </CardContent>
                     </Card>
@@ -772,199 +352,81 @@ const Dashboard = () => {
           </>
         )}
 
-        {/* PENDING TASKS MODAL */}
-        <Modal
-          open={openPendingModal}
-          onClose={() => setOpenPendingModal(false)}
-          slotProps={{
-            backdrop: {
-              sx: {
-                backdropFilter: "blur(6px)",
-                backgroundColor: "rgba(0,0,0,0.25)",
-              },
-            },
-          }}
-        >
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: 640,
-              maxWidth: "92vw",
-              bgcolor: "#ffffff",
-              borderRadius: 4,
-              boxShadow: "0 30px 80px rgba(0,0,0,0.18)",
-              border: "1px solid rgba(244,114,182,0.2)",
-              overflow: "hidden",
-              maxHeight: "85vh",
-              display: "flex",
-              flexDirection: "column",
-              pb: 3,
-            }}
-          >
-            <Box
-              sx={{
-                px: 4,
-                py: 2.2,
-                pb: 2.5,
-
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: "1px solid rgba(0,0,0,0.06)",
-                background: "linear-gradient(135deg,#fff7f9,#fffdfd)",
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 0.6,
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: "#5b1025",
-                  }}
-                >
-                  Pending Tasks (Previous Week)
+        {/* ── PENDING TASKS MODAL ── */}
+        <Modal open={openPendingModal} onClose={() => setOpenPendingModal(false)}
+          slotProps={{ backdrop: { sx: { backdropFilter: "blur(6px)", backgroundColor: "rgba(44,26,10,0.2)" } } }}>
+          <Box sx={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            width: 640, maxWidth: "92vw", bgcolor: "#ffffff", borderRadius: 4,
+            boxShadow: "0 30px 80px rgba(44,26,10,0.16)",
+            border: "1px solid #e8ddd0",
+            overflow: "hidden", maxHeight: "85vh", display: "flex", flexDirection: "column", pb: 3,
+          }}>
+            <Box sx={{
+              px: 4, py: 2.2, pb: 2.5,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              borderBottom: "1px solid #e8ddd0",
+              background: "linear-gradient(135deg, #fdfaf7, #ffffff)",
+            }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
+                <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
+                  Pending Tasks
                 </Typography>
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: 13,
-                      color: "#8b6b76",
-                    }}
-                  >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                  <Typography sx={{ fontSize: 13, color: "#8c6a50" }}>
                     Tasks that still need your attention
                   </Typography>
-
-                  <Box
-                    sx={{
-                      px: 1.3,
-                      py: 0.3,
-                      borderRadius: "999px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      background: "rgba(244,63,94,0.12)",
-                      color: "#be123c",
-                      border: "1px solid rgba(244,63,94,0.25)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      minWidth: 36,
-                    }}
-                  >
+                  <Box sx={{
+                    px: 1.3, py: 0.3, borderRadius: "999px", fontSize: 11, fontWeight: 700,
+                    background: "rgba(184,116,68,0.10)", color: "#b87444",
+                    border: "1px solid rgba(184,116,68,0.22)",
+                    display: "flex", alignItems: "center", justifyContent: "center", minWidth: 36,
+                  }}>
                     {pendingTasks.length} pending
                   </Box>
                 </Box>
               </Box>
-
-              <IconButton
-                onClick={() => setOpenPendingModal(false)}
-                sx={{
-                  color: "#9ca3af",
-                  "&:hover": {
-                    color: "#be123c",
-                    backgroundColor: "rgba(190,18,60,0.08)",
-                  },
-                }}
-              >
+              <IconButton onClick={() => setOpenPendingModal(false)}
+                sx={{ color: "#8c6a50", "&:hover": { color: "#b87444", backgroundColor: "rgba(184,116,68,0.08)" } }}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
-            <Box
-              sx={{
-                overflowY: "auto",
-                px: 2,
-                py: 1,
-              }}
-            >
+
+            <Box sx={{ overflowY: "auto", px: 2, py: 1 }}>
               <List disablePadding>
                 {pendingTasks.map((task, idx) => {
                   const isCompleted = task.status === "completed";
-
                   return (
                     <React.Fragment key={task.id}>
                       <ListItem disablePadding>
                         <ListItemButton
-                          onClick={() => {
-                            setOpenPendingModal(false);
-                            handleTaskClick(task);
-                          }}
+                          onClick={() => { setOpenPendingModal(false); handleTaskClick(task); }}
                           sx={{
-                            py: 1.6,
-                            px: 2,
-                            gap: 2,
-                            borderRadius: 2,
-                            transition: "all .15s ease",
-
-                            "&:hover": {
-                              backgroundColor: "#fff6f8",
-                              transform: "translateX(3px)",
-                            },
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: "50%",
-                              border: "2px solid #fb7185",
-                              backgroundColor: isCompleted
-                                ? "#fca5a5"
-                                : "transparent",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
+                            py: 1.6, px: 2, gap: 2, borderRadius: 2, transition: "all .15s ease",
+                            "&:hover": { backgroundColor: "#fdfaf7", transform: "translateX(3px)" },
+                          }}>
+                          <Box sx={{
+                            width: 20, height: 20, borderRadius: "50%", border: "2px solid #b87444",
+                            backgroundColor: isCompleted ? "#d4b898" : "transparent",
+                            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                          }}>
                             {isCompleted && <Check size={14} color="white" />}
                           </Box>
-
                           <Box sx={{ flex: 1 }}>
-                            <Typography
-                              sx={{
-                                fontFamily:
-                                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                fontSize: 16,
-                                fontWeight: 500,
-                                color: isCompleted ? "#9ca3af" : "#111",
-                                textDecoration: isCompleted
-                                  ? "line-through"
-                                  : "none",
-                              }}
-                            >
+                            <Typography sx={{
+                              fontSize: 16, fontWeight: 500,
+                              color: isCompleted ? "#9ca3af" : "#2c1a0a",
+                              textDecoration: isCompleted ? "line-through" : "none",
+                            }}>
                               {task.title}
                             </Typography>
-
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: "#9ca3af",
-                              }}
-                            >
+                            <Typography variant="caption" sx={{ color: "#8c6a50" }}>
                               {task.date || "Overdue"}
                             </Typography>
                           </Box>
-
-                          <ChevronRight size={18} color="#fca5a5" />
+                          <ChevronRight size={18} color="#d4b898" />
                         </ListItemButton>
                       </ListItem>
-
                       {idx !== pendingTasks.length - 1 && <Divider />}
                     </React.Fragment>
                   );
@@ -974,26 +436,16 @@ const Dashboard = () => {
           </Box>
         </Modal>
 
-        {/* SUBMISSION MODAL (for new submissions) */}
         <SubmissionModal
           open={submissionModalOpen}
-          onClose={() => {
-            setSubmissionModalOpen(false);
-            setSelectedTask(null);
-          }}
+          onClose={() => { setSubmissionModalOpen(false); setSelectedTask(null); }}
           task={selectedTask}
-          onSuccess={(result: SubmissionResult) => {
-            window.location.reload();
-          }}
+          onSuccess={(result: SubmissionResult) => { window.location.reload(); }}
         />
 
-        {/* PREVIOUS SUBMISSION MODAL (for completed tasks) */}
         <PreviousSubmissionModal
           open={previousSubmissionModalOpen}
-          onClose={() => {
-            setPreviousSubmissionModalOpen(false);
-            setSelectedSubmission(null);
-          }}
+          onClose={() => { setPreviousSubmissionModalOpen(false); setSelectedSubmission(null); }}
           submission={selectedSubmission}
         />
       </div>

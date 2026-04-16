@@ -3,51 +3,40 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Drawer,
-  Box,
-  Typography,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  useMediaQuery,
-  useTheme,
-  Button,
+  Drawer, Box, Typography, List, ListItemButton,
+  ListItemIcon, ListItemText, Divider,
+  useMediaQuery, useTheme,
 } from "@mui/material";
 import { BriefcaseBusiness, ListTodo, LogOut, Trophy, User } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
-  onClose: () => void; // needed for overlay close
+  onClose: () => void;
 }
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
-  const theme = useTheme();
+  const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/dashboard", label: "My Plan", icon: <ListTodo size={20} /> },
-    { href: "/rewards", label: "Rewards", icon: <Trophy size={20} /> },
-    { href: "/profile", label: "Profile", icon: <User size={20} /> },
-    { href: "/application-tracker", label: "Jobs", icon: <BriefcaseBusiness size={20} /> },
+    { href: "/dashboard",           label: "My Plan",  icon: <ListTodo          size={22} /> },
+    { href: "/rewards",             label: "Rewards",  icon: <Trophy            size={22} /> },
+    { href: "/profile",             label: "Profile",  icon: <User              size={22} /> },
+    { href: "/application-tracker", label: "Jobs",     icon: <BriefcaseBusiness size={22} /> },
   ];
 
   const handleLogOut = async () => {
     try {
       await fetch("http://localhost:3001/auth/logout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
       });
-
       router.push("/login");
     } catch (err) {
       console.error("Logout failed", err);
@@ -55,59 +44,35 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
   };
 
   const content = (
-    <Box
-      sx={{
-        width: drawerWidth,
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "#fff",
-        justifyContent: "space-between",
-        p: 2,
-      }}
-    >
-      <Box
-        sx={
-          {
-            // width: drawerWidth,
-            // height: "100%",
-            // display: "flex",
-            // flexDirection: "column",
-            // bgcolor: "#fff",
-          }
-        }
-      >
+    <Box sx={{
+      width: drawerWidth,
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      bgcolor: "#ffffff",
+      boxSizing: "border-box",
+      overflow: "hidden",
+    }}>
+      {/* TOP: Brand + Nav */}
+      <Box>
         {/* Brand */}
-        <Box
-          component={Link}
-          href="/dashboard"
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            p: 2,
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "#111827",
-            textDecoration: "none",
-            "&:hover": {
-              color: "#be123c",
-            },
-          }}
-        >
-          <Box
-            component="img"
-            src="/assets/logo.png"
-            alt="Anchor Logo"
-            sx={{ width: 28, height: 28 }}
-          />
+        <Box component={Link} href="/dashboard" sx={{
+          display: "flex", alignItems: "center", gap: 1.5,
+          px: 3, py: 2.5,
+          fontSize: "1.6rem", fontWeight: 700,
+          color: "#2c1a0a", textDecoration: "none",
+          fontFamily: "'Playfair Display', serif",
+          "&:hover": { color: "#b87444" },
+        }}>
+          <Box component="img" src="/assets/logo.png" alt="Anchor Logo" sx={{ width: 40, height: 40 }} />
           Anchor
         </Box>
 
-        <Divider />
+        <Divider sx={{ borderColor: "#e8ddd0" }} />
 
         {/* Navigation */}
-        <List sx={{ px: 1, mt: 1 }}>
+        <List sx={{ px: 2, mt: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {navItems.map(({ href, label, icon }) => {
             const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
             return (
@@ -117,49 +82,50 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
                 href={href}
                 sx={{
                   borderRadius: 2,
-                  mb: 1,
-                  color: active ? "#be123c" : "#713f12",
-                  bgcolor: active ? "#fff1f2" : "transparent",
-                  fontWeight: active ? 700 : 400,
+                  py: 1.8,
+                  color:   active ? "#b87444" : "#8c6a50",
+                  bgcolor: active ? "#fdfaf7" : "transparent",
+                  border:  active ? "1px solid #e8ddd0" : "1px solid transparent",
+                  transition: "all 0.15s",
                   "&:hover": {
-                    bgcolor: "#fff1f2",
-                    color: "#be123c",
+                    bgcolor: "#fdfaf7",
+                    color: "#b87444",
+                    border: "1px solid #e8ddd0",
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                <ListItemIcon sx={{ minWidth: 40, color: "inherit" }}>
                   {icon}
                 </ListItemIcon>
                 <ListItemText
                   primary={label}
-                  primaryTypographyProps={{ fontWeight: active ? 700 : 400, fontSize: "0.9rem" }}
+                  primaryTypographyProps={{
+                    fontWeight: active ? 700 : 500,
+                    fontSize: "1rem",
+                  }}
                 />
               </ListItemButton>
             );
           })}
         </List>
       </Box>
-      <Box
-        component={Button}
-        onClick={handleLogOut}
-        sx={{
-          p: 2,
-          display: "flex",
-          justifyContent: "center",
-          color: "#713f12",
-          "&:hover": {
-            bgcolor: "transparent",
-            color: "#be123c",
-          },
-        }}
-      >
-        <LogOut size={20} />
-        <Typography
-          variant="body2"
-          sx={{ ml: 1, fontSize: "1.2rem", textTransform: "none" }}
+
+      {/* BOTTOM: Logout */}
+      <Box sx={{ px: 2, pb: 3 }}>
+        <Divider sx={{ borderColor: "#e8ddd0", mb: 2 }} />
+        <Box
+          onClick={handleLogOut}
+          sx={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 1,
+            py: 1.5, borderRadius: 2, cursor: "pointer",
+            color: "#8c6a50", border: "1px solid #e8ddd0",
+            "&:hover": { bgcolor: "#fdfaf7", color: "#b87444", borderColor: "#b87444" },
+            transition: "all 0.15s",
+          }}
         >
-          Logout
-        </Typography>
+          <LogOut size={18} />
+          <Typography sx={{ fontSize: "0.9rem", fontWeight: 500 }}>Logout</Typography>
+        </Box>
       </Box>
     </Box>
   );
@@ -169,14 +135,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
       variant={isMobile ? "temporary" : "permanent"}
       open={isMobile ? isSidebarOpen : true}
       onClose={onClose}
-      ModalProps={{
-        keepMounted: true,
-      }}
+      ModalProps={{ keepMounted: true }}
       sx={{
         "& .MuiDrawer-paper": {
           width: drawerWidth,
-          borderRight: "1px solid #eee",
-          boxShadow: isMobile ? "4px 0 12px rgba(0,0,0,0.1)" : "none",
+          borderRight: "1px solid #d4b898",
+          boxShadow: isMobile ? "4px 0 12px rgba(44,26,10,0.08)" : "none",
+          bgcolor: "#ffffff",
+          boxSizing: "border-box",
         },
       }}
     >

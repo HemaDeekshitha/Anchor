@@ -17,13 +17,14 @@
   margin: 0;
   font-size: 28px;
   font-weight: 800;
-  color: #4c0519;
+  color: #2c1a0a;
+  font-family: "Playfair Display", serif;
 }
 
 /* ── View toggle ───────────────────────────────────────────────────────────── */
 .viewToggle {
   display: flex;
-  border: 1px solid #fecdd3;
+  border: 1px solid #e8ddd0;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -32,7 +33,7 @@
   padding: 6px 18px;
   border: none;
   background: transparent;
-  color: #881337;
+  color: #8c6a50;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -40,11 +41,11 @@
 }
 
 .viewToggleBtn:hover:not(.viewToggleActive) {
-  background-color: #fff1f2;
+  background-color: #f5ede0;
 }
 
 .viewToggleActive {
-  background-color: #be123c;
+  background-color: #b87444;
   color: #ffffff;
 }
 
@@ -56,26 +57,10 @@
   flex-wrap: wrap;
 }
 
-.scanningMessage {
-  font-size: 13px;
-  font-weight: 500;
-  color: #be123c;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  border-radius: 8px;
-  padding: 7px 14px;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
 .connectButton {
   border: none;
   border-radius: 10px;
-  background-color: #be123c;
+  background-color: #b87444;
   color: #ffffff;
   padding: 10px 16px;
   font-size: 14px;
@@ -85,14 +70,14 @@
 }
 
 .connectButton:hover {
-  background-color: #9f1239;
+  background-color: #a0622e;
 }
 
 .scanButton {
-  border: 1px solid #fecdd3;
+  border: 1px solid #e8ddd0;
   border-radius: 10px;
   background-color: #ffffff;
-  color: #881337;
+  color: #8c6a50;
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
@@ -101,7 +86,7 @@
 }
 
 .scanButton:hover:not(:disabled) {
-  background-color: #fff1f2;
+  background-color: #f5ede0;
 }
 
 .scanButton:disabled {
@@ -109,16 +94,32 @@
   cursor: not-allowed;
 }
 
+.addJobButton {
+  border: none;
+  border-radius: 10px;
+  background-color: #2c1a0a;
+  color: #ffffff;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.addJobButton:hover {
+  background-color: #1a0f05;
+}
+
 /* ── Messages ──────────────────────────────────────────────────────────────── */
 .errorMessage {
   margin: 0;
-  color: #be123c;
+  color: #a0622e;
   font-size: 14px;
 }
 
 .oauthMessage {
   margin: 0;
-  color: #166534;
+  color: #2c6e49;
   font-size: 14px;
   font-weight: 600;
 }
@@ -134,8 +135,8 @@
   flex: 1;
   min-width: 72px;
   background-color: #ffffff;
-  border: 1px solid #fecdd3;
-  border-left: 3px solid #fecdd3;
+  border: 1px solid #e8ddd0;
+  border-left: 3px solid #e8ddd0;
   border-radius: 10px;
   padding: 12px 16px;
   display: flex;
@@ -147,24 +148,23 @@
 .statValue {
   font-size: 22px;
   font-weight: 800;
-  color: #111827;
+  color: #2c1a0a;
   line-height: 1;
 }
 
 .statLabel {
   font-size: 10px;
   font-weight: 600;
-  color: #6b7280;
+  color: #8c6a50;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
-/* Stat accent colours (left border) */
-.statApplied   { border-left-color: #1d4ed8; }
-.statInterview { border-left-color: #b45309; }
+.statApplied   { border-left-color: #1a56db; }
+.statInterview { border-left-color: #d97706; }
 .statOffer     { border-left-color: #16a34a; }
-.statRejected  { border-left-color: #be123c; }
-.statRate      { border-left-color: #7c3aed; }
+.statRejected  { border-left-color: #dc2626; }
+.statRate      { border-left-color: #2c1a0a; }
 
 /* ── Kanban board ──────────────────────────────────────────────────────────── */
 .boardContainer {
@@ -178,34 +178,33 @@
 .boardColumn {
   flex: 1;
   min-width: 255px;
-  background-color: #f9fafb;
-  border: 1px solid #fecdd3;
+  background-color: #fdfaf7;
+  border: 1px solid #e8ddd0;
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Column header — top accent set per-column below */
 .colHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
   background-color: #ffffff;
-  border-bottom: 1px solid #fecdd3;
+  border-bottom: 1px solid #e8ddd0;
   border-top: 3px solid transparent;
 }
 
-.colHeaderApplied   { border-top-color: #1d4ed8; }
-.colHeaderInterview { border-top-color: #b45309; }
+.colHeaderApplied   { border-top-color: #1a56db; }
+.colHeaderInterview { border-top-color: #d97706; }
 .colHeaderOffer     { border-top-color: #16a34a; }
-.colHeaderRejected  { border-top-color: #be123c; }
+.colHeaderRejected  { border-top-color: #dc2626; }
 
 .colLabel {
   font-size: 12px;
   font-weight: 700;
-  color: #374151;
+  color: #2c1a0a;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -222,12 +221,11 @@
   font-weight: 700;
 }
 
-.colCountApplied   { background-color: #eff6ff; color: #1d4ed8; }
-.colCountInterview { background-color: #fefce8; color: #854d0e; }
-.colCountOffer     { background-color: #f0fdf4; color: #166534; }
-.colCountRejected  { background-color: #fff1f2; color: #be123c; }
+.colCountApplied   { background-color: #e8f0fe; color: #1a56db; }
+.colCountInterview { background-color: #fef9c3; color: #854d0e; }
+.colCountOffer     { background-color: #dcfce7; color: #166534; }
+.colCountRejected  { background-color: #fee2e2; color: #991b1b; }
 
-/* Column body — vertically scrollable card list */
 .colBody {
   padding: 12px;
   display: flex;
@@ -239,7 +237,7 @@
 
 .colEmpty {
   margin: 16px 0;
-  color: #9ca3af;
+  color: #b8a090;
   font-size: 13px;
   text-align: center;
 }
@@ -247,7 +245,7 @@
 /* ── Grid section wrapper ───────────────────────────────────────────────────── */
 .sectionCard {
   background-color: #ffffff;
-  border: 1px solid #fecdd3;
+  border: 1px solid #e8ddd0;
   border-radius: 12px;
   padding: 16px;
 }
@@ -256,7 +254,8 @@
   margin: 0 0 10px 0;
   font-size: 18px;
   font-weight: 700;
-  color: #881337;
+  color: #2c1a0a;
+  font-family: "Playfair Display", serif;
 }
 
 .jobsGrid {
@@ -265,9 +264,9 @@
   gap: 14px;
 }
 
-/* ── Job card (shared by both views) ───────────────────────────────────────── */
+/* ── Job card ───────────────────────────────────────────────────────────────── */
 .jobCard {
-  border: 1px solid #fecdd3;
+  border: 1px solid #e8ddd0;
   border-radius: 12px;
   padding: 14px 14px 36px 14px;
   background-color: #ffffff;
@@ -279,7 +278,7 @@
 }
 
 .jobCard:hover {
-  box-shadow: 0 2px 12px rgba(136, 19, 55, 0.08);
+  box-shadow: 0 2px 12px rgba(44, 26, 10, 0.08);
 }
 
 /* ── Delete button ─────────────────────────────────────────────────────────── */
@@ -292,7 +291,7 @@
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #d1d5db;
+  color: #d4c4b4;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -304,8 +303,8 @@
 }
 
 .deleteButton:hover:not(:disabled) {
-  background-color: #fff1f2;
-  color: #be123c;
+  background-color: #f5ede0;
+  color: #a0622e;
 }
 
 .deleteButton:disabled {
@@ -325,17 +324,17 @@
   width: fit-content;
 }
 
-.statusApplied   { background-color: #eff6ff; color: #1d4ed8; }
-.statusInterview { background-color: #fefce8; color: #854d0e; }
-.statusOffer     { background-color: #f0fdf4; color: #166534; }
-.statusRejected  { background-color: #fff1f2; color: #be123c; }
+.statusApplied   { background-color: #e8f0fe; color: #1a56db; }
+.statusInterview { background-color: #fef9c3; color: #854d0e; }
+.statusOffer     { background-color: #dcfce7; color: #166534; }
+.statusRejected  { background-color: #fee2e2; color: #991b1b; }
 
 /* ── Card fields ───────────────────────────────────────────────────────────── */
 .jobTitle {
   margin: 0 0 2px 0;
   font-size: 14px;
   font-weight: 700;
-  color: #881337;
+  color: #2c1a0a;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -343,7 +342,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
-  padding-right: 20px; /* avoid overlap with delete button */
+  padding-right: 20px;
 }
 
 .jobField {
@@ -354,7 +353,7 @@
 
 .jobField span {
   font-size: 10px;
-  color: #6b7280;
+  color: #8c6a50;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 500;
@@ -362,7 +361,7 @@
 
 .jobField strong {
   font-size: 13px;
-  color: #374151;
+  color: #2c1a0a;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -372,27 +371,10 @@
 /* ── Empty / loading states ────────────────────────────────────────────────── */
 .emptyState {
   margin: 0;
-  color: #6b7280;
+  color: #8c6a50;
 }
 
-/* ── Add Job button ─────────────────────────────────────────────────────────── */
-.addJobButton {
-  border: none;
-  border-radius: 10px;
-  background-color: #166534;
-  color: #ffffff;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.addJobButton:hover {
-  background-color: #14532d;
-}
-
-/* ── Manual badge on card ───────────────────────────────────────────────────── */
+/* ── Manual badge ───────────────────────────────────────────────────────────── */
 .manualBadge {
   display: inline-block;
   padding: 1px 7px;
@@ -401,12 +383,12 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background-color: #f0fdf4;
-  color: #166534;
+  background-color: #f5ede0;
+  color: #b87444;
   width: fit-content;
 }
 
-/* ── Gmail redirect button on card ─────────────────────────────────────────── */
+/* ── Gmail button on card ───────────────────────────────────────────────────── */
 .gmailButton {
   position: absolute;
   bottom: 10px;
@@ -414,8 +396,8 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background-color: #fff1f2;
-  color: #be123c;
+  background-color: #f5ede0;
+  color: #b87444;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -425,17 +407,17 @@
 }
 
 .gmailButton:hover {
-  background-color: #be123c;
+  background-color: #b87444;
   color: #ffffff;
   transform: scale(1.1);
 }
 
-/* ── Notes snippet on card ──────────────────────────────────────────────────── */
+/* ── Notes snippet ──────────────────────────────────────────────────────────── */
 .notesSnippet {
   font-size: 11px;
-  color: #6b7280;
+  color: #8c6a50;
   line-height: 1.5;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid #e8ddd0;
   padding-top: 6px;
   margin-top: 2px;
   font-style: italic;
@@ -445,7 +427,7 @@
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.45);
+  background-color: rgba(44, 26, 10, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -464,7 +446,8 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 20px 60px rgba(44, 26, 10, 0.18);
+  border: 1px solid #e8ddd0;
 }
 
 .modalHeader {
@@ -477,7 +460,8 @@
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #4c0519;
+  color: #2c1a0a;
+  font-family: "Playfair Display", serif;
 }
 
 .modalClose {
@@ -487,7 +471,7 @@
   border-radius: 50%;
   background: transparent;
   font-size: 20px;
-  color: #9ca3af;
+  color: #b8a090;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -498,8 +482,8 @@
 }
 
 .modalClose:hover {
-  background-color: #fff1f2;
-  color: #be123c;
+  background-color: #f5ede0;
+  color: #b87444;
 }
 
 /* ── Form elements ──────────────────────────────────────────────────────────── */
@@ -521,7 +505,7 @@
 .formLabel {
   font-size: 12px;
   font-weight: 700;
-  color: #374151;
+  color: #8c6a50;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -529,12 +513,12 @@
 .formInput,
 .formSelect,
 .formTextarea {
-  border: 1px solid #fecdd3;
+  border: 1px solid #e8ddd0;
   border-radius: 8px;
   padding: 9px 12px;
   font-size: 14px;
-  color: #111827;
-  background-color: #fff;
+  color: #2c1a0a;
+  background-color: #fdfaf7;
   outline: none;
   transition: border-color 0.15s ease;
   font-family: inherit;
@@ -545,12 +529,12 @@
 .formInput:focus,
 .formSelect:focus,
 .formTextarea:focus {
-  border-color: #be123c;
+  border-color: #b87444;
 }
 
 .formInput:disabled {
-  background-color: #f9fafb;
-  color: #6b7280;
+  background-color: #f5ede0;
+  color: #8c6a50;
 }
 
 .formTextarea {
@@ -560,7 +544,7 @@
 
 .modalError {
   margin: 0;
-  color: #be123c;
+  color: #a0622e;
   font-size: 13px;
 }
 
@@ -573,10 +557,10 @@
 }
 
 .cancelButton {
-  border: 1px solid #fecdd3;
+  border: 1px solid #e8ddd0;
   border-radius: 8px;
   background-color: #ffffff;
-  color: #881337;
+  color: #8c6a50;
   padding: 9px 18px;
   font-size: 14px;
   font-weight: 600;
@@ -585,13 +569,13 @@
 }
 
 .cancelButton:hover {
-  background-color: #fff1f2;
+  background-color: #f5ede0;
 }
 
 .saveButton {
   border: none;
   border-radius: 8px;
-  background-color: #be123c;
+  background-color: #b87444;
   color: #ffffff;
   padding: 9px 20px;
   font-size: 14px;
@@ -601,7 +585,7 @@
 }
 
 .saveButton:hover:not(:disabled) {
-  background-color: #9f1239;
+  background-color: #a0622e;
 }
 
 .saveButton:disabled {
@@ -609,7 +593,7 @@
   cursor: not-allowed;
 }
 
-/* ── Grid responsive breakpoints ───────────────────────────────────────────── */
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .jobsGrid { grid-template-columns: 1fr; }
 }
