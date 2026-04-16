@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Patch,
   Post,
   Req,
@@ -43,7 +45,9 @@ export class MomentumController {
 
   @UseGuards(JwtAuthGuard)
   @Post('profile/avatar')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
   async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
     return this.momentumService.updateAvatar(req.user.userId, file);
   }
@@ -72,5 +76,15 @@ export class MomentumController {
   @Get('recent-submissions')
   async getRecentSubmissions(@Req() req) {
     return this.momentumService.getRecentSubmissions(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('submissions/:id')
+  updateSubmission(
+    @Req() req,
+    @Param('id', ParseIntPipe) id: number,
+    @Body('answer') answer: string,
+  ) {
+    return this.momentumService.updateSubmission(id, req.user.userId, answer);
   }
 }

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -17,6 +22,7 @@ import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
 import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
 import { RagTask } from 'src/rag/rag-task.entity';
 import { TaskSubmission } from 'src/submissions/submission.entity';
+import { GeminiService } from 'src/ai/gemini.service';
 
 @Injectable()
 export class MomentumService {
@@ -40,7 +46,9 @@ export class MomentumService {
     @InjectRepository(RagTask)
     private ragTaskRepo: Repository<RagTask>,
     @InjectRepository(TaskSubmission)
-    private taskSubmissionRepo: Repository<TaskSubmission>,
+    private submissionRepo: Repository<TaskSubmission>,
+
+    private readonly geminiService: GeminiService,
   ) {}
 
   async getProfile(userId: string): Promise<MomentumProfileDto> {
@@ -150,7 +158,9 @@ export class MomentumService {
 
       // Re-fetch to get the resumeText populated by the processor
       if (!onboarding.location) {
-        const refreshed = await this.onboardingRepository.findOne({ where: { userId } });
+        const refreshed = await this.onboardingRepository.findOne({
+          where: { userId },
+        });
         if (refreshed?.resumeText) {
           const loc = this.extractLocationFromResume(refreshed.resumeText);
           if (loc) {
@@ -263,26 +273,31 @@ export class MomentumService {
   }
 
   async getRecentSubmissions(userId: string) {
-    // Use DISTINCT ON to get the best submission per task (by score) in one query.
-    // This avoids any extra round trips when the user expands a row in the UI.
     const rows = await this.userDailyRepo.query(
       `
       SELECT
-        udt.id,
+        udt.id                                     AS "udtId",
+        best_sub.submission_id                     AS "submissionId",
         task.title,
         task.category,
-        udt.task_date AS "createdAt",
-        best_sub.best_score AS score,
-        best_sub.text_content AS answer,
-        best_sub.feedback
+        task."leetcodeUrl",
+        udt.task_date                              AS "createdAt",
+        best_sub.best_score                        AS score,
+        best_sub.text_content                      AS answer,
+        best_sub.feedback,
+        best_sub.approved,
+        best_sub.verified_at                       AS "updatedAt"
       FROM user_daily_tasks udt
       INNER JOIN rag_tasks task ON task.id = udt.task_id
       LEFT JOIN (
         SELECT DISTINCT ON (s.task_id)
+          s.id                                     AS submission_id,
           s.task_id,
           s.text_content,
-          (s.ai_result->>'score')::numeric AS best_score,
-          s.ai_result->>'feedback' AS feedback
+          s.verified_at,
+          (s.ai_result->>'score')::numeric         AS best_score,
+          s.ai_result->>'feedback'                 AS feedback,
+          (s.ai_result->>'approved')::boolean      AS approved
         FROM task_submissions s
         WHERE s.user_id::text = $1::text
         ORDER BY s.task_id, (s.ai_result->>'score')::numeric DESC
@@ -295,13 +310,94 @@ export class MomentumService {
     );
 
     return rows.map((r) => ({
-      id: String(r.id),
+      id: String(r.submissionId ?? r.udtId),
       title: r.title,
       category: r.category,
+      leetcodeUrl: r.leetcodeUrl ?? null,
       createdAt: new Date(r.createdAt).toISOString(),
       score: r.score != null ? Number(r.score) : null,
       answer: r.answer ?? null,
       feedback: r.feedback ?? null,
+      approved: r.approved ?? null,
+      updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null,
     }));
+  }
+
+  async updateSubmission(
+    submissionId: number,
+    userId: string,
+    newAnswer: string,
+  ): Promise<{ score: number; feedback: string; approved: boolean }> {
+    // 1. Verify the submission exists and belongs to this user
+    const submission = await this.submissionRepo.findOne({
+      where: { id: submissionId },
+      relations: ['task'],
+    });
+
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    if (String(submission.user_id) !== String(userId)) {
+      throw new ForbiddenException('You do not own this submission');
+    }
+
+    const task = submission.task;
+
+    // 2. Validate minimum length (same rules as submitText)
+    const selfReportCategories = [
+      'Job Applications',
+      'Networking',
+      'Resume & LinkedIn',
+      'Reflection & Planning',
+      'Projects & Portfolio',
+      'Interview Practice',
+    ];
+
+    const isLeetcode = !!task.leetcodeUrl || /leetcode/i.test(task.title);
+    const minChars =
+      isLeetcode || selfReportCategories.includes(task.category) ? 10 : 50;
+
+    if (newAnswer.trim().length < minChars) {
+      throw new BadRequestException(
+        `Answer must be at least ${minChars} characters long`,
+      );
+    }
+
+    // 3. Re-evaluate with AI — same path as submitText but NO points awarded
+    let aiResult: {
+      score: number;
+      feedback: string;
+      approved: boolean;
+      confidence: number;
+      details: any;
+    };
+
+    if (selfReportCategories.includes(task.category)) {
+      aiResult = {
+        score: 10,
+        feedback: 'Task marked as complete. Great job!',
+        approved: true,
+        confidence: 1.0,
+        details: { selfReport: true },
+      };
+    } else {
+      aiResult = await this.geminiService.evaluateSubmission(task, newAnswer);
+    }
+
+    // 4. Update the record in-place — status reflects the new eval result
+    submission.text_content = newAnswer;
+    submission.ai_result = aiResult;
+    submission.status = aiResult.approved ? 'approved' : 'rejected';
+    submission.verified_at = new Date();
+
+    await this.submissionRepo.save(submission);
+
+    // 5. Return only what the frontend needs to update its live state
+    return {
+      score: aiResult.score,
+      feedback: aiResult.feedback,
+      approved: aiResult.approved,
+    };
   }
 }
