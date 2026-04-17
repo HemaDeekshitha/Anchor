@@ -52,7 +52,7 @@ const PERIODS = [
 const EMPTY_STATE_MESSAGES: Record<string, { title: string; sub: string }> = {
   "7d": {
     title: "Nothing logged last week yet",
-    sub: "Start today — complete a task, solve a LeetCode problem, or send an application to see your streak come alive.",
+    sub: "Start today — complete a task, solve a problem, or send an application to see your streak come alive.",
   },
   this_week: {
     title: "No activity this week yet",
@@ -117,7 +117,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <Stack spacing={0.75}>
         {[
           { label: "Tasks", key: "tasks", color: C.accent },
-          { label: "LeetCode", key: "leetcode", color: C.accentDark },
+          // { label: "LeetCode", key: "leetcode", color: C.accentDark },
           { label: "Applications", key: "applications", color: C.accentTeal },
         ].map(({ label, key, color }) => (
           <Stack
@@ -135,7 +135,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           </Stack>
         ))}
       </Stack>
-      <Stack direction="row" spacing={1} mt={1.5} flexWrap="wrap">
+      {/* <Stack direction="row" spacing={1} mt={1.5} flexWrap="wrap">
         <Chip
           size="small"
           label={`${data.easy} Easy`}
@@ -158,7 +158,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             fontWeight: 600,
           }}
         />
-      </Stack>
+      </Stack> */}
       <Typography
         sx={{ mt: 1.5, fontSize: 12, fontWeight: 600, color: C.accent }}
       >
@@ -172,12 +172,12 @@ function EmptyState({ period }: { period: string }) {
   const msg = EMPTY_STATE_MESSAGES[period] ?? EMPTY_STATE_MESSAGES["7d"];
   const pills = [
     { label: "Task", color: C.accent, bg: C.accentBg, border: C.accentBorder },
-    {
-      label: "LeetCode",
-      color: C.accentDark,
-      bg: "rgba(160,98,46,0.08)",
-      border: "rgba(160,98,46,0.20)",
-    },
+    // {
+    //   label: "LeetCode",
+    //   color: C.accentDark,
+    //   bg: "rgba(160,98,46,0.08)",
+    //   border: "rgba(160,98,46,0.20)",
+    // },
     {
       label: "Application",
       color: C.accentTeal,
@@ -432,7 +432,10 @@ export default function MomentumGraphCard({
       <Box sx={{ width: "100%", height: { xs: 230, sm: 280, md: 320 } }}>
         {data.length === 0 ||
         data.every(
-          (d) => d.tasks === 0 && d.leetcode === 0 && d.applications === 0
+          (d) =>
+            d.tasks === 0 &&
+            // d.leetcode === 0 &&
+            d.applications === 0
         ) ? (
           <EmptyState period={period} />
         ) : (
@@ -512,7 +515,7 @@ export default function MomentumGraphCard({
                 animationDuration={550}
               />
 
-              <Line
+              {/* <Line
                 type="monotone"
                 dataKey="leetcode"
                 stroke={C.accentDark}
@@ -527,7 +530,7 @@ export default function MomentumGraphCard({
                 activeDot={<GlowActiveDot stroke={C.accentDark} />}
                 isAnimationActive
                 animationDuration={550}
-              />
+              /> */}
 
               <Line
                 type="monotone"
