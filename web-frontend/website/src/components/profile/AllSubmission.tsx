@@ -52,7 +52,7 @@ const COLUMNS = [
   { key: "title", label: "Task", width: "1fr", align: "left" },
   { key: "category", label: "Category", width: "160px", align: "left" },
   { key: "score", label: "Score", width: "80px", align: "center" },
-  { key: "createdAt", label: "Date", width: "130px", align: "center" },
+  { key: "createdAt", label: "Date", width: "170px", align: "center" },
 ] as const;
 
 type ColKey = (typeof COLUMNS)[number]["key"];
@@ -615,6 +615,7 @@ export default function AllSubmissions() {
                           position: "sticky",
                           top: 0,
                           zIndex: 1,
+                          minWidth: 600,
                         }}
                       >
                         {COLUMNS.map((col) => (
@@ -742,6 +743,7 @@ export default function AllSubmissions() {
                                           bgcolor: C.accentBg,
                                           "& .row-title": { color: C.accent },
                                         },
+                                        minWidth: 600,
                                       }}
                                     >
                                       <Tooltip
