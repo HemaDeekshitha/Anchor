@@ -167,17 +167,55 @@
 .statRate      { border-left-color: #2c1a0a; }
 
 /* ── Kanban board ──────────────────────────────────────────────────────────── */
+
+/* Grid layout: 4 equal columns that always fill the available space.
+   Only shows a horizontal scrollbar on very small screens where 4 columns
+   truly cannot be rendered at a usable width. */
 .boardContainer {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   align-items: flex-start;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: 4px;
+
+  /* Thin, barely-there scrollbar — only shows when actively scrolling */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s;
+}
+
+.boardContainer:hover {
+  scrollbar-color: #e0d4c4 transparent;
+}
+
+.boardContainer::-webkit-scrollbar {
+  height: 4px;
+}
+
+.boardContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.boardContainer::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.boardContainer:hover::-webkit-scrollbar-thumb {
+  background: #e0d4c4;
+}
+
+/* Below ~800px the 4 columns genuinely can't fit, allow horizontal scroll */
+@media (max-width: 800px) {
+  .boardContainer {
+    grid-template-columns: repeat(4, minmax(200px, 1fr));
+  }
 }
 
 .boardColumn {
-  flex: 1;
-  min-width: 255px;
+  min-width: 0; /* prevents grid blowout */
   background-color: #fdfaf7;
   border: 1px solid #e8ddd0;
   border-radius: 12px;
@@ -233,6 +271,31 @@
   gap: 10px;
   overflow-y: auto;
   max-height: 65vh;
+
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s;
+}
+
+.colBody:hover {
+  scrollbar-color: #e0d4c4 transparent;
+}
+
+.colBody::-webkit-scrollbar {
+  width: 4px;
+}
+
+.colBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.colBody::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.colBody:hover::-webkit-scrollbar-thumb {
+  background: #e0d4c4;
 }
 
 .colEmpty {

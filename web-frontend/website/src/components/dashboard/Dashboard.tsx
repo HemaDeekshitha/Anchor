@@ -21,6 +21,8 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 interface Task {
   id: number;
   title: string;
@@ -61,7 +63,7 @@ const Dashboard = () => {
       try {
         setIsLoading(true);
         const [tasksRes, submissions] = await Promise.all([
-          fetch("http://localhost:3001/rag/tasks", { credentials: "include" }),
+          fetch(`${API_BASE_URL}/rag/tasks`, { credentials: "include" }),
           api.getMySubmissions(),
         ]);
         const data = await tasksRes.json();
@@ -231,7 +233,7 @@ const Dashboard = () => {
               >
                 <CardContent sx={{ px: 4, py: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
                   <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#a0622e", letterSpacing: ".08em" }}>
-                    🎯 PENDING TASKS
+                    🎯 PENDING TASKS (PREVIOUS WEEK)
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>

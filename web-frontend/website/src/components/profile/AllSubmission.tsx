@@ -23,6 +23,8 @@ import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownR
 import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
 import Tooltip from "@mui/material/Tooltip";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 import { useRouter } from "next/navigation";
 import SubmissionDetailModal, {
   type Submission,
@@ -410,7 +412,7 @@ export default function AllSubmissions() {
   }
 
   useEffect(() => {
-    fetch("http://localhost:3001/momentum/recent-submissions", {
+    fetch(`${API_BASE_URL}/momentum/recent-submissions`, {
       credentials: "include",
     })
       .then((r) => r.json())

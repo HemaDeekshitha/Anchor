@@ -22,6 +22,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 export default function LoginPage() {
   const [email, setEmail] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -90,7 +92,7 @@ export default function LoginPage() {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
-      const res = await fetch(`http://localhost:3001/auth/login`, {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -335,7 +337,7 @@ export default function LoginPage() {
                   textTransform: "none",
                   "&:hover": { borderColor: "#b87444", backgroundColor: "rgba(184,116,68,0.04)" },
                 }}
-                onClick={() => { window.location.href = "http://localhost:3001/auth/google"; }}
+                onClick={() => { window.location.href = `${API_BASE_URL}/auth/google`; }}
               >
                 Continue with Google
               </Button>

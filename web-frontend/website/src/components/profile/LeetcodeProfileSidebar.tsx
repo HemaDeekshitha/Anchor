@@ -13,6 +13,8 @@ import {
   Popover,
 } from "@mui/material";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 // ── Anchor palette tokens ────────────────────────────────────────────────────
 const C = {
   accent: "#b87444",
@@ -93,10 +95,6 @@ export default function LeetcodeProfileSidebar({
     () => Object.entries(groupedSkills),
     [groupedSkills]
   );
-  const topSkills = React.useMemo(
-    () => profile?.skills?.slice(0, 5) ?? [],
-    [profile?.skills]
-  );
   const visibleCategories = showAllSkills ? categories : categories.slice(0, 3);
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) =>
@@ -107,11 +105,12 @@ export default function LeetcodeProfileSidebar({
   return (
     <Card
       sx={{
-        // width: { xs: "100%", sm: "100%", md: "100%", lg: 380 },
-
+        width: { xs: "100%", lg: 360 },
+        minWidth: 0,
         flexShrink: 0,
         borderRadius: 3,
         p: 3,
+        overflow: "hidden",
         background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
         border: `1px solid ${C.divider}`,
         borderTop: `4px solid ${C.accent}`,
@@ -123,15 +122,20 @@ export default function LeetcodeProfileSidebar({
         {/* Avatar + name row */}
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <Avatar
+            src={profile?.avatarUrl ?? undefined}
             sx={{
               width: 80,
               height: 80,
-              bgcolor: "#e8ddd0",
+              bgcolor: C.accentBg,
+              color: C.accent,
+              fontSize: 28,
+              fontWeight: 700,
               borderRadius: 3,
               border: `2px solid ${C.accentBorder}`,
             }}
-            src={profile?.avatarUrl ?? "/assets/images/pro.jpg"}
-          />
+          >
+            {!profile?.avatarUrl && (profile?.name?.[0]?.toUpperCase() || null)}
+          </Avatar>
           <Box>
             <Box
               sx={{
@@ -166,7 +170,7 @@ export default function LeetcodeProfileSidebar({
               {profile?.resumeUrl ? (
                 <Typography
                   component="a"
-                  href="http://localhost:3001/momentum/resume"
+                  href={`${API_BASE_URL}/momentum/resume`}
                   target="_blank"
                   sx={{
                     color: C.accent,
@@ -345,7 +349,7 @@ export default function LeetcodeProfileSidebar({
             Location
           </Typography>
           <Typography fontSize={14} sx={{ color: C.textPrimary }}>
-            Fremont, CA
+            {(profile as any)?.location || "Not specified"}
           </Typography>
         </Box>
       </Stack>
@@ -459,41 +463,6 @@ export default function LeetcodeProfileSidebar({
             </Typography>
           </Box>
 
-          {topSkills.length > 0 && (
-            <Box mb={2.5}>
-              <Typography
-                fontSize={11}
-                fontWeight={700}
-                sx={{
-                  color: C.textSub,
-                  mb: 1,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.8,
-                }}
-              >
-                Top Skills
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                {topSkills.map((skill) => (
-                  <Chip
-                    key={skill.name}
-                    label={skill.name}
-                    size="small"
-                    sx={{
-                      height: 28,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: C.accentBg,
-                      color: C.accent,
-                      border: `1px solid ${C.accentBorder}`,
-                      borderRadius: "8px",
-                    }}
-                  />
-                ))}
-              </Box>
-            </Box>
-          )}
-
           {visibleCategories.map(([category, skills]) => (
             <Box key={category} mb={2}>
               <Box
@@ -526,7 +495,7 @@ export default function LeetcodeProfileSidebar({
                   · {skills.length}
                 </Typography>
               </Box>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.65 }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.65, minWidth: 0, width: "100%" }}>
                 {skills.map((skill) => (
                   <Chip
                     key={skill.name}
@@ -536,10 +505,12 @@ export default function LeetcodeProfileSidebar({
                       height: 24,
                       fontSize: 12,
                       fontWeight: 500,
+                      maxWidth: "100%",
                       background: C.surface,
                       color: C.textPrimary,
                       border: `1px solid ${C.divider}`,
                       borderRadius: "6px",
+                      "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
                       "&:hover": {
                         background: C.accentBg,
                         color: C.accent,

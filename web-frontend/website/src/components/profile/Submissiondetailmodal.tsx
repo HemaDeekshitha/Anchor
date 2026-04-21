@@ -17,6 +17,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { ExternalLink, Pencil, X as XIcon, RotateCcw } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 const C = {
   accent: "#b87444",
   accentDark: "#a0622e",
@@ -194,7 +196,7 @@ export default function SubmissionDetailModal({
     }
     try {
       const res = await fetch(
-        `http://localhost:3001/momentum/submissions/${submission.id}`,
+        `${API_BASE_URL}/momentum/submissions/${submission.id}`,
         {
           method: "PATCH",
           credentials: "include",

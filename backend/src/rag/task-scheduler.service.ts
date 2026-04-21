@@ -6,7 +6,9 @@ import { RagService } from './rag.service';
 import { User } from 'src/users/user.entity';
 
 /**
- * Runs every day at 00:05 UTC (just after midnight).
+ * Runs every day at 00:05 Pacific Time (America/Los_Angeles).
+ * The timeZone option handles PST (UTC-8) and PDT (UTC-7) automatically,
+ * so the trigger is always at midnight + 5 min local Pacific time year-round.
  *
  * For every user who has completed onboarding, it calls getDailyTasks
  * so the plan for the new day is pre-generated using:
@@ -28,7 +30,7 @@ export class TaskSchedulerService {
     private readonly ragService: RagService,
   ) {}
 
-  @Cron('5 0 * * *') // 00:05 UTC every day
+  @Cron('5 0 * * *', { timeZone: 'America/Los_Angeles' }) // 00:05 Pacific Time every day
   async generateDailyPlansForAllUsers() {
     this.logger.log('⏰ Daily task generation cron started');
 

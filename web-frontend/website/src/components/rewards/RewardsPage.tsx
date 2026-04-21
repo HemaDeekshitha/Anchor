@@ -286,7 +286,7 @@ export default function RewardsPage() {
 
   const history = data?.history ?? [];
   const anchorPoints = data?.anchorPoints ?? 0;
-  const points360 = history.filter((e) => e.type === "converted_to_360").length;
+  const points360 = data?.points360 ?? history.filter((e) => e.type === "converted_to_360").length;
   const progressPercent = data?.progressPercent ?? 0;
   const pointsToNext = data?.pointsToNextConversion ?? 100;
   const conversionThreshold = anchorPoints + pointsToNext;

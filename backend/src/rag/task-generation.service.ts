@@ -20,11 +20,13 @@ interface GeneratedTaskDto {
 }
 
 // Fallback chain: try each model in order until one succeeds.
+// gemini-1.5-flash-8b is a lightweight model with a generous free quota and
+// serves as the most reliable last resort when faster models are overloaded.
 const GEMINI_FALLBACK_MODELS = [
   'gemini-2.5-flash',
-  'gemini-2.5-flash-preview-04-17',
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-8b',
 ];
 
 @Injectable()
@@ -52,31 +54,48 @@ export class TaskGenerationService {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  /** Tries each Gemini model in turn; returns the text on first success. */
+  /** Tries each Gemini model in turn; returns the text on first success.
+   *  On 503 overload, waits 8 seconds and retries the same model once before
+   *  moving to the next. On quota (429) or auth (403) errors it skips
+   *  immediately since retrying the same model won't help. */
   private async callGeminiWithFallback(prompt: string): Promise<string | null> {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
     for (const modelName of GEMINI_FALLBACK_MODELS) {
-      try {
-        const model = this.genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        this.logger.log(`✅ Used model: ${modelName}`);
-        return text;
-      } catch (err: any) {
-        const isRateLimit =
-          err?.status === 429 ||
-          err?.message?.includes('429') ||
-          err?.message?.toLowerCase().includes('quota') ||
-          err?.message?.toLowerCase().includes('rate');
+      let attempt = 0;
+      while (attempt < 2) {
+        attempt++;
+        try {
+          const model = this.genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          const text = result.response.text();
+          this.logger.log(`✅ Used model: ${modelName}`);
+          return text;
+        } catch (err: any) {
+          const status: number = err?.status ?? err?.code ?? 0;
+          const msg: string = err?.message ?? String(err);
 
-        if (isRateLimit) {
-          this.logger.warn(`⚠️ ${modelName} quota exhausted — trying next model…`);
-          continue;
+          const isOverload = status === 503 || msg.toLowerCase().includes('overloaded') || msg.toLowerCase().includes('high demand');
+          const isQuotaOrAuth = status === 429 || status === 403 || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('depleted');
+
+          if (isOverload && attempt === 1) {
+            // Temporary overload — wait 8 s then retry this same model once
+            this.logger.warn(`⚠️ ${modelName} overloaded (503) — retrying in 8 s…`);
+            await sleep(8000);
+            continue;
+          }
+
+          if (isQuotaOrAuth) {
+            // Quota / billing / auth — retrying won't help, skip to next model immediately
+            this.logger.warn(`⚠️ ${modelName} quota/auth error (${status}) — skipping to next model`);
+          } else {
+            this.logger.warn(`⚠️ ${modelName} failed (${status}: ${msg.slice(0, 120)}) — trying next model…`);
+          }
+          break; // move on to the next model
         }
-
-        this.logger.error(`Task generation failed on ${modelName}`, err?.message);
-        return null;
       }
     }
+
     this.logger.warn('All Gemini models exhausted — task generation skipped.');
     return null;
   }

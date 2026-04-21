@@ -84,42 +84,15 @@ export class RagService {
       return { userName, tasks: tasks.slice(0, limit) };
     }
 
-    // ── 2. Collect excluded task IDs ─────────────────────────────────────────
-    // Exclude tasks the user has already COMPLETED (never repeat them).
-    const everSolvedRows = await this.userDailyRepo
-      .createQueryBuilder('udt')
-      .select('udt.task_id', 'task_id')
-      .where('udt.user_id = :userId', { userId })
-      .andWhere('udt.status = :status', { status: 'completed' })
-      .getRawMany();
-
-    const solvedIds: number[] = everSolvedRows
-      .map((r) => r.task_id as number)
-      .filter((id) => id != null);
-
-    // Also exclude tasks assigned in the past 7 days (pending or completed)
-    // so the same task isn't shown two days in a row.
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentCutoff = sevenDaysAgo.toISOString().slice(0, 10);
-
-    const recentlyAssignedRows = await this.userDailyRepo
-      .createQueryBuilder('udt')
-      .select('udt.task_id', 'task_id')
-      .where('udt.user_id = :userId', { userId })
-      .andWhere('DATE(udt.task_date) >= :recentCutoff', { recentCutoff })
-      .getRawMany();
-
-    const recentlyAssignedIds: number[] = recentlyAssignedRows
-      .map((r) => r.task_id as number)
-      .filter((id) => id != null);
-
-    // ── 3. Determine difficulty mix based on past performance ─────────────────
+    // ── 2. Determine difficulty mix based on past performance ────────────────
+    // Deduplication of already-seen task titles is handled inside
+    // TaskGenerationService via the user_seen_tasks table (title_key-based),
+    // so no separate exclusion list is needed here.
     const mix = await this.performanceService.getDifficultyMix(userId);
     console.log(`📊 Performance mix for ${userName}:`, mix);
 
-    // ── 4. Generate exactly 4 fresh tasks via LLM ────────────────────────────
-    // Seen-task history is now fetched inside TaskGenerationService from the
+    // ── 3. Generate exactly 4 fresh tasks via LLM ────────────────────────────
+    // Seen-task history is fetched inside TaskGenerationService from the
     // user_seen_tasks table — no need to pass recentTitles from here.
     const lastFailedAt = this.generationFailedAt.get(userId);
     if (lastFailedAt && Date.now() - lastFailedAt < this.RETRY_AFTER_MS) {
@@ -135,7 +108,7 @@ export class RagService {
       mix,
     );
 
-    // ── 6. Race-condition guard: re-check before saving ───────────────────────
+    // ── 4. Race-condition guard: re-check before saving ───────────────────────
     // A concurrent call (e.g. onboarding fire-and-forget + dashboard load)
     // may have already saved today's plan while LLM was running.
     const raceCheckPlan = await this.userDailyRepo
@@ -158,11 +131,11 @@ export class RagService {
       return { userName, tasks: tasks.slice(0, limit) };
     }
 
-    // If LLM failed (quota/error), throttle retries to once per hour
+    // If LLM failed (quota/error), throttle retries to once per 5 minutes
     if (generated.length === 0) {
       this.generationFailedAt.set(userId, Date.now());
       console.warn(
-        `⚠️ No tasks generated for ${userName} — quota exhausted. Will retry after 1 hour.`,
+        `⚠️ No tasks generated for ${userName} — all Gemini models failed. Will retry in ${this.RETRY_AFTER_MS / 60000} minutes.`,
       );
       return { userName, tasks: [] };
     }
@@ -172,7 +145,7 @@ export class RagService {
       `✨ Generated ${generated.length} tasks for ${userName} (mix: ${JSON.stringify(mix)})`,
     );
 
-    // ── 7. Persist the daily plan ─────────────────────────────────────────────
+    // ── 5. Persist the daily plan ─────────────────────────────────────────────
     const dailyRows = generated.map((task) =>
       this.userDailyRepo.create({
         user_id: userId,

@@ -16,7 +16,7 @@ export default function momentum() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = React.useState("this_week");
-  const API = "http://localhost:3001";
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
   useEffect(() => {
     loadDashboardData();
@@ -44,22 +44,26 @@ export default function momentum() {
   async function handleProfileSave(
     updated: EditableProfile,
     avatarFile: File | null,
-    resumeFile: File | null
+    resumeFile: File | null,
+    removeAvatar: boolean
   ) {
     setSaving(true);
     try {
-      if (avatarFile) {
+      if (removeAvatar) {
+        await fetch(`${API}/momentum/profile/avatar`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+      } else if (avatarFile) {
         const fd = new FormData();
         fd.append("file", avatarFile);
-        const avatarRes = await fetch(`${API}/momentum/profile/avatar`, {
+        await fetch(`${API}/momentum/profile/avatar`, {
           method: "POST",
           credentials: "include",
           body: fd,
         });
-        console.log("Avatar upload status:", avatarRes.status); // ← add
-        const avatarData = await avatarRes.json();
-        console.log("Avatar upload response:", avatarData);
       }
+
       if (resumeFile) {
         const fd = new FormData();
         fd.append("file", resumeFile);
@@ -69,6 +73,7 @@ export default function momentum() {
           body: fd,
         });
       }
+
       await fetch(`${API}/momentum/profile`, {
         method: "PATCH",
         credentials: "include",
@@ -76,6 +81,7 @@ export default function momentum() {
         body: JSON.stringify({
           name: updated.name,
           email: updated.email,
+          location: updated.location,
           primaryFocus: updated.primaryFocus,
           currentStatus: updated.status,
           preferredRole: updated.preferredRoles,
@@ -84,14 +90,9 @@ export default function momentum() {
           ...(resumeFile ? {} : { resumeText: updated.resumeText }),
         }),
       });
-      const fresh = await fetch(`${API}/momentum/profile`, {
-        credentials: "include",
-      });
-      console.log("Fresh fetch status:", fresh.status);
-      const freshData = await fresh.json();
-      console.log("Fresh profile data:", JSON.stringify(freshData));
-      setProfile(freshData);
 
+      const freshData = await fetch(`${API}/momentum/profile`, { credentials: "include" }).then((r) => r.json());
+      setProfile(freshData);
       setEditOpen(false);
     } catch (err) {
       console.error("Failed to save profile", err);
