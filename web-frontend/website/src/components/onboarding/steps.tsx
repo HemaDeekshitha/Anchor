@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import styles from "./onboarding.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 type OnboardingRole = {
   id: string;
   title: string;
@@ -146,7 +148,7 @@ export default function Steps() {
   useEffect(() => {
     const fetchOnboardingSteps = async () => {
       try {
-        const res = await fetch("http://localhost:3001/onboarding/steps", {
+        const res = await fetch(`${API_BASE_URL}/onboarding/steps`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch onboarding steps");
@@ -216,7 +218,7 @@ export default function Steps() {
     });
     formData.append("answers", JSON.stringify(mergedAnswers));
 
-    return fetch("http://localhost:3001/onboarding/answers", {
+    return fetch(`${API_BASE_URL}/onboarding/answers`, {
       method: "POST",
       body: formData,
       credentials: "include",

@@ -4,7 +4,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
-import { DashboardModule } from './dashboard/dashboard.module';
 import { RagModule } from './rag/rag.module';
 import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';

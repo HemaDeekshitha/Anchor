@@ -23,6 +23,8 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 export default function SignupPage() {
   const [form, setForm] = useState({
     name: "",
@@ -82,7 +84,7 @@ export default function SignupPage() {
     try {
       setCheckingEmail(true);
       const res = await fetch(
-        `http://localhost:3001/auth/check-email?email=${email}`
+        `${API_BASE_URL}/auth/check-email?email=${email}`
       );
       const data = await res.json();
       setEmailExists(data.exists);
@@ -98,7 +100,7 @@ export default function SignupPage() {
     setLoading(true);
     setApiError("");
     try {
-      const res = await fetch(`http://localhost:3001/auth/signup`, {
+      const res = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -447,7 +449,7 @@ export default function SignupPage() {
                   },
                 }}
                 onClick={() => {
-                  window.location.href = "http://localhost:3001/auth/google";
+                  window.location.href = `${API_BASE_URL}/auth/google`;
                 }}
               >
                 Continue with Google

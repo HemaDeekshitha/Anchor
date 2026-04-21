@@ -14,6 +14,9 @@ import {
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{8,}$/;
 
@@ -53,7 +56,7 @@ export default function ResetPasswordPage() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:3001/auth/reset-password", {
+      const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -10,6 +10,8 @@ import {
 import { BriefcaseBusiness, ListTodo, LogOut, Trophy, User } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 interface SidebarProps {
   isSidebarOpen: boolean;
   onClose: () => void;
@@ -32,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
 
   const handleLogOut = async () => {
     try {
-      await fetch("http://localhost:3001/auth/logout", {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

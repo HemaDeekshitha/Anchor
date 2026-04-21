@@ -231,7 +231,7 @@ export type EditableProfile = {
 type Props = {
   open: boolean; onClose: () => void;
   profile: Partial<EditableProfile>;
-  onSave: (updated: EditableProfile, avatarFile: File | null, resumeFile: File | null) => void;
+  onSave: (updated: EditableProfile, avatarFile: File | null, resumeFile: File | null, removeAvatar: boolean) => void;
   saving?: boolean;
 };
 
@@ -247,6 +247,7 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
   const avatarRef                         = useRef<HTMLInputElement>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
+  const [removeAvatar, setRemoveAvatar]   = useState(false);
 
   const [form, setForm] = useState<EditableProfile>({
     name: "", email: "", location: "", avatarUrl: null,
@@ -256,7 +257,7 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
 
   useEffect(() => {
     if (open) {
-      setTab(0); setPendingAvatarFile(null); setPendingResumeFile(null);
+      setTab(0); setPendingAvatarFile(null); setPendingResumeFile(null); setRemoveAvatar(false);
       setForm({
         name: profile.name ?? "", email: profile.email ?? "", location: profile.location ?? "",
         avatarUrl: profile.avatarUrl ?? null, primaryFocus: profile.primaryFocus ?? [],
@@ -268,8 +269,9 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
   }, [open, profile]);
 
   const set = <K extends keyof EditableProfile>(k: K, v: EditableProfile[K]) => setForm((p) => ({ ...p, [k]: v }));
-  const handleAvatarFile = (file: File) => { setPendingAvatarFile(file); set("avatarUrl", URL.createObjectURL(file)); };
-  const handleSave = () => { console.log("form at save:", form); onSave(form, pendingAvatarFile, pendingResumeFile); };
+  const handleAvatarFile = (file: File) => { setPendingAvatarFile(file); setRemoveAvatar(false); set("avatarUrl", URL.createObjectURL(file)); };
+  const handleRemoveAvatar = () => { setRemoveAvatar(true); setPendingAvatarFile(null); set("avatarUrl", null); };
+  const handleSave = () => onSave(form, pendingAvatarFile, pendingResumeFile, removeAvatar);
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -334,7 +336,12 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
             <Stack spacing={3}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
                 <Box sx={{ position: "relative", flexShrink: 0 }}>
-                  <Avatar src={form.avatarUrl ?? "/assets/images/pro.jpg"} sx={{ width: 80, height: 80, borderRadius: "18px", border: `2px solid ${C.accentBorder}` }} />
+                  <Avatar
+                    src={form.avatarUrl ?? undefined}
+                    sx={{ width: 80, height: 80, borderRadius: "18px", border: `2px solid ${C.accentBorder}`, bgcolor: C.accentBg, color: C.accent, fontSize: 28, fontWeight: 700 }}
+                  >
+                    {!form.avatarUrl && (form.name?.[0]?.toUpperCase() || null)}
+                  </Avatar>
                   <Box onClick={() => avatarRef.current?.click()} sx={{
                     position: "absolute", inset: 0, borderRadius: "18px",
                     background: "rgba(44,26,10,0.42)", display: "flex", alignItems: "center", justifyContent: "center",
@@ -348,13 +355,24 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
                 <Box>
                   <Typography fontWeight={600} fontSize={14} sx={{ color: C.textPrimary }}>Profile Photo</Typography>
                   <Typography fontSize={12} sx={{ color: C.textSub, mt: 0.25, mb: 1 }}>Hover the photo and click to upload</Typography>
-                  <Button size="small" onClick={() => avatarRef.current?.click()} sx={{
-                    textTransform: "none", fontWeight: 600, fontSize: 12, px: 1.5, py: 0.5, borderRadius: "8px",
-                    color: C.accent, border: `1px solid ${C.accentBorder}`, background: C.accentBg,
-                    "&:hover": { background: C.accentFaint },
-                  }}>
-                    Choose photo
-                  </Button>
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Button size="small" onClick={() => avatarRef.current?.click()} sx={{
+                      textTransform: "none", fontWeight: 600, fontSize: 12, px: 1.5, py: 0.5, borderRadius: "8px",
+                      color: C.accent, border: `1px solid ${C.accentBorder}`, background: C.accentBg,
+                      "&:hover": { background: C.accentFaint },
+                    }}>
+                      Choose photo
+                    </Button>
+                    {(form.avatarUrl || profile.avatarUrl) && !removeAvatar && (
+                      <Button size="small" onClick={handleRemoveAvatar} sx={{
+                        textTransform: "none", fontWeight: 600, fontSize: 12, px: 1.5, py: 0.5, borderRadius: "8px",
+                        color: "#dc2626", border: "1px solid rgba(220,38,38,0.25)", background: "rgba(220,38,38,0.05)",
+                        "&:hover": { background: "rgba(220,38,38,0.10)", borderColor: "rgba(220,38,38,0.45)" },
+                      }}>
+                        Remove photo
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
               </Box>
 
