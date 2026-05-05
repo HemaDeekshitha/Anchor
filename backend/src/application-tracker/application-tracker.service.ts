@@ -757,6 +757,7 @@ Rules:
 
   private detectStatus(subject: string, body: string): string {
     const text = `${subject} ${body}`.toLowerCase();
+    const subjectLower = subject.toLowerCase();
 
     // Rejection
     if (
@@ -809,12 +810,13 @@ Rules:
       /\bphone\s+(screen|interview|call)\b/.test(text) ||
       /\btechnical\s+(screen|interview|assessment)\b/.test(text) ||
       /\b(onsite|virtual|video)\s+interview\b/.test(text) ||
-      // "interview" anywhere in the text is a strong enough standalone signal.
-      // Rejection and Offer are checked first (higher priority), so this never
-      // downgrades a rejection/offer email — it only upgrades "Applied" → "Interview".
-      /\binterview\b/.test(text) ||
+      // "interview" in the SUBJECT alone is a strong enough standalone signal.
+      // e.g. "Re: Apple Interview - Monday, May 11" → Interview
+      // Checked against subject only (not body) to avoid false positives from
+      // application confirmations that say "we may schedule an interview later".
+      /\binterview\b/.test(subjectLower) ||
       // Human recruiter scheduling thread patterns
-      // "your interview" — subject "Re: Apple Interview" or body "your interview with Luke"
+      // "your interview" — body "your interview with Luke"
       /\byour\s+interview\b/.test(text) ||
       // "scheduled interview" — recruiter reversed word order
       /\bschedul\w*\s+(?:an?\s+)?interview\b/.test(text) ||
@@ -841,6 +843,12 @@ Rules:
 
   private isJobRelatedEmail(subject: string, body: string, from: string): boolean {
     const fullText = `${subject} ${body}`.toLowerCase();
+    const subjectLower = subject.toLowerCase();
+
+    // "interview" in the subject alone is a definitive job signal —
+    // skip all other checks and let the email through immediately.
+    // e.g. "Re: Apple Interview - Monday, May 11", "Your Interview at Google"
+    if (/\binterview\b/.test(subjectLower)) return true;
 
     // Hard reject: financial / transactional / unrelated marketing patterns.
     // Keep these NARROW — only reject if the signal is unambiguous and cannot
