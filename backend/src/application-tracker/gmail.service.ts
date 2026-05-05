@@ -193,20 +193,27 @@ export class GmailService {
       .trim();
   }
 
-  // ─── Legacy message-based fetch (kept for backward compatibility) ────────────
   async fetchRecentEmails(
     accessToken: string,
-    searchQuery = 'newer_than:30d',
-    maxResults = 100
-  ) {
+    searchQuery = 'newer_than:180d',
+    maxResults = 100,
+    pageToken?: string,
+  ): Promise<{
+    messages: { id?: string | null; threadId?: string | null }[];
+    nextPageToken?: string;
+  }> {
     this.oauth2Client.setCredentials({ access_token: accessToken });
     const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
     const response = await gmail.users.messages.list({
       userId: 'me',
       q: searchQuery,
       maxResults,
+      pageToken,
     });
-    return response.data.messages || [];
+    return {
+      messages: response.data.messages || [],
+      nextPageToken: response.data.nextPageToken ?? undefined,
+    };
   }
 
   async getEmailDetails(accessToken: string, messageId: string) {

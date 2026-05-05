@@ -294,21 +294,23 @@ const Dashboard = () => {
                       "&:hover": { transform: "translateY(-3px)", boxShadow: "0 14px 34px rgba(44,26,10,0.10)" },
                       ...(task.status === "completed" && { opacity: 0.6 }),
                     }}>
-                      <CardContent sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <CardContent sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, flex: 1, minWidth: 0 }}>
                           <Box sx={{
                             width: 26, height: 26, borderRadius: "50%",
                             border: "2px solid #b87444",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             background: task.status === "completed" ? "#b87444" : "transparent",
+                            flexShrink: 0,
                           }}>
                             {task.status === "completed" && <Check size={16} color="white" />}
                           </Box>
-                          <Box>
-                            <Typography sx={{
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography component="div" sx={{
                               fontSize: 16, fontWeight: 600,
                               color: task.status === "completed" ? "#9ca3af" : "#2c1a0a",
-                              display: "flex", alignItems: "center", gap: 0.5,
+                              lineHeight: 1.45,
+                              wordBreak: "break-word",
                             }}>
                               {task.title}
                               {getLeetcodeUrl(task) && (
@@ -319,6 +321,7 @@ const Dashboard = () => {
                                     width: 22, height: 22, borderRadius: "4px",
                                     background: "#f5ede0", border: "1px solid #d4b898",
                                     color: "#b87444", textDecoration: "none", flexShrink: 0,
+                                    verticalAlign: "middle", ml: 0.75,
                                     "&:hover": { background: "#ecddc8", borderColor: "#b87444" },
                                   }}>
                                   <ExternalLink size={12} strokeWidth={2.5} />
@@ -333,7 +336,7 @@ const Dashboard = () => {
                           </Box>
                         </Box>
 
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexShrink: 0 }}>
                           {task.difficulty && (
                             <Box sx={{
                               px: 1.2, py: 0.3, fontSize: 11, fontWeight: 700, borderRadius: 2,
