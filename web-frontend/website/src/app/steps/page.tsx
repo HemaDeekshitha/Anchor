@@ -1,4 +1,5 @@
 /* src/app/resume-import/page.tsx */
+export const dynamic = "force-dynamic";
 import React from "react";
 
 import Steps from "../../components/onboarding/steps";

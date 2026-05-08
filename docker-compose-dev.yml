@@ -33,21 +33,36 @@ services:
       - /app/node_modules
     command: ["npm", "run", "start:dev"]
 
-  # frontend:
-  #   container_name: anchor-frontend
-  #   build:
-  #     context: ./web-frontend/anchor-web
-  #     dockerfile: Dockerfile.dev
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - backend
-  #   environment:
-  #     NODE_ENV: development
-  #   volumes:
-  #     - ./web-frontend/anchor-web:/app
-  #     - /app/node_modules
-  #   command: ["npm", "run", "dev"]
+  frontend:
+    container_name: anchor-frontend
+    build:
+      context: ./web-frontend/anchor-web
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL}
+    volumes:
+      - ./web-frontend/anchor-web:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev"]
+
+  website:
+    container_name: anchor-website
+    build:
+      context: ./web-frontend/website
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./web-frontend/website:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev", "--", "-p", "3002"]
 
 volumes:
   anchor_data:
