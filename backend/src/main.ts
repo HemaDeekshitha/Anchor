@@ -22,6 +22,7 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:3002',
       'https://anchor.feeltiptop.com',
+      'https://anchorapp.feeltiptop.com',
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
