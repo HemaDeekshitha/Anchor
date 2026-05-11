@@ -1,8 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function ResumeViewer() {
+function ResumeViewContent() {
   const params = useSearchParams();
   const url = params.get("url");
 
@@ -12,5 +13,13 @@ export default function ResumeViewer() {
     <div style={{ height: "100vh", width: "100%" }}>
       <iframe src={url} width="100%" height="100%" style={{ border: "none" }} />
     </div>
+  );
+}
+
+export default function ResumeViewer() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResumeViewContent />
+    </Suspense>
   );
 }

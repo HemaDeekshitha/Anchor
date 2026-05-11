@@ -40,7 +40,12 @@ export default function LandingPage() {
   }, []);
 
   const ContactPageHandler = () => {
-    router.replace("/ContactPage");
+    const websiteUrl = process.env.NEXT_PUBLIC_WEBSITE_URL;
+    if (websiteUrl) {
+      window.open(websiteUrl, "_blank", "noopener,noreferrer");
+    } else {
+      console.error("NEXT_PUBLIC_WEBSITE_URL is not set");
+    }
   };
 
   return (
@@ -62,7 +67,18 @@ export default function LandingPage() {
         <Header />
 
         {/* MAIN WRAPPER */}
-        <Box sx={{ paddingBottom: { xs: "0rem", sm: "5rem", md: "5rem", lg:"6.5rem", xl:"10rem"} , paddingTop: { xl:"6rem" } }}>
+        <Box
+          sx={{
+            paddingBottom: {
+              xs: "0rem",
+              sm: "5rem",
+              md: "5rem",
+              lg: "6.5rem",
+              xl: "10rem",
+            },
+            paddingTop: { xl: "6rem" },
+          }}
+        >
           <Box
             alignItems="center"
             sx={{
@@ -231,7 +247,7 @@ export default function LandingPage() {
                 sx={{
                   position: "relative",
                   justifySelf: "center",
-                  width: { xs: "100%", md: "60%",lg: "110%" },
+                  width: { xs: "100%", md: "60%", lg: "110%" },
                   maxWidth: "600px",
                   height: "500px",
                   display: "flex",
@@ -262,8 +278,8 @@ export default function LandingPage() {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: { xs: "1%", md: "1%", xl:"", lg: ""},
-                    left: { xs: "-8%", md: "-8%"},
+                    top: { xs: "1%", md: "1%", xl: "", lg: "" },
+                    left: { xs: "-8%", md: "-8%" },
                     animation: "float 4s ease-in-out infinite",
                   }}
                 >
@@ -274,7 +290,7 @@ export default function LandingPage() {
                   sx={{
                     position: "absolute",
                     top: { xs: "1%", md: "1%" },
-                    right: { xs: "34%", md: "30%", lg:"25%"},
+                    right: { xs: "34%", md: "30%", lg: "25%" },
                     animation: "float 4s ease-in-out infinite",
                   }}
                 >
@@ -296,7 +312,7 @@ export default function LandingPage() {
                   sx={{
                     position: "absolute",
                     bottom: { xs: "36%", md: "36%" },
-                    right: { xs: "34%", md: "30%", lg:"25%" },
+                    right: { xs: "34%", md: "30%", lg: "25%" },
                     animation: "float 4s ease-in-out infinite",
                   }}
                 >
@@ -339,11 +355,9 @@ export default function LandingPage() {
         }}
       >
         <Download />
-       
       </Box>
     </>
   );
-  
 }
 
 /* 🎈 Floating Icon Component with SX animations */
@@ -376,6 +390,5 @@ function FloatingIcon({
     >
       <img src={src} alt="" className={styles.floatingIcons} />
     </Box>
-    
   );
 }
