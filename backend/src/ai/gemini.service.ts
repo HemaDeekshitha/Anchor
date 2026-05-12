@@ -1,114 +1,134 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
+import { OpenAI } from 'openai';
 import { RagTask } from '../rag/rag-task.entity';
 import { EvaluationResult } from './interfaces/evaluation-result.interface';
 
-// Models tried in order when the primary is overloaded
-const MODEL_FALLBACKS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
+interface EvalProvider {
+  name: string;
+  type: 'openai-compat' | 'gemini';
+  baseURL?: string;
+  apiKeyEnv: string;
+  model: string;
+}
+
+const EVAL_PROVIDERS: EvalProvider[] = [
+  { name: 'groq',       type: 'openai-compat', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY',       model: 'llama-3.3-70b-versatile' },
+  { name: 'openrouter', type: 'openai-compat', baseURL: 'https://openrouter.ai/api/v1',   apiKeyEnv: 'OPENROUTER_API_KEY', model: 'openai/gpt-oss-120b:free' },
+  { name: 'gemini-2.5', type: 'gemini',                                                   apiKeyEnv: 'GEMINI_API_KEY',     model: 'gemini-2.5-flash' },
+  { name: 'gemini-lite', type: 'gemini', apiKeyEnv: 'GEMINI_API_KEY', model: 'gemini-2.5-flash-lite' },
 ];
 
 @Injectable()
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
-  private model: any;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-
     if (!apiKey) {
       throw new Error(
         'GEMINI_API_KEY is not defined in environment variables. ' +
           'Please add it to your .env file.',
       );
     }
-
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: MODEL_FALLBACKS[0] });
   }
 
-  /** Sleep helper for retry backoff */
   private sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));
   }
 
-  /**
-   * Calls a single model, throws on any error (caller handles retry/fallback).
-   */
-  private async callModel(modelName: string, prompt: string): Promise<string> {
-    const m = this.genAI.getGenerativeModel({ model: modelName });
-    const result = await m.generateContent(prompt);
-    return result.response.text();
-  }
+  // ─── Unified provider call ───────────────────────────────────────────────────
 
-  /**
-   * Tries each model in MODEL_FALLBACKS in order.
-   * Retries the primary model twice with backoff before moving on.
-   */
   private async callWithFallback(prompt: string): Promise<string> {
-    for (const modelName of MODEL_FALLBACKS) {
-      const attempts = modelName === MODEL_FALLBACKS[0] ? 3 : 1;
-      for (let attempt = 1; attempt <= attempts; attempt++) {
+    const selected = this.configService.get<string>('EVAL_PROVIDER') ?? 'gemini-2.0';
+
+    const provider = EVAL_PROVIDERS.find(p => p.name === selected);
+    if (!provider) throw new Error(`Unknown EVAL_PROVIDER: ${selected}`);
+
+    const apiKey = this.configService.get<string>(provider.apiKeyEnv);
+    if (!apiKey) throw new Error(`API key missing for provider: ${selected}`);
+
+    try {
+      if (provider.type === 'openai-compat') {
+        const client = new OpenAI({ apiKey, baseURL: provider.baseURL });
+        const response = await client.chat.completions.create({
+          model: provider.model,
+          max_tokens: 1000,
+          temperature: 0,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        const text = response.choices[0]?.message?.content?.trim() ?? '';
+        if (!text) throw new Error('Empty response from provider');
+        console.log(`[Eval] provider=${provider.name} success`);
+        return text;
+      }
+
+      if (provider.type === 'gemini') {
+        const m = this.genAI.getGenerativeModel({ model: provider.model });
+        const result = await m.generateContent(prompt);
+        const text = result.response.text();
+        console.log(`[Eval] provider=${provider.name} success`);
+        return text;
+      }
+
+      throw new Error('Unknown provider type');
+
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      const is503 = /503|Service Unavailable|high demand/i.test(msg);
+
+      if (is503) {
+        console.warn(`[Eval] ${provider.name} overloaded, retrying in 2s…`);
+        await this.sleep(2000);
         try {
-          return await this.callModel(modelName, prompt);
-        } catch (err: any) {
-          const is503 =
-            err?.message?.includes('503') ||
-            err?.message?.includes('Service Unavailable') ||
-            err?.message?.includes('high demand');
-          if (is503 && (attempt < attempts || modelName !== MODEL_FALLBACKS[MODEL_FALLBACKS.length - 1])) {
-            const delay = attempt * 2000; // 2s, 4s
-            console.warn(`[Gemini] ${modelName} overloaded (attempt ${attempt}), retrying in ${delay}ms…`);
-            await this.sleep(delay);
-            continue;
+          if (provider.type === 'openai-compat') {
+            const client = new OpenAI({ apiKey, baseURL: provider.baseURL });
+            const response = await client.chat.completions.create({
+              model: provider.model,
+              max_tokens: 1000,
+              temperature: 0,
+              messages: [{ role: 'user', content: prompt }],
+            });
+            return response.choices[0]?.message?.content?.trim() ?? '';
           }
-          throw err; // non-503 or last fallback — bubble up
+          if (provider.type === 'gemini') {
+            const m = this.genAI.getGenerativeModel({ model: provider.model });
+            const result = await m.generateContent(prompt);
+            return result.response.text();
+          }
+        } catch (retryErr) {
+          throw retryErr;
         }
       }
+
+      throw err;
     }
-    throw new Error('All Gemini models unavailable');
   }
 
-  /**
-   * Main method: Evaluates a user's submission based on task type
-   * 
-   * @param task - The task object from database (has title, category, etc.)
-   * @param userAnswer - What the user submitted
-   * @returns EvaluationResult with score, feedback, approval status
-   */
+  // ─── Main evaluation entry point ─────────────────────────────────────────────
+
   async evaluateSubmission(
     task: RagTask,
     userAnswer: string,
   ): Promise<EvaluationResult> {
-    // LeetCode tasks: the user pastes their accepted code — evaluate code directly,
-    // no written explanation required. All other evaluations are unchanged.
-    // Detect by stored URL or by title containing "LeetCode".
     if (task.leetcodeUrl || /leetcode/i.test(task.title)) {
       return this.evaluateLeetcodeCode(task, userAnswer);
     }
 
     const evaluationType = this.getEvaluationType(task.category);
     switch (evaluationType) {
-      case 'star':
-        return this.evaluateSTAR(task, userAnswer);
-      case 'concept':
-        return this.evaluateConcept(task, userAnswer);
-      case 'design':
-        return this.evaluateSystemDesign(task, userAnswer);
-      case 'code_explanation':
-        return this.evaluateCodeExplanation(task, userAnswer);
-      default:
-        return this.evaluateGeneral(task, userAnswer);
+      case 'star':             return this.evaluateSTAR(task, userAnswer);
+      case 'concept':          return this.evaluateConcept(task, userAnswer);
+      case 'design':           return this.evaluateSystemDesign(task, userAnswer);
+      case 'code_explanation': return this.evaluateCodeExplanation(task, userAnswer);
+      default:                 return this.evaluateGeneral(task, userAnswer);
     }
   }
 
-  /**
-   * Evaluates a raw code solution for a LeetCode problem.
-   * No explanation required — code alone is sufficient to pass.
-   */
+  // ─── Evaluation methods ───────────────────────────────────────────────────────
+
   private async evaluateLeetcodeCode(
     task: RagTask,
     userCode: string,
@@ -149,14 +169,9 @@ Return ONLY valid JSON (no markdown, no backticks):
   "confidence": 0.90
 }
 `;
-    // LeetCode code needs a very low threshold — any legitimate code should pass.
     return this.callGeminiAndParse(prompt, 'leetcode');
   }
 
-  /**
-   * Maps task category to evaluation type
-   * Different categories need different evaluation criteria
-   */
   private getEvaluationType(category: string): string {
     const map: Record<string, string> = {
       Behavioral: 'star',
@@ -169,10 +184,6 @@ Return ONLY valid JSON (no markdown, no backticks):
     return map[category] || 'general';
   }
 
-  /**
-   * Evaluates STAR format behavioral answers
-   * Checks for Situation, Task, Action, Result structure
-   */
   private async evaluateSTAR(
     task: RagTask,
     userAnswer: string,
@@ -216,14 +227,9 @@ Return ONLY valid JSON (no markdown, no code blocks, no backticks):
   "confidence": 0.92
 }
 `;
-
     return this.callGeminiAndParse(prompt, task.difficulty);
   }
 
-  /**
-   * Evaluates technical concept explanations
-   * Checks for accuracy, completeness, understanding
-   */
   private async evaluateConcept(
     task: RagTask,
     userAnswer: string,
@@ -261,14 +267,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "confidence": 0.88
 }
 `;
-
     return this.callGeminiAndParse(prompt, task.difficulty);
   }
 
-  /**
-   * Evaluates system design explanations
-   * Checks for components, scalability, trade-offs
-   */
   private async evaluateSystemDesign(
     task: RagTask,
     userAnswer: string,
@@ -305,14 +306,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "confidence": 0.85
 }
 `;
-
     return this.callGeminiAndParse(prompt, task.difficulty);
   }
 
-  /**
-   * Evaluates code/algorithm explanations
-   * Checks for approach, complexity analysis, understanding
-   */
   private async evaluateCodeExplanation(
     task: RagTask,
     userAnswer: string,
@@ -348,13 +344,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "confidence": 0.80
 }
 `;
-
     return this.callGeminiAndParse(prompt, task.difficulty);
   }
 
-  /**
-   * Generic evaluation for other task types
-   */
   private async evaluateGeneral(
     task: RagTask,
     userAnswer: string,
@@ -381,75 +373,61 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "confidence": 0.75
 }
 `;
-
     return this.callGeminiAndParse(prompt, task.difficulty);
   }
 
-  /**
-   * Calls Gemini API and parses the JSON response
-   * This is where we actually send the request to Google's AI
-   */
-private async callGeminiAndParse(
-  prompt: string,
-  difficulty: string,
-): Promise<EvaluationResult> {
-  try {
-    const text = await this.callWithFallback(prompt);
+  // ─── Parse response ───────────────────────────────────────────────────────────
 
-    // Extract JSON from response (Gemini might wrap it in markdown)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Could not extract JSON from AI response');
+  private async callGeminiAndParse(
+    prompt: string,
+    difficulty: string,
+  ): Promise<EvaluationResult> {
+    try {
+      const text = await this.callWithFallback(prompt);
+      console.log(`[Eval] Using provider: ${this.configService.get('EVAL_PROVIDER') ?? 'gemini-2.0'}`);
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Could not extract JSON from AI response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      const passingScore = this.getPassingScore(difficulty);
+      const approved = parsed.score >= passingScore;
+
+      console.log('🤖 AI returned:', parsed.approved);
+      console.log('✅ We calculated:', approved);
+      console.log('📊 Score:', parsed.score, 'vs', passingScore);
+
+      delete parsed.approved;
+
+      return {
+        score: parsed.score,
+        feedback: parsed.feedback,
+        approved,
+        confidence: parsed.confidence || 0.8,
+        details: {
+          ...parsed,
+          approved,
+          passingScore,
+        },
+      };
+    } catch (error) {
+      console.error('Evaluation error:', error);
+      return {
+        score: 0,
+        feedback: 'Unable to evaluate submission. Please try again.',
+        approved: false,
+        confidence: 0,
+        details: { approved: false },
+      };
     }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-
-    // Determine if approved based on score and difficulty
-    const passingScore = this.getPassingScore(difficulty);
-    const approved = parsed.score >= passingScore;
-
-    // ✅ FIX: Remove AI's approval from details, use our calculation
-    // const { approved: _aiApproved, ...detailsWithoutApproval } = parsed;
-    console.log('🤖 AI returned:', parsed.approved);
-    console.log('✅ We calculated:', approved);
-    console.log('📊 Score:', parsed.score, 'vs', passingScore);
-
-    // Remove ALL occurrences of 'approved' from parsed object
-    delete parsed.approved;
-
-    // Return standardized result
-    return {
-      score: parsed.score,
-      feedback: parsed.feedback,
-      approved,  // ← Our calculated approval
-      confidence: parsed.confidence || 0.8,
-      details: {
-        ...parsed,  // ← Details without conflicting approval
-        approved,  // ← Add our calculated approval to details
-        passingScore,  // ← Also include what score was needed
-      },
-    };
-  } catch (error) {
-    console.error('Gemini evaluation error:', error);
-    
-    // Fallback response if AI fails
-    return {
-      score: 0,
-      feedback: 'Unable to evaluate submission. Please try again.',
-      approved: false,
-      confidence: 0,
-      details: { approved: false },
-    };
   }
-}
 
-  /**
-   * Different passing scores based on difficulty
-   * Easy tasks are more forgiving than hard tasks
-   */
   private getPassingScore(difficulty: string): number {
     const scores: Record<string, number> = {
-      leetcode: 5.0, // Any legitimate code passes — very lenient
+      leetcode: 5.0,
       easy: 6.0,
       medium: 7.0,
       hard: 7.0,
@@ -457,10 +435,6 @@ private async callGeminiAndParse(
     return scores[difficulty] || 6.0;
   }
 
-  /**
-   * Helper: Extract problem name from title
-   * Example: "Solve LeetCode #1 Two Sum" → "Two Sum"
-   */
   private extractProblemName(title: string): string {
     const match = title.match(/(?:#\d+\s)?(.+?)(?:\s*\(|$)/);
     return match ? match[1].trim() : title;

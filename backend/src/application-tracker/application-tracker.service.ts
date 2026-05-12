@@ -7,6 +7,7 @@ import { GmailService } from './gmail.service';
 import { ManualJobDto } from './dto/manual-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { AiExtractionService } from '../ai/ai.extraction.service';
 
 interface ParsedJob {
   company: string;
@@ -33,7 +34,8 @@ export class ApplicationTrackerService {
     @InjectRepository(GmailConnection)
     private gmailRepo: Repository<GmailConnection>,
 
-    private gmailService: GmailService
+    private gmailService: GmailService,
+    private aiExtractionService: AiExtractionService, 
   ) {}
 
   // ─── Main scan ──────────────────────────────────────────────────────────────
@@ -320,6 +322,11 @@ export class ApplicationTrackerService {
       return this.parseWorkday(from, subject, body);
     }
 
+    //LinkedIn
+    if (fromLower.includes('linkedin.com')) {
+    return this.parseLinkedIn(subject, body);
+  }
+
     // Greenhouse
     if (fromLower.includes('greenhouse.io')) {
       return this.parseGreenhouse(subject, body);
@@ -476,6 +483,53 @@ export class ApplicationTrackerService {
       role: this.extractRoleFromText(fullText),
     };
   }
+
+  private parseLinkedIn(subject: string, body: string): ParsedJob {
+  const fullText = `${subject}\n${body}`;
+
+  // "your application was sent to [Company]" — in subject OR body
+  const sentToMatch = fullText.match(
+    /your\s+application\s+was\s+sent\s+to\s+([A-Z][A-Za-z0-9&\-\.\s]{1,50}?)(?:\r?\n|$)/im
+  );
+  if (sentToMatch) {
+    const company = this.cleanCompanyName(sentToMatch[1].trim());
+
+    // Role appears on the line after the company name repeated
+    // Pattern: "[Company]\n[Role]\n[Company] · [Location]"
+    const roleMatch = body.match(
+      new RegExp(
+        this.escapeRegex(company) + '\\s*\\n([^\\n]{4,60}?)\\s*\\n' + this.escapeRegex(company) + '\\s*·',
+        'i'
+      )
+    );
+    const role = roleMatch
+      ? roleMatch[1].trim()
+      : this.extractRoleFromText(fullText);
+
+    return { company, role };
+  }
+
+  // "applied to [Role] at [Company]"
+  const appliedMatch = fullText.match(
+    /applied\s+(?:for\s+)?(?:the\s+)?(.+?)\s+at\s+([A-Z][A-Za-z0-9&\- ]{1,50}?)(?:\s*\n|\s*·)/im
+  );
+  if (appliedMatch) {
+    return {
+      role: appliedMatch[1].trim(),
+      company: this.cleanCompanyName(appliedMatch[2].trim()),
+    };
+  }
+
+  return {
+    company: this.extractCompanyFromText(fullText),
+    role: this.extractRoleFromText(fullText),
+  };
+}
+
+// Add this helper method to the class
+private escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
   /**
    * Jobvite: "Thank you for applying to [Company] for [Role]"
@@ -704,54 +758,8 @@ export class ApplicationTrackerService {
   // ─── AI fallback extraction ──────────────────────────────────────────────────
 
   private async extractWithAI(subject: string, from: string, body: string): Promise<ParsedJob> {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return { company: 'Unknown Company', role: 'Unknown Role' };
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-    const prompt = `You are parsing a job application email. Extract the company name, job role/title, and application status.
-
-Email subject: ${subject}
-Email from: ${from}
-Email body (first 800 chars): ${body.slice(0, 800)}
-
-Reply with ONLY a JSON object in this exact format, nothing else:
-{"company": "Company Name", "role": "Job Title", "status": "Applied"}
-
-Rules:
-- If you cannot determine the company, use "Unknown Company"
-- If you cannot determine the role, use "Unknown Role"
-- For role, use the exact title from the email (e.g. "SDE II", "Software Engineer", "Product Manager")
-- Do not include tracking IDs or job IDs in the role
-- For status, use ONLY one of: "Applied", "Interview", "Offer", "Rejected"
-  - "Applied": application received/confirmed, thank you for applying
-  - "Interview": interview invitation, phone screen, technical assessment scheduled
-  - "Offer": job offer extended, offer letter
-  - "Rejected": not moving forward, unfortunately, we regret to inform
-  - Default to "Applied" if unsure`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
-
-    // Strip markdown code fences if present
-    const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(jsonText);
-    } catch {
-      // Gemini returned something that isn't valid JSON — fall back to regex
-      throw new Error(`Gemini returned non-JSON response: ${jsonText.slice(0, 100)}`);
-    }
-
-    const validStatuses = ['Applied', 'Interview', 'Offer', 'Rejected'];
-    return {
-      company: typeof parsed.company === 'string' && parsed.company ? parsed.company : 'Unknown Company',
-      role: typeof parsed.role === 'string' && parsed.role ? parsed.role : 'Unknown Role',
-      status: typeof parsed.status === 'string' && validStatuses.includes(parsed.status) ? parsed.status : undefined,
-    };
-  }
+  return this.aiExtractionService.extractJobFromEmail(subject, from, body);
+}
 
   // ─── Status detection ────────────────────────────────────────────────────────
 
