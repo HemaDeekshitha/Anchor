@@ -21,6 +21,7 @@ async function bootstrap() {
     origin: [
       'http://localhost:3000',
       'http://localhost:3002',
+      'http://localhost:3003',
       'https://anchor.feeltiptop.com',
       'https://anchorapp.feeltiptop.com',
     ],
