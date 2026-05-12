@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OpenAI } from 'openai';
 import { RagTask } from './rag-task.entity';
 import { OnboardingResponse } from '../onboarding/onboarding.entity';
 import { UserSkill } from '../skills/user-skills.entity';
@@ -19,14 +20,19 @@ interface GeneratedTaskDto {
   leetcodeUrl?: string;
 }
 
-// Fallback chain: try each model in order until one succeeds.
-// gemini-1.5-flash-8b is a lightweight model with a generous free quota and
-// serves as the most reliable last resort when faster models are overloaded.
-const GEMINI_FALLBACK_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-8b',
+interface TaskProvider {
+  name: string;
+  type: 'openai-compat' | 'gemini';
+  baseURL?: string;
+  apiKeyEnv: string;
+  model: string;
+}
+
+const TASK_PROVIDERS: TaskProvider[] = [
+  { name: 'groq',       type: 'openai-compat', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY',       model: 'llama-3.3-70b-versatile' },
+  { name: 'openrouter', type: 'openai-compat', baseURL: 'https://openrouter.ai/api/v1',   apiKeyEnv: 'OPENROUTER_API_KEY', model: 'openai/gpt-oss-120b:free' },
+  { name: 'gemini-2.5', type: 'gemini',                                                   apiKeyEnv: 'GEMINI_API_KEY',     model: 'gemini-2.5-flash' },
+  { name: 'gemini-lite', type: 'gemini', apiKeyEnv: 'GEMINI_API_KEY', model: 'gemini-2.5-flash-lite' },
 ];
 
 @Injectable()
@@ -54,57 +60,76 @@ export class TaskGenerationService {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  /** Tries each Gemini model in turn; returns the text on first success.
-   *  On 503 overload, waits 8 seconds and retries the same model once before
-   *  moving to the next. On quota (429) or auth (403) errors it skips
-   *  immediately since retrying the same model won't help. */
   private async callGeminiWithFallback(prompt: string): Promise<string | null> {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const selected = this.configService.get<string>('TASK_PROVIDER') ?? 'gemini-2.5';
 
-    for (const modelName of GEMINI_FALLBACK_MODELS) {
-      let attempt = 0;
-      while (attempt < 2) {
-        attempt++;
-        try {
-          const model = this.genAI.getGenerativeModel({ model: modelName });
+    const provider = TASK_PROVIDERS.find(p => p.name === selected);
+    if (!provider) {
+      this.logger.warn(`Unknown TASK_PROVIDER: ${selected}`);
+      return null;
+    }
+
+    const apiKey = this.configService.get<string>(provider.apiKeyEnv);
+    if (!apiKey) {
+      this.logger.warn(`API key missing for TASK_PROVIDER: ${selected}`);
+      return null;
+    }
+
+    this.logger.log(`🤖 Task generation using provider: ${provider.name}`);
+
+    let attempt = 0;
+    while (attempt < 2) {
+      attempt++;
+      try {
+        if (provider.type === 'openai-compat') {
+          const client = new OpenAI({ apiKey, baseURL: provider.baseURL });
+          const response = await client.chat.completions.create({
+            model: provider.model,
+            max_tokens: 2000,
+            temperature: 0.7,
+            messages: [{ role: 'user', content: prompt }],
+          });
+          const text = response.choices[0]?.message?.content?.trim() ?? '';
+          if (!text) throw new Error('Empty response from provider');
+          this.logger.log(`✅ Used model: ${provider.name}`);
+          return text;
+        }
+
+        if (provider.type === 'gemini') {
+          const model = this.genAI.getGenerativeModel({ model: provider.model });
           const result = await model.generateContent(prompt);
           const text = result.response.text();
-          this.logger.log(`✅ Used model: ${modelName}`);
+          this.logger.log(`✅ Used model: ${provider.name}`);
           return text;
-        } catch (err: any) {
-          const status: number = err?.status ?? err?.code ?? 0;
-          const msg: string = err?.message ?? String(err);
-
-          const isOverload = status === 503 || msg.toLowerCase().includes('overloaded') || msg.toLowerCase().includes('high demand');
-          const isQuotaOrAuth = status === 429 || status === 403 || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('depleted');
-
-          if (isOverload && attempt === 1) {
-            // Temporary overload — wait 8 s then retry this same model once
-            this.logger.warn(`⚠️ ${modelName} overloaded (503) — retrying in 8 s…`);
-            await sleep(8000);
-            continue;
-          }
-
-          if (isQuotaOrAuth) {
-            // Quota / billing / auth — retrying won't help, skip to next model immediately
-            this.logger.warn(`⚠️ ${modelName} quota/auth error (${status}) — skipping to next model`);
-          } else {
-            this.logger.warn(`⚠️ ${modelName} failed (${status}: ${msg.slice(0, 120)}) — trying next model…`);
-          }
-          break; // move on to the next model
         }
+
+      } catch (err: any) {
+        const status: number = err?.status ?? err?.code ?? 0;
+        const msg: string = err?.message ?? String(err);
+
+        const isOverload = status === 503 || /overloaded|high demand/i.test(msg);
+        const isQuotaOrAuth = status === 429 || status === 403 || /quota|depleted/i.test(msg);
+
+        if (isOverload && attempt === 1) {
+          this.logger.warn(`⚠️ ${provider.name} overloaded — retrying in 8s…`);
+          await sleep(8000);
+          continue;
+        }
+
+        if (isQuotaOrAuth) {
+          this.logger.warn(`⚠️ ${provider.name} quota/auth error (${status}) — skipping`);
+        } else {
+          this.logger.warn(`⚠️ ${provider.name} failed (${status}: ${msg.slice(0, 120)})`);
+        }
+        break;
       }
     }
 
-    this.logger.warn('All Gemini models exhausted — task generation skipped.');
+    this.logger.warn(`Task generation failed for provider: ${selected}`);
     return null;
   }
 
-  /**
-   * Generates exactly `mix.total` fresh tasks for today, tailored to the
-   * user's resume, onboarding selections, and extracted skills.
-   * The LLM determines the appropriate domain and task types — nothing is hardcoded.
-   */
   async generateTasksForToday(
     userId: string,
     mix: { easy: number; medium: number; hard: number; total: number },
@@ -113,14 +138,12 @@ export class TaskGenerationService {
     const userSkills = await this.userSkillRepo.find({ where: { userId } });
     const skillNames = userSkills.map((s) => s.skillName);
 
-    // ── Fetch full seen-task history from DB ─────────────────────────────────
     const seenRows = await this.userSeenTaskRepo.find({ where: { user_id: userId } });
     const seenKeys = new Set(seenRows.map((r) => r.title_key));
     const seenTitles = seenRows.map((r) => r.title_key);
 
     const prompt = this.buildDailyPrompt(profile, skillNames, mix, seenTitles);
 
-    // Debug: confirm what data is reaching the LLM
     this.logger.log(`🎯 Role: ${profile?.dedicatedRole ?? profile?.preferredRole?.[0]}`);
     this.logger.log(`🔑 Keywords (${(profile?.resumeKeywords ?? skillNames).length}): ${(profile?.resumeKeywords ?? skillNames).join(', ')}`);
     this.logger.log(`📚 Interests: ${profile?.areasOfInterest?.join(', ')}`);
@@ -140,7 +163,6 @@ export class TaskGenerationService {
 
     if (generated.length === 0) return [];
 
-    // ── Hard post-filter: drop any title the user has already seen ───────────
     const fresh = generated
       .filter((t) => t.title)
       .filter((t) => !seenKeys.has(this.normaliseTitle(t.title)))
@@ -165,7 +187,6 @@ export class TaskGenerationService {
 
     const saved = await this.ragTaskRepo.save(toSave);
 
-    // ── Record every saved task so it's never repeated ───────────────────────
     const seenEntries = saved.map((task) =>
       this.userSeenTaskRepo.create({
         user_id: userId,
@@ -173,7 +194,7 @@ export class TaskGenerationService {
         title_key: this.normaliseTitle(task.title),
       }),
     );
-    // INSERT … ON CONFLICT DO NOTHING via the unique index on (user_id, title_key)
+
     await this.userSeenTaskRepo
       .createQueryBuilder()
       .insert()
@@ -192,28 +213,18 @@ export class TaskGenerationService {
     return title.toLowerCase().trim();
   }
 
-  // ─── Coding role detection ───────────────────────────────────────────────────
-  /**
-   * Returns true for any CS / coding-heavy role that benefits from LeetCode DSA practice.
-   * Non-CS engineering (mechanical, civil, etc.) and non-technical roles return false.
-   */
   private isSoftwareRole(roleInput: string | string[] | null): boolean {
     if (!roleInput) return false;
     const haystack = (Array.isArray(roleInput) ? roleInput.join(' ') : roleInput).toLowerCase();
     return /\b(software|frontend|front.?end|backend|back.?end|full.?stack|computer\s+science|data\s+engineer|data\s+scientist|machine\s+learning|ml\s+engineer|ai\s+engineer|ios|android|mobile\s+develop|devops|dev\s+ops|cloud\s+engineer|embedded|firmware|site\s+reliability|sre|platform\s+engineer|cybersecurity|security\s+engineer|game\s+develop|swe|sde)\b/.test(haystack);
   }
 
-  /**
-   * Picks the difficulty for the forced LeetCode task.
-   * Uses the highest difficulty present in today's mix so it counts against one slot.
-   */
   private leetcodeDifficulty(mix: { easy: number; medium: number; hard: number }): 'easy' | 'medium' | 'hard' {
     if (mix.hard > 0) return 'hard';
     if (mix.medium > 0) return 'medium';
     return 'easy';
   }
 
-  // ─── Prompt construction ────────────────────────────────────────────────────
   private buildDailyPrompt(
     profile: OnboardingResponse | null,
     skills: string[],
@@ -225,14 +236,10 @@ export class TaskGenerationService {
     const primaryFocus  = profile?.primaryFocus?.join(', ')    || '(not specified)';
     const interests     = profile?.areasOfInterest?.join(', ') || '(not specified)';
 
-    // dedicatedRole = the user's single committed target role (first preferredRole selection).
-    // This is the authoritative role used for task generation and role-type detection.
-    // All other profile fields are supplementary context.
     const dedicatedRole = profile?.dedicatedRole
       ?? profile?.preferredRole?.[0]
       ?? '(not specified)';
 
-    // AI-extracted resume keywords take priority; fall back to catalog skills
     const aiKeywords = profile?.resumeKeywords ?? [];
     const keywordList =
       aiKeywords.length > 0
@@ -248,8 +255,6 @@ export class TaskGenerationService {
         ? `\n\nTASKS ALREADY SEEN BY THIS USER — DO NOT GENERATE ANY OF THESE OR CLOSE VARIATIONS:\n${recentTitles.map((t) => `  - ${t}`).join('\n')}\nEvery title above must be treated as strictly off-limits. Generate completely different Questions.`
         : '';
 
-    // When a CS/coding role is selected, one task is always a LeetCode problem.
-    // That task consumes one difficulty slot from the mix; compute the remainder.
     let roleSpecificSection = '';
     let remainingMix = { ...mix };
     if (softwareRole) {
