@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OpenAI } from 'openai';
 
 const GEMINI_FALLBACK_MODELS = [
   'gemini-2.5-flash',
@@ -53,6 +54,7 @@ ${resumeText.slice(0, 4000)}
 Return ONLY a JSON array, example: ["React", "Azure Blob Storage", "Software Engineer", "Python", "microservices"]
 `.trim();
 
+    // ── Stage 1: Gemini models ──────────────────────────────────────────────
     for (const modelName of GEMINI_FALLBACK_MODELS) {
       try {
         const model = this.genAI.getGenerativeModel({ model: modelName });
@@ -86,7 +88,60 @@ Return ONLY a JSON array, example: ["React", "Azure Blob Storage", "Software Eng
       }
     }
 
-    this.logger.warn('All Gemini models exhausted during keyword extraction.');
+    this.logger.warn('All Gemini models exhausted — falling back to Groq then OpenRouter');
+
+    // ── Stage 2: Groq → OpenRouter fallback chain ───────────────────────────
+    const openaiCompatFallbacks = [
+      {
+        name: 'groq',
+        baseURL: 'https://api.groq.com/openai/v1',
+        apiKeyEnv: 'GROQ_API_KEY',
+        model: 'llama-3.3-70b-versatile',
+      },
+      {
+        name: 'openrouter',
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKeyEnv: 'OPENROUTER_API_KEY',
+        model: 'openai/gpt-oss-120b:free',
+      },
+    ];
+
+    for (const provider of openaiCompatFallbacks) {
+      const apiKey = this.configService.get<string>(provider.apiKeyEnv);
+      if (!apiKey) {
+        this.logger.warn(`${provider.name} skipped — API key not set`);
+        continue;
+      }
+
+      try {
+        const client = new OpenAI({ apiKey, baseURL: provider.baseURL });
+        const response = await client.chat.completions.create({
+          model: provider.model,
+          max_tokens: 1000,
+          temperature: 0,
+          messages: [{ role: 'user', content: prompt }],
+        });
+
+        const raw = response.choices[0]?.message?.content?.trim() ?? '';
+        const content = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const keywords = JSON.parse(content);
+
+        if (Array.isArray(keywords)) {
+          this.logger.log(`Extracted ${keywords.length} keywords using ${provider.name}`);
+          return keywords as string[];
+        }
+        return [];
+      } catch (err: any) {
+        const isRateLimit = /429|quota|rate.?limit/i.test(String(err?.message ?? err));
+        if (isRateLimit) {
+          this.logger.warn(`${provider.name} quota exhausted — trying next fallback…`);
+          continue;
+        }
+        this.logger.warn(`${provider.name} keyword extraction failed: ${err?.message}`);
+      }
+    }
+
+    this.logger.warn('All providers exhausted during keyword extraction.');
     return [];
   }
 }

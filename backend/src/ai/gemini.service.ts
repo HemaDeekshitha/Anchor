@@ -44,45 +44,32 @@ export class GeminiService {
   private async callWithFallback(prompt: string): Promise<string> {
     const selected = this.configService.get<string>('EVAL_PROVIDER') ?? 'gemini-2.0';
 
-    const provider = EVAL_PROVIDERS.find(p => p.name === selected);
-    if (!provider) throw new Error(`Unknown EVAL_PROVIDER: ${selected}`);
+    const primary = EVAL_PROVIDERS.find(p => p.name === selected);
+    if (!primary) throw new Error(`Unknown EVAL_PROVIDER: ${selected}`);
 
-    const apiKey = this.configService.get<string>(provider.apiKeyEnv);
-    if (!apiKey) throw new Error(`API key missing for provider: ${selected}`);
+    // Build the ordered list: primary first, then groq → gemini-2.5 as fallbacks
+    const fallbackNames = ['groq', 'gemini-2.5'];
+    const chain: EvalProvider[] = [
+      primary,
+      ...fallbackNames
+        .filter(name => name !== selected)
+        .map(name => EVAL_PROVIDERS.find(p => p.name === name)!)
+        .filter(Boolean),
+    ];
 
-    try {
-      if (provider.type === 'openai-compat') {
-        const client = new OpenAI({ apiKey, baseURL: provider.baseURL });
-        const response = await client.chat.completions.create({
-          model: provider.model,
-          max_tokens: 1000,
-          temperature: 0,
-          messages: [{ role: 'user', content: prompt }],
-        });
-        const text = response.choices[0]?.message?.content?.trim() ?? '';
-        if (!text) throw new Error('Empty response from provider');
-        console.log(`[Eval] provider=${provider.name} success`);
-        return text;
+    for (const provider of chain) {
+      const apiKey = this.configService.get<string>(provider.apiKeyEnv);
+      if (!apiKey) {
+        console.warn(`[Eval] skipping ${provider.name} — API key not set`);
+        continue;
       }
 
-      if (provider.type === 'gemini') {
-        const m = this.genAI.getGenerativeModel({ model: provider.model });
-        const result = await m.generateContent(prompt);
-        const text = result.response.text();
-        console.log(`[Eval] provider=${provider.name} success`);
-        return text;
-      }
-
-      throw new Error('Unknown provider type');
-
-    } catch (err: any) {
-      const msg = String(err?.message ?? err);
-      const is503 = /503|Service Unavailable|high demand/i.test(msg);
-
-      if (is503) {
-        console.warn(`[Eval] ${provider.name} overloaded, retrying in 2s…`);
-        await this.sleep(2000);
+      let attempt = 0;
+      while (attempt < 2) {
+        attempt++;
         try {
+          let text = '';
+
           if (provider.type === 'openai-compat') {
             const client = new OpenAI({ apiKey, baseURL: provider.baseURL });
             const response = await client.chat.completions.create({
@@ -91,20 +78,41 @@ export class GeminiService {
               temperature: 0,
               messages: [{ role: 'user', content: prompt }],
             });
-            return response.choices[0]?.message?.content?.trim() ?? '';
-          }
-          if (provider.type === 'gemini') {
+            text = response.choices[0]?.message?.content?.trim() ?? '';
+            if (!text) throw new Error('Empty response from provider');
+          } else if (provider.type === 'gemini') {
             const m = this.genAI.getGenerativeModel({ model: provider.model });
             const result = await m.generateContent(prompt);
-            return result.response.text();
+            text = result.response.text();
+          } else {
+            throw new Error('Unknown provider type');
           }
-        } catch (retryErr) {
-          throw retryErr;
+
+          console.log(`[Eval] provider=${provider.name} success`);
+          return text;
+
+        } catch (err: any) {
+          const msg = String(err?.message ?? err);
+          const is503 = /503|Service Unavailable|high demand/i.test(msg);
+          const isQuotaOrAuth = /429|quota|rate.?limit|depleted|auth/i.test(msg);
+
+          if (is503 && attempt === 1) {
+            console.warn(`[Eval] ${provider.name} overloaded — retrying in 2s…`);
+            await this.sleep(2000);
+            continue;
+          }
+
+          if (isQuotaOrAuth) {
+            console.warn(`[Eval] ${provider.name} quota/auth error — trying next fallback`);
+          } else {
+            console.warn(`[Eval] ${provider.name} failed (${msg.slice(0, 120)}) — trying next fallback`);
+          }
+          break;
         }
       }
-
-      throw err;
     }
+
+    throw new Error('All eval providers failed');
   }
 
   // ─── Main evaluation entry point ─────────────────────────────────────────────
