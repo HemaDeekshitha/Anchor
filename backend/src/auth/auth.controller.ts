@@ -17,6 +17,17 @@ import { AuthGuard } from '@nestjs/passport';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
+const isProd = process.env.NODE_ENV === 'production';
+
+// Cookie options that work across feeltiptop.com subdomains in production
+// while keeping local dev behavior unchanged.
+const cookieBaseOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+  ...(isProd && { domain: '.feeltiptop.com' }),
+};
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -29,16 +40,12 @@ export class AuthController {
     const { accessToken, refreshToken } = await this.authService.signup(dto);
 
     res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -54,16 +61,12 @@ export class AuthController {
     const rememberMe = dto.rememberMe === true;
 
     res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       ...(rememberMe && {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       }),
@@ -89,22 +92,22 @@ export class AuthController {
       await this.authService.googleLogin(req.user);
 
     res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    const baseUrl = isProd
+      ? 'https://anchorapp.feeltiptop.com'
+      : 'http://localhost:3000';
+
     const redirectUrl = user.onboardingCompleted
-      ? 'http://localhost:3000/dashboard'
-      : 'http://localhost:3000/steps';
+      ? `${baseUrl}/dashboard`
+      : `${baseUrl}/steps`;
 
     return res.redirect(redirectUrl);
   }
@@ -136,12 +139,11 @@ export class AuthController {
       throw new UnauthorizedException('No refresh token');
     }
 
-    const { accessToken } = await this.authService.refreshAccessToken(refreshToken);
+    const { accessToken } =
+      await this.authService.refreshAccessToken(refreshToken);
 
     res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...cookieBaseOptions,
       maxAge: 15 * 60 * 1000,
     });
 
@@ -150,11 +152,8 @@ export class AuthController {
 
   @Post('logout')
   async logOut(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    });
+    res.clearCookie('access_token', cookieBaseOptions);
+    res.clearCookie('refresh_token', cookieBaseOptions);
 
     return { message: 'Logged out successfully' };
   }
