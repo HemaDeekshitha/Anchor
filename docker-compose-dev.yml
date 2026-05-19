@@ -5,6 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     environment:
+      NODE_ENV: development
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_USER: ${DATABASE_USER}
@@ -30,7 +31,7 @@ services:
       EVAL_PROVIDER: ${EVAL_PROVIDER}
       TASK_PROVIDER: ${TASK_PROVIDER}
     ports:
-      - "3001:3001"
+      - "3012:3001"
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -42,12 +43,13 @@ services:
       context: ./web-frontend/anchor-web
       dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "3013:3000"
     depends_on:
       - backend
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     volumes:
       - ./web-frontend/anchor-web:/app
       - /app/node_modules
@@ -59,9 +61,10 @@ services:
       context: ./web-frontend/website
       dockerfile: Dockerfile.dev
     ports:
-      - "3002:3002"
+      - "3014:3002"
     environment:
       NODE_ENV: development
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     volumes:
       - ./web-frontend/website:/app
       - /app/node_modules

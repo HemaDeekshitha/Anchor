@@ -194,7 +194,8 @@ export class AuthService {
     await this.userRepo.save(user);
 
     // 4️⃣ Reset link (frontend URL)
-    const resetLink = `http://localhost:3000/changePassword?token=${resetToken}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3014';
+    const resetLink = `${frontendUrl}/changePassword?token=${resetToken}`;
     await this.mailService.sendPasswordResetEmail(user.email, resetLink);
 
     return { message: 'If the email exists, a reset link was sent' };

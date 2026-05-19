@@ -101,9 +101,9 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    const baseUrl = isProd
-      ? 'https://anchorapp.feeltiptop.com'
-      : 'http://localhost:3000';
+    const baseUrl =
+      process.env.FRONTEND_URL ||
+      (isProd ? 'https://anchorapp.feeltiptop.com' : 'http://localhost:3014');
 
     const redirectUrl = user.onboardingCompleted
       ? `${baseUrl}/dashboard`

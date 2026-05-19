@@ -7,7 +7,7 @@ import MomentumGraphCard from "./ProfileGraphCard";
 import RecentSubmissions from "./RecentSubmission";
 import EditProfileModal, { EditableProfile } from "./EditProfile";
 
-export default function momentum() {
+export default function Profile() {
   const [profile, setProfile] = useState<any>(null);
   const [openResumeText, setOpenResumeText] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

@@ -6,7 +6,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
+      NODE_ENV: production
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_USER: ${DATABASE_USER}
@@ -29,14 +31,14 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY}
       EVAL_PROVIDER: ${EVAL_PROVIDER}
       TASK_PROVIDER: ${TASK_PROVIDER}
-
       MAILJET_API_KEY: ${MAILJET_API_KEY}
       MAILJET_SECRET_KEY: ${MAILJET_SECRET_KEY}
       MAILJET_FROM_EMAIL: ${MAILJET_FROM_EMAIL}
       MAILJET_FROM_NAME: ${MAILJET_FROM_NAME}
-
+      FRONTEND_URL: ${FRONTEND_URL}
+      APP_URL: ${APP_URL}
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3012:3001"
 
   frontend:
     container_name: anchor-frontend
@@ -45,23 +47,33 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL}
-    ports:
-      - "3000:3000"
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
     depends_on:
       - backend
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "127.0.0.1:3013:3000"
 
   website:
     container_name: anchor-website
     build:
       context: ./web-frontend/website
       dockerfile: Dockerfile
-    ports:
-      - "3002:3002"
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    depends_on:
+      - backend
     environment:
       NODE_ENV: production
+      PORT: 3002
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "127.0.0.1:3014:3002"
 
 volumes:
   anchor_data:

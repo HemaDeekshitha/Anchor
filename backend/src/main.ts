@@ -22,6 +22,8 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:3002',
       'http://localhost:3003',
+      'http://localhost:3013',
+      'http://localhost:3014',
       'https://anchor.feeltiptop.com',
       'https://anchorapp.feeltiptop.com',
     ],

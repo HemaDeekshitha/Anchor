@@ -13,7 +13,7 @@ export class GmailService {
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_GMAIL_CALLBACK_URL ||
-      'http://localhost:3001/application-tracker/gmail/callback'
+      'http://localhost:3012/application-tracker/gmail/callback'
   );
 
   getAuthUrl(userId: string) {
