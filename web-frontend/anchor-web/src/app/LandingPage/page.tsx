@@ -261,6 +261,7 @@ export default function LandingPage() {
                   alt="Main Hero"
                   width={600}
                   height={600}
+                  loading="eager"
                   style={{
                     width: "80%",
                     height: "auto",
