@@ -72,7 +72,7 @@ export class AuthController {
       }),
     });
 
-    console.log('Login successful', accessToken);
+    console.log('Login successful');
 
     return { message: 'Login successful' };
   }
