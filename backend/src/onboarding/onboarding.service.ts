@@ -34,21 +34,21 @@ export class OnboardingService {
     file: Express.Multer.File | undefined,
     answers: string,
     resumeText?: string,
-    profilePhotoFile?: Express.Multer.File,  
-    location?: string,                         
-    yearsOfExperience?: string, 
+    profilePhotoFile?: Express.Multer.File,
+    location?: string,
+    yearsOfExperience?: string,
   ) {
     let resumeUrl: string | undefined;
     let resumeName: string | undefined;
-    let profilePhotoUrl: string | undefined; 
+    let profilePhotoUrl: string | undefined;
 
     if (file) {
       resumeUrl = await this.cloudinary.uploadFile(file);
       resumeName = file.originalname;
     }
-    if (profilePhotoFile) {               
-    profilePhotoUrl = await this.cloudinary.uploadFile(profilePhotoFile);
-  }
+    if (profilePhotoFile) {
+      profilePhotoUrl = await this.cloudinary.uploadImage(profilePhotoFile);
+    }
 
     const parsed = answers ? JSON.parse(answers) : {};
 
@@ -70,9 +70,9 @@ export class OnboardingService {
       resumeText: resumeText ?? null,
       resumeName,
       resumeUrl,
-      profileImageUrl: profilePhotoUrl,                       
-      location: location ?? null,             
-      yearsOfExperience: yearsOfExperience ?? null, 
+      profileImageUrl: profilePhotoUrl,
+      location: location ?? null,
+      yearsOfExperience: yearsOfExperience ?? null,
     });
 
     await this.repo.save(entry);
@@ -83,9 +83,13 @@ export class OnboardingService {
 
     // Pre-generate day-1 tasks immediately so the dashboard is ready on first visit.
     // Fire-and-forget — don't block the onboarding response.
-    this.ragService.getDailyTasks(userId).catch((err) =>
-      this.logger.error(`Failed to pre-generate day-1 tasks for ${userId}: ${err}`),
-    );
+    this.ragService
+      .getDailyTasks(userId)
+      .catch((err) =>
+        this.logger.error(
+          `Failed to pre-generate day-1 tasks for ${userId}: ${err}`,
+        ),
+      );
 
     return {
       success: true,

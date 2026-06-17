@@ -31,7 +31,7 @@ services:
       EVAL_PROVIDER: ${EVAL_PROVIDER}
       TASK_PROVIDER: ${TASK_PROVIDER}
     ports:
-      - "3012:3001"
+      - "3001:3001"
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -43,7 +43,7 @@ services:
       context: ./web-frontend/anchor-web
       dockerfile: Dockerfile.dev
     ports:
-      - "3013:3000"
+      - "3000:3000"
     depends_on:
       - backend
     environment:
@@ -61,7 +61,7 @@ services:
       context: ./web-frontend/website
       dockerfile: Dockerfile.dev
     ports:
-      - "3014:3002"
+      - "3002:3002"
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}

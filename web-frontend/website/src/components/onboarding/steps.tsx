@@ -2,10 +2,28 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import styles from "./onboarding.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import InputBase from "@mui/material/InputBase";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+// ── Design tokens ──────────────────────────────────────────────────────────────
+const T = {
+  border: "#e8ddd0",
+  chipBg: "#fdfaf7",
+  chipHover: "#f5ede0",
+  leftBg: "#f5ede0",
+  accent: "#b87444",
+  accentDark: "#a0622e",
+  text: "#2c1a0a",
+  subtext: "#8c6a50",
+  muted: "#b8a090",
+  white: "#ffffff",
+  pageBg: "#ede8e0",
+};
 
 type OnboardingRole = {
   id: string;
@@ -17,7 +35,7 @@ type OnboardingRole = {
   customHeader?: string;
 };
 
-// ── AI loading steps ─────────────────────────────────────────────────────────
+// ── AI loading steps ───────────────────────────────────────────────────────────
 const AI_LOADING_STEPS = [
   { emoji: "📄", text: "Reading your resume…" },
   { emoji: "🔍", text: "Identifying your skills…" },
@@ -27,6 +45,7 @@ const AI_LOADING_STEPS = [
   { emoji: "✅", text: "AI analysis complete!" },
 ];
 
+// ── AI Loading Overlay ─────────────────────────────────────────────────────────
 function AILoadingOverlay({
   onDone,
   fetchPromise,
@@ -63,14 +82,12 @@ function AILoadingOverlay({
       }
       setStep(current);
     }, STEP_MS);
-
     const progressInterval = setInterval(() => {
       setProgress((p) => {
         if (p >= 90 && !fetchDone) return p;
         return Math.min(p + 1, 100);
       });
     }, (STEP_MS * AI_LOADING_STEPS.length) / 100);
-
     return () => {
       clearInterval(interval);
       clearInterval(progressInterval);
@@ -79,53 +96,174 @@ function AILoadingOverlay({
   }, []);
 
   const current = AI_LOADING_STEPS[step];
-
   return (
-    <div
-      style={{
+    <Box
+      sx={{
         position: "fixed",
         inset: 0,
         zIndex: 99999,
-        background: "#f5ede0",
+        background: T.chipHover,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         gap: "2.5rem",
+        px: 2,
       }}
     >
-      <div style={{ position: "relative", width: 120, height: 120 }}>
-        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "4px solid transparent", borderTopColor: "#b87444", animation: "spin 1s linear infinite" }} />
-        <div style={{ position: "absolute", inset: 12, borderRadius: "50%", border: "3px solid transparent", borderBottomColor: "#a0622e", animation: "spin 1.4s linear infinite reverse" }} />
-        <div style={{ position: "absolute", inset: 26, borderRadius: "50%", background: "radial-gradient(circle, rgba(184,116,68,0.15), transparent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>
+      <Box
+        sx={{ position: "relative", width: 120, height: 120, flexShrink: 0 }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            border: "4px solid transparent",
+            borderTopColor: T.accent,
+            animation: "spin 1s linear infinite",
+          }}
+        />
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 12,
+            borderRadius: "50%",
+            border: "3px solid transparent",
+            borderBottomColor: T.accentDark,
+            animation: "spin 1.4s linear infinite reverse",
+          }}
+        />
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 26,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(184,116,68,0.15), transparent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "2rem",
+          }}
+        >
           {current.emoji}
-        </div>
-      </div>
-
-      <div style={{ textAlign: "center" }}>
-        <p style={{ color: "#2c1a0a", fontSize: "1.25rem", fontWeight: 600, fontFamily: "'Playfair Display', serif", margin: 0 }}>
+        </Box>
+      </Box>
+      <Box sx={{ textAlign: "center" }}>
+        <Typography
+          sx={{
+            color: T.text,
+            fontSize: { xs: "1rem", sm: "1.25rem" },
+            fontWeight: 600,
+            fontFamily: "'Playfair Display', serif",
+          }}
+        >
           {current.text}
-        </p>
-        <p style={{ color: "#8c6a50", fontSize: "0.85rem", marginTop: "0.5rem", fontFamily: "Inter, sans-serif" }}>
+        </Typography>
+        <Typography
+          sx={{
+            color: T.subtext,
+            fontSize: "0.85rem",
+            mt: "0.5rem",
+            fontFamily: "Inter, sans-serif",
+          }}
+        >
           Please wait while we set everything up for you
-        </p>
-      </div>
-
-      <div style={{ width: 280, height: 6, background: "#e8ddd0", borderRadius: 999, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(to right, #b87444, #a0622e)", borderRadius: 999, transition: "width 0.3s ease" }} />
-      </div>
-
+        </Typography>
+      </Box>
+      <Box
+        sx={{
+          width: "min(280px, 80vw)",
+          height: 6,
+          background: T.border,
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          sx={{
+            height: "100%",
+            width: `${progress}%`,
+            background: `linear-gradient(to right, ${T.accent}, ${T.accentDark})`,
+            borderRadius: 999,
+            transition: "width 0.3s ease",
+          }}
+        />
+      </Box>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </Box>
   );
 }
 
+// ── Field label ────────────────────────────────────────────────────────────────
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      component="label"
+      sx={{
+        display: "block",
+        fontFamily: "Inter, sans-serif",
+        fontSize: "0.72rem",
+        fontWeight: 600,
+        letterSpacing: "0.12em",
+        color: T.muted,
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+// ── Option chip ────────────────────────────────────────────────────────────────
+function Chip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      onClick={onClick}
+      disableRipple
+      sx={{
+        width: "100%",
+        p: "0.9rem 1.4rem",
+        backgroundColor: selected ? "rgba(184,116,68,0.06)" : T.chipBg,
+        border: selected ? `2px solid ${T.accent}` : `1.5px solid ${T.border}`,
+        borderRadius: "12px",
+        fontFamily: "Inter, sans-serif",
+        fontSize: { xs: "0.88rem", sm: "0.95rem" },
+        color: selected ? T.accent : T.text,
+        fontWeight: selected ? 600 : 400,
+        textAlign: "left",
+        justifyContent: "flex-start",
+        boxShadow: selected ? "0 2px 12px rgba(184,116,68,0.15)" : "none",
+        textTransform: "none",
+        lineHeight: 1.4,
+        transition: "border-color 0.18s, background-color 0.18s",
+        "&:hover": { backgroundColor: T.chipHover, borderColor: T.accent },
+      }}
+    >
+      {label}
+    </Button>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function Steps() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [activeIndex, setActiveIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
-  const [customInterest, setCustomInterest] = useState<Record<string, string>>({});
+  const [customInterest, setCustomInterest] = useState<Record<string, string>>(
+    {}
+  );
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -140,42 +278,57 @@ export default function Steps() {
   useEffect(() => {
     const stepParam = searchParams.get("step");
     const newIndex = stepParam ? parseInt(stepParam) : 0;
-    if (newIndex >= 0 && newIndex < roles.length) {
-      setActiveIndex(newIndex);
-    }
-  }, [searchParams]);
+    if (newIndex >= 0 && newIndex < roles.length) setActiveIndex(newIndex);
+  }, [searchParams, roles.length]);
 
   useEffect(() => {
-    const fetchOnboardingSteps = async () => {
+    (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/onboarding/steps`, {
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to fetch onboarding steps");
+        if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setRoles(data.steps);
-      } catch (error) {
-        console.error("Error fetching onboarding steps:", error);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
-    };
-    fetchOnboardingSteps();
+    })();
   }, []);
 
   const activeRole = roles[activeIndex];
+
   if (loading || !activeRole) {
-    return <div className={styles.loading}>Loading onboarding…</div>;
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          fontFamily: "Inter, sans-serif",
+          fontSize: 14,
+          color: T.subtext,
+          background: T.pageBg,
+        }}
+      >
+        Loading onboarding…
+      </Box>
+    );
   }
 
   const toggleSelection = (option: string) => {
-    const roleId = activeRole.id;
+    const id = activeRole.id;
     setSelections((prev) => {
-      const current = prev[roleId] || [];
-      if (current.includes(option)) {
-        return { ...prev, [roleId]: current.filter((i) => i !== option) };
-      }
-      return { ...prev, [roleId]: [...current, option] };
+      const cur = prev[id] || [];
+      return {
+        ...prev,
+        [id]: cur.includes(option)
+          ? cur.filter((i) => i !== option)
+          : [...cur, option],
+      };
     });
   };
 
@@ -186,17 +339,11 @@ export default function Steps() {
   };
 
   const handleNext = () => {
-    if (activeIndex < roles.length - 1) {
-      updateStepInUrl(activeIndex + 1);
-    } else {
-      submitHandler();
-    }
+    if (activeIndex < roles.length - 1) updateStepInUrl(activeIndex + 1);
+    else submitHandler();
   };
-
   const handleBack = () => {
-    if (activeIndex > 0) {
-      updateStepInUrl(activeIndex - 1);
-    }
+    if (activeIndex > 0) updateStepInUrl(activeIndex - 1);
   };
 
   const submitHandler = (): Promise<void> => {
@@ -209,274 +356,859 @@ export default function Steps() {
     if (resumeText.trim()) formData.append("resumeText", resumeText.trim());
     if (profilePhoto) formData.append("profilePhoto", profilePhoto);
     if (location.trim()) formData.append("location", location.trim());
-    if (yearsOfExperience) formData.append("yearsOfExperience", yearsOfExperience);
-
-    const mergedAnswers: Record<string, string[]> = { ...selections };
+    if (yearsOfExperience)
+      formData.append("yearsOfExperience", yearsOfExperience);
+    const merged: Record<string, string[]> = { ...selections };
     Object.entries(customInterest).forEach(([roleId, value]) => {
       if (!value.trim()) return;
-      mergedAnswers[roleId] = [...(mergedAnswers[roleId] || []), value.trim()];
+      merged[roleId] = [...(merged[roleId] || []), value.trim()];
     });
-    formData.append("answers", JSON.stringify(mergedAnswers));
-
+    formData.append("answers", JSON.stringify(merged));
     return fetch(`${API_BASE_URL}/onboarding/answers`, {
       method: "POST",
       body: formData,
       credentials: "include",
     })
-      .then((res) => { if (!res.ok) throw new Error("Submission failed"); })
-      .catch((err) => { console.error("Onboarding submission error:", err); });
+      .then((res) => {
+        if (!res.ok) throw new Error("Submission failed");
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
+
+  const pillBtnBase = {
+    fontFamily: "Inter, sans-serif",
+    fontWeight: 600,
+    fontSize: { xs: "0.72rem", sm: "0.78rem" },
+    letterSpacing: "0.08em",
+    borderRadius: "100px",
+    px: { xs: "1.6rem", sm: "2.4rem" },
+    py: "0.85rem",
+    textTransform: "none" as const,
+    backgroundColor: T.accent,
+    color: T.white,
+    border: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    transition: "transform 0.2s, background-color 0.2s",
   };
 
   return (
-    <div className={styles.splitLayout}>
+    <>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* ── SIDEBAR ── */}
-      <div className={styles.colorPanel}>
-        <div className={styles.sidebarLogo}>
-          <div className={styles.sidebarLogoIcon}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <rect x="3" y="13" width="14" height="2.5" rx="1.2" fill="white" />
-              <rect x="3" y="8.5" width="14" height="2.5" rx="1.2" fill="white" opacity="0.7" />
-              <rect x="3" y="4" width="14" height="2.5" rx="1.2" fill="white" opacity="0.4" />
-            </svg>
-          </div>
-          <span className={styles.sidebarLogoName}>Anchor</span>
-        </div>
+      <Box
+        sx={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          overflow: "hidden",
+          bgcolor: T.pageBg,
+          zIndex: 9999,
+        }}
+      >
+        {/* ════════════════════════════════════════════════════════════════════
+            SIDEBAR
+            • md+  : fixed 280px left column, full height, vertical scroll if needed
+            • sm    : full width top strip, horizontal scroll, fixed height ~auto
+            • xs    : same as sm but tighter
+        ════════════════════════════════════════════════════════════════════ */}
+        <Box
+          component="nav"
+          sx={{
+            width: { xs: "100%", md: "35%" },
+            minWidth: { md: "35%" },
+            height: { xs: "auto", md: "100%" },
+            flexShrink: 0,
 
-        <div className={styles.sidebarSteps}>
-          <div className={styles.sidebarSectionLabel}>
-            Getting Started
-          </div>
-          <div className={styles.sidebarSectionDesc}>
-            Tell us a bit about yourself so we can personalise your experience.
-          </div>
-          
-          {roles.map((role, index) => {
-            const isActive = index === activeIndex;
-            const isDone = index < activeIndex;
-            return (
-              <div
-                key={role.id}
-                className={`${styles.sidebarItem} ${isActive ? styles.sidebarItemActive : ""}`}
-                onClick={() => updateStepInUrl(index)}
-                style={{ cursor: "pointer" }}
-              >
-                <div className={`${styles.sidebarNum} ${isActive ? styles.sidebarNumActive : isDone ? styles.sidebarNumDone : ""}`}>
-                  {isDone ? (
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="2 6 5 9 10 3" />
-                    </svg>
-                  ) : (
-                    index + 1
-                  )}
-                </div>
-                <span className={`${styles.sidebarName} ${isActive ? styles.sidebarNameActive : ""}`}>
-                  {role.title}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+            // Colours & border
+            bgcolor: T.leftBg,
+            borderRight: { xs: "none", md: `1px solid ${T.border}` },
+            borderBottom: { xs: `1px solid ${T.border}`, md: "none" },
 
-      {/* ── RIGHT PANEL ── */}
-      <div className={styles.contentPanel}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeRole.id}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.32, ease: "easeOut" }}
-            className={styles.contentWrapper}
+            // Layout
+            display: "flex",
+            flexDirection: { xs: "row", md: "column" },
+            alignItems: "center",
+            justifyContent: { xs: "center", md: "flex-start" },
+            px: { xs: 2, sm: 3, md: "40px", lg: "56px" },
+
+            py: { xs: "10px", md: "60px" },
+            gap: { xs: "6px", md: 0 },
+
+            // Scroll
+            overflowX: { xs: "auto", md: "hidden" },
+            overflowY: { xs: "hidden", md: "auto" },
+          }}
+        >
+          {/* Logo — desktop only */}
+          <Box
+            sx={{
+              display: { xs: "none", md: "flex" },
+              alignItems: "center",
+              gap: "10px",
+              mb: "32px",
+              flexShrink: 0,
+            }}
           >
-            {/* Header */}
-            <div className={styles.stepHeader}>
-              <h2 className={styles.serifHeading}>{activeRole.title}</h2>
-              <p className={styles.subText}>{activeRole.subtitle}</p>
-            </div>
-
-            <div className={styles.divider} />
-
-            {/* Form body */}
-            <div className={styles.formBody}>
-              {activeRole.isUpload ? (
-                /* ── UPLOAD STATE ── */
-                <div className={styles.uploadContainer}>
-
-                {/* ── Profile Photo ── */}
-                <div className={styles.profileRow}>
-                  <label className={styles.inputLabel}>PROFILE PHOTO</label>
-                  <label className={styles.profilePhotoLabel}>
-                    <div className={styles.profilePhotoCircle}>
-                      {profilePhotoPreview ? (
-                        <img src={profilePhotoPreview} alt="Profile" className={styles.profilePhotoImg} />
-                      ) : (
-                        <div className={styles.profilePhotoPlaceholder}>
-                          <span style={{ fontSize: "1.6rem" }}>📷</span>
-                          <span className={styles.uploadSubText}>Upload photo</span>
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        setProfilePhoto(f);
-                        setProfilePhotoPreview(URL.createObjectURL(f));
-                      }}
-                    />
-                  </label>
-                </div>
-
-                {/* ── Location + Years of Experience ── */}
-                <div className={styles.profileFieldsRow}>
-                  <div className={styles.profileField}>
-                    <label className={styles.inputLabel}>LOCATION</label>
-                    <input
-                      type="text"
-                      className={styles.locationInput}
-                      placeholder="e.g. San Francisco, CA"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                    />
-                  </div>
-                  <div className={styles.profileField}>
-                    <label className={styles.inputLabel}>YEARS OF EXPERIENCE</label>
-                    <div className={styles.yoeChips}>
-                      {["0–1 yrs", "1–3 yrs", "3–5 yrs", "5+ yrs"].map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          className={`${styles.optionChip} ${yearsOfExperience === opt ? styles.selectedChip : ""}`}
-                          onClick={() => setYearsOfExperience(opt)}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Resume Upload ── */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <label className={styles.inputLabel}>RESUME</label>
-                <label className={styles.uploadLabel}>
-                  <div className={styles.uploadBox}>
-                    {resumeFile ? (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "0 2rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span style={{ fontSize: "1.8rem" }}>📄</span>
-                          <span style={{ fontWeight: 500, color: "#2c1a0a", fontSize: "15px" }}>{resumeFile.name}</span>
-                        </div>
-                        <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setResumeFile(null); }}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "1.1rem", color: "#8c6a50", padding: "6px" }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <div className={styles.uploadBoxInner}>
-                        <div className={styles.uploadIcon}>📄</div>
-                        <p className={styles.uploadMainText}>Click to Upload or Drag & Drop</p>
-                        <p className={styles.uploadSubText}>PDF, DOCX up to 10MB</p>
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf,.doc,.docx"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) setResumeFile(e.target.files[0]);
-                      }}
-                    />
-                  </div>
-                </label>
-              </div>
-
-                  {/* Paste section */}
-                  <div className={styles.pasteSection}>
-                    <label className={styles.inputLabel}>OR PASTE TEXT</label>
-                    <textarea
-                      className={styles.pasteTextarea}
-                      placeholder="Paste your resume content here..."
-                      value={resumeText}
-                      onChange={(e) => setResumeText(e.target.value)}
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* ── SELECTION STATE ── */
-                <div className={styles.selectionContainer}>
-                  <label className={styles.inputLabel}>SELECT OPTIONS</label>
-                  <div className={styles.optionsGrid}>
-                    {activeRole.options.map((option) => {
-                      const isSelected = (selections[activeRole.id] || []).includes(option);
-                      return (
-                        <button
-                          key={option}
-                          className={`${styles.optionChip} ${isSelected ? styles.selectedChip : ""}`}
-                          onClick={() => toggleSelection(option)}
-                        >
-                          {option}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {(activeRole as any).isInterest && (
-                    <input
-                      type="text"
-                      className={styles.customInput}
-                      placeholder="Other (type to add…)"
-                      value={customInterest[activeRole.id] || ""}
-                      onChange={(e) =>
-                        setCustomInterest((prev) => ({ ...prev, [activeRole.id]: e.target.value }))
-                      }
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Footer */}
-        <div className={styles.footerNav}>
-          <button
-            className={styles.backBtn}
-            onClick={handleBack}
-            style={{ visibility: activeIndex === 0 ? "hidden" : "visible" }}
-          >
-            ← BACK
-          </button>
-
-          {activeIndex === roles.length - 1 ? (
-            <button
-              className={styles.continueBtn}
-              onClick={() => {
-                const promise = submitHandler();
-                setFetchPromise(promise);
-                setShowAILoading(true);
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                bgcolor: T.accent,
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              FINISH <span className={styles.btnArrow}>→</span>
-            </button>
-          ) : (
-            <button className={styles.continueBtn} onClick={handleNext}>
-              CONTINUE <span className={styles.btnArrow}>→</span>
-            </button>
-          )}
-        </div>
-      </div>
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                <rect
+                  x="3"
+                  y="13"
+                  width="14"
+                  height="2.5"
+                  rx="1.2"
+                  fill="white"
+                />
+                <rect
+                  x="3"
+                  y="8.5"
+                  width="14"
+                  height="2.5"
+                  rx="1.2"
+                  fill="white"
+                  opacity="0.7"
+                />
+                <rect
+                  x="3"
+                  y="4"
+                  width="14"
+                  height="2.5"
+                  rx="1.2"
+                  fill="white"
+                  opacity="0.4"
+                />
+              </svg>
+            </Box>
+            <Typography
+              sx={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "32px",
+                color: T.text,
+                fontWeight: 400,
+                lineHeight: 1,
+              }}
+            >
+              Anchor
+            </Typography>
+          </Box>
+
+          {/* Section label + desc — desktop only */}
+          <Typography
+            sx={{
+              display: { xs: "none", md: "block" },
+              fontFamily: "Inter, sans-serif",
+              fontSize: "0.72rem",
+              fontWeight: 600,
+              letterSpacing: "0.14em",
+              color: T.muted,
+              textTransform: "uppercase",
+              mb: "8px",
+            }}
+          >
+            Getting Started
+          </Typography>
+          <Typography
+            sx={{
+              display: { xs: "none", md: "block" },
+              fontFamily: "Inter, sans-serif",
+              fontSize: "0.8rem",
+              color: T.subtext,
+              mb: "20px",
+              lineHeight: 1.5,
+            }}
+          >
+            Tell us a bit about yourself so we can personalise your experience.
+          </Typography>
+
+          {/* Step items */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "row", md: "column" },
+              gap: { xs: "4px", md: "8px" },
+              width: { xs: "auto", md: "100%" },
+              alignItems: { xs: "center", md: "stretch" },
+            }}
+          >
+            {roles.map((role, index) => {
+              const isActive = index === activeIndex;
+              const isDone = index < activeIndex;
+              return (
+                <Box
+                  key={role.id}
+                  onClick={() => updateStepInUrl(index)}
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", md: "row" },
+                    alignItems: "center",
+                    gap: { xs: "3px", md: "12px" },
+                    px: { xs: "8px", md: "12px" },
+                    py: { xs: "6px", md: "10px" },
+                    borderRadius: { xs: "8px", md: "12px" },
+                    cursor: "pointer",
+                    minWidth: { xs: "52px", md: "auto" },
+                    bgcolor: isActive ? T.white : "transparent",
+                    border: isActive
+                      ? `1px solid ${T.border}`
+                      : "1px solid transparent",
+                    transition: "background 0.2s",
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* Number / checkmark bubble */}
+                  <Box
+                    sx={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      bgcolor: isActive || isDone ? T.accent : T.border,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: isActive || isDone ? T.white : T.subtext,
+                      flexShrink: 0,
+                      fontFamily: "Inter, sans-serif",
+                      transition: "background 0.2s",
+                    }}
+                  >
+                    {isDone ? (
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="2 6 5 9 10 3" />
+                      </svg>
+                    ) : (
+                      index + 1
+                    )}
+                  </Box>
+
+                  {/* Label */}
+                  <Typography
+                    sx={{
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: { xs: "9px", md: "13px" },
+                      color: isActive ? T.text : T.subtext,
+                      fontWeight: isActive ? 600 : 400,
+                      lineHeight: 1.3,
+                      textAlign: { xs: "center", md: "left" },
+                      whiteSpace: { xs: "normal", md: "nowrap" },
+                      transition: "color 0.2s",
+                    }}
+                  >
+                    {role.title}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            RIGHT PANEL
+            Fills remaining space. Scrollable content + sticky footer.
+        ════════════════════════════════════════════════════════════════════ */}
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0, // prevents flex child from overflowing
+            display: "flex",
+            flexDirection: "column",
+            bgcolor: T.white,
+            overflow: "hidden", // children control their own scroll
+          }}
+        >
+          {/* Scrollable area */}
+          <Box sx={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeRole.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.28, ease: "easeOut" }}
+              >
+                <Box
+                  sx={{
+                    px: { xs: "20px", sm: "40px", md: "64px", lg: "80px" },
+                    pt: { xs: "28px", sm: "48px", md: "64px" },
+                    pb: "32px",
+                    maxWidth: "860px", // readable line length on ultrawide
+                  }}
+                >
+                  {/* ── Header ── */}
+                  <Typography
+                    variant="h2"
+                    sx={{
+                      fontFamily: "'Playfair Display', serif",
+                      fontSize: { xs: "1.8rem", sm: "2.2rem", md: "2.8rem" },
+                      fontWeight: 700,
+                      color: T.text,
+                      m: 0,
+                      mb: "6px",
+                      lineHeight: 1.15,
+                    }}
+                  >
+                    {activeRole.title}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: { xs: "0.9rem", sm: "1rem" },
+                      color: T.subtext,
+                      m: 0,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {activeRole.subtitle}
+                  </Typography>
+
+                  {/* Divider */}
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: "1px",
+                      bgcolor: T.border,
+                      my: { xs: "20px", sm: "28px" },
+                    }}
+                  />
+
+                  {/* ── Form body ── */}
+                  {activeRole.isUpload ? (
+                    /* ══ UPLOAD STEP ══════════════════════════════════════════ */
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: { xs: "20px", sm: "28px" },
+                      }}
+                    >
+                      {/* Top row: photo | location + yoe */}
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: { xs: "1fr", sm: "140px 1fr" },
+                          gap: { xs: "20px", sm: "32px" },
+                          alignItems: "start",
+                        }}
+                      >
+                        {/* Photo */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
+                          }}
+                        >
+                          <FieldLabel>Profile Photo</FieldLabel>
+                          <Box
+                            component="label"
+                            sx={{
+                              display: "inline-flex",
+                              cursor: "pointer",
+                              width: "fit-content",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: { xs: 110, sm: 130 },
+                                height: { xs: 110, sm: 130 },
+                                borderRadius: "50%",
+                                border: `2px dashed ${T.border}`,
+                                bgcolor: T.chipHover,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                overflow: "hidden",
+                                transition: "border-color 0.2s",
+                                "&:hover": { borderColor: T.accent },
+                              }}
+                            >
+                              {profilePhotoPreview ? (
+                                <Box
+                                  component="img"
+                                  src={profilePhotoPreview}
+                                  alt="Profile"
+                                  sx={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    px: 1,
+                                  }}
+                                >
+                                  <span style={{ fontSize: "1.5rem" }}>📷</span>
+                                  <Typography
+                                    sx={{
+                                      fontSize: "0.75rem",
+                                      color: T.subtext,
+                                      textAlign: "center",
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    Upload photo
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                            <input
+                              type="file"
+                              hidden
+                              accept="image/*"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                setProfilePhoto(f);
+                                setProfilePhotoPreview(URL.createObjectURL(f));
+                              }}
+                            />
+                          </Box>
+                        </Box>
+
+                        {/* Location + YOE */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "20px",
+                          }}
+                        >
+                          {/* Location */}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "8px",
+                            }}
+                          >
+                            <FieldLabel>Location</FieldLabel>
+                            <InputBase
+                              placeholder="e.g. San Francisco, CA"
+                              value={location}
+                              onChange={(e) => setLocation(e.target.value)}
+                              sx={{
+                                width: "100%",
+                                maxWidth: { sm: "320px" },
+                                px: "1.1rem",
+                                py: "0.85rem",
+                                bgcolor: T.chipBg,
+                                border: `1.5px solid ${T.border}`,
+                                borderRadius: "12px",
+                                fontFamily: "Inter, sans-serif",
+                                fontSize: { xs: "0.9rem", sm: "0.95rem" },
+                                color: T.text,
+                                "& input::placeholder": { color: T.muted },
+                                "&.Mui-focused": { borderColor: T.accent },
+                                transition: "border-color 0.2s",
+                              }}
+                            />
+                          </Box>
+
+                          {/* YOE chips */}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "8px",
+                            }}
+                          >
+                            <FieldLabel>Years of Experience</FieldLabel>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                gap: "8px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              {["0–1 yrs", "1–3 yrs", "3–5 yrs", "5+ yrs"].map(
+                                (opt) => {
+                                  const sel = yearsOfExperience === opt;
+                                  return (
+                                    <Button
+                                      key={opt}
+                                      onClick={() => setYearsOfExperience(opt)}
+                                      disableRipple
+                                      sx={{
+                                        flex: "1 1 auto",
+                                        minWidth: 0,
+                                        py: "0.65rem",
+                                        px: "0.5rem",
+                                        bgcolor: sel
+                                          ? "rgba(184,116,68,0.06)"
+                                          : T.chipBg,
+                                        border: sel
+                                          ? `2px solid ${T.accent}`
+                                          : `1.5px solid ${T.border}`,
+                                        borderRadius: "12px",
+                                        fontFamily: "Inter, sans-serif",
+                                        fontSize: {
+                                          xs: "0.8rem",
+                                          sm: "0.85rem",
+                                        },
+                                        color: sel ? T.accent : T.text,
+                                        fontWeight: sel ? 600 : 400,
+                                        textTransform: "none",
+                                        boxShadow: sel
+                                          ? "0 2px 12px rgba(184,116,68,0.15)"
+                                          : "none",
+                                        transition:
+                                          "border-color 0.18s, background-color 0.18s",
+                                        "&:hover": {
+                                          bgcolor: T.chipHover,
+                                          borderColor: T.accent,
+                                        },
+                                      }}
+                                    >
+                                      {opt}
+                                    </Button>
+                                  );
+                                }
+                              )}
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      {/* Resume upload */}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        <FieldLabel>Resume</FieldLabel>
+                        <Box
+                          component="label"
+                          sx={{
+                            display: "block",
+                            width: "100%",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: "100%",
+                              py: { xs: "1.2rem", sm: "1.5rem" },
+                              border: `1.5px dashed ${T.border}`,
+                              borderRadius: "16px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              bgcolor: T.chipHover,
+                              transition:
+                                "border-color 0.2s, background-color 0.2s",
+                              "&:hover": {
+                                borderColor: T.accent,
+                                bgcolor: "#ecddc8",
+                              },
+                            }}
+                          >
+                            {resumeFile ? (
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  width: "100%",
+                                  px: { xs: "1rem", sm: "2rem" },
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: "1.6rem",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    📄
+                                  </span>
+                                  <Typography
+                                    sx={{
+                                      fontWeight: 500,
+                                      color: T.text,
+                                      fontSize: { xs: "13px", sm: "15px" },
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {resumeFile.name}
+                                  </Typography>
+                                </Box>
+                                <Box
+                                  component="button"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setResumeFile(null);
+                                  }}
+                                  sx={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontSize: "1.1rem",
+                                    color: T.subtext,
+                                    p: "6px",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  ✕
+                                </Box>
+                              </Box>
+                            ) : (
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                  textAlign: "center",
+                                  px: 2,
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "2rem" }}>
+                                  📄
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    fontWeight: 500,
+                                    color: T.text,
+                                    fontSize: { xs: "14px", sm: "15px" },
+                                    m: 0,
+                                  }}
+                                >
+                                  Click to Upload or Drag & Drop
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    fontSize: "0.82rem",
+                                    color: T.subtext,
+                                    m: 0,
+                                  }}
+                                >
+                                  PDF, DOCX up to 10MB
+                                </Typography>
+                              </Box>
+                            )}
+                            <input
+                              type="file"
+                              hidden
+                              accept=".pdf,.doc,.docx"
+                              onChange={(e) => {
+                                if (e.target.files?.[0])
+                                  setResumeFile(e.target.files[0]);
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      {/* Paste text */}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        <FieldLabel>Or Paste Text</FieldLabel>
+                        <Box
+                          component="textarea"
+                          placeholder="Paste your resume content here..."
+                          value={resumeText}
+                          onChange={(
+                            e: React.ChangeEvent<HTMLTextAreaElement>
+                          ) => setResumeText(e.target.value)}
+                          sx={{
+                            width: "100%",
+                            minHeight: { xs: "120px", sm: "160px" },
+                            boxSizing: "border-box",
+                            p: "1rem 1.2rem",
+                            bgcolor: T.chipBg,
+                            border: `1.5px solid ${T.border}`,
+                            borderRadius: "14px",
+                            fontFamily: "Inter, sans-serif",
+                            fontSize: { xs: "0.9rem", sm: "0.95rem" },
+                            color: T.text,
+                            resize: "vertical",
+                            outline: "none",
+                            lineHeight: 1.6,
+                            transition: "border-color 0.2s",
+                            "&::placeholder": { color: T.muted },
+                            "&:focus": { borderColor: T.accent },
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  ) : (
+                    /* ══ SELECTION STEP ════════════════════════════════════════ */
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "16px",
+                      }}
+                    >
+                      <FieldLabel>Select Options</FieldLabel>
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr",
+                          gap: "12px",
+                        }}
+                      >
+                        {activeRole.options.map((option) => (
+                          <Chip
+                            key={option}
+                            label={option}
+                            selected={(
+                              selections[activeRole.id] || []
+                            ).includes(option)}
+                            onClick={() => toggleSelection(option)}
+                          />
+                        ))}
+                      </Box>
+                      {(activeRole as any).isInterest && (
+                        <InputBase
+                          placeholder="Other (type to add…)"
+                          value={customInterest[activeRole.id] || ""}
+                          onChange={(e) =>
+                            setCustomInterest((prev) => ({
+                              ...prev,
+                              [activeRole.id]: e.target.value,
+                            }))
+                          }
+                          sx={{
+                            width: "100%",
+                            px: "1.4rem",
+                            py: "0.9rem",
+                            bgcolor: T.chipBg,
+                            border: customInterest[activeRole.id]
+                              ? `2px solid ${T.accent}`
+                              : `1.5px dashed ${T.border}`,
+                            borderRadius: "12px",
+                            fontSize: { xs: "0.88rem", sm: "0.95rem" },
+                            color: T.text,
+                            fontFamily: "Inter, sans-serif",
+                            transition:
+                              "border-color 0.2s, background-color 0.2s",
+                            "& input::placeholder": { color: T.muted },
+                            "&.Mui-focused": {
+                              borderColor: T.accent,
+                              bgcolor: T.chipHover,
+                            },
+                          }}
+                        />
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              </motion.div>
+            </AnimatePresence>
+          </Box>
+
+          {/* ── Sticky footer ─────────────────────────────────────────────── */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: { xs: "20px", sm: "40px", md: "64px", lg: "80px" },
+              py: { xs: "14px", sm: "20px" },
+              borderTop: `1px solid ${T.border}`,
+              bgcolor: T.white,
+              flexShrink: 0,
+            }}
+          >
+            <Button
+              onClick={handleBack}
+              disableRipple
+              sx={{
+                ...pillBtnBase,
+                visibility: activeIndex === 0 ? "hidden" : "visible",
+                "&:hover": { bgcolor: T.text },
+              }}
+            >
+              ← BACK
+            </Button>
+
+            <Button
+              disabled={
+                activeRole.isUpload
+                  ? !resumeFile && !resumeText.trim()
+                  : (selections[activeRole.id] || []).length === 0 &&
+                    !customInterest[activeRole.id]?.trim()
+              }
+              onClick={() => {
+                if (activeIndex === roles.length - 1) {
+                  const promise = submitHandler();
+                  setFetchPromise(promise);
+                  setShowAILoading(true);
+                } else {
+                  handleNext();
+                }
+              }}
+              disableRipple
+              sx={{
+                ...pillBtnBase,
+                "&:hover": {
+                  bgcolor: T.accentDark,
+                  transform: "translateY(-2px)",
+                },
+              }}
+            >
+              {activeIndex === roles.length - 1 ? "FINISH" : "CONTINUE"} →
+            </Button>
+          </Box>
+        </Box>
+      </Box>
 
       {showAILoading && fetchPromise && (
-        <AILoadingOverlay fetchPromise={fetchPromise} onDone={() => router.push("/dashboard")} />
+        <AILoadingOverlay
+          fetchPromise={fetchPromise}
+          onDone={() => router.push("/dashboard")}
+        />
       )}
-    </div>
+    </>
   );
 }
