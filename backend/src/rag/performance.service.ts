@@ -8,22 +8,20 @@ export interface DifficultyMix {
   medium: number;
   hard: number;
   total: number;
-  performanceLevel: 'struggling' | 'below_average' | 'ontrack' | 'excelling' | 'excellent';
+  performanceLevel:
+    | 'struggling'
+    | 'below_average'
+    | 'ontrack'
+    | 'excelling'
+    | 'excellent';
 }
 
 /**
  * Analyzes a user's historical task completion performance and returns
  * a recommended difficulty mix AND total task count for their next daily plan.
  *
- * Total task count stays fixed at 4 so the dashboard remains predictable.
- * Only the difficulty mix changes based on performance:
- *
- *   No data (day 1)  → 4 tasks: 2 easy + 1 medium + 1 hard
- *   Struggling < 25% → 4 tasks: 4 easy
- *   Below avg 25–49% → 4 tasks: 2 easy + 2 medium
- *   On-track  50–74% → 4 tasks: 2 easy + 1 medium + 1 hard
- *   Excelling 75–89% → 4 tasks: 1 easy + 2 medium + 1 hard
- *   Excellent  ≥ 90% → 4 tasks: 1 easy + 1 medium + 2 hard
+ * Daily volume is a stable weighted-random choice of 3, 4, or 5. Performance
+ * influences the odds and difficulty mix, but never fixes the question count.
  */
 @Injectable()
 export class PerformanceService {
@@ -32,7 +30,10 @@ export class PerformanceService {
     private readonly userDailyRepo: Repository<UserDailyTask>,
   ) {}
 
-  async getDifficultyMix(userId: string): Promise<DifficultyMix> {
+  async getDifficultyMix(
+    userId: string,
+    requestedTotal?: number,
+  ): Promise<DifficultyMix> {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const startDate = sevenDaysAgo.toISOString().slice(0, 10);
@@ -47,30 +48,111 @@ export class PerformanceService {
       .getMany();
 
     if (recentTasks.length === 0) {
-      // Day 1 — balanced beginner mix, 4 tasks
-      return { easy: 2, medium: 1, hard: 1, total: 4, performanceLevel: 'ontrack' };
+      const level = 'ontrack';
+      return this.mixForLevel(
+        level,
+        requestedTotal ?? this.choosePlanSize(userId, today, level),
+      );
     }
 
     const total = recentTasks.length;
-    const completed = recentTasks.filter((t) => t.status === 'completed').length;
+    const completed = recentTasks.filter(
+      (t) => t.status === 'completed',
+    ).length;
     const rate = completed / total;
 
     if (rate < 0.25) {
-      // Struggling: keep it easy, 4 tasks
-      return { easy: 4, medium: 0, hard: 0, total: 4, performanceLevel: 'struggling' };
+      const level = 'struggling';
+      return this.mixForLevel(
+        level,
+        requestedTotal ?? this.choosePlanSize(userId, today, level),
+      );
     } else if (rate < 0.5) {
-      // Below average: introduce medium, 4 tasks
-      return { easy: 2, medium: 2, hard: 0, total: 4, performanceLevel: 'below_average' };
+      const level = 'below_average';
+      return this.mixForLevel(
+        level,
+        requestedTotal ?? this.choosePlanSize(userId, today, level),
+      );
     } else if (rate < 0.75) {
-      // On-track: keep 4 tasks with one hard challenge
-      return { easy: 2, medium: 1, hard: 1, total: 4, performanceLevel: 'ontrack' };
+      const level = 'ontrack';
+      return this.mixForLevel(
+        level,
+        requestedTotal ?? this.choosePlanSize(userId, today, level),
+      );
     } else if (rate < 0.9) {
-      // Excelling: keep 4 tasks, shift more weight into medium
-      return { easy: 1, medium: 2, hard: 1, total: 4, performanceLevel: 'excelling' };
+      const level = 'excelling';
+      return this.mixForLevel(
+        level,
+        requestedTotal ?? this.choosePlanSize(userId, today, level),
+      );
     } else {
-      // Excellent: still 4 tasks, but harder mix
-      return { easy: 1, medium: 1, hard: 2, total: 4, performanceLevel: 'excellent' };
+      const level = 'excellent';
+      return this.mixForLevel(
+        level,
+        requestedTotal ?? this.choosePlanSize(userId, today, level),
+      );
     }
+  }
+
+  private choosePlanSize(
+    userId: string,
+    date: string,
+    level: DifficultyMix['performanceLevel'],
+  ): number {
+    const weights: Record<
+      DifficultyMix['performanceLevel'],
+      [number, number, number]
+    > = {
+      struggling: [0.5, 0.35, 0.15],
+      below_average: [0.4, 0.4, 0.2],
+      ontrack: [0.3, 0.4, 0.3],
+      excelling: [0.2, 0.4, 0.4],
+      excellent: [0.15, 0.35, 0.5],
+    };
+    const random = this.seededRandom(`${userId}:${date}:daily-plan-size`);
+    const [threeWeight, fourWeight] = weights[level];
+    if (random < threeWeight) return 3;
+    if (random < threeWeight + fourWeight) return 4;
+    return 5;
+  }
+
+  private seededRandom(seed: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < seed.length; index++) {
+      hash ^= seed.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967296;
+  }
+
+  private mixForLevel(
+    performanceLevel: DifficultyMix['performanceLevel'],
+    total: number,
+  ): DifficultyMix {
+    total = Math.max(3, Math.min(5, total));
+    if (performanceLevel === 'struggling') {
+      return { easy: total, medium: 0, hard: 0, total, performanceLevel };
+    }
+    if (performanceLevel === 'below_average') {
+      const easy = Math.ceil(total / 2);
+      return { easy, medium: total - easy, hard: 0, total, performanceLevel };
+    }
+    if (performanceLevel === 'ontrack') {
+      const hard = 1;
+      const medium = 1;
+      return {
+        easy: total - medium - hard,
+        medium,
+        hard,
+        total,
+        performanceLevel,
+      };
+    }
+    if (performanceLevel === 'excelling') {
+      return { easy: 1, medium: total - 2, hard: 1, total, performanceLevel };
+    }
+    const hard = Math.ceil(total / 2);
+    return { easy: 1, medium: total - hard - 1, hard, total, performanceLevel };
   }
 
   async getYesterdayStats(

@@ -7,6 +7,7 @@ import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { User } from 'src/users/user.entity';
 import { ResumeSkillProcessor } from 'src/skills/resume-skill.processor';
 import { RagService } from 'src/rag/rag.service';
+import { LearningTracksService } from 'src/learning-tracks/learning-tracks.service';
 
 @Injectable()
 export class OnboardingService {
@@ -22,6 +23,7 @@ export class OnboardingService {
     private readonly cloudinary: CloudinaryService,
     private readonly resumeSkillProcessor: ResumeSkillProcessor,
     private readonly ragService: RagService,
+    private readonly learningTracksService: LearningTracksService,
   ) {}
 
   getSteps() {
@@ -80,6 +82,14 @@ export class OnboardingService {
     await this.userRepo.update(userId, {
       onboardingCompleted: true,
     });
+
+    const planAnswer = (parsed['learning-plan']?.[0] as string | undefined) ?? '';
+    const durationMatch = planAnswer.match(/^[136]/);
+    if (durationMatch) {
+      await this.learningTracksService.create(userId, {
+        durationMonths: Number(durationMatch[0]) as 1 | 3 | 6,
+      });
+    }
 
     // Pre-generate day-1 tasks immediately so the dashboard is ready on first visit.
     // Fire-and-forget — don't block the onboarding response.

@@ -1,6 +1,8 @@
 services:
   backend:
     container_name: anchor-backend
+    env_file:
+      - ./backend/.env
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
@@ -30,6 +32,7 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY}
       EVAL_PROVIDER: ${EVAL_PROVIDER}
       TASK_PROVIDER: ${TASK_PROVIDER}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3002}
     ports:
       - "3001:3001"
     volumes:
