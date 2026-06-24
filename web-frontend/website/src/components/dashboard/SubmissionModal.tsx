@@ -9,6 +9,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { Zap, ExternalLink } from "lucide-react";
 import { api, SubmissionResult } from "@/lib/api";
+import { normalizeLeetcodeUrl } from "@/lib/leetcode-url";
 
 interface Task {
   id: number;
@@ -32,13 +33,7 @@ const SELF_REPORT_CATEGORIES = [
 
 function getLeetcodeUrl(task: Task | null): string | null {
   if (!task) return null;
-  if (task.leetcodeUrl) return task.leetcodeUrl;
-  if (/leetcode/i.test(task.title)) {
-    const name = task.title.replace(/^leetcode\s*(easy|medium|hard)?\s*:\s*/i, "").trim();
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    return `https://leetcode.com/problems/${slug}/`;
-  }
-  return null;
+  return normalizeLeetcodeUrl(task.leetcodeUrl);
 }
 
 export default function SubmissionModal({ open, onClose, task, onSuccess }: SubmissionModalProps) {

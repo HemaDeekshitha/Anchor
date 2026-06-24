@@ -58,7 +58,7 @@ function TagInput({ label, hint, values, onChange, suggestions = [] }: {
   const add = (val?: string) => {
     const v = (val ?? input).trim();
     if (v && !values.includes(v)) onChange([...values, v]);
-    if (!val) setInput("");
+    setInput("");
   };
   const remove = (v: string) => onChange(values.filter((x) => x !== v));
   const filtered = suggestions.filter((s) => input && s.toLowerCase().includes(input.toLowerCase()) && !values.includes(s));
@@ -87,7 +87,6 @@ function TagInput({ label, hint, values, onChange, suggestions = [] }: {
           <TextField size="small" fullWidth placeholder={hint ?? "Type and press Enter…"}
             value={input} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-            onBlur={() => { if (input.trim()) add(); }}
             sx={fieldSx}
           />
           <IconButton onClick={() => add()} size="small" sx={{
@@ -108,7 +107,7 @@ function TagInput({ label, hint, values, onChange, suggestions = [] }: {
             zIndex: 100, overflow: "hidden",
           }}>
             {filtered.slice(0, 5).map((s) => (
-              <Box key={s} onMouseDown={() => add(s)} sx={{
+              <Box key={s} onMouseDown={(event) => { event.preventDefault(); add(s); }} sx={{
                 px: 1.75, py: 1, fontSize: 13, cursor: "pointer", color: C.textPrimary,
                 "&:hover": { background: C.accentBg, color: C.accent },
               }}>
