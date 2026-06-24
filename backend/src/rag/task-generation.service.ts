@@ -8,6 +8,7 @@ import { RagTask } from './rag-task.entity';
 import { OnboardingResponse } from '../onboarding/onboarding.entity';
 import { UserSkill } from '../skills/user-skills.entity';
 import { UserSeenTask } from './user-seen-task.entity';
+import { normalizeLeetcodeUrl } from './leetcode-url.util';
 
 interface GeneratedTaskDto {
   title: string;
@@ -270,7 +271,7 @@ export class TaskGenerationService {
         priority: this.difficultyToPriority(t.difficulty),
         tags: Array.isArray(t.tags) ? t.tags.slice(0, 5) : [],
         time_minutes: t.time_minutes ?? 25,
-        leetcodeUrl: t.leetcodeUrl ?? null,
+        leetcodeUrl: normalizeLeetcodeUrl(t.leetcodeUrl),
         source_keywords: this.taskSources(t),
         source_resume_point: t.sourceResumePoint?.trim() || null,
         selection_reason:
@@ -400,10 +401,7 @@ export class TaskGenerationService {
   ): boolean {
     const title = task.title?.trim() ?? '';
     const isLeetcode =
-      task.category === 'DSA' &&
-      /^https:\/\/leetcode\.com\/problems\/[a-z0-9-]+\/?$/i.test(
-        task.leetcodeUrl ?? '',
-      );
+      task.category === 'DSA' && Boolean(normalizeLeetcodeUrl(task.leetcodeUrl));
     if (title.length < 15 || title.length > 260) return false;
     if (!isLeetcode && !title.endsWith('?')) return false;
     if (

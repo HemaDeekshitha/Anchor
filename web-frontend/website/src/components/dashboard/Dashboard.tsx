@@ -8,6 +8,7 @@ import PreviousSubmissionModal from "./PreviousSubmissionModal";
 import { api } from "@/lib/api";
 import { apiFetch, requireOk } from "@/lib/auth-client";
 import LearningTrackPanel from "../learning-plan/LearningTrackPanel";
+import { normalizeLeetcodeUrl } from "@/lib/leetcode-url";
 import {
   Box,
   Card,
@@ -39,13 +40,7 @@ interface Task {
 }
 
 function getLeetcodeUrl(task: Task): string | null {
-  if (task.leetcodeUrl) return task.leetcodeUrl;
-  if (/leetcode/i.test(task.title)) {
-    const name = task.title.replace(/^leetcode\s*(easy|medium|hard)?\s*:\s*/i, "").trim();
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    return `https://leetcode.com/problems/${slug}/`;
-  }
-  return null;
+  return normalizeLeetcodeUrl(task.leetcodeUrl);
 }
 
 const Dashboard = () => {

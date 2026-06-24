@@ -12,6 +12,7 @@ import {
 import { TaskGenerationService } from './task-generation.service';
 import { PerformanceService } from './performance.service';
 import { LearningTracksService } from 'src/learning-tracks/learning-tracks.service';
+import { normalizeLeetcodeUrl } from './leetcode-url.util';
 
 @Injectable()
 export class RagService {
@@ -286,7 +287,7 @@ export class RagService {
         date: today,
         task_date: today,
         is_ai_generated: true,
-        leetcodeUrl: t.leetcodeUrl ?? null,
+        leetcodeUrl: normalizeLeetcodeUrl(t.leetcodeUrl),
       }))],
     };
   }
@@ -341,7 +342,7 @@ export class RagService {
         date: daily?.task_date,
         task_date: daily?.task_date,
         is_ai_generated: task.user_id !== null,
-        leetcodeUrl: task.leetcodeUrl ?? null,
+        leetcodeUrl: normalizeLeetcodeUrl(task.leetcodeUrl),
       };
     });
   }
