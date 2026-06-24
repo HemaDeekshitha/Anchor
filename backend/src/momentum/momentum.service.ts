@@ -83,10 +83,9 @@ export class MomentumService {
 
   // ── NEW ─────────────────────────────────────────────────────────────────────
   async updateProfile(userId: string, dto: UpdateMomentumProfileDto) {
-    if (dto.name !== undefined || dto.email !== undefined) {
+    if (dto.name !== undefined) {
       const userUpdate: Partial<User> = {};
       if (dto.name !== undefined) userUpdate.name = dto.name;
-      if (dto.email !== undefined) userUpdate.email = dto.email;
       await this.userRepository.update(userId, userUpdate);
     }
 

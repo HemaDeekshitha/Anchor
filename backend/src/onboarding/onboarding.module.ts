@@ -16,11 +16,13 @@ import { AiSkillExtractorService } from 'src/skills/ai-skill-extractor.service';
 import { EmbeddingService } from 'src/ai/embedding.service';
 import { SkillsModule } from 'src/skills/skill.module';
 import { RagModule } from 'src/rag/rag.module';
+import { LearningTracksModule } from 'src/learning-tracks/learning-tracks.module';
 
 @Module({
   imports: [
     SkillsModule,
     RagModule,
+    LearningTracksModule,
     TypeOrmModule.forFeature([OnboardingResponse, User, UserSkill, Skill]),
   ],
   controllers: [OnboardingController],

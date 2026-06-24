@@ -1,11 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Check, ChevronRight, ClipboardCheck, Loader2, ExternalLink } from "lucide-react";
+import { Check, ChevronRight, ClipboardCheck, ExternalLink } from "lucide-react";
 import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import SubmissionModal from "./SubmissionModal";
 import PreviousSubmissionModal from "./PreviousSubmissionModal";
-import { api, SubmissionResult } from "@/lib/api";
+import { api } from "@/lib/api";
+import { apiFetch, requireOk } from "@/lib/auth-client";
+import LearningTrackPanel from "../learning-plan/LearningTrackPanel";
 import {
   Box,
   Card,
@@ -63,9 +65,10 @@ const Dashboard = () => {
       try {
         setIsLoading(true);
         const [tasksRes, submissions] = await Promise.all([
-          fetch(`${API_BASE_URL}/rag/tasks`, { credentials: "include" }),
+          apiFetch(`${API_BASE_URL}/rag/tasks`),
           api.getMySubmissions(),
         ]);
+        await requireOk(tasksRes, "Failed to load today's Smart Plan");
         const data = await tasksRes.json();
         setSubmissions(submissions);
         if (data.smartPlan?.tasks) {
@@ -116,6 +119,7 @@ const Dashboard = () => {
   return (
     <LayoutWithSidebar>
       <div className={styles.dashboardContainer}>
+        <LearningTrackPanel />
         {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
             <Card sx={{
@@ -127,10 +131,10 @@ const Dashboard = () => {
               <CardContent>
                 <CircularProgress size={48} sx={{ color: "#b87444", mb: 2 }} />
                 <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#2c1a0a", mb: 1, fontFamily: "'Playfair Display', serif" }}>
-                  Generating your Smart Plan
+                  Loading today&apos;s Smart Plan
                 </Typography>
                 <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>
-                  Analyzing your goals and preparing today's tasks...
+                  Retrieving your saved questions...
                 </Typography>
               </CardContent>
             </Card>
@@ -233,7 +237,7 @@ const Dashboard = () => {
               >
                 <CardContent sx={{ px: 4, py: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
                   <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#a0622e", letterSpacing: ".08em" }}>
-                    🎯 PENDING TASKS (PREVIOUS WEEK)
+                    🎯 PENDING QUESTIONS
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>
@@ -241,7 +245,7 @@ const Dashboard = () => {
                         {pendingTasks.length}
                       </Typography>
                       <Typography sx={{ fontSize: 14, color: "#8c6a50", mt: 0.5 }}>
-                        {pendingTasks.length === 0 ? "No pending tasks at the moment" : "Tasks waiting for your action"}
+                        {pendingTasks.length === 0 ? "No pending questions at the moment" : "Questions waiting in your current plan"}
                       </Typography>
                       {pendingTasks.length > 0 && (
                         <Typography sx={{ fontSize: 13, fontWeight: 600, color: "#b87444", mt: 0.6, display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -264,52 +268,90 @@ const Dashboard = () => {
             {/* ── TASKS SECTION ── */}
             <div className={styles.gridContainer}>
               <section>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2.5, flexWrap: "wrap", gap: 1 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 22, fontWeight: 800, color: "#2c1a0a", letterSpacing: "-0.02em", fontFamily: "'Playfair Display', serif" }}>
-                      Today's Smart Plan
+                <Box sx={{
+                  px: { xs: 2.25, md: 3.5 }, py: { xs: 2.5, md: 3.25 },
+                  borderRadius: 4,
+                  background: "linear-gradient(145deg, rgba(253,250,247,.92), rgba(245,237,224,.68))",
+                  border: "1px solid #e4d5c3",
+                  boxShadow: "0 16px 42px rgba(76,48,27,0.07)",
+                }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mb: 3, flexWrap: "wrap", gap: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                    <Box sx={{ width: 4, height: 52, borderRadius: 99, bgcolor: "#b87444", mt: 0.2 }} />
+                    <Box>
+                    <Typography sx={{ fontSize: { xs: 23, md: 27 }, fontWeight: 800, color: "#2c1a0a", letterSpacing: "-0.025em", fontFamily: "'Playfair Display', serif", lineHeight: 1.15 }}>
+                      Today&apos;s Smart Plan
                     </Typography>
-                    <Typography sx={{ fontSize: 13, color: "#8c6a50", mt: 0.3 }}>
-                      Focus on these tasks to build your momentum today
+                    <Typography sx={{ fontSize: 14, color: "#8c6a50", mt: 0.65 }}>
+                      Your personalized interview practice, powered by AI.
                     </Typography>
+                    </Box>
                   </Box>
                   <Box sx={{
-                    px: 1.6, py: 0.6, borderRadius: 999, fontSize: 12, fontWeight: 700,
+                    px: 1.5, py: 0.75, borderRadius: 999,
                     display: "flex", alignItems: "center", gap: 0.8,
-                    background: "linear-gradient(135deg, #f5ede0, #ecddc8)",
-                    border: "1px solid #e8ddd0", color: "#a0622e",
-                    boxShadow: "0 4px 12px rgba(44,26,10,0.06)",
+                    background: "rgba(255,255,255,.72)",
+                    border: "1px solid #e4d5c3", color: "#6f5542",
                   }}>
-                    ✦ AI Generated
+                    <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: progress === 100 ? "#5f806c" : "#b87444" }} />
+                    <Typography sx={{ fontSize: 12, fontWeight: 700 }}>
+                      {completedCount} of {smartPlan.length} complete
+                    </Typography>
                   </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {smartPlan.map((task) => (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                  {smartPlan.map((task, index) => (
                     <Card key={task.id} onClick={() => handleTaskClick(task)} sx={{
-                      borderRadius: 3, cursor: "pointer", transition: "all .18s ease",
-                      border: "1px solid #e8ddd0",
-                      background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
-                      boxShadow: "0 6px 20px rgba(44,26,10,0.05)",
-                      "&:hover": { transform: "translateY(-3px)", boxShadow: "0 14px 34px rgba(44,26,10,0.10)" },
-                      ...(task.status === "completed" && { opacity: 0.6 }),
+                      borderRadius: 3.25, cursor: "pointer", transition: "all .2s ease",
+                      border: task.status === "completed" ? "1px solid #d8dfd8" : "1px solid #e4d5c3",
+                      background: task.status === "completed"
+                        ? "linear-gradient(135deg, #f7faf7, #f2f6f2)"
+                        : "linear-gradient(135deg, #ffffff, #fdfbf8)",
+                      boxShadow: task.status === "completed"
+                        ? "0 5px 15px rgba(66,86,70,0.04)"
+                        : "0 7px 20px rgba(76,48,27,0.055)",
+                      overflow: "hidden",
+                      position: "relative",
+                      "&::before": {
+                        content: '""', position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+                        bgcolor: task.status === "completed" ? "#789080" : "#b87444",
+                      },
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        borderColor: task.status === "completed" ? "#b9c8bb" : "#c99770",
+                        boxShadow: "0 13px 30px rgba(76,48,27,0.10)",
+                      },
                     }}>
-                      <CardContent sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2 }}>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, flex: 1, minWidth: 0 }}>
+                      <CardContent sx={{ p: { xs: 2, md: 2.5 }, pl: { xs: 2.4, md: 3 }, "&:last-child": { pb: { xs: 2, md: 2.5 } }, display: "flex", alignItems: "center", justifyContent: "space-between", gap: { xs: 1.25, md: 2.5 } }}>
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: { xs: 1.4, md: 2 }, flex: 1, minWidth: 0 }}>
                           <Box sx={{
-                            width: 26, height: 26, borderRadius: "50%",
-                            border: "2px solid #b87444",
+                            width: 36, height: 36, borderRadius: 2.25,
+                            border: task.status === "completed" ? "1px solid #789080" : "1px solid #dfc3aa",
                             display: "flex", alignItems: "center", justifyContent: "center",
-                            background: task.status === "completed" ? "#b87444" : "transparent",
+                            background: task.status === "completed" ? "#789080" : "#f8efe7",
+                            color: task.status === "completed" ? "#fff" : "#a0622e",
                             flexShrink: 0,
                           }}>
-                            {task.status === "completed" && <Check size={16} color="white" />}
+                            {task.status === "completed"
+                              ? <Check size={18} color="white" strokeWidth={2.5} />
+                              : <Typography sx={{ fontSize: 12, fontWeight: 800 }}>{String(index + 1).padStart(2, "0")}</Typography>}
                           </Box>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mb: 0.65, flexWrap: "wrap" }}>
+                              <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: task.status === "completed" ? "#657b6b" : "#9b6843", letterSpacing: ".09em", textTransform: "uppercase" }}>
+                                {task.category || "Interview Practice"}
+                              </Typography>
+                              {task.status === "completed" && (
+                                <Typography sx={{ fontSize: 10.5, fontWeight: 800, color: "#657b6b", letterSpacing: ".06em", textTransform: "uppercase" }}>
+                                  · Completed
+                                </Typography>
+                              )}
+                            </Box>
                             <Typography component="div" sx={{
-                              fontSize: 16, fontWeight: 600,
-                              color: task.status === "completed" ? "#9ca3af" : "#2c1a0a",
-                              lineHeight: 1.45,
+                              fontSize: { xs: 15, md: 16.5 }, fontWeight: 650,
+                              color: task.status === "completed" ? "#627066" : "#2c1a0a",
+                              lineHeight: 1.48,
                               wordBreak: "break-word",
                             }}>
                               {task.title}
@@ -318,39 +360,45 @@ const Dashboard = () => {
                                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                                   sx={{
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                    width: 22, height: 22, borderRadius: "4px",
-                                    background: "#f5ede0", border: "1px solid #d4b898",
+                                    width: 24, height: 24, borderRadius: 1.5,
+                                    background: "#f8efe7", border: "1px solid #dfc3aa",
                                     color: "#b87444", textDecoration: "none", flexShrink: 0,
                                     verticalAlign: "middle", ml: 0.75,
-                                    "&:hover": { background: "#ecddc8", borderColor: "#b87444" },
+                                    "&:hover": { background: "#ead8c7", borderColor: "#b87444" },
                                   }}>
                                   <ExternalLink size={12} strokeWidth={2.5} />
                                 </Box>
                               )}
                             </Typography>
                             {task.status !== "completed" && (
-                              <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#a0622e", mt: 0.4, display: "flex", alignItems: "center", gap: 0.4 }}>
-                                ⚡ +25 AP
+                              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "#9b6843", mt: 0.75, display: "flex", alignItems: "center", gap: 0.55 }}>
+                                <Box component="span" sx={{ color: "#c48655" }}>◆</Box> 25 Anchor Points
                               </Typography>
                             )}
                           </Box>
                         </Box>
 
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexShrink: 0 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.75, md: 1.25 }, flexShrink: 0 }}>
                           {task.difficulty && (
                             <Box sx={{
-                              px: 1.2, py: 0.3, fontSize: 11, fontWeight: 700, borderRadius: 2,
-                              background: task.difficulty === "hard" ? "#f5ede0" : task.difficulty === "medium" ? "#fef3c7" : "#f0fdf4",
-                              color: task.difficulty === "hard" ? "#a0622e" : task.difficulty === "medium" ? "#92400e" : "#065f46",
+                              px: 1.15, py: 0.45, fontSize: 10, fontWeight: 800, borderRadius: 99,
+                              letterSpacing: ".06em",
+                              border: "1px solid",
+                              background: task.difficulty === "hard" ? "#f7e9e4" : task.difficulty === "medium" ? "#f8f0df" : "#edf5ef",
+                              borderColor: task.difficulty === "hard" ? "#e6c1b4" : task.difficulty === "medium" ? "#e7d3a7" : "#cfe0d3",
+                              color: task.difficulty === "hard" ? "#9b503d" : task.difficulty === "medium" ? "#876431" : "#4f775c",
                             }}>
                               {task.difficulty.toUpperCase()}
                             </Box>
                           )}
-                          <ChevronRight size={20} color="#b87444" />
+                          <Box sx={{ width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: task.status === "completed" ? "#e5ede6" : "#f5e9de" }}>
+                            <ChevronRight size={17} color={task.status === "completed" ? "#657b6b" : "#a0622e"} />
+                          </Box>
                         </Box>
                       </CardContent>
                     </Card>
                   ))}
+                </Box>
                 </Box>
               </section>
             </div>
@@ -375,11 +423,11 @@ const Dashboard = () => {
             }}>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
                 <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
-                  Pending Tasks
+                  Pending Questions
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                   <Typography sx={{ fontSize: 13, color: "#8c6a50" }}>
-                    Tasks that still need your attention
+                    Unfinished questions from your current learning plan
                   </Typography>
                   <Box sx={{
                     px: 1.3, py: 0.3, borderRadius: "999px", fontSize: 11, fontWeight: 700,
@@ -445,7 +493,7 @@ const Dashboard = () => {
           open={submissionModalOpen}
           onClose={() => { setSubmissionModalOpen(false); setSelectedTask(null); }}
           task={selectedTask}
-          onSuccess={(result: SubmissionResult) => { window.location.reload(); }}
+          onSuccess={() => { window.location.reload(); }}
         />
 
         <PreviousSubmissionModal
