@@ -1,22 +1,22 @@
 # BUILD STAGE
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 # Install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Copy source code & build project
 COPY . .
 RUN npm run build
 
 # STEP 2: Production stage
-FROM node:18-alpine
+FROM node:20-alpine
 WORKDIR /app
 # Install only production dependencies
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm ci --omit=dev
 # Copy build output from STEP 1
 COPY --from=build /app/dist ./dist
+USER node
 # Start the NestJS app
 CMD ["node","dist/main.js"]
-

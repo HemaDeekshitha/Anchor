@@ -1,3 +1,5 @@
+import { apiFetch } from './auth-client';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface SubmitAnswerParams {
@@ -29,6 +31,20 @@ export interface SubmissionResult {
   anchorPointsEarned: number;
   /** User's total Anchor Points balance after this submission */
   newAnchorPointsBalance: number;
+  trackCompletion?: {
+    completedTrack: {
+      id: string;
+      durationMonths: 1 | 3 | 6;
+      questionTarget: number;
+      targetRole: string;
+    };
+    nextTrack: {
+      id: string;
+      durationMonths: 3 | 6;
+      questionTarget: number | null;
+    } | null;
+    allTracksCompleted: boolean;
+  } | null;
 }
 
 interface Submission {
@@ -67,9 +83,8 @@ export interface PointsSummary {
 export const api = {
   // Submit answer for a task
   submitAnswer: async (params: SubmitAnswerParams): Promise<SubmissionResult> => {
-    const response = await fetch(`${API_BASE_URL}/submissions/submit`, {
+    const response = await apiFetch(`${API_BASE_URL}/submissions/submit`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
@@ -84,9 +99,8 @@ export const api = {
 
   // Get user's submission history
   getMySubmissions: async (): Promise<Submission[]> => {
-    const response = await fetch(`${API_BASE_URL}/submissions/me`, {
+    const response = await apiFetch(`${API_BASE_URL}/submissions/me`, {
       method: 'GET',
-      credentials: 'include',
     });
 
     if (!response.ok) throw new Error('Failed to fetch submissions');
@@ -95,9 +109,8 @@ export const api = {
 
   // Get specific submission details
   getSubmission: async (id: number): Promise<any> => {
-    const response = await fetch(`${API_BASE_URL}/submissions/${id}`, {
+    const response = await apiFetch(`${API_BASE_URL}/submissions/${id}`, {
       method: 'GET',
-      credentials: 'include',
     });
 
     if (!response.ok) throw new Error('Failed to fetch submission');
@@ -106,9 +119,8 @@ export const api = {
 
   // Get current user's Anchor Points balance, history, and 360 Points count
   getMyPoints: async (): Promise<PointsSummary> => {
-    const response = await fetch(`${API_BASE_URL}/points/me`, {
+    const response = await apiFetch(`${API_BASE_URL}/points/me`, {
       method: 'GET',
-      credentials: 'include',
     });
 
     if (!response.ok) throw new Error('Failed to fetch points');
@@ -117,9 +129,8 @@ export const api = {
 
   // Convert 500 Anchor Points → 1 "360 Point"
   convertTo360: async (): Promise<Omit<PointsSummary, 'history'>> => {
-    const response = await fetch(`${API_BASE_URL}/points/convert`, {
+    const response = await apiFetch(`${API_BASE_URL}/points/convert`, {
       method: 'POST',
-      credentials: 'include',
     });
 
     if (!response.ok) {

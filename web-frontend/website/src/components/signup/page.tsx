@@ -17,8 +17,6 @@ import {
 
 // Images
 import googleIcon from "../../../public/assets/images/google.png";
-import linkedinIcon from "../login/images/linkedin.png";
-import githubIcon from "../login/images/github.png";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
@@ -47,9 +45,10 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [emailExists, setEmailExists] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [awaitingOtp, setAwaitingOtp] = useState(false);
+  const [otp, setOtp] = useState("");
 
   const router = useRouter();
 
@@ -82,7 +81,6 @@ export default function SignupPage() {
   const checkEmailExists = async (email: string) => {
     if (!isValidEmail(email)) return;
     try {
-      setCheckingEmail(true);
       const res = await fetch(
         `${API_BASE_URL}/auth/check-email?email=${email}`
       );
@@ -90,8 +88,6 @@ export default function SignupPage() {
       setEmailExists(data.exists);
     } catch {
       setEmailExists(false);
-    } finally {
-      setCheckingEmail(false);
     }
   };
 
@@ -112,12 +108,36 @@ export default function SignupPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
-      router.push("/steps");
+      setAwaitingOtp(true);
     } catch (err: any) {
       setApiError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const verifyOtp = async () => {
+    if (!/^\d{6}$/.test(otp)) return;
+    setLoading(true); setApiError("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/signup/verify-otp`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ email: form.email, otp }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Verification failed");
+      router.push("/steps");
+    } catch (err: any) { setApiError(err.message); } finally { setLoading(false); }
+  };
+
+  const resendOtp = async () => {
+    setApiError("");
+    const res = await fetch(`${API_BASE_URL}/auth/signup/resend-otp`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: form.email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) setApiError(data.message || "Could not resend code");
   };
 
   // ─── Shared TextField sx (Anchor palette) ───────────────────────────────────
@@ -289,6 +309,34 @@ export default function SignupPage() {
                 </Typography>
               </Box>
 
+              {awaitingOtp ? (
+                <Stack spacing={2.2}>
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: "#f5ede0", border: "1px solid #e8ddd0" }}>
+                    <Typography fontWeight={700} sx={{ color: "#2c1a0a" }}>Check your email</Typography>
+                    <Typography fontSize={13} sx={{ color: "#8c6a50", mt: 0.5 }}>
+                      We sent a six-digit verification code to {form.email}.
+                    </Typography>
+                    <Typography fontSize={12.5} sx={{ color: "#8c6a50", mt: 0.75 }}>
+                      If you don&apos;t see the email in your inbox, check your spam or junk folder.
+                    </Typography>
+                  </Box>
+                  <TextField
+                    label="Verification code"
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputProps={{ inputMode: "numeric", maxLength: 6, style: { textAlign: "center", letterSpacing: "0.5em", fontSize: 22, fontWeight: 700 } }}
+                    sx={textFieldSx}
+                    autoFocus
+                  />
+                  <Button variant="contained" disabled={otp.length !== 6 || loading} onClick={verifyOtp}
+                    sx={{ bgcolor: "#b87444", textTransform: "none", "&:hover": { bgcolor: "#a0622e" } }}>
+                    {loading ? "Verifying..." : "Verify and continue"}
+                  </Button>
+                  <Button onClick={resendOtp} sx={{ color: "#b87444", textTransform: "none" }}>Resend code</Button>
+                  {apiError && <Typography color="error" textAlign="center">{apiError}</Typography>}
+                </Stack>
+              ) : (
+              <>
               <Stack spacing={1} direction="column">
                 {/* FULL NAME */}
                 <TextField
@@ -469,6 +517,8 @@ export default function SignupPage() {
                   Log in
                 </Link>
               </Typography>
+              </>
+              )}
             </Stack>
           </Paper>
         </motion.div>

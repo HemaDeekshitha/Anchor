@@ -9,8 +9,7 @@ import {
 } from "@mui/material";
 import { BriefcaseBusiness, ListTodo, LogOut, Trophy, User } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { logoutSession } from "@/lib/auth-client";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -34,12 +33,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
 
   const handleLogOut = async () => {
     try {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      });
-      router.push("/login");
+      await logoutSession("manual");
+      router.replace("/login");
+      router.refresh();
     } catch (err) {
       console.error("Logout failed", err);
     }

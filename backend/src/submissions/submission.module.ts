@@ -7,12 +7,14 @@ import { RagTask } from '../rag/rag-task.entity';
 import { UserDailyTask } from '../rag/rag-daily-user-tasks.entity';
 import { AiModule } from '../ai/ai.module';
 import { PointsModule } from '../points/points.module';
+import { LearningTracksModule } from '../learning-tracks/learning-tracks.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TaskSubmission, RagTask, UserDailyTask]),
     AiModule,      // GeminiService for AI evaluation
     PointsModule,  // PointsService to award Anchor Points on approval
+    LearningTracksModule,
   ],
   controllers: [SubmissionController],
   providers: [SubmissionService],

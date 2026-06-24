@@ -16,6 +16,9 @@ export class UserDailyTask {
   @Column()
   task_id: number;
 
+  @Column({ type: 'uuid', nullable: true })
+  track_id: string | null;
+
   @Column({ type: 'date' })
   task_date: string;
 
