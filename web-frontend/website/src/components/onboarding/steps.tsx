@@ -7,7 +7,6 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import InputBase from "@mui/material/InputBase";
-import { apiFetch } from "@/lib/auth-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -34,7 +33,6 @@ type OnboardingRole = {
   isUpload?: boolean;
   isInterest?: boolean;
   customHeader?: string;
-  singleSelect?: boolean;
 };
 
 // ── AI loading steps ───────────────────────────────────────────────────────────
@@ -223,78 +221,35 @@ function Chip({
   label,
   selected,
   onClick,
-  index,
 }: {
   label: string;
   selected: boolean;
   onClick: () => void;
-  index: number;
 }) {
-  const [title, detail] = label.split(' — ');
   return (
     <Button
       onClick={onClick}
       disableRipple
       sx={{
         width: "100%",
-        minHeight: { xs: 76, sm: 88 },
-        p: { xs: "1rem", sm: "1.1rem 1.25rem" },
-        background: selected
-          ? "linear-gradient(135deg, #f8eee5, #fdfaf7)"
-          : "linear-gradient(145deg, #ffffff, #fdfbf8)",
-        border: selected ? `2px solid ${T.accent}` : `1px solid ${T.border}`,
-        borderRadius: "16px",
+        p: "0.9rem 1.4rem",
+        backgroundColor: selected ? "rgba(184,116,68,0.06)" : T.chipBg,
+        border: selected ? `2px solid ${T.accent}` : `1.5px solid ${T.border}`,
+        borderRadius: "12px",
         fontFamily: "Inter, sans-serif",
         fontSize: { xs: "0.88rem", sm: "0.95rem" },
-        color: T.text,
-        fontWeight: selected ? 650 : 500,
+        color: selected ? T.accent : T.text,
+        fontWeight: selected ? 600 : 400,
         textAlign: "left",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 1.5,
-        boxShadow: selected
-          ? "0 8px 22px rgba(184,116,68,0.14)"
-          : "0 5px 16px rgba(44,26,10,0.035)",
+        justifyContent: "flex-start",
+        boxShadow: selected ? "0 2px 12px rgba(184,116,68,0.15)" : "none",
         textTransform: "none",
         lineHeight: 1.4,
-        transition: "all 0.2s ease",
-        "&:hover": {
-          backgroundColor: T.chipHover,
-          borderColor: T.accent,
-          transform: "translateY(-2px)",
-          boxShadow: "0 10px 24px rgba(44,26,10,0.08)",
-        },
+        transition: "border-color 0.18s, background-color 0.18s",
+        "&:hover": { backgroundColor: T.chipHover, borderColor: T.accent },
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.35, minWidth: 0 }}>
-        <Box sx={{
-          width: 34, height: 34, flexShrink: 0, borderRadius: "10px",
-          display: "grid", placeItems: "center",
-          bgcolor: selected ? T.accent : "#f4ebe2",
-          color: selected ? "#fff" : T.accentDark,
-          fontSize: 11, fontWeight: 800, letterSpacing: ".04em",
-        }}>
-          {String(index + 1).padStart(2, "0")}
-        </Box>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: { xs: 14, sm: 15 }, fontWeight: 650, color: selected ? T.accentDark : T.text, lineHeight: 1.35 }}>
-            {title}
-          </Typography>
-          {detail && (
-            <Typography sx={{ fontSize: 12, color: T.subtext, mt: 0.25, lineHeight: 1.35 }}>
-              {detail}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      <Box sx={{
-        width: 23, height: 23, flexShrink: 0, borderRadius: "50%",
-        border: selected ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-        bgcolor: selected ? T.accent : "#fff", color: "#fff",
-        display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800,
-      }}>
-        {selected ? "✓" : ""}
-      </Box>
+      {label}
     </Button>
   );
 }
@@ -329,7 +284,9 @@ export default function Steps() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiFetch(`${API_BASE_URL}/onboarding/steps`);
+        const res = await fetch(`${API_BASE_URL}/onboarding/steps`, {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setRoles(data.steps);
@@ -365,7 +322,6 @@ export default function Steps() {
   const toggleSelection = (option: string) => {
     const id = activeRole.id;
     setSelections((prev) => {
-      if (activeRole.singleSelect) return { ...prev, [id]: [option] };
       const cur = prev[id] || [];
       return {
         ...prev,
@@ -408,9 +364,10 @@ export default function Steps() {
       merged[roleId] = [...(merged[roleId] || []), value.trim()];
     });
     formData.append("answers", JSON.stringify(merged));
-    return apiFetch(`${API_BASE_URL}/onboarding/answers`, {
+    return fetch(`${API_BASE_URL}/onboarding/answers`, {
       method: "POST",
       body: formData,
+      credentials: "include",
     })
       .then((res) => {
         if (!res.ok) throw new Error("Submission failed");
@@ -1078,10 +1035,8 @@ export default function Steps() {
                               hidden
                               accept=".pdf,.doc,.docx"
                               onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) setResumeFile(file);
-                                // Allow selecting the same file again after removal.
-                                e.currentTarget.value = "";
+                                if (e.target.files?.[0])
+                                  setResumeFile(e.target.files[0]);
                               }}
                             />
                           </Box>
@@ -1138,16 +1093,11 @@ export default function Steps() {
                       <Box
                         sx={{
                           display: "grid",
-                          gridTemplateColumns: {
-                            xs: "1fr",
-                            md: activeRole.id === "learning-plan"
-                              ? "repeat(3, minmax(0, 1fr))"
-                              : "repeat(2, minmax(0, 1fr))",
-                          },
+                          gridTemplateColumns: "1fr",
                           gap: "12px",
                         }}
                       >
-                        {activeRole.options.map((option, index) => (
+                        {activeRole.options.map((option) => (
                           <Chip
                             key={option}
                             label={option}
@@ -1155,7 +1105,6 @@ export default function Steps() {
                               selections[activeRole.id] || []
                             ).includes(option)}
                             onClick={() => toggleSelection(option)}
-                            index={index}
                           />
                         ))}
                       </Box>

@@ -153,13 +153,12 @@ USER'S CODE:
 ${userCode}
 \`\`\`
 
-The user may submit a solution in ANY programming language.
-Detect the language from syntax when possible. Evaluate ONLY the code — do NOT
-penalise for language choice, uncommon but valid languages, or missing explanations.
+The user solved this problem on LeetCode and pasted their accepted code here.
+Evaluate ONLY the code — do NOT penalise for missing explanations.
 
 CRITERIA:
 1. Is this a plausible correct solution for "${task.title}"?
-2. Is the syntax valid in a recognizable programming language?
+2. Is the syntax valid in at least one major language (Python, Java, C++, JavaScript, etc.)?
 3. Does it cover common edge cases?
 4. Is the time/space complexity reasonable for a ${task.difficulty} LeetCode problem?
 
@@ -171,7 +170,6 @@ Return ONLY valid JSON (no markdown, no backticks):
   "score": 8.0,
   "isCorrect": true,
   "isValidSyntax": true,
-  "detectedLanguage": "Python",
   "handlesEdgeCases": true,
   "hasReasonableComplexity": true,
   "feedback": "Clean and efficient solution.",

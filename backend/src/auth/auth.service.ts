@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -23,140 +22,40 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
   ) {}
-
-  private issueTokens(user: User) {
-    const payload = { sub: user.id, email: user.email };
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '15m',
-    });
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: '7d',
-    });
-
-    return { accessToken, refreshToken };
-  }
-
-  private otpHash(email: string, otp: string, purpose: string) {
-    return crypto
-      .createHash('sha256')
-      .update(
-        `${purpose}:${email.toLowerCase()}:${otp}:${process.env.JWT_ACCESS_SECRET}`,
-      )
-      .digest('hex');
-  }
-
-  private async issueEmailOtp(
-    user: User,
-    destination: string,
-    purpose:
-      | 'signup'
-      | 'email_change'
-      | 'password_change'
-      | 'password_reset',
-  ) {
-    if (
-      user.emailOtpSentAt &&
-      Date.now() - user.emailOtpSentAt.getTime() < 60_000
-    ) {
-      throw new BadRequestException(
-        'Please wait before requesting another code',
-      );
-    }
-    const otp = crypto.randomInt(100000, 1000000).toString();
-    user.emailOtpHash = this.otpHash(destination, otp, purpose);
-    user.emailOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    user.emailOtpAttempts = 0;
-    user.emailOtpPurpose = purpose;
-    await this.userRepo.save(user);
-    await this.mailService.sendEmailOtp(destination, otp, purpose);
-    user.emailOtpSentAt = new Date();
-    await this.userRepo.save(user);
-  }
-
-  private clearOtp(user: User) {
-    user.emailOtpHash = null;
-    user.emailOtpExpiresAt = null;
-    user.emailOtpSentAt = null;
-    user.emailOtpAttempts = 0;
-    user.emailOtpPurpose = null;
-  }
-
-  private async verifyOtp(
-    user: User,
-    email: string,
-    otp: string,
-    purpose:
-      | 'signup'
-      | 'email_change'
-      | 'password_change'
-      | 'password_reset',
-  ) {
-    if (
-      user.emailOtpPurpose !== purpose ||
-      !user.emailOtpHash ||
-      !user.emailOtpExpiresAt ||
-      user.emailOtpExpiresAt.getTime() < Date.now()
-    ) {
-      throw new BadRequestException('Verification code is invalid or expired');
-    }
-    if (user.emailOtpAttempts >= 5) {
-      throw new BadRequestException(
-        'Too many incorrect attempts. Request a new code',
-      );
-    }
-    if (this.otpHash(email, otp, purpose) !== user.emailOtpHash) {
-      user.emailOtpAttempts += 1;
-      await this.userRepo.save(user);
-      throw new BadRequestException('Incorrect verification code');
-    }
-    this.clearOtp(user);
-  }
-
   async signup(dto: SignupDto) {
     const existingUser = await this.userRepo.findOne({
       where: { email: dto.email },
     });
 
-    if (existingUser?.emailVerified) {
+    if (existingUser) {
       throw new ConflictException('User already exists');
     }
 
     // 1️⃣ Hash the password
     const hashedPassword = await hashPassword(dto.password);
 
-    const user = existingUser ?? this.userRepo.create();
-    user.name = dto.name;
-    user.email = dto.email.toLowerCase();
-    user.password = hashedPassword;
-    user.provider = 'local';
-    user.emailVerified = false;
+    const user = this.userRepo.create({
+      name: dto.name,
+      email: dto.email,
+      password: hashedPassword,
+    });
 
     await this.userRepo.save(user);
-    await this.issueEmailOtp(user, user.email, 'signup');
-    return { email: user.email };
-  }
 
-  async verifySignupOtp(email: string, otp: string) {
-    const user = await this.userRepo.findOne({
-      where: { email: email.toLowerCase() },
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
     });
-    if (!user)
-      throw new BadRequestException('Verification code is invalid or expired');
-    await this.verifyOtp(user, user.email, otp, 'signup');
-    user.emailVerified = true;
-    await this.userRepo.save(user);
-    return { ...this.issueTokens(user), user };
-  }
 
-  async resendSignupOtp(email: string) {
-    const user = await this.userRepo.findOne({
-      where: { email: email.toLowerCase() },
-    });
-    if (!user || user.emailVerified)
-      return { message: 'If verification is pending, a code was sent' };
-    await this.issueEmailOtp(user, user.email, 'signup');
-    return { message: 'Verification code sent' };
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id },
+      {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: '7d',
+      },
+    );
+
+    return { accessToken, refreshToken };
   }
 
   async login(dto: LoginDto) {
@@ -173,9 +72,6 @@ export class AuthService {
         'This account uses Google login. Please sign in with Google.',
       );
     }
-    if (!user.emailVerified) {
-      throw new UnauthorizedException('Email verification required');
-    }
 
     // 2️⃣ Compare passwords
     const isMatch = await comparePasswords(dto.password, user.password);
@@ -189,7 +85,19 @@ export class AuthService {
       user.timezone = dto.timezone;
       await this.userRepo.save(user);
     }
-    return this.issueTokens(user);
+    const payload = { sub: user.id, email: user.email };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '15m',
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: '7d',
+    });
+
+    // ✅ Service returns DATA only
+    return { accessToken, refreshToken };
   }
 
   async googleLogin(googleUser: {
@@ -209,129 +117,28 @@ export class AuthService {
         provider: 'google',
         provider_id: googleUser.googleId,
         password: null,
-        emailVerified: true,
       });
 
       await this.userRepo.save(user);
     }
 
-    if (!user.emailVerified) {
-      user.emailVerified = true;
-      this.clearOtp(user);
-      await this.userRepo.save(user);
-    }
+    // 🔐 Generate JWTs (reuse your existing logic)
+    const accessToken = this.jwtService.sign(
+      { sub: user.id, email: user.email },
+      { expiresIn: '15m' },
+    );
 
-    const tokens = this.issueTokens(user);
-    return { ...tokens, user };
-  }
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id },
+      { expiresIn: '7d' },
+    );
 
-  async requestEmailChange(userId: string, newEmail: string) {
-    const normalized = newEmail.trim().toLowerCase();
-    const existing = await this.userRepo.findOne({
-      where: { email: normalized },
-    });
-    if (existing && existing.id !== userId)
-      throw new ConflictException('Email already in use');
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException();
-    if (user.email === normalized)
-      throw new BadRequestException('This is already your email');
-    user.pendingEmail = normalized;
-    await this.issueEmailOtp(user, normalized, 'email_change');
-    return { pendingEmail: normalized };
-  }
-
-  async verifyEmailChange(userId: string, otp: string) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user || !user.pendingEmail)
-      throw new BadRequestException('No email change is pending');
-    await this.verifyOtp(user, user.pendingEmail, otp, 'email_change');
-    user.email = user.pendingEmail;
-    user.pendingEmail = null;
-    user.emailVerified = true;
-    await this.userRepo.save(user);
-    return { ...this.issueTokens(user), email: user.email };
-  }
-
-  private assertStrongPassword(password: string) {
-    if (
-      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=]).{8,}$/.test(
-        password,
-      )
-    ) {
-      throw new BadRequestException(
-        'Password must contain at least 8 characters, including uppercase, lowercase, a number, and a symbol',
-      );
-    }
-  }
-
-  async requestPasswordChange(userId: string, currentPassword: string) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException();
-    if (!user.password)
-      throw new BadRequestException(
-        'This account uses Google sign-in and does not have a password to change',
-      );
-    if (!(await comparePasswords(currentPassword, user.password)))
-      throw new UnauthorizedException('Current password is incorrect');
-    await this.issueEmailOtp(user, user.email, 'password_change');
-    return { message: 'Verification code sent' };
-  }
-
-  async confirmPasswordChange(
-    userId: string,
-    currentPassword: string,
-    otp: string,
-    password: string,
-  ) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user?.password) throw new UnauthorizedException();
-    if (!(await comparePasswords(currentPassword, user.password)))
-      throw new UnauthorizedException('Current password is incorrect');
-    this.assertStrongPassword(password);
-    if (await comparePasswords(password, user.password)) {
-      throw new BadRequestException(
-        'New password must be different from your current password',
-      );
-    }
-    await this.verifyOtp(user, user.email, otp, 'password_change');
-    user.password = await hashPassword(password);
-    await this.userRepo.save(user);
-    return { message: 'Password changed successfully' };
-  }
-
-  async requestPasswordResetOtp(email: string) {
-    const normalized = email.trim().toLowerCase();
-    const user = await this.userRepo.findOne({ where: { email: normalized } });
-    // Do not reveal whether an account exists.
-    if (user) await this.issueEmailOtp(user, user.email, 'password_reset');
-    return { message: 'If the email exists, a verification code was sent' };
-  }
-
-  async confirmPasswordResetOtp(
-    email: string,
-    otp: string,
-    password: string,
-  ) {
-    const normalized = email.trim().toLowerCase();
-    const user = await this.userRepo.findOne({ where: { email: normalized } });
-    if (!user)
-      throw new BadRequestException('Verification code is invalid or expired');
-    this.assertStrongPassword(password);
-    if (user.password && (await comparePasswords(password, user.password))) {
-      throw new BadRequestException(
-        'New password must be different from your current password',
-      );
-    }
-    await this.verifyOtp(user, user.email, otp, 'password_reset');
-    user.password = await hashPassword(password);
-    await this.userRepo.save(user);
-    return { message: 'Password reset successful' };
+    return { accessToken, refreshToken, user };
   }
 
   async refreshAccessToken(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify<{ sub: string }>(refreshToken, {
+      const payload = this.jwtService.verify(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
@@ -356,10 +163,10 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({
       where: { email },
-      select: ['id', 'emailVerified'],
+      select: ['id'], // 👈 lightweight query
     });
 
-    return { exists: Boolean(user?.emailVerified) };
+    return { exists: !!user };
   }
 
   // password reset will be implemented
@@ -387,7 +194,7 @@ export class AuthService {
     await this.userRepo.save(user);
 
     // 4️⃣ Reset link (frontend URL)
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3014';
     const resetLink = `${frontendUrl}/changePassword?token=${resetToken}`;
     await this.mailService.sendPasswordResetEmail(user.email, resetLink);
 

@@ -18,18 +18,6 @@ interface GeneratedTaskDto {
   tags: string[];
   time_minutes: number;
   leetcodeUrl?: string;
-  sourceKeywords?: string[];
-  sourceResumePoint?: string | null;
-  selectionReason?: string;
-}
-
-export interface CurriculumContext {
-  durationMonths: number;
-  week: number;
-  totalWeeks: number;
-  phase: string;
-  focus: string[];
-  milestone: string;
 }
 
 interface TaskProvider {
@@ -145,7 +133,6 @@ export class TaskGenerationService {
   async generateTasksForToday(
     userId: string,
     mix: { easy: number; medium: number; hard: number; total: number },
-    curriculum?: CurriculumContext,
   ): Promise<RagTask[]> {
     const profile = await this.onboardingRepo.findOne({ where: { userId } });
     const userSkills = await this.userSkillRepo.find({ where: { userId } });
@@ -155,111 +142,33 @@ export class TaskGenerationService {
     const seenKeys = new Set(seenRows.map((r) => r.title_key));
     const seenTitles = seenRows.map((r) => r.title_key);
 
-    const prompt = this.buildDailyPrompt(
-      profile,
-      skillNames,
-      mix,
-      seenTitles,
-      curriculum,
-    );
+    const prompt = this.buildDailyPrompt(profile, skillNames, mix, seenTitles);
 
     this.logger.log(`🎯 Role: ${profile?.dedicatedRole ?? profile?.preferredRole?.[0]}`);
     this.logger.log(`🔑 Keywords (${(profile?.resumeKeywords ?? skillNames).length}): ${(profile?.resumeKeywords ?? skillNames).join(', ')}`);
     this.logger.log(`📚 Interests: ${profile?.areasOfInterest?.join(', ')}`);
 
-    const fresh: GeneratedTaskDto[] = [];
-    const reserve: GeneratedTaskDto[] = [];
-    const candidateKeys = new Set<string>();
-    const usedAnchors = new Set<string>();
-    const acceptedByDifficulty = { easy: 0, medium: 0, hard: 0 };
-
-    for (let attempt = 0; attempt < 3 && fresh.length < mix.total; attempt++) {
-      const remainingMix = {
-        easy: mix.easy - acceptedByDifficulty.easy,
-        medium: mix.medium - acceptedByDifficulty.medium,
-        hard: mix.hard - acceptedByDifficulty.hard,
-        total: mix.total - fresh.length,
-      };
-      const attemptPrompt =
-        attempt === 0
-          ? prompt
-          : `${prompt}\n\nREPAIR ATTEMPT ${attempt + 1}: Previous output did not provide enough valid, distinct questions. Generate ONLY ${remainingMix.total} replacements: ${remainingMix.easy} easy, ${remainingMix.medium} medium, ${remainingMix.hard} hard. Do not use these anchors again: ${[...usedAnchors].join(', ')}. Every replacement must pass all quality rules and include provenance fields.`;
-      const text = await this.callGeminiWithFallback(attemptPrompt);
-      if (!text) continue;
+    let generated: GeneratedTaskDto[] = [];
+    const text = await this.callGeminiWithFallback(prompt);
+    if (text) {
       const match = text.match(/\[[\s\S]*\]/);
-      if (!match) continue;
-
-      let candidates: GeneratedTaskDto[] = [];
-      try {
-        candidates = JSON.parse(match[0]) as GeneratedTaskDto[];
-      } catch {
-        this.logger.warn('Failed to parse LLM JSON response');
-        continue;
-      }
-
-      for (const task of candidates) {
-        if (!task.title) continue;
-        const titleKey = this.normaliseTitle(task.title);
-        if (seenKeys.has(titleKey) || candidateKeys.has(titleKey)) continue;
-        const difficulty = this.sanitiseDifficulty(task.difficulty);
-        if (!this.isHighQualityTask(task, profile, curriculum)) continue;
-        candidateKeys.add(titleKey);
-        reserve.push(task);
-        if (acceptedByDifficulty[difficulty] >= mix[difficulty]) continue;
-        const primaryAnchor =
-          this.taskSources(task)[0]?.toLowerCase() ??
-          task.sourceResumePoint?.trim().toLowerCase();
-        if (!primaryAnchor || usedAnchors.has(primaryAnchor)) continue;
-        usedAnchors.add(primaryAnchor);
-        seenKeys.add(titleKey);
-        acceptedByDifficulty[difficulty]++;
-        fresh.push(task);
-        if (fresh.length >= mix.total) break;
+      if (match) {
+        try {
+          generated = JSON.parse(match[0]) as GeneratedTaskDto[];
+        } catch {
+          this.logger.warn('Failed to parse LLM JSON response');
+        }
       }
     }
 
-    // Keep the exact difficulty/topic spread as the first choice. If the model
-    // produced enough sound questions but repeated a primary topic or missed a
-    // difficulty quota, use those vetted questions rather than throwing away
-    // the entire day. Difficulty is normalized to the remaining requested mix.
-    if (fresh.length < mix.total) {
-      const freshKeys = new Set(fresh.map((task) => this.normaliseTitle(task.title)));
-      for (const task of reserve) {
-        const titleKey = this.normaliseTitle(task.title);
-        if (freshKeys.has(titleKey)) continue;
-        const neededDifficulty = (['easy', 'medium', 'hard'] as const).find(
-          (difficulty) => acceptedByDifficulty[difficulty] < mix[difficulty],
-        );
-        if (!neededDifficulty) break;
-        fresh.push({ ...task, difficulty: neededDifficulty });
-        freshKeys.add(titleKey);
-        seenKeys.add(titleKey);
-        acceptedByDifficulty[neededDifficulty]++;
-        if (fresh.length >= mix.total) break;
-      }
-    }
+    if (generated.length === 0) return [];
 
-    if (fresh.length < mix.total) {
-      const fallbacks = this.buildProfileFallbackTasks(
-        profile,
-        skillNames,
-        curriculum,
-        mix,
-        acceptedByDifficulty,
-        seenKeys,
-        fresh.length,
-      );
-      fresh.push(...fallbacks);
-    }
+    const fresh = generated
+      .filter((t) => t.title)
+      .filter((t) => !seenKeys.has(this.normaliseTitle(t.title)))
+      .slice(0, mix.total);
 
-    if (fresh.length < 3) {
-      // This should only be reachable for an invalid zero-sized request. Keep a
-      // diagnostic instead of silently presenting an empty Smart Plan.
-      this.logger.error(
-        `Unable to assemble the minimum daily plan for ${userId} (${fresh.length} tasks).`,
-      );
-      throw new Error('Unable to assemble the minimum daily Smart Plan');
-    }
+    if (fresh.length === 0) return [];
 
     const toSave = fresh.map((t) =>
       this.ragTaskRepo.create({
@@ -271,11 +180,6 @@ export class TaskGenerationService {
         tags: Array.isArray(t.tags) ? t.tags.slice(0, 5) : [],
         time_minutes: t.time_minutes ?? 25,
         leetcodeUrl: t.leetcodeUrl ?? null,
-        source_keywords: this.taskSources(t),
-        source_resume_point: t.sourceResumePoint?.trim() || null,
-        selection_reason:
-          t.selectionReason?.trim() ||
-          (curriculum ? `Required for ${curriculum.phase}` : 'Target-role preparation'),
         user_id: userId,
         is_active: true,
       }),
@@ -309,129 +213,6 @@ export class TaskGenerationService {
     return title.toLowerCase().trim();
   }
 
-  private buildProfileFallbackTasks(
-    profile: OnboardingResponse | null,
-    skills: string[],
-    curriculum: CurriculumContext | undefined,
-    mix: { easy: number; medium: number; hard: number; total: number },
-    accepted: { easy: number; medium: number; hard: number },
-    seenKeys: Set<string>,
-    alreadyGenerated: number,
-  ): GeneratedTaskDto[] {
-    const role =
-      profile?.dedicatedRole?.trim() ||
-      profile?.preferredRole?.[0]?.trim() ||
-      'your target role';
-    const rawAnchors = [
-      ...(curriculum?.focus ?? []),
-      ...(profile?.resumeKeywords ?? []),
-      ...skills,
-      ...(profile?.areasOfInterest ?? []),
-    ];
-    const anchors = [...new Set(rawAnchors.map((value) => value?.trim()).filter(Boolean))];
-    const safeAnchors = anchors.length >= 3
-      ? anchors
-      : [...anchors, `${role} fundamentals`, `${role} problem solving`, `${role} decision making`];
-    const needed = Math.max(0, mix.total - alreadyGenerated);
-    const output: GeneratedTaskDto[] = [];
-    const templates = {
-      easy: (anchor: string) =>
-        `What are the essential principles of ${anchor} for a ${role}, and how would you demonstrate them with a practical example?`,
-      medium: (anchor: string) =>
-        `How would you apply ${anchor} to a realistic problem faced by a ${role}, and how would you verify that your approach worked?`,
-      hard: (anchor: string) =>
-        `Which trade-offs, risks, and failure modes would you evaluate when using ${anchor} in a high-impact ${role} scenario?`,
-    };
-    const remaining = {
-      easy: Math.max(0, mix.easy - accepted.easy),
-      medium: Math.max(0, mix.medium - accepted.medium),
-      hard: Math.max(0, mix.hard - accepted.hard),
-    };
-
-    for (let index = 0; output.length < needed && index < safeAnchors.length * 3; index++) {
-      const difficulty = (['easy', 'medium', 'hard'] as const).find(
-        (candidate) => remaining[candidate] > 0,
-      );
-      if (!difficulty) break;
-      const anchor = safeAnchors[index % safeAnchors.length];
-      const title = templates[difficulty](anchor);
-      const titleKey = this.normaliseTitle(title);
-      if (seenKeys.has(titleKey)) continue;
-      seenKeys.add(titleKey);
-      remaining[difficulty]--;
-      output.push({
-        title,
-        description: `A strong answer should explain ${anchor}, apply it in the context of ${role}, justify the decisions made, and describe how success would be measured.`,
-        category: 'Technical Concepts',
-        difficulty,
-        priority: this.difficultyToPriority(difficulty),
-        tags: [anchor, role].slice(0, 5),
-        time_minutes: 25,
-        leetcodeUrl: undefined,
-        sourceKeywords: [anchor],
-        sourceResumePoint: null,
-        selectionReason: curriculum
-          ? `Required for week ${curriculum.week}: ${curriculum.phase}`
-          : `Core preparation for ${role}`,
-      });
-    }
-
-    if (output.length > 0) {
-      this.logger.warn(
-        `Filled ${output.length} daily-plan slot(s) with profile-aligned fallback questions.`,
-      );
-    }
-    return output;
-  }
-
-  private taskSources(task: GeneratedTaskDto): string[] {
-    const sources = Array.isArray(task.sourceKeywords)
-      ? task.sourceKeywords
-      : Array.isArray(task.tags)
-        ? task.tags
-        : [];
-    return [...new Set(sources.map((source) => String(source).trim()).filter(Boolean))].slice(0, 4);
-  }
-
-  private isHighQualityTask(
-    task: GeneratedTaskDto,
-    profile: OnboardingResponse | null,
-    curriculum?: CurriculumContext,
-  ): boolean {
-    const title = task.title?.trim() ?? '';
-    const isLeetcode =
-      task.category === 'DSA' &&
-      /^https:\/\/leetcode\.com\/problems\/[a-z0-9-]+\/?$/i.test(
-        task.leetcodeUrl ?? '',
-      );
-    if (title.length < 15 || title.length > 260) return false;
-    if (!isLeetcode && !title.endsWith('?')) return false;
-    if (
-      /^(tell me about yourself|what are your strengths|what are your weaknesses|why should we hire you)\??$/i.test(
-        title,
-      )
-    ) {
-      return false;
-    }
-
-    const sources = this.taskSources(task);
-    if (sources.length === 0 && !task.sourceResumePoint?.trim()) return false;
-    if (isLeetcode) return sources.length > 0;
-
-    const allowedAnchors = [
-      ...(profile?.resumeKeywords ?? []),
-      ...(curriculum?.focus ?? []),
-    ].map((anchor) => anchor.toLowerCase());
-    if (allowedAnchors.length === 0) return true;
-
-    return sources.some((source) => {
-      const normalized = source.toLowerCase();
-      return allowedAnchors.some(
-        (anchor) => anchor.includes(normalized) || normalized.includes(anchor),
-      );
-    }) || Boolean(task.sourceResumePoint?.trim());
-  }
-
   private isSoftwareRole(roleInput: string | string[] | null): boolean {
     if (!roleInput) return false;
     const haystack = (Array.isArray(roleInput) ? roleInput.join(' ') : roleInput).toLowerCase();
@@ -449,17 +230,11 @@ export class TaskGenerationService {
     skills: string[],
     mix: { easy: number; medium: number; hard: number; total: number },
     recentTitles: string[] = [],
-    curriculum?: CurriculumContext,
   ): string {
     const resumeText    = profile?.resumeText?.slice(0, 3000) ?? '(not provided)';
     const currentStatus = profile?.currentStatus?.join(', ')   || '(not specified)';
     const primaryFocus  = profile?.primaryFocus?.join(', ')    || '(not specified)';
     const interests     = profile?.areasOfInterest?.join(', ') || '(not specified)';
-    const yearsExperience = profile?.yearsOfExperience || '(not specified)';
-    const parsedYears = Number(
-      profile?.yearsOfExperience?.match(/\d+(?:\.\d+)?/)?.[0] ?? 0,
-    );
-    const experiencedCandidate = parsedYears >= 3;
 
     const dedicatedRole = profile?.dedicatedRole
       ?? profile?.preferredRole?.[0]
@@ -478,31 +253,6 @@ export class TaskGenerationService {
     const avoidSection =
       recentTitles.length > 0
         ? `\n\nTASKS ALREADY SEEN BY THIS USER — DO NOT GENERATE ANY OF THESE OR CLOSE VARIATIONS:\n${recentTitles.map((t) => `  - ${t}`).join('\n')}\nEvery title above must be treated as strictly off-limits. Generate completely different Questions.`
-        : '';
-
-    const curriculumSection = curriculum
-      ? `
-LEARNING TRACK CONTEXT (mandatory curriculum alignment):
-- Track length: ${curriculum.durationMonths} month(s)
-- Current week: ${curriculum.week} of ${curriculum.totalWeeks}
-- Current phase: ${curriculum.phase}
-- This week's required competencies: ${curriculum.focus.join(', ')}
-- Weekly milestone: ${curriculum.milestone}
-
-At least ${Math.max(2, mix.total - 1)} of today's ${mix.total} questions MUST directly assess the required competencies above. The remaining question may be a due review, behavioral question, or resume/project deep-dive. Keep difficulty consistent with the requested mix.`
-      : '';
-
-    const foundationSection =
-      curriculum && curriculum.week <= 2
-        ? `
-FOUNDATION VERIFICATION — WEEKS 1–2 (overrides normal acceleration):
-- Mandatory foundations for "${dedicatedRole}" may NEVER be skipped, regardless of years of experience.
-- This user has ${yearsExperience} of experience. Experience changes the DEPTH expected, not the list of foundations covered.
-- ${experiencedCandidate ? `Use fewer recall-only prompts. At least ${Math.ceil(mix.total / 2)} questions must verify foundations through implementation details, trade-offs, failure modes, debugging, or "why" reasoning.` : `At least ${Math.max(2, mix.total - 1)} questions must directly verify core definitions, mechanics, and simple application before combining topics.`}
-- Allow at most ONE resume-specific architecture or complex scenario today, and only when it clearly builds on a foundation being verified.
-- Do not jump directly to senior architecture, large-scale design, or unnecessary multi-technology scenarios.
-- A question labelled easy must test one foundational concept. Medium may combine a foundation with one realistic application. Hard is allowed only when the performance mix explicitly requests it.
-`
         : '';
 
     let roleSpecificSection = '';
@@ -542,14 +292,14 @@ NON-TECHNICAL ROLE DETECTED — Dedicated role: "${dedicatedRole}"
   ✅ CORRECT: "Tell me about a time you used SolidWorks to solve a design problem."
   ❌ WRONG:   "Designing for Manufacturability" (gerund phrase — banned)
   ❌ WRONG:   "Material Selection for Medical Device" (topic phrase — banned)
-- Ground personalized questions in target-role-relevant RESUME KEYWORDS or an actual resume point. Mandatory role competencies may be tested directly even when absent from the resume.
+- Use the user's RESUME KEYWORDS directly inside the question title (e.g. if they know SolidWorks, ANSYS, MATLAB — ask about those tools specifically, not generics).
 - Use categories that genuinely match this profession. Examples by field:
     • Mechanical Engineering: "Technical Concepts", "Engineering Design", "Behavioral", "CAD & Simulation", "Materials & Manufacturing"
     • Law / Legal: "Case Analysis", "Legal Research", "Statutory Interpretation", "Legal Writing", "Behavioral"
     • Finance / Accounting: "Financial Modeling", "Valuation", "Accounting Principles", "Case Study", "Behavioral"
     • Business Analysis: "Requirements Elicitation", "Process Modeling", "Stakeholder Management", "Case Study", "Behavioral"
     • Any role: "Behavioral" (STAR format "Tell me about a time you…") is always appropriate.
-- Every question must reference a specific role competency, tool, concept, or actual resume experience.
+- Every question must reference a specific tool, concept, or experience from the user's actual resume keywords.
 - leetcodeUrl must be null for every task.`;
     }
 
@@ -558,19 +308,14 @@ You are an expert technical interviewer generating highly personalised interview
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TARGET ROLE:  ${dedicatedRole}
-EXPERIENCE:   ${yearsExperience}
-GOAL:         ${primaryFocus}
-STATUS:       ${currentStatus}
 INTERESTS:    ${interests}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RESUME KEYWORDS (rank these by relevance to the target role before selecting):
+RESUME KEYWORDS (the user actually knows these — use them directly in question titles):
 ${keywordList}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RESUME TEXT:
 ${resumeText}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${curriculumSection}
-${foundationSection}
 ${roleSpecificSection}
 
 STRICT RULES — read every rule before generating:
@@ -582,55 +327,34 @@ RULE 1 — QUESTION FORMAT (mandatory):
   ❌ BANNED — never start a title with a gerund/noun phrase:
     "Designing…", "Optimizing…", "Building…", "Material Selection…", "Analysis of…"
 
-RULE 2 — EVIDENCE-BASED COVERAGE (mandatory):
-  Assign every question a DISTINCT primary anchor. An anchor must be either:
-  (a) a mandatory competency from this week's learning track, or
-  (b) a target-role-relevant resume keyword, project, achievement, or responsibility.
-  For ${mix.total} questions, cover ${mix.total} different primary anchors. Do not ask multiple
-  questions about the same keyword while other important anchors remain uncovered.
-  Include the anchors in sourceKeywords. If grounded in a resume bullet/project, copy a short
-  supporting fragment into sourceResumePoint. Never invent resume experience.
+RULE 2 — USE RESUME KEYWORDS IN TITLES (mandatory):
+  Each title MUST contain at least one specific keyword from the RESUME KEYWORDS list above.
   ✅ GOOD: "How would you use MATLAB to simulate the fluid flow in a pipe network?"
   ✅ GOOD: "Walk me through how you would perform a static stress analysis in ANSYS for a composite bracket."
   ✅ GOOD: "Why would you choose SolidWorks over CATIA for sheet-metal part design?"
   ❌ BAD:  "How would you solve a design problem?" (no keyword, too vague)
   ❌ BAD:  "Explain material selection for a component." (no keyword, generic)
 
-  A mandatory role topic may be asked even if it is not on the resume. In that case, name the
-  exact topic/scenario and put that competency in sourceKeywords. Do not awkwardly insert an
-  unrelated resume keyword just to satisfy personalization.
-
 RULE 3 — SPECIFICITY:
   Questions must name exact tools, techniques, or scenarios — not abstract concepts.
   Treat each question as if a real interviewer at a top company is asking it.
-  Ban generic prompts such as "Tell me about yourself", "What are your strengths?", or
-  "Describe a challenging project" without naming the relevant resume project and decision.
 
 RULE 4 — DIFFICULTY LEVELS:
   easy   — directly tests knowledge of one specific tool/concept from the keywords list
   medium — requires combining 2+ keywords or concepts, or multi-step reasoning
   hard   — requires deep trade-off analysis, design decisions, or a project-level scenario
-  Complexity must match the target role, experience level, resume evidence, and current phase.
-  Do not create artificial complexity, combine unrelated technologies, or assume senior-level
-  ownership that is unsupported by the profile.
-  Difficulty labels describe interview complexity, not the candidate's years of experience.
 
 RULE 5 — CATEGORIES must match the role domain. No software/CS categories for non-CS roles.
 
 RULE 6 — Behavioral tasks use STAR format: "Tell me about a time you…"
 
 RULE 7 — Only set leetcodeUrl for real LeetCode problems. Set it to null for everything else.
-
-RULE 8 — PRIVATE QUALITY CHECK BEFORE OUTPUT (mandatory):
-  For every question verify: role relevance, one clear skill being assessed, enough context to
-  answer, realistic interview wording, evidence anchor, appropriate difficulty, and no duplicate.
-  Silently discard and replace any question that fails even one check.
 ${avoidSection}
 
 Generate EXACTLY ${mix.total} tasks: ${mix.easy} easy, ${mix.medium} medium, ${mix.hard} hard.
 
 Return ONLY a JSON array of exactly ${mix.total} objects:
-[{"title":"...","description":"State exactly what a strong answer should address.","category":"...","difficulty":"easy|medium|hard","priority":"low|medium|high","tags":["..."],"time_minutes":25,"leetcodeUrl":null,"sourceKeywords":["exact primary anchor"],"sourceResumePoint":"short exact resume fragment or null","selectionReason":"why this is important for the target role now"}]
+[{"title":"...","description":"...","category":"...","difficulty":"easy|medium|hard","priority":"low|medium|high","tags":["..."],"time_minutes":25,"leetcodeUrl":null}]
 `.trim();
   }
 

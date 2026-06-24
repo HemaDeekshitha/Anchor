@@ -58,11 +58,7 @@ export class ApplicationTrackerController {
     @Query('state') userId: string,
     @Res() res,
   ) {
-    const frontendBaseUrl =
-      process.env.FRONTEND_URL ||
-      (process.env.NODE_ENV === 'production'
-        ? 'https://anchorapp.feeltiptop.com'
-        : 'http://localhost:3002');
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const successRedirect = `${frontendBaseUrl}/application-tracker?gmail=connected`;
     const failedRedirect = `${frontendBaseUrl}/application-tracker?gmail=failed`;
 

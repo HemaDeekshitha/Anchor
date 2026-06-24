@@ -33,7 +33,7 @@ export class RagController {
 
     const smartPlan = await this.ragService.getDailyTasks(
       userId,
-      limit ? Number(limit) : undefined,
+      limit ? Number(limit) : 4,
     );
 
     const pendingTasks = await this.ragService.getPendingTasks(userId);

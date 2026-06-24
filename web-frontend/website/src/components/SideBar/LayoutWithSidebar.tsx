@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { Box, IconButton, useMediaQuery, useTheme } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import Sidebar from "./Sidebar";
-import SessionManager from "../auth/SessionManager";
 
 const drawerWidth = 280;
 
@@ -25,7 +24,6 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#ede8e0" }}>
-      <SessionManager />
       <Sidebar isSidebarOpen={isSidebarOpen} onClose={handleClose} />
 
       <Box component="main" sx={{

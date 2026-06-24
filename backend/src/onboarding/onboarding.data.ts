@@ -45,17 +45,6 @@ export const ONBOARDING_STEPS = [
     ],
   },
   {
-    id: 'learning-plan',
-    title: 'Choose Your Learning Plan',
-    subtitle: 'How much time do you want to invest in interview preparation?',
-    singleSelect: true,
-    options: [
-      '1 month — Interview essentials',
-      '3 months — Structured preparation',
-      '6 months — Comprehensive mastery',
-    ],
-  },
-  {
     id: 'areas-interest',
     title: 'Areas of Interest',
     subtitle: 'Which topics or industries excite you?',

@@ -47,30 +47,4 @@ export class User {
   points_360: number;
   @Column({ nullable: true })
   timezone: string;
-
-  @Column({ default: true })
-  emailVerified: boolean;
-
-  @Column({ type: 'varchar', nullable: true })
-  emailOtpHash: string | null;
-
-  @Column({ type: 'timestamp', nullable: true })
-  emailOtpExpiresAt: Date | null;
-
-  @Column({ type: 'timestamp', nullable: true })
-  emailOtpSentAt: Date | null;
-
-  @Column({ type: 'int', default: 0 })
-  emailOtpAttempts: number;
-
-  @Column({ type: 'varchar', nullable: true })
-  pendingEmail: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  emailOtpPurpose:
-    | 'signup'
-    | 'email_change'
-    | 'password_change'
-    | 'password_reset'
-    | null;
 }

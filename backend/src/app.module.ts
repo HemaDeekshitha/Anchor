@@ -14,7 +14,6 @@ import { AiModule } from './ai/ai.module';
 import { PointsModule } from './points/points.module';
 import { MomentumModule } from './momentum/momentum.module';
 import { ApplicationTrackerModule } from './application-tracker/application-tracker.module';
-import { LearningTracksModule } from './learning-tracks/learning-tracks.module';
 
 @Module({
   imports: [
@@ -46,7 +45,6 @@ import { LearningTracksModule } from './learning-tracks/learning-tracks.module';
     PointsModule,
     MomentumModule,
     ApplicationTrackerModule,
-    LearningTracksModule,
   ],
 })
 export class AppModule {}

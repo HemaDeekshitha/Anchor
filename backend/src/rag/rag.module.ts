@@ -16,11 +16,9 @@ import { TaskGenerationService } from './task-generation.service';
 import { PerformanceService } from './performance.service';
 import { TaskSchedulerService } from './task-scheduler.service';
 import { JobApplication } from 'src/application-tracker/entities/job-application.entity';
-import { LearningTracksModule } from 'src/learning-tracks/learning-tracks.module';
 
 @Module({
   imports: [
-    LearningTracksModule,
     TypeOrmModule.forFeature([
       RagTask,
       UserDailyTask,
