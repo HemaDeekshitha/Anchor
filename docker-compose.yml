@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   backend:
     container_name: anchor-backend
@@ -33,16 +35,10 @@ services:
       MAILJET_SECRET_KEY: ${MAILJET_SECRET_KEY}
       MAILJET_FROM_EMAIL: ${MAILJET_FROM_EMAIL}
       MAILJET_FROM_NAME: ${MAILJET_FROM_NAME}
-      FRONTEND_URL: ${FRONTEND_URL:-https://anchorapp.feeltiptop.com}
-      APP_URL: ${APP_URL:-https://anchorapp.feeltiptop.com}
+      FRONTEND_URL: ${FRONTEND_URL}
+      APP_URL: ${APP_URL}
     ports:
       - "127.0.0.1:3012:3001"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 8
-      start_period: 25s
 
   frontend:
     container_name: anchor-frontend
@@ -50,16 +46,15 @@ services:
       context: ./web-frontend/anchor-web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL:-https://anchorapp.feeltiptop.com}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
+        NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL:-https://anchorapp.feeltiptop.com}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
+      NEXT_PUBLIC_WEBSITE_URL: ${NEXT_PUBLIC_WEBSITE_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     ports:
       - "127.0.0.1:3013:3000"
 
@@ -69,15 +64,14 @@ services:
       context: ./web-frontend/website
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     environment:
       NODE_ENV: production
       PORT: 3002
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     ports:
       - "127.0.0.1:3014:3002"
 

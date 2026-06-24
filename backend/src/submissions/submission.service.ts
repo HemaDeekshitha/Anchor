@@ -8,7 +8,6 @@ import { GeminiService } from '../ai/gemini.service';
 import { PointsService } from '../points/points.service';
 import { SubmitTextDto } from './dto/submit-text.dto';
 import { SubmissionResponseDto } from './dto/submission-response.dto';
-import { LearningTracksService } from '../learning-tracks/learning-tracks.service';
 
 @Injectable()
 export class SubmissionService {
@@ -24,7 +23,6 @@ export class SubmissionService {
 
     private geminiService: GeminiService,
     private pointsService: PointsService,
-    private learningTracksService: LearningTracksService,
   ) {}
 
   /**
@@ -99,15 +97,11 @@ export class SubmissionService {
 
   // Mark task as completed and award Anchor Points if approved
   let anchorPointsEarned = 0;
-  let trackCompletion: Awaited<
-    ReturnType<LearningTracksService['advanceIfComplete']>
-  > = null;
   if (aiResult.approved) {
     await this.markTaskCompleted(userId, dto.taskId, dto.taskDate);
     // Award 25 Anchor Points — idempotent, safe to call on resubmit too
     await this.pointsService.awardTaskPoints(userId, dto.taskId);
     anchorPointsEarned = 25;
-    trackCompletion = await this.learningTracksService.advanceIfComplete(userId);
   }
 
   // Fetch updated balance so the frontend can update its UI in one round-trip
@@ -127,7 +121,6 @@ export class SubmissionService {
     details: aiResult.details,
     anchorPointsEarned,
     newAnchorPointsBalance,
-    trackCompletion,
   };
 }
 

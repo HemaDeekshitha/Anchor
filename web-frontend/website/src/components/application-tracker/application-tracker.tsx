@@ -60,7 +60,6 @@ export default function ApplicationTracker() {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [oauthMessage, setOauthMessage] = useState("");
-  const [scanMessage, setScanMessage] = useState("");
   const [view, setView] = useState<"board" | "grid">("board");
   const [modal, setModal] = useState<ModalState>({ open: false, mode: "create", job: null });
   const [form, setForm] = useState(emptyForm());
@@ -99,35 +98,9 @@ export default function ApplicationTracker() {
     try {
       setIsScanning(true);
       setErrorMessage("");
-      setScanMessage("Starting Gmail scan...");
-
-      const startRes = await fetch(`${API_BASE_URL}/application-tracker/gmail/scan`, { method: "POST", credentials: "include" });
-      if (!startRes.ok) { const e = await startRes.json().catch(() => ({})); throw new Error(e?.message || "Failed to start Gmail scan"); }
-
-      const { scanId } = await startRes.json();
-
-      while (true) {
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        const statusRes = await fetch(`${API_BASE_URL}/application-tracker/gmail/scan/${scanId}/status`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (!statusRes.ok) { const e = await statusRes.json().catch(() => ({})); throw new Error(e?.message || "Failed to check Gmail scan status"); }
-
-        const status = await statusRes.json();
-        setScanMessage(`Scanning Gmail... processed ${status.processed || 0}, saved ${status.stored || 0}`);
-
-        if (status.status === "completed") {
-          await loadJobs();
-          setScanMessage("");
-          break;
-        }
-
-        if (status.status === "failed") {
-          throw new Error(status.error || "Gmail scan failed");
-        }
-      }
+      const res = await fetch(`${API_BASE_URL}/application-tracker/gmail/scan`, { method: "POST", credentials: "include" });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.message || "Failed to scan Gmail"); }
+      await loadJobs();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Gmail scan failed.");
     } finally {
@@ -425,7 +398,7 @@ export default function ApplicationTracker() {
           <button className={styles.addJobButton} onClick={openCreateModal}>+ Add Job</button>
           {isScanning && (
             <span className={styles.scanningMessage}>
-              {scanMessage || "Scanning your email. This may take a while..."}
+              ⏳ Scanning your email. This may take a while…
             </span>
           )}
         </div>
