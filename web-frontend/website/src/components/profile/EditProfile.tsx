@@ -193,7 +193,12 @@ function ResumeSection({ form, set, onResumeFile }: {
             </Typography>
             <Typography fontSize={12} sx={{ color: C.textMuted }}>PDF, DOCX — or click to browse</Typography>
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }}
-              onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+                // Allow the same file to be selected again later.
+                e.currentTarget.value = "";
+              }} />
           </Box>
 
           {form.resumeName && (
@@ -202,7 +207,13 @@ function ResumeSection({ form, set, onResumeFile }: {
               px: 2, py: 1.25, background: C.accentBg, border: `1px solid ${C.accentBorder}`, borderRadius: "10px",
             }}>
               <Typography fontSize={13} fontWeight={600} sx={{ color: C.accent }}>📄 {form.resumeName}</Typography>
-              <IconButton size="small" onClick={() => { onResumeFile(null); set("resumeName", null); set("resumeUrl", null); }}
+              <IconButton size="small" onClick={(event) => {
+                event.stopPropagation();
+                onResumeFile(null);
+                set("resumeName", null);
+                set("resumeUrl", null);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
                 sx={{ color: C.textMuted, "&:hover": { color: "#dc2626" }, p: 0.5 }}>
                 <CloseRoundedIcon sx={{ fontSize: 15 }} />
               </IconButton>
@@ -233,6 +244,9 @@ type Props = {
   profile: Partial<EditableProfile>;
   onSave: (updated: EditableProfile, avatarFile: File | null, resumeFile: File | null, removeAvatar: boolean) => void;
   saving?: boolean;
+  saveError?: string;
+  onChangePassword?: () => void;
+  onForgotPassword?: () => void;
 };
 
 const TABS = [
@@ -242,7 +256,7 @@ const TABS = [
 ];
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
-export default function EditProfileModal({ open, onClose, profile, onSave, saving = false }: Props) {
+export default function EditProfileModal({ open, onClose, profile, onSave, saving = false, saveError = "", onChangePassword, onForgotPassword }: Props) {
   const [tab, setTab]                     = useState(0);
   const avatarRef                         = useRef<HTMLInputElement>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
@@ -387,7 +401,24 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
 
               <Box>
                 <Label>Email</Label>
-                <TextField size="small" fullWidth placeholder="you@example.com" value={form.email} onChange={(e) => set("email", e.target.value)} sx={fieldSx} />
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="you@example.com"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  error={Boolean(saveError)}
+                  helperText={saveError || undefined}
+                  sx={fieldSx}
+                />
+                <Box sx={{ display: "flex", gap: 1.5, mt: 1 }}>
+                  <Button size="small" onClick={onChangePassword} sx={{ color: C.accent, textTransform: "none", p: 0 }}>
+                    Change password
+                  </Button>
+                  <Button size="small" onClick={onForgotPassword} sx={{ color: C.textSub, textTransform: "none", p: 0 }}>
+                    Forgot password?
+                  </Button>
+                </Box>
               </Box>
 
               <Box>

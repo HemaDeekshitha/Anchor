@@ -48,7 +48,8 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
   const [error, setError] = useState<string | null>(null);
 
   const isSelfReport = task?.category && SELF_REPORT_CATEGORIES.includes(task.category);
-  const minChars = isSelfReport ? 10 : 50;
+  const isLeetcode = Boolean(getLeetcodeUrl(task));
+  const minChars = isSelfReport || isLeetcode ? 10 : 50;
   const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
   const charCount = answer.trim().length;
   const isValid = charCount >= minChars;
@@ -124,6 +125,36 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
         {/* Result view */}
         {result ? (
           <Box>
+            {result.trackCompletion && (
+              <Box sx={{
+                position: "relative", overflow: "hidden", mb: 3, p: { xs: 2.5, sm: 3.5 },
+                textAlign: "center", borderRadius: 3,
+                background: "linear-gradient(145deg, #fff8ed, #f4e5d4)",
+                border: "1px solid #dfc3a4",
+              }}>
+                {[{ top: 18, left: "12%" }, { top: 38, right: "13%" }, { bottom: 22, left: "20%" }, { bottom: 30, right: "22%" }].map((position, index) => (
+                  <Box key={index} sx={{ position: "absolute", ...position, width: index % 2 ? 8 : 6, height: index % 2 ? 8 : 6, borderRadius: index % 2 ? 1 : "50%", bgcolor: index % 2 ? "#d8a15f" : "#789080", transform: `rotate(${index * 18}deg)` }} />
+                ))}
+                <Box sx={{
+                  width: 88, height: 88, mx: "auto", mb: 1.5, borderRadius: "50%",
+                  display: "grid", placeItems: "center", fontSize: 43,
+                  background: "linear-gradient(145deg, #f2cf91, #c98a50)",
+                  boxShadow: "0 12px 28px rgba(160,98,46,.24)",
+                  border: "5px solid rgba(255,255,255,.7)",
+                }}>🏆</Box>
+                <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 25, fontWeight: 800, color: "#2c1a0a" }}>
+                  Course completed!
+                </Typography>
+                <Typography sx={{ mt: 0.75, color: "#6f5542", lineHeight: 1.55 }}>
+                  You successfully completed the {result.trackCompletion.completedTrack.durationMonths}-month {result.trackCompletion.completedTrack.targetRole} plan with {result.trackCompletion.completedTrack.questionTarget} questions.
+                </Typography>
+                <Typography sx={{ mt: 1.25, fontWeight: 700, color: "#a0622e" }}>
+                  {result.trackCompletion.nextTrack
+                    ? `Your ${result.trackCompletion.nextTrack.durationMonths}-month plan is ready and continues from your progress.`
+                    : "You completed every Anchor learning plan. Outstanding work!"}
+                </Typography>
+              </Box>
+            )}
             <Paper sx={{
               p: 3, mb: 3,
               backgroundColor: result.approved ? "#f5ede0" : "#fef2f2",
@@ -191,12 +222,16 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
         ) : (
           <>
             <TextField multiline rows={isSelfReport ? 4 : 12} fullWidth
-              placeholder={isSelfReport ? "Briefly describe what you did (minimum 10 characters)..." : "Write your detailed answer here (minimum 50 characters)..."}
+              placeholder={isSelfReport
+                ? "Briefly describe what you did (minimum 10 characters)..."
+                : isLeetcode
+                  ? "Paste your solution in any programming language. Anchor will detect the language automatically."
+                  : "Write your detailed answer here (minimum 50 characters)..."}
               value={answer} onChange={(e) => setAnswer(e.target.value)} disabled={isSubmitting}
               sx={{
                 mb: 2,
                 "& .MuiOutlinedInput-root": {
-                  fontFamily: "Inter, sans-serif", fontSize: "15px",
+                  fontFamily: isLeetcode ? "ui-monospace, SFMono-Regular, Menlo, monospace" : "Inter, sans-serif", fontSize: "15px",
                   "& fieldset": { borderColor: "#e8ddd0" },
                   "&:hover fieldset": { borderColor: "#b87444" },
                   "&.Mui-focused fieldset": { borderColor: "#b87444" },
@@ -216,6 +251,12 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
             {isSelfReport && (
               <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: "#2c1a0a", border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
                 This is a self-report task. Just briefly confirm you completed it!
+              </Alert>
+            )}
+
+            {isLeetcode && (
+              <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: "#2c1a0a", border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
+                Submit code in any programming language. Explanations are optional and the evaluator will assess correctness, edge cases, and complexity.
               </Alert>
             )}
 

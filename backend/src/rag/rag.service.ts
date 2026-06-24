@@ -11,6 +11,7 @@ import {
 } from 'src/common/utils/date.util';
 import { TaskGenerationService } from './task-generation.service';
 import { PerformanceService } from './performance.service';
+import { LearningTracksService } from 'src/learning-tracks/learning-tracks.service';
 
 @Injectable()
 export class RagService {
@@ -18,6 +19,7 @@ export class RagService {
   // Retries are allowed after 5 minutes so transient Gemini errors self-heal
   // on the user's next dashboard load without blocking them for the whole day.
   private readonly generationFailedAt = new Map<string, number>();
+  private readonly dailyTaskRequests = new Map<string, Promise<any>>();
   private readonly RETRY_AFTER_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(
@@ -35,6 +37,7 @@ export class RagService {
 
     private readonly taskGenerationService: TaskGenerationService,
     private readonly performanceService: PerformanceService,
+    private readonly learningTracksService: LearningTracksService,
   ) {}
 
   /** Clears the failure throttle for a user and immediately re-runs task generation. */
@@ -51,7 +54,31 @@ export class RagService {
     return user?.timezone || 'UTC';
   }
 
-  async getDailyTasks(userId: string, limit = 4) {
+  async getDailyTasks(userId: string, requestedLimit?: number) {
+    // One user can have only one daily-plan build in flight, even when two
+    // callers request different display limits during onboarding/navigation.
+    const requestKey = userId;
+    const activeRequest = this.dailyTaskRequests.get(requestKey);
+    if (activeRequest) return activeRequest;
+
+    const request = this.getDailyTasksInternal(userId, requestedLimit);
+    this.dailyTaskRequests.set(requestKey, request);
+    try {
+      return await request;
+    } finally {
+      if (this.dailyTaskRequests.get(requestKey) === request) {
+        this.dailyTaskRequests.delete(requestKey);
+      }
+    }
+  }
+
+  private async getDailyTasksInternal(userId: string, requestedLimit?: number) {
+    const currentTrack = await this.learningTracksService.getCurrent(userId);
+    let mix = await this.performanceService.getDifficultyMix(
+      userId,
+      requestedLimit,
+    );
+    let limit = mix.total;
     const timezone = await this.getUserTimezone(userId);
     const today = getTodayInTimezone(timezone);
 
@@ -60,12 +87,32 @@ export class RagService {
       select: ['id', 'name'],
     });
     const userName = user?.name || 'there';
+    let carriedPlan: UserDailyTask[] = [];
+
+    // Tasks created before learning tracks were introduced have no track_id.
+    // Adopt only the rows that fall inside the active track, preserving the
+    // user's already-generated questions and progress after an upgrade.
+    if (currentTrack) {
+      await this.userDailyRepo
+        .createQueryBuilder()
+        .update(UserDailyTask)
+        .set({ track_id: currentTrack.id })
+        .where('user_id = :userId', { userId })
+        .andWhere('track_id IS NULL')
+        .andWhere('DATE(task_date) >= :trackStart', {
+          trackStart: currentTrack.startDate,
+        })
+        .execute();
+    }
 
     // ── 1. Return today's plan if it already exists ──────────────────────────
-    const existingPlan = await this.userDailyRepo
+    const existingPlanQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
-      .andWhere('DATE(udt.task_date) = :today', { today })
+      .andWhere('DATE(udt.task_date) = :today', { today });
+    // A plan change applies to the next generated set. Today's questions stay
+    // stable even when they were created under the previously active track.
+    const existingPlan = await existingPlanQuery
       .orderBy('udt.created_at', 'ASC')
       .getMany();
 
@@ -80,18 +127,77 @@ export class RagService {
         canonicalPlan.push(row);
       }
 
-      const tasks = await this.fetchTasksFromDailyPlan(canonicalPlan);
-      return { userName, tasks: tasks.slice(0, limit) };
+      if (canonicalPlan.length >= 3) {
+        const tasks = await this.fetchTasksFromDailyPlan(canonicalPlan);
+        return { userName, tasks: tasks.slice(0, limit) };
+      }
+
+      // Repair a previously persisted undersized plan without repeating its tasks.
+      carriedPlan = canonicalPlan;
+      mix = await this.performanceService.getDifficultyMix(
+        userId,
+        Math.max(3, limit - canonicalPlan.length),
+      );
+      limit = mix.total;
+    }
+
+    if (currentTrack) {
+      const questionTarget =
+        currentTrack.questionTarget ??
+        currentTrack.roadmap.estimatedQuestionsMax ??
+        (currentTrack.durationMonths === 1
+          ? 100
+          : currentTrack.durationMonths === 3
+            ? 225
+            : 500);
+      const generatedSoFar = await this.userDailyRepo
+        .createQueryBuilder('udt')
+        .where('udt.user_id = :userId', { userId })
+        .andWhere('udt.track_id = :trackId', { trackId: currentTrack.id })
+        .getCount();
+      const remaining = Math.max(0, questionTarget - generatedSoFar);
+      if (remaining === 0) {
+        return {
+          userName,
+          performanceLevel: mix.performanceLevel,
+          trackComplete: true,
+          tasks: [],
+        };
+      }
+
+      const constrainedCount = this.constrainCountToQuota(limit, remaining);
+      if (constrainedCount !== limit) {
+        mix = await this.performanceService.getDifficultyMix(
+          userId,
+          constrainedCount,
+        );
+        limit = mix.total;
+      }
+    }
+
+    const curriculumContext = currentTrack
+      ? this.getCurriculumContext(currentTrack)
+      : undefined;
+    if (
+      curriculumContext &&
+      curriculumContext.week <= 2 &&
+      !['excelling', 'excellent'].includes(mix.performanceLevel) &&
+      mix.hard > 0
+    ) {
+      mix = {
+        ...mix,
+        easy: mix.easy + mix.hard,
+        hard: 0,
+      };
     }
 
     // ── 2. Determine difficulty mix based on past performance ────────────────
     // Deduplication of already-seen task titles is handled inside
     // TaskGenerationService via the user_seen_tasks table (title_key-based),
     // so no separate exclusion list is needed here.
-    const mix = await this.performanceService.getDifficultyMix(userId);
     console.log(`📊 Performance mix for ${userName}:`, mix);
 
-    // ── 3. Generate exactly 4 fresh tasks via LLM ────────────────────────────
+    // ── 3. Generate an adaptive 3–5 fresh tasks via LLM ─────────────────────
     // Seen-task history is fetched inside TaskGenerationService from the
     // user_seen_tasks table — no need to pass recentTitles from here.
     const lastFailedAt = this.generationFailedAt.get(userId);
@@ -106,19 +212,23 @@ export class RagService {
     const generated = await this.taskGenerationService.generateTasksForToday(
       userId,
       mix,
+      curriculumContext,
     );
 
     // ── 4. Race-condition guard: re-check before saving ───────────────────────
     // A concurrent call (e.g. onboarding fire-and-forget + dashboard load)
     // may have already saved today's plan while LLM was running.
-    const raceCheckPlan = await this.userDailyRepo
+    const raceCheckQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
-      .andWhere('DATE(udt.task_date) = :today', { today })
+      .andWhere('DATE(udt.task_date) = :today', { today });
+    // Do not scope this check to the current track: a user may have changed
+    // plans while today's already-generated set still belongs to the old one.
+    const raceCheckPlan = await raceCheckQuery
       .orderBy('udt.created_at', 'ASC')
       .getMany();
 
-    if (raceCheckPlan.length > 0) {
+    if (raceCheckPlan.length >= 3) {
       const seenTaskIds = new Set<number>();
       const canonicalPlan: UserDailyTask[] = [];
       for (const row of raceCheckPlan) {
@@ -135,7 +245,7 @@ export class RagService {
     if (generated.length === 0) {
       this.generationFailedAt.set(userId, Date.now());
       console.warn(
-        `⚠️ No tasks generated for ${userName} — all Gemini models failed. Will retry in ${this.RETRY_AFTER_MS / 60000} minutes.`,
+        `⚠️ No tasks generated for ${userName}. Will retry in ${this.RETRY_AFTER_MS / 60000} minutes.`,
       );
       return { userName, tasks: [] };
     }
@@ -150,16 +260,22 @@ export class RagService {
       this.userDailyRepo.create({
         user_id: userId,
         task_id: task.id,
+        track_id: currentTrack?.id ?? null,
         task_date: today,
         status: 'pending',
       }),
     );
     await this.userDailyRepo.save(dailyRows);
 
+    const carriedTasks =
+      carriedPlan.length > 0
+        ? await this.fetchTasksFromDailyPlan(carriedPlan)
+        : [];
+
     return {
       userName,
       performanceLevel: mix.performanceLevel,
-      tasks: generated.map((t) => ({
+      tasks: [...carriedTasks, ...generated.map((t) => ({
         id: t.id,
         title: t.title,
         description: t.description ?? null,
@@ -171,8 +287,41 @@ export class RagService {
         task_date: today,
         is_ai_generated: true,
         leetcodeUrl: t.leetcodeUrl ?? null,
-      })),
+      }))],
     };
+  }
+
+  private getCurriculumContext(track: NonNullable<Awaited<ReturnType<LearningTracksService['getCurrent']>>>) {
+    const start = new Date(`${track.startDate}T00:00:00Z`).getTime();
+    const elapsedWeeks = Math.max(
+      0,
+      Math.floor((Date.now() - start) / (7 * 24 * 60 * 60 * 1000)),
+    );
+    const week = Math.min(track.roadmap.totalWeeks, elapsedWeeks + 1);
+    const roadmapWeek =
+      track.roadmap.weeks.find((candidate) => candidate.week === week) ??
+      track.roadmap.weeks[track.roadmap.weeks.length - 1];
+
+    return {
+      durationMonths: track.durationMonths,
+      week,
+      totalWeeks: track.roadmap.totalWeeks,
+      phase: roadmapWeek.phase,
+      focus: roadmapWeek.focus,
+      milestone: roadmapWeek.milestone,
+    };
+  }
+
+  private constrainCountToQuota(preferred: number, remaining: number) {
+    const allowed = [3, 4, 5].filter(
+      (count) => remaining - count === 0 || remaining - count >= 3,
+    );
+    if (allowed.length === 0) return Math.min(preferred, remaining);
+    return allowed.reduce((closest, candidate) =>
+      Math.abs(candidate - preferred) < Math.abs(closest - preferred)
+        ? candidate
+        : closest,
+    );
   }
 
   private async fetchTasksFromDailyPlan(dailyTasks: UserDailyTask[]) {
@@ -201,16 +350,25 @@ export class RagService {
     const timezone = await this.getUserTimezone(userId);
     const today = getTodayInTimezone(timezone);
     const weekStartDate = getWeekStartInTimezone(timezone);
+    const currentTrack = await this.learningTracksService.getCurrent(userId);
 
-    const pending = await this.userDailyRepo
+    const pendingQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
       .andWhere('udt.status = :status', { status: 'pending' })
-      .andWhere('DATE(udt.task_date) >= :weekStart', {
+      .andWhere('DATE(udt.task_date) < :today', { today });
+    if (currentTrack) {
+      pendingQuery.andWhere('udt.track_id = :trackId', {
+        trackId: currentTrack.id,
+      });
+    } else {
+      pendingQuery.andWhere('DATE(udt.task_date) >= :weekStart', {
         weekStart: weekStartDate,
-      })
-      .andWhere('DATE(udt.task_date) < :today', { today })
+      });
+    }
+
+    const pending = await pendingQuery
       .select([
         'udt.id as "id"',
         'task.id as "taskId"',
@@ -222,6 +380,7 @@ export class RagService {
         'task.difficulty as "difficulty"',
       ])
       .orderBy('udt.task_date', 'ASC')
+      .limit(100)
       .getRawMany();
 
     return pending;

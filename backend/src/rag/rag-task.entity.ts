@@ -45,4 +45,13 @@ export class RagTask {
   // LeetCode URL for DSA category tasks (e.g. https://leetcode.com/problems/two-sum/)
   @Column({ type: 'text', nullable: true, default: null })
   leetcodeUrl: string | null;
+
+  @Column({ type: 'text', array: true, default: () => "'{}'" })
+  source_keywords: string[];
+
+  @Column({ type: 'text', nullable: true, default: null })
+  source_resume_point: string | null;
+
+  @Column({ type: 'text', nullable: true, default: null })
+  selection_reason: string | null;
 }
