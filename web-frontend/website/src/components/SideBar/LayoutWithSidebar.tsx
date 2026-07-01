@@ -29,11 +29,19 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
       <Sidebar isSidebarOpen={isSidebarOpen} onClose={handleClose} />
 
       <Box component="main" sx={{
-        flexGrow: 1,
-        p: 3,
-        bgcolor: "#ede8e0",
-        ml: !isMobile ? `${drawerWidth}px` : 0,
-        transition: "margin 0.3s ease",
+      flexGrow: 1,
+      p: { xs: 1.5, sm: 2, md: 3 },
+      width: "100%",
+      maxWidth: "100%",
+      overflowX: "hidden",
+      overflowY: "auto",
+      boxSizing: "border-box",
+      bgcolor: "#ede8e0",
+      ml: {
+            xs: 0,
+            md: `${drawerWidth}px`,
+       },
+      transition: "margin 0.3s ease",
       }}>
         {isMobile && (
           <IconButton onClick={handleToggle} sx={{

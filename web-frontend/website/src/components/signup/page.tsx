@@ -212,16 +212,16 @@ export default function SignupPage() {
 
         {/* MIDDLE — Welcome text + tagline */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "16px", py: 4 }}>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize:  { xs: 42, sm: 52, md: 72 } , fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
             Welcome to
           </Typography>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize:   { xs: 42, sm: 52, md: 72 } , fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
             Anchor
           </Typography>
-          <Typography sx={{ fontSize: 20, color: "#8c6a50", lineHeight: 1.6, maxWidth: 400 }}>
+          <Typography sx={{ fontSize:   { xs: 16, sm: 18, md: 20 }, color: "#8c6a50", lineHeight: 1.6, maxWidth: 400 }}>
             Your job search, organized.
           </Typography>
-          <Typography sx={{ fontSize: 14, color: "#2c1a0a", lineHeight: 1.6, maxWidth: 400 }}>
+          <Typography sx={{ fontSize:   { xs: 12, sm: 13, md: 14 } , color: "#2c1a0a", lineHeight: 1.6, maxWidth: 400 }}>
             Track applications, manage interviews, and stay consistent—without the overwhelm.
           </Typography>
         </Box>

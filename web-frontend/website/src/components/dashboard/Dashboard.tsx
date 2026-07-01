@@ -138,7 +138,7 @@ const Dashboard = () => {
           <>
             {/* ── HERO HEADER ── */}
             <Box sx={{
-              mb: 5, px: 4, py: 4, borderRadius: 4,
+              mb: 5, px:  4, py:  4, borderRadius: 4,
               background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
               border: "1px solid #e8ddd0",
               boxShadow: "0 10px 30px rgba(44,26,10,0.06)",
@@ -230,7 +230,7 @@ const Dashboard = () => {
               }}
                 onClick={() => { if (pendingTasks.length > 0) setOpenPendingModal(true); }}
               >
-                <CardContent sx={{ px: 4, py: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
+                <CardContent sx={{ px: 4, py:  3, display: "flex", flexDirection: "column", gap: 2.5 }}>
                   <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#a0622e", letterSpacing: ".08em" }}>
                     🎯 PENDING QUESTIONS
                   </Typography>

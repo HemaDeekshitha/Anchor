@@ -105,11 +105,13 @@ export default function LeetcodeProfileSidebar({
   return (
     <Card
       sx={{
-        width: { xs: "100%", lg: 360 },
+        width: "100%",
+        maxWidth: { xs: "100%", lg: 360 },
         minWidth: 0,
         flexShrink: 0,
+        boxSizing: "border-box",
         borderRadius: 3,
-        p: 3,
+        p: 3 ,
         overflow: "hidden",
         background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
         border: `1px solid ${C.divider}`,
@@ -120,12 +122,20 @@ export default function LeetcodeProfileSidebar({
       {/* PROFILE HEADER */}
       <Box>
         {/* Avatar + name row */}
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            alignItems: "center",
+            flexDirection: { xs: "column", sm: "row" },
+            textAlign: { xs: "center", sm: "left" },
+          }}
+        >
           <Avatar
             src={profile?.avatarUrl ?? undefined}
             sx={{
-              width: 80,
-              height: 80,
+              width:  { xs: 64, sm: 80 },
+              height: { xs: 64, sm: 80 },
               bgcolor: C.accentBg,
               color: C.accent,
               fontSize: 28,
@@ -138,6 +148,13 @@ export default function LeetcodeProfileSidebar({
           </Avatar>
           <Box>
             <Box
+               sx={{
+               flex: 1,
+               minWidth: 0,
+               width: "100%",
+           }}
+          ></Box>
+            <Box
               sx={{
                 display: "flex",
                 gap: 0,
@@ -148,14 +165,16 @@ export default function LeetcodeProfileSidebar({
               <Typography
                 sx={{
                   fontWeight: 700,
-                  fontSize: 20,
+                  fontSize: { xs: 18, sm: 20 },
                   color: C.textPrimary,
                   mb: -0.5,
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
                 }}
               >
                 {profile?.name || "Guest User"}
               </Typography>
-              <Typography sx={{ color: C.textSub, fontSize: 14 }}>
+              <Typography sx={{ color: C.textSub, fontSize: 14 , wordBreak: "break-word", overflowWrap:"anywhere"}}>
                 {profile?.email || "No email provided"}
               </Typography>
             </Box>
@@ -216,7 +235,7 @@ export default function LeetcodeProfileSidebar({
         >
           <Typography sx={{ color: C.textPrimary }}>Focus</Typography>
           <Typography sx={{ opacity: 0.4, color: C.textSub }}>|</Typography>
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1,flexWrap: "wrap",minWidth: 0, }}>
             {profile?.primaryFocus?.slice(0, 2).map((focus) => (
               <Chip
                 key={focus}
@@ -324,31 +343,31 @@ export default function LeetcodeProfileSidebar({
         Career Profile
       </Typography>
       <Stack spacing={1}>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap",}}>
           <Typography fontSize={13} sx={{ color: C.textSub }}>
             Status
           </Typography>
-          <Typography fontSize={14} sx={{ color: C.textPrimary }}>
+          <Typography fontSize={14} sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
             {profile?.status?.length
               ? profile.status.join(", ")
               : "No status set yet"}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap",}}>
           <Typography fontSize={13} sx={{ color: C.textSub }}>
             Seeking
           </Typography>
-          <Typography fontSize={14} sx={{ color: C.textPrimary }}>
+          <Typography fontSize={14} sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
             {profile?.employmentType?.length
               ? profile.employmentType.join(", ")
               : "Open to all opportunities"}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap",}}>
           <Typography fontSize={13} sx={{ color: C.textSub }}>
             Location
           </Typography>
-          <Typography fontSize={14} sx={{ color: C.textPrimary }}>
+          <Typography fontSize={14} sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
             {(profile as any)?.location || "Not specified"}
           </Typography>
         </Box>

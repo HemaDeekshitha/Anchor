@@ -455,8 +455,9 @@ export default function RewardsPage() {
           </Box>
           <Box sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
-            gap: 1.5,
+            gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(4, 1fr)",
+            lg: "repeat(6, 1fr)", },
+            gap: 1.5, md: 2,
           }}>
             {BADGES.map((badge) => (
               <BadgeCard key={badge.id} badge={badge} stats={stats} />
