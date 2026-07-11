@@ -25,10 +25,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/dashboard",           label: "My Plan",  icon: <ListTodo          size={22} /> },
-    { href: "/rewards",             label: "Rewards",  icon: <Trophy            size={22} /> },
-    { href: "/profile",             label: "Profile",  icon: <User              size={22} /> },
-    { href: "/application-tracker", label: "Jobs",     icon: <BriefcaseBusiness size={22} /> },
+    { href: "/dashboard",           label: "My Plan",  icon: <ListTodo          size={isMobile ? 22 : 26} /> },
+    { href: "/rewards",             label: "Rewards",  icon: <Trophy            size={isMobile ? 22 : 26} /> },
+    { href: "/profile",             label: "Profile",  icon: <User              size={isMobile ? 22 : 26} /> },
+    { href: "/application-tracker", label: "Jobs",     icon: <BriefcaseBusiness size={isMobile ? 22 : 26} /> },
   ];
 
   const handleLogOut = async () => {
@@ -57,20 +57,43 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
         {/* Brand */}
         <Box component={Link} href="/dashboard" sx={{
           display: "flex", alignItems: "center", gap: 1.5,
-          px: 3, py: 2.5,
-          fontSize: "1.6rem", fontWeight: 700,
+          px: 2.5, py: 2,
+          fontSize: {
+            xs: "1.4rem",
+            md: "1.7rem",
+            lg: "1.9rem",
+            xl: "2.1rem",
+          }, fontWeight: 700,
           color: "#2c1a0a", textDecoration: "none",
           fontFamily: "'Playfair Display', serif",
           "&:hover": { color: "#b87444" },
         }}>
-          <Box component="img" src="/assets/logo.png" alt="Anchor Logo" sx={{ width: 40, height: 40 }} />
+          <Box
+            component="img"
+            src="/assets/logo.png"
+            alt="Anchor Logo"
+            sx={{
+              width: {
+                xs: 40,
+                md: 46,
+                lg: 52,
+                xl: 58,
+              },
+              height: {
+                xs: 40,
+                md: 46,
+                lg: 52,
+                xl: 58,
+              },
+            }}
+          />
           Anchor
         </Box>
 
         <Divider sx={{ borderColor: "#e8ddd0" }} />
 
         {/* Navigation */}
-        <List sx={{ px: 2, mt: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
+        <List sx={{ px: 2, mt: 1, display: "flex", flexDirection: "column", gap: 0.2 }}>
           {navItems.map(({ href, label, icon }) => {
             const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
             return (
@@ -80,7 +103,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
                 href={href}
                 sx={{
                   borderRadius: 2,
-                  py: 1.8,
+                  py: {
+                    xs: 1.2,
+                    md: 1.4,
+                    lg: 1.6,
+                  },
                   color:   active ? "#b87444" : "#8c6a50",
                   bgcolor: active ? "#fdfaf7" : "transparent",
                   border:  active ? "1px solid #e8ddd0" : "1px solid transparent",
@@ -99,7 +126,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
                   primary={label}
                   primaryTypographyProps={{
                     fontWeight: active ? 700 : 500,
-                    fontSize: "1rem",
+                    fontSize: {
+                      xs: "0.95rem",
+                      md: "1rem",
+                      lg: "1.08rem",
+                      xl: "1.15rem",
+                    },
                   }}
                 />
               </ListItemButton>
@@ -109,7 +141,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
       </Box>
 
       {/* BOTTOM: Logout */}
-      <Box sx={{ px: 2, pb: 3 }}>
+      <Box sx={{ px: 2, pb: 2 }}>
         <Divider sx={{ borderColor: "#e8ddd0", mb: 2 }} />
         <Box
           onClick={handleLogOut}
@@ -135,12 +167,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
       onClose={onClose}
       ModalProps={{ keepMounted: true }}
       sx={{
+        width: drawerWidth,
+        flexShrink: 0,
         "& .MuiDrawer-paper": {
           width: drawerWidth,
-          borderRight: "1px solid #d4b898",
-          boxShadow: isMobile ? "4px 0 12px rgba(44,26,10,0.08)" : "none",
-          bgcolor: "#ffffff",
           boxSizing: "border-box",
+          borderRight: "1px solid #d4b898",
+          bgcolor: "#fff",
+          boxShadow: isMobile ? "4px 0 12px rgba(44,26,10,0.08)" : "none",
         },
       }}
     >

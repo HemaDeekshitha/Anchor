@@ -1,5 +1,5 @@
 "use client";
-
+import PageContainer from "@/components/PageContainer";
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Box,
@@ -14,6 +14,9 @@ import {
 } from "@mui/material";
 import { Zap, Trophy, Flame, CheckCircle, Clock, Lock, ChevronDown, ChevronUp, Star } from "lucide-react";
 import { api, PointsSummary, PointsEntry } from "@/lib/api";
+import { FONT } from "@/lib/typography";
+import { SPACE } from "@/lib/spacing";
+import { SIZE } from "@/lib/sizes";
 
 // ── Badge definitions ────────────────────────────────────────────────────────
 
@@ -140,24 +143,34 @@ function StatCard({
 }) {
   return (
     <Card sx={{
-      flex: 1, minWidth: 0,
+      width: "100%", minWidth: 0, maxWidth: "100%", height: "160px",
       background: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})`,
       color: "#fff",
       boxShadow: "0 4px 14px rgba(44,26,10,0.10)",
       border: "none",
+      borderRadius: 3,
     }}>
-      <CardContent sx={{ pb: "16px !important" }}>
+      <CardContent
+        sx={{
+          padding: { xs: 2, md: 2.3 },
+        }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1, opacity: 0.85 }}>
           {icon}
           <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>
             {label}
           </Typography>
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
+        <Typography variant="h5" sx={{ fontSize: { xs: "2rem", md: "2.3rem" }, fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
           {value}
         </Typography>
         {sub && (
-          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)", display: "block", mt: 0.25 }}>
+          <Typography
+            sx={{
+              fontSize: "0.78rem",
+              color: "rgba(255,255,255,0.75)",
+              display: "block",
+              mt: 0.25,
+            }}>
             {sub}
           </Typography>
         )}
@@ -182,12 +195,12 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
         boxShadow: unlocked ? "0 8px 24px rgba(184,116,68,0.25)" : "0 4px 12px rgba(44,26,10,0.08)",
       },
     }}>
-      <CardContent sx={{ textAlign: "center", py: 2.5, pb: "20px !important" }}>
+      <CardContent sx={{ textAlign: "center", padding: 2, pb: "20px !important" }}>
         <Box sx={{
-          width: 52, height: 52, borderRadius: "50%",
+          width: 50, height: 50, borderRadius: "50%",
           bgcolor: unlocked ? "#f5ede0" : "#f5ede0",
           display: "flex", alignItems: "center", justifyContent: "center",
-          mx: "auto", mb: 1.25, fontSize: "1.6rem",
+          mx: "auto", mb: 0.8, fontSize: "1.3rem",
         }}>
           {unlocked ? badge.emoji : <Lock size={20} color="#b8a090" />}
         </Box>
@@ -195,7 +208,7 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: unlocked ? "#b87444" : "#8c6a50", mb: 0.5 }}>
           {badge.title}
         </Typography>
-        <Typography variant="caption" sx={{ display: "block", mb: 1.25, lineHeight: 1.4, color: "#8c6a50" }}>
+        <Typography variant="caption" sx={{ display: "block", mb: 0.8, lineHeight: 1.4, color: "#8c6a50" }}>
           {badge.desc}
         </Typography>
 
@@ -206,7 +219,7 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
             icon={<CheckCircle size={11} />}
             sx={{
               bgcolor: "#f5ede0", color: "#b87444", fontWeight: 700,
-              fontSize: "0.65rem", height: 22,
+              fontSize: "clamp(10px,0.8vw,12px)", height: 22,
               "& .MuiChip-icon": { color: "#b87444", ml: "5px" },
             }}
           />
@@ -221,7 +234,7 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
                 "& .MuiLinearProgress-bar": { borderRadius: 3, bgcolor: "#b87444" },
               }}
             />
-            <Typography variant="caption" sx={{ color: "#8c6a50", fontSize: "0.65rem" }}>
+            <Typography variant="caption" sx={{ color: "#8c6a50", fontSize: "clamp(10px,0.8vw,12px)" }}>
               {value} / {max}
             </Typography>
           </Box>
@@ -296,14 +309,22 @@ export default function RewardsPage() {
   const unlockedBadges = BADGES.filter((b) => b.unlocked(stats)).length;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, md: 3 } }}>
+    <PageContainer>
+        
 
       {/* ── Hero banner ── */}
       <Box sx={{
         background: "linear-gradient(135deg, #b87444 0%, #a0622e 60%, #2c1a0a 100%)",
         borderRadius: 3,
-        p: { xs: 2.5, md: 4 },
-        mb: 3, color: "#fff",
+        px: {
+          xs: 2,
+          md: 3,
+        },
+        py: {
+          xs: 2,
+          md: 3,
+        },
+        mb: 2.5, color: "#fff",
         position: "relative", overflow: "hidden",
       }}>
         <Box sx={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, borderRadius: "50%", bgcolor: "rgba(255,255,255,0.06)" }} />
@@ -313,23 +334,23 @@ export default function RewardsPage() {
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 0.75 }}>
               <Trophy size={26} color="#f5ede0" fill="#f5ede0" />
-              <Typography variant="h5" sx={{ fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
+              <Typography sx={{ fontSize: { xs: "2rem", md: "2.4rem" }, fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
                 Rewards
               </Typography>
             </Box>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.75)", maxWidth: 420 }}>
+            <Typography variant="body2" sx={{ fontSize: FONT.sm, color: "rgba(255,255,255,0.75)", maxWidth: 420 }}>
               Complete daily tasks to earn Anchor Points. Build streaks, unlock badges, and convert points into 360 Points.
             </Typography>
           </Box>
 
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <Box sx={{ textAlign: "center", bgcolor: "rgba(255,255,255,0.12)", borderRadius: 2, px: 2.5, py: 1.5 }}>
+          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+            <Box sx={{ textAlign: "center", bgcolor: "rgba(255,255,255,0.12)", borderRadius: 2, px: 2, py: 1.1 }}>
               <Typography variant="h4" sx={{ fontWeight: 800, color: "#f5ede0", lineHeight: 1 }}>
                 {unlockedBadges}
               </Typography>
               <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>badges</Typography>
             </Box>
-            <Box sx={{ textAlign: "center", bgcolor: "rgba(255,255,255,0.12)", borderRadius: 2, px: 2.5, py: 1.5 }}>
+            <Box sx={{ textAlign: "center", bgcolor: "rgba(255,255,255,0.12)", borderRadius: 2, px: 2, py: 1.1 }}>
               <Typography variant="h4" sx={{ fontWeight: 800, color: "#f5ede0", lineHeight: 1 }}>
                 {stats.currentStreak}
               </Typography>
@@ -342,8 +363,9 @@ export default function RewardsPage() {
       {/* ── Stat cards ── */}
       <Box sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" },
-        gap: 2, mb: 3,
+        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
+        width: "100%",
+        gap: {xs: 2,md: 3,}, mb: 2,
       }}>
         <StatCard
           icon={<Zap size={15} color="rgba(255,255,255,0.9)" fill="rgba(255,255,255,0.9)" />}
@@ -381,12 +403,13 @@ export default function RewardsPage() {
 
       {/* ── Progress to 360 ── */}
       <Card sx={{
-        mb: 3,
+        mb: 2,
         border: canConvert ? "1.5px solid #b87444" : "1px solid #e8ddd0",
         boxShadow: canConvert ? "0 0 0 3px rgba(184,116,68,0.15)" : "0 1px 4px rgba(44,26,10,0.06)",
         background: "#ffffff",
+        borderRadius: 3,
       }}>
-        <CardContent sx={{ p: { xs: 2, md: 2.5 }, pb: "20px !important" }}>
+        <CardContent sx={{ padding: { xs: 2,sm: 2.5, md: 3,lg: 3.5,xl:4 }, pb: "20px !important" }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.25, flexWrap: "wrap", gap: 1 }}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2c1a0a", lineHeight: 1.3, fontFamily: "'Playfair Display', serif" }}>
@@ -404,7 +427,7 @@ export default function RewardsPage() {
             variant="determinate"
             value={progressPercent}
             sx={{
-              height: 12, borderRadius: 6,
+              height: 8, borderRadius: 3,
               bgcolor: "#f5ede0", mb: 1.5,
               "& .MuiLinearProgress-bar": {
                 borderRadius: 6,
@@ -424,7 +447,7 @@ export default function RewardsPage() {
             disabled={!canConvert || isConverting}
             onClick={handleConvert}
             sx={{
-              textTransform: "none", fontWeight: 700, borderRadius: 2, px: 3,
+              textTransform: "none", fontWeight: 700, borderRadius: 3, height: 42, fontSize: FONT.md, px: 3,
               ...(canConvert
                 ? { bgcolor: "#b87444", "&:hover": { bgcolor: "#a0622e" }, color: "#fff", boxShadow: "0 4px 12px rgba(184,116,68,0.30)" }
                 : { borderColor: "#e8ddd0", color: "#b8a090" }),
@@ -436,8 +459,8 @@ export default function RewardsPage() {
       </Card>
 
       {/* ── Badges ── */}
-      <Card sx={{ mb: 3, boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: "1px solid #e8ddd0", background: "#ffffff" }}>
-        <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+      <Card sx={{ mb: 2, boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: "1px solid #e8ddd0", background: "#ffffff", borderRadius: 3 }}>
+        <CardContent sx={{ padding: { xs: 2,md: 2.5, lg: 3, }}}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
               Badges
@@ -448,7 +471,7 @@ export default function RewardsPage() {
               sx={{
                 bgcolor: unlockedBadges > 0 ? "#f5ede0" : "#f5ede0",
                 color: unlockedBadges > 0 ? "#b87444" : "#8c6a50",
-                fontWeight: 600, fontSize: "0.7rem", height: 22,
+                fontWeight: 600, fontSize: FONT.sm, height: 22,
                 border: "1px solid #e8ddd0",
               }}
             />
@@ -456,8 +479,8 @@ export default function RewardsPage() {
           <Box sx={{
             display: "grid",
             gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(4, 1fr)",
-            lg: "repeat(6, 1fr)", },
-            gap: 1.5, md: 2,
+            lg: "repeat(6, minmax(140px, 1fr))", },
+            gap: 1.2,
           }}>
             {BADGES.map((badge) => (
               <BadgeCard key={badge.id} badge={badge} stats={stats} />
@@ -467,8 +490,8 @@ export default function RewardsPage() {
       </Card>
 
       {/* ── Recent Activity ── */}
-      <Card sx={{ boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: "1px solid #e8ddd0", background: "#ffffff" }}>
-        <CardContent sx={{ p: { xs: 2, md: 2.5 }, pb: activityOpen ? undefined : "16px !important" }}>
+      <Card sx={{ boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: "1px solid #e8ddd0", background: "#ffffff", borderRadius: 3 }}>
+        <CardContent sx={{ padding: { xs: 2,  md: 2.5, lg:3 }, pb: activityOpen ? undefined : "16px !important" }}>
           <Box
             onClick={() => setActivityOpen((v) => !v)}
             sx={{
@@ -485,7 +508,7 @@ export default function RewardsPage() {
                 <Chip
                   label={`${history.length} entries`}
                   size="small"
-                  sx={{ fontSize: "0.65rem", height: 20, bgcolor: "#f5ede0", color: "#8c6a50", border: "1px solid #e8ddd0" }}
+                  sx={{ fontSize: "clamp(10px,0.8vw,12px)", height: 20, bgcolor: "#f5ede0", color: "#8c6a50", border: "1px solid #e8ddd0" }}
                 />
               )}
               {activityOpen
@@ -512,7 +535,7 @@ export default function RewardsPage() {
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
                   <Box sx={{
-                    width: 32, height: 32, borderRadius: "50%",
+                    width: "clamp(30px,2vw,40px)", height: "clamp(30px,2vw,40px)", borderRadius: "50%",
                     bgcolor: entry.type === "task_earned" ? "#f5ede0" : "#ede8e0",
                     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   }}>
@@ -526,7 +549,7 @@ export default function RewardsPage() {
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
                       <Clock size={10} color="#b8a090" />
-                      <Typography variant="caption" sx={{ color: "#b8a090", fontSize: "0.65rem" }}>
+                      <Typography variant="caption" sx={{ color: "#b8a090", fontSize: "clamp(10px,0.8vw,12px)" }}>
                         {formatDate(entry.createdAt)}
                       </Typography>
                     </Box>
@@ -536,7 +559,7 @@ export default function RewardsPage() {
                   label={`${entry.amount > 0 ? "+" : ""}${entry.amount} AP`}
                   size="small"
                   sx={{
-                    fontWeight: 700, fontSize: "0.7rem", height: 22,
+                    fontWeight: 700, fontSize: FONT.sm, height: 22,
                     bgcolor: entry.amount > 0 ? "#f5ede0" : "#fef2f2",
                     color: entry.amount > 0 ? "#b87444" : "#a0622e",
                     border: `1px solid ${entry.amount > 0 ? "#e8ddd0" : "#fca5a5"}`,
@@ -546,7 +569,8 @@ export default function RewardsPage() {
             );
 
             const Column = ({
-              title, icon, entries, emptyMsg, accentColor, bgColor,
+              title, icon, entries, 
+              emptyMsg, accentColor, bgColor,
             }: {
               title: string;
               icon: React.ReactNode;
@@ -558,7 +582,7 @@ export default function RewardsPage() {
               <Box sx={{ flex: 1, minWidth: 0, border: "1px solid #e8ddd0", borderRadius: 2, overflow: "hidden" }}>
                 <Box sx={{
                   display: "flex", alignItems: "center", gap: 0.75,
-                  px: 1.5, py: 1, bgcolor: bgColor, borderBottom: "1px solid #e8ddd0",
+                  px: {xs:1.5, md:2} ,py: {xs:1, md: 1.25}, bgcolor: bgColor, borderBottom: "1px solid #e8ddd0",
                 }}>
                   {icon}
                   <Typography variant="caption" sx={{ fontWeight: 700, color: accentColor }}>
@@ -567,7 +591,7 @@ export default function RewardsPage() {
                   <Chip
                     label={entries.length}
                     size="small"
-                    sx={{ ml: "auto", height: 18, fontSize: "0.6rem", bgcolor: "rgba(44,26,10,0.06)", color: accentColor, fontWeight: 700 }}
+                    sx={{ ml: "auto", height: 18, fontSize: "clamp(10px,0.8vw,12px)", bgcolor: "rgba(44,26,10,0.06)", color: accentColor, fontWeight: 700 }}
                   />
                 </Box>
                 {entries.length === 0 ? (
@@ -575,7 +599,7 @@ export default function RewardsPage() {
                     <Typography variant="caption" sx={{ color: "#b8a090" }}>{emptyMsg}</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ px: 1.5, maxHeight: 320, overflowY: "auto" }}>
+                  <Box sx={{ px:{ xs: 1.5, md: 2,}, maxHeight: 260, overflowY: "auto" }}>
                     {entries.map((entry, i) => (
                       <Box key={entry.id}>
                         <EntryRow entry={entry} />
@@ -611,6 +635,6 @@ export default function RewardsPage() {
         </CardContent>
       </Card>
 
-    </Box>
+    </PageContainer>
   );
 }

@@ -186,25 +186,25 @@ export default function Profile() {
       <Box
         sx={{
           width: "100%",
-          maxWidth: "100%",
           display: "flex",
-          justifyContent: "center",
-          px: { xs: 1, sm: 2, md: 3 },
-          py: { xs: 2, md: 3 },
+          justifyContent: "flex-start",
+          px: 0,
+          py: 2,
+          ml: 0,
+          background: "#ede8e0",
           overflowX: "hidden",
           boxSizing: "border-box",
-          background: "#ede8e0",
           color: "#2c1a0a",
         }}
       >
         <Box
           sx={{
             width: "100%",
-            maxWidth: 1400,
+            maxWidth: "100%",
             display: "flex",
             flexDirection: { xs: "column", lg: "row" },
             alignItems: "stretch",
-            gap: { xs: 2, lg: 3 },
+            gap: 2,
             minWidth: 0,
             overflowX: "hidden",
           }}
