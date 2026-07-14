@@ -187,26 +187,20 @@ export default function Profile() {
         sx={{
           width: "100%",
           display: "flex",
-          justifyContent: "flex-start",
-          px: 0,
-          py: 2,
-          ml: 0,
+          justifyContent: "center",
+          // px: { xs: 2, md: 3 }, py: 3,
           background: "#ede8e0",
-          overflowX: "hidden",
-          boxSizing: "border-box",
           color: "#2c1a0a",
         }}
       >
         <Box
           sx={{
             width: "100%",
-            maxWidth: "100%",
+            maxWidth: 1400,
             display: "flex",
-            flexDirection: { xs: "column", lg: "row" },
-            alignItems: "stretch",
             gap: 2,
-            minWidth: 0,
-            overflowX: "hidden",
+            flexDirection: { xs: "column", lg: "row" },
+            alignItems: "flex-start",
           }}
         >
           <LeetcodeProfileSidebar

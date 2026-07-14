@@ -1131,7 +1131,7 @@ export default function Steps() {
                       sx={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: "clamp(12px,1vw,24px)",
+                        gap: "16px",
                       }}
                     >
                       <FieldLabel>Select Options</FieldLabel>

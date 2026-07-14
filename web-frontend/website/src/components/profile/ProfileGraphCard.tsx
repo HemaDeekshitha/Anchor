@@ -107,7 +107,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         sx={{
           color: C.textPrimary,
           fontWeight: 700,
-          fontSize: "clamp(15px, 1vw, 18px)",
+          fontSize: 15,
           mb: 1.25,
           fontFamily: "'Playfair Display', serif",
         }}
@@ -126,10 +126,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             justifyContent="space-between"
             alignItems="center"
           >
-            <Typography sx={{ color, fontSize: "clamp(13px, 0.85vw, 15px)", fontWeight: 600 }}>
+            <Typography sx={{ color, fontSize: 13, fontWeight: 600 }}>
               {label}
             </Typography>
-            <Typography sx={{ color: C.textSub, fontSize: "clamp(13px, 0.85vw, 15px)" }}>
+            <Typography sx={{ color: C.textSub, fontSize: 13 }}>
               {data[key]}
             </Typography>
           </Stack>
@@ -160,7 +160,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         />
       </Stack> */}
       <Typography
-        sx={{ mt: 1.5, fontSize: "clamp(13px, 0.85vw, 15px)", fontWeight: 600, color: C.accent }}
+        sx={{ mt: 1.5, fontSize: 12, fontWeight: 600, color: C.accent }}
       >
         🔥 +{data.streak} Momentum Streak
       </Typography>
@@ -238,8 +238,8 @@ function EmptyState({ period }: { period: string }) {
 
       <Box
         sx={{
-          width: "clamp(48px, 3vw, 60px)",
-          height: "clamp(48px, 3vw, 60px)",
+          width: 48,
+          height: 48,
           borderRadius: "50%",
           background: C.accentBg,
           border: `1px solid ${C.accentBorder}`,
@@ -250,14 +250,14 @@ function EmptyState({ period }: { period: string }) {
           zIndex: 1,
         }}
       >
-        <BoltRoundedIcon sx={{ color: C.accent, fontSize: "clamp(22px, 1.5vw, 28px)" }} />
+        <BoltRoundedIcon sx={{ color: C.accent, fontSize: 22 }} />
       </Box>
 
       <Typography
         sx={{
           color: C.textPrimary,
           fontWeight: 600,
-          fontSize: "clamp(15px, 1.2vw, 20px)",
+          fontSize: 15,
           zIndex: 1,
           textAlign: "center",
         }}
@@ -267,7 +267,7 @@ function EmptyState({ period }: { period: string }) {
       <Typography
         sx={{
           color: C.textSub,
-          fontSize: "clamp(13px, 0.9vw, 16px)",
+          fontSize: 13,
           textAlign: "center",
           maxWidth: 320,
           lineHeight: 1.6,
@@ -320,8 +320,8 @@ export default function MomentumGraphCard({
     <Box
       sx={{
         // width: "100%",
-        borderRadius: "clamp(16px, 1vw, 22px)",
-        padding: "clamp(20px, 2vw, 34px)",
+        borderRadius: 4,
+        p: { xs: 2, sm: 3 },
         overflow: "hidden",
         position: "relative",
         background: C.cardBg,
@@ -346,14 +346,14 @@ export default function MomentumGraphCard({
             sx={{
               color: C.accent,
               fontWeight: 700,
-              fontSize: "clamp(22px, 1.5vw, 32px)",
+              fontSize: { xs: 20, sm: 24 },
               letterSpacing: "-0.02em",
               fontFamily: "'Playfair Display', serif",
             }}
           >
             {selected?.title}
           </Typography>
-          <Typography sx={{ color: C.textSub, fontSize: "clamp(13px, 0.9vw, 16px)", mt: 0.5 }}>
+          <Typography sx={{ color: C.textSub, fontSize: 13, mt: 0.5 }}>
             Track your consistency across tasks, coding, and applications
           </Typography>
         </Box>
@@ -363,14 +363,14 @@ export default function MomentumGraphCard({
           endIcon={<KeyboardArrowDownRoundedIcon sx={{ color: C.textSub }} />}
           sx={{
             alignSelf: { xs: "flex-start", sm: "auto" },
-            minWidth: "clamp(150px, 10vw, 190px)",
+            minWidth: 148,
             justifyContent: "space-between",
             textTransform: "none",
-            paddingInline: "clamp(16px, 1.2vw, 24px)",
-            paddingBlock: "clamp(10px, 0.8vw, 14px)",
+            px: 2.25,
+            py: 1.2,
             borderRadius: 2.5,
             color: C.textPrimary,
-            fontSize: "clamp(14px, 0.9vw, 16px)",
+            fontSize: 14,
             fontWeight: 600,
             background: C.accentBg,
             border: `1px solid ${C.accentBorder}`,
@@ -429,7 +429,7 @@ export default function MomentumGraphCard({
       </Box>
 
       {/* GRAPH */}
-      <Box sx={{ width: "100%", height: "clamp(260px, 32vw, 430px)" }}>
+      <Box sx={{ width: "100%", height: { xs: 230, sm: 280, md: 320 } }}>
         {data.length === 0 ||
         data.every(
           (d) =>
@@ -470,13 +470,13 @@ export default function MomentumGraphCard({
                 axisLine={false}
                 tickLine={false}
                 padding={{ left: 4, right: 8 }}
-                tick={{ fill: C.textMuted, fontSize: 13, fontWeight: 500 }}
+                tick={{ fill: C.textMuted, fontSize: 12, fontWeight: 500 }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
                 width={34}
-                tick={{ fill: C.textMuted, fontSize: 13, fontWeight: 500 }}
+                tick={{ fill: C.textMuted, fontSize: 12, fontWeight: 500 }}
               />
 
               <Tooltip

@@ -23,9 +23,6 @@ import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownR
 import UnfoldMoreRoundedIcon from "@mui/icons-material/UnfoldMoreRounded";
 import Tooltip from "@mui/material/Tooltip";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
-import { FONT } from "@/lib/typography";
-import { SPACE } from "@/lib/spacing";
-import { SIZE } from "@/lib/sizes";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 import { useRouter } from "next/navigation";
@@ -499,17 +496,10 @@ export default function AllSubmissions() {
   return (
     <LayoutWithSidebar>
       <Box sx={{ width: "100%" }}>
-        <Box
-          sx={{
-            maxWidth: "clamp(1100px, 92vw, 1700px)",
-            width: "100%",
-            mx: "auto",
-            px: { xs: 2, md: 3, lg: 4 },
-          }}
-        >
+        <Box sx={{ maxWidth: 1200, mx: "auto" }}>
           <Card
             sx={{
-              borderRadius: SIZE.radius,
+              borderRadius: 3,
               boxShadow: "0 4px 20px rgba(44,26,10,0.07)",
               border: `1px solid ${C.accentFaint}`,
               overflow: "hidden",
@@ -526,7 +516,7 @@ export default function AllSubmissions() {
                   flexDirection: "column",
                   justifyContent: "center",
                   alignItems: "center",
-                  minHeight: "clamp(420px,55vh,700px)",
+                  minHeight: 460,
                   gap: 2,
                 }}
               >
@@ -541,12 +531,12 @@ export default function AllSubmissions() {
               <>
                 <CardHeader
                   sx={{
-                    px: SPACE.lg,
-                    pt: SPACE.md,
-                    pb: SPACE.sm,
+                    px: 3,
+                    pt: 2.5,
+                    pb: 1,
                     "& .MuiCardHeader-title": {
                       fontWeight: 700,
-                      fontSize: FONT.lg,
+                      fontSize: "1.15rem",
                       fontFamily: "'Playfair Display', serif",
                       background: C.accentGrad,
                       WebkitBackgroundClip: "text",
@@ -554,7 +544,7 @@ export default function AllSubmissions() {
                       backgroundClip: "text",
                     },
                     "& .MuiCardHeader-subheader": {
-                      fontSize: FONT.sm,
+                      fontSize: "0.85rem",
                       color: C.textSub,
                     },
                   }}
@@ -594,10 +584,7 @@ export default function AllSubmissions() {
                   <Box
                     sx={{
                       display: "grid",
-                      gridTemplateColumns: {
-                        xs: "1fr",
-                        lg: "1fr clamp(280px,22vw,360px)",
-                      },
+                      gridTemplateColumns: { xs: "1fr", lg: "1fr 310px" },
                       gridTemplateRows: { xs: "auto auto", lg: "1fr" },
                       minHeight: 480,
                     }}
@@ -605,7 +592,7 @@ export default function AllSubmissions() {
                     {/* LEFT — table */}
                     <Box
                       sx={{
-                        overflowX: "auto",
+                        overflowX: "scroll",
                         borderRight: {
                           xs: "none",
                           lg: `1px solid ${C.divider}`,
@@ -623,8 +610,8 @@ export default function AllSubmissions() {
                           display: "grid",
                           gridTemplateColumns: GRID_COLS,
                           alignItems: "center",
-                          paddingInline: SPACE.lg,
-                          paddingBlock: SPACE.sm,
+                          px: 3,
+                          py: 1.2,
                           bgcolor: C.surface,
                           borderBottom: `2px solid ${C.divider}`,
                           position: "sticky",
@@ -705,7 +692,7 @@ export default function AllSubmissions() {
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 1.2,
-                                    paddingInline: SPACE.lg,
+                                    px: 3,
                                     pt: mIdx === 0 ? 1.5 : 1.2,
                                     pb: 0.6,
                                   }}
@@ -729,7 +716,7 @@ export default function AllSubmissions() {
                                   />
                                   <Typography
                                     sx={{
-                                      fontSize: FONT.sm,
+                                      fontSize: "0.72rem",
                                       color: C.textHint,
                                     }}
                                   >
@@ -746,8 +733,8 @@ export default function AllSubmissions() {
                                         display: "grid",
                                         gridTemplateColumns: GRID_COLS,
                                         alignItems: "center",
-                                        paddingInline: SPACE.lg,
-                                        paddingBlock: SPACE.md,
+                                        px: 3,
+                                        py: 1.4,
                                         transition: "background 0.15s",
                                         bgcolor:
                                           idx % 2 === 0
@@ -758,7 +745,7 @@ export default function AllSubmissions() {
                                           bgcolor: C.accentBg,
                                           "& .row-title": { color: C.accent },
                                         },
-                                        minWidth: { xs: 600, lg: 900 },
+                                        minWidth: 600,
                                       }}
                                     >
                                       <Tooltip
@@ -813,7 +800,7 @@ export default function AllSubmissions() {
                                             size="small"
                                             sx={{
                                               height: 22,
-                                              fontSize: FONT.sm,
+                                              fontSize: "0.68rem",
                                               fontWeight: 700,
                                               bgcolor: getCategoryColor(
                                                 item.category
@@ -891,7 +878,7 @@ export default function AllSubmissions() {
                                     </Box>
                                     {idx < grouped[month].length - 1 && (
                                       <Divider
-                                        sx={{ mx: SPACE.lg, borderColor: C.divider }}
+                                        sx={{ mx: 3, borderColor: C.divider }}
                                       />
                                     )}
                                   </React.Fragment>
@@ -917,7 +904,8 @@ export default function AllSubmissions() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            padding: SPACE.md,
+                            px: 3,
+                            py: 1.5,
                             borderTop: `1px solid ${C.divider}`,
                           }}
                         >
@@ -1024,7 +1012,9 @@ export default function AllSubmissions() {
                     {/* RIGHT — calendar */}
                     <Box
                       sx={{
-                        padding: SPACE.lg,
+                        px: 2.5,
+                        pt: { xs: 2.5, lg: 3 },
+                        pb: 2.5,
                         bgcolor: C.surface,
                         gridRow: { xs: 1, lg: "auto" },
                         order: { xs: -1, lg: 0 },

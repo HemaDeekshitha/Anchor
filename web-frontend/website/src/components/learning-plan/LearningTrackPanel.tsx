@@ -180,7 +180,7 @@ export default function LearningTrackPanel() {
                   size="small"
                   sx={{ mb: 1.5, color: "#fff", bgcolor: "rgba(255,255,255,.16)" }}
                 />
-                <Typography sx={{ fontSize: "clamp(1.6rem, 2vw, 2rem)", fontWeight: 800 }}>
+                <Typography sx={{ fontSize: 25, fontWeight: 800 }}>
                   {track.targetRole} Roadmap
                 </Typography>
                 <Typography sx={{ mt: 0.6, color: "rgba(255,255,255,.78)" }}>
@@ -218,7 +218,7 @@ export default function LearningTrackPanel() {
         >
           <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <Box>
-              <Typography sx={{ fontSize: "clamp(1.5rem,1.8vw,1.9rem)", fontWeight: 800 }}>
+              <Typography sx={{ fontSize: 23, fontWeight: 800 }}>
                 {track.targetRole} roadmap
               </Typography>
               <Typography sx={{ fontSize: 13, color: "#8c6a50" }}>
@@ -261,7 +261,7 @@ export default function LearningTrackPanel() {
     <Box sx={{ mb: 4 }}>
       <Box sx={{ mb: 2.5 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Typography sx={{ fontSize: "clamp(1.8rem,2.2vw,2.4rem)", fontWeight: 800, color: "#2c1a0a" }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 800, color: "#2c1a0a" }}>
             Choose your interview learning track
           </Typography>
           {track && changingPlan && (
@@ -298,7 +298,7 @@ export default function LearningTrackPanel() {
                   sx={{ position: "absolute", top: -13, right: 18, bgcolor: accent, color: "#fff" }}
                 />
               )}
-              <CardContent sx={{ p: { xs: 2, small : 2.5, md: 3 , lg:3.5, xl:4 }, }}>
+              <CardContent sx={{ p: 3 }}>
                 <Typography sx={{ color: accent, fontWeight: 800, fontSize: 13, letterSpacing: ".08em" }}>
                   {option.durationMonths} MONTH{option.durationMonths > 1 ? "S" : ""}
                 </Typography>

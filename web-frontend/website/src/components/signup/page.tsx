@@ -1,7 +1,5 @@
 "use client";
-import { FONT } from "@/lib/typography";
-import { SPACE } from "@/lib/spacing";
-import { SIZE } from "@/lib/sizes";
+
 import { useState } from "react";
 import Image from "next/image";
 import {
@@ -149,17 +147,14 @@ export default function SignupPage() {
     "& .MuiInputLabel-root.Mui-focused": { color: "#b87444" },
     "& .MuiInputLabel-root.Mui-error": { color: "#b45309" },
     "& .MuiOutlinedInput-root": {
-      height: "clamp(46px,3vw,60px)",
       borderRadius: "10px",
       "& fieldset": { borderColor: "#e8ddd0" },
       "&:hover fieldset": { borderColor: "#b87444" },
       "&.Mui-focused fieldset": { borderColor: "#b87444", borderWidth: 1 },
       "& .MuiOutlinedInput-input": {
-        fontSize: FONT.md,
         "&:-webkit-autofill": {
           WebkitBoxShadow: "0 0 0 1000px #fdfaf7 inset",
           WebkitTextFillColor: "#2c1a0a",
-
           caretColor: "#2c1a0a",
         },
         "&:-webkit-autofill:hover": {
@@ -187,7 +182,7 @@ export default function SignupPage() {
         sx={{
           background: "#f5ede0",
           borderRight: "1px solid #e8ddd0",
-          padding: "clamp(32px,4vw,96px)",
+          padding: "80px 80px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -197,9 +192,9 @@ export default function SignupPage() {
         <Box sx={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <Box
             sx={{
-              width: "clamp(36px,2vw,52px)", height: "clamp(36px,2vw,52px)",
+              width: 36, height: 36,
               background: "#b87444",
-              borderRadius: "clamp(9px,0.8vw,14px)",
+              borderRadius: "9px",
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
             }}
@@ -210,23 +205,23 @@ export default function SignupPage() {
               <rect x="3" y="4" width="14" height="2.5" rx="1.2" fill="white" opacity="0.4" />
             </svg>
           </Box>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: FONT.xl, color: "#2c1a0a", fontWeight: 400 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 40, color: "#2c1a0a", fontWeight: 400 }}>
             Anchor
           </Typography>
         </Box>
 
         {/* MIDDLE — Welcome text + tagline */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: SPACE.md, py: 4 }}>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize:  FONT.hero , fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "16px", py: 4 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
             Welcome to
           </Typography>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize:   FONT.hero , fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
             Anchor
           </Typography>
-          <Typography sx={{ fontSize:  FONT.lg, color: "#8c6a50", lineHeight: 1.6, maxWidth: "clamp(400px,25vw,600px)",}}>
+          <Typography sx={{ fontSize: 20, color: "#8c6a50", lineHeight: 1.6, maxWidth: 400 }}>
             Your job search, organized.
           </Typography>
-          <Typography sx={{ fontSize:   FONT.md, color: "#2c1a0a", lineHeight: 1.6, maxWidth: "clamp(400px,25vw,600px)",}}>
+          <Typography sx={{ fontSize: 14, color: "#2c1a0a", lineHeight: 1.6, maxWidth: 400 }}>
             Track applications, manage interviews, and stay consistent—without the overwhelm.
           </Typography>
         </Box>
@@ -235,18 +230,18 @@ export default function SignupPage() {
         <Box
           sx={{
             background: "white",
-            borderRadius: "clamp(12px,1vw,20px)",
-            padding: "clamp(20px,2vw,40px)",
+            borderRadius: "14px",
+            padding: "32px",
             border: "1px solid #e8ddd0",
           }}
         >
           {/* Avatar */}
           <Box
             sx={{
-              width: "clamp(50px,3vw,70px)", height: "clamp(50px,3vw,70px)", borderRadius: "50%",
+              width: 50, height: 50, borderRadius: "50%",
               background: "#f0e6d8",
               display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto clamp(14px,1vw,24px)",
+              margin: "0 auto 14px",
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b87444" strokeWidth="1.5">
@@ -262,7 +257,7 @@ export default function SignupPage() {
             <Box sx={{ height: 6, borderRadius: 3, background: "#e8ddd0", width: "50%" }} />
           </Box>
 
-          <Typography sx={{ fontSize:  FONT.md, color: "#8c6a50" }}>
+          <Typography sx={{ fontSize: 16, color: "#8c6a50" }}>
             Your journey starts here.
           </Typography>
         </Box>
@@ -290,9 +285,9 @@ export default function SignupPage() {
               position: "relative",
               overflow: "hidden",
               width: "100%",
-              maxWidth: "clamp(420px,30vw,650px)",
-              p: "clamp(24px,2vw,56px)",
-              borderRadius: "clamp(18px,1.5vw,32px)",
+              maxWidth: 420,
+              p: 6,
+              borderRadius: 5,
               background:
                 "linear-gradient(135deg, rgba(255,255,255,0.85), rgba(250,247,243,0.75))",
               backdropFilter: "blur(18px)",
@@ -304,12 +299,12 @@ export default function SignupPage() {
               `,
             }}
           >
-            <Stack spacing={{ xs: 2, md: 3, xl: 4 }}>
+            <Stack spacing={2}>
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-                <Typography variant="h5" fontWeight={600} sx={{ color: "#2c1a0a",fontSize: FONT.lg, }}>
+                <Typography variant="h5" fontWeight={600} sx={{ color: "#2c1a0a" }}>
                   Create an account
                 </Typography>
-                <Typography sx={{ fontSize: FONT.md, color: "#8c6a50" }}>
+                <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>
                   Start organizing your job search in seconds
                 </Typography>
               </Box>
@@ -334,7 +329,7 @@ export default function SignupPage() {
                     autoFocus
                   />
                   <Button variant="contained" disabled={otp.length !== 6 || loading} onClick={verifyOtp}
-                    sx={{ height: "clamp(44px,3vw,60px)",fontSize: FONT.md,borderRadius: "clamp(10px,0.8vw,16px)",bgcolor: "#b87444", textTransform: "none", "&:hover": { bgcolor: "#a0622e" } }}>
+                    sx={{ bgcolor: "#b87444", textTransform: "none", "&:hover": { bgcolor: "#a0622e" } }}>
                     {loading ? "Verifying..." : "Verify and continue"}
                   </Button>
                   <Button onClick={resendOtp} sx={{ color: "#b87444", textTransform: "none" }}>Resend code</Button>
@@ -342,7 +337,7 @@ export default function SignupPage() {
                 </Stack>
               ) : (
               <>
-              <Stack spacing={{ xs: 1.5, md: 2, xl: 3 }} direction="column">
+              <Stack spacing={1} direction="column">
                 {/* FULL NAME */}
                 <TextField
                   id="signup-name"
@@ -489,12 +484,10 @@ export default function SignupPage() {
                 variant="outlined"
                 fullWidth
                 startIcon={
-                  <Image src={googleIcon} alt="Google" width={24} height={24} />
+                  <Image src={googleIcon} alt="Google" width={20} height={20} />
                 }
                 sx={{
-                  height: "clamp(44px,3vw,60px)",
-                  fontSize: FONT.md,
-                  borderRadius: "clamp(10px,0.8vw,16px)",
+                  borderRadius: "10px",
                   borderColor: "#e8ddd0",
                   color: "#8c6a50",
                   textTransform: "none",
