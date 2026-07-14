@@ -177,12 +177,11 @@
   }
 }
 .dashboardContainer {
-  width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+
+  justify-content: center;
 }
 /* --- HEADER (Fixed Alignment) --- */
 .header {

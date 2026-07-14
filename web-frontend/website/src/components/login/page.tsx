@@ -1,6 +1,5 @@
 "use client";
 
-import { FONT } from "@/lib/typography";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -57,13 +56,11 @@ export default function LoginPage() {
     "& .MuiInputLabel-root.Mui-focused": { color: "#b87444" },
     "& .MuiInputLabel-root.Mui-error": { color: "#b45309" },
     "& .MuiOutlinedInput-root": {
-      height: "clamp(46px, 3vw, 60px)",
-      borderRadius: "clamp(10px, 0.8vw, 16px)",
+      borderRadius: "10px",
       "& fieldset": { borderColor: "#e8ddd0" },
       "&:hover fieldset": { borderColor: "#b87444" },
       "&.Mui-focused fieldset": { borderColor: "#b87444", borderWidth: 1 },
       "& .MuiOutlinedInput-input": {
-        fontSize: FONT.md,
         "&:-webkit-autofill": {
           animationName: "mui-auto-fill",
           animationDuration: "0.01s",
@@ -129,7 +126,7 @@ export default function LoginPage() {
         sx={{
           background: "#f5ede0",
           borderRight: "1px solid #e8ddd0",
-          padding: "clamp(32px, 4vw, 96px)",
+          padding: "80px 80px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -139,7 +136,7 @@ export default function LoginPage() {
         <Box sx={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <Box
             sx={{
-              width: "clamp(36px,2vw,52px)", height: "clamp(36px,2vw,52px)",
+              width: 36, height: 36,
               background: "#b87444",
               borderRadius: "9px",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -158,26 +155,26 @@ export default function LoginPage() {
         </Box>
 
         {/* WELCOME TEXT */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "clamp(12px,1vw,24px)", py: 4 }}>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: FONT.hero, fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "16px", py: 4 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
             Welcome to
           </Typography>
-          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: FONT.hero, fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
+          <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 72, fontWeight: 700, color: "#b87444", fontStyle: "italic", lineHeight: 1.15 }}>
             Anchor
           </Typography>
-          <Typography sx={{ fontSize: FONT.lg, color: "#8c6a50", lineHeight: 1.6, maxWidth: "clamp(400px,25vw,600px)" }}>
+          <Typography sx={{ fontSize: 20, color: "#8c6a50", lineHeight: 1.6, maxWidth: 400 }}>
             Your job search, organized.
           </Typography>
-          <Typography sx={{ fontSize: FONT.md, color: "#2c1a0a", lineHeight: 1.6, maxWidth: "clamp(400px,25vw,600px)" }}>
+          <Typography sx={{ fontSize: 14, color: "#2c1a0a", lineHeight: 1.6, maxWidth: 400 }}>
             Track applications, manage interviews, and stay consistent—without the overwhelm.
           </Typography>
         </Box>
 
         {/* PREVIEW CARD */}
-        <Box sx={{ background: "white", borderRadius: "clamp(12px,1vw,20px)", padding: "clamp(20px,2vw,40px)", border: "1px solid #e8ddd0" }}>
+        <Box sx={{ background: "white", borderRadius: "14px", padding: "32px", border: "1px solid #e8ddd0" }}>
           <Box
             sx={{
-              width: "clamp(50px,3vw,70px)", height: "clamp(50px,3vw,70px)", borderRadius: "50%",
+              width: 50, height: 50, borderRadius: "50%",
               background: "#f0e6d8",
               display: "flex", alignItems: "center", justifyContent: "center",
               margin: "0 auto 14px",
@@ -221,9 +218,9 @@ export default function LoginPage() {
               position: "relative",
               overflow: "hidden",
               width: "100%",
-              maxWidth: "clamp(420px, 30vw, 650px)",
-              padding: "clamp(24px, 2vw, 56px)",
-              borderRadius: "clamp(18px,1.5vw,32px)",
+              maxWidth: 420,
+              p: 6,
+              borderRadius: 5,
               background: "linear-gradient(135deg, rgba(255,255,255,0.85), rgba(250,247,243,0.75))",
               backdropFilter: "blur(18px)",
               WebkitBackdropFilter: "blur(18px)",
@@ -234,7 +231,7 @@ export default function LoginPage() {
               `,
             }}
           >
-            <Stack spacing={{ xs:2, md:3, xl:4 }}>
+            <Stack spacing={2.5}>
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
                 <Typography variant="h5" fontWeight={600}>Login</Typography>
                 <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>It's nice to see you again</Typography>
@@ -308,8 +305,6 @@ export default function LoginPage() {
                   fullWidth
                   disabled={!isFormValid}
                   sx={{
-                    height: "clamp(44px, 3vw, 60px)",
-                    fontSize: FONT.md,
                     borderRadius: "10px",
                     opacity: isFormValid ? 1 : 0.6,
                     backgroundColor: "#b87444",
@@ -334,7 +329,7 @@ export default function LoginPage() {
               <Button
                 variant="outlined"
                 fullWidth
-                startIcon={<Image src={googleIcon} alt="Google" width={24} height={24} />}
+                startIcon={<Image src={googleIcon} alt="Google" width={20} height={20} />}
                 sx={{
                   borderRadius: "10px",
                   borderColor: "#e8ddd0",
