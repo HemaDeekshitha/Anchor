@@ -105,11 +105,16 @@ export default function LeetcodeProfileSidebar({
   return (
     <Card
       sx={{
-        width: { xs: "100%", lg: 360 },
+        width: {
+          xs: "100%",
+          lg: 380,
+        },
         minWidth: 0,
-        flexShrink: 0,
+        flexShrink: 1,
+        alignSelf: "flex-start",
+        boxSizing: "border-box",
         borderRadius: 3,
-        p: 3,
+        padding: { xs: 2, md: 2 },
         overflow: "hidden",
         background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
         border: `1px solid ${C.divider}`,
@@ -120,12 +125,21 @@ export default function LeetcodeProfileSidebar({
       {/* PROFILE HEADER */}
       <Box>
         {/* Avatar + name row */}
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            alignItems: "flex-start",
+            flexDirection: { xs: "column", sm: "row" },
+            width: "100%",
+            textAlign: { xs: "center", sm: "left" },
+          }}
+        >
           <Avatar
             src={profile?.avatarUrl ?? undefined}
             sx={{
-              width: 80,
-              height: 80,
+              width: 76,
+              height: 76,
               bgcolor: C.accentBg,
               color: C.accent,
               fontSize: 28,
@@ -136,7 +150,12 @@ export default function LeetcodeProfileSidebar({
           >
             {!profile?.avatarUrl && (profile?.name?.[0]?.toUpperCase() || null)}
           </Avatar>
-          <Box>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
             <Box
               sx={{
                 display: "flex",
@@ -148,14 +167,16 @@ export default function LeetcodeProfileSidebar({
               <Typography
                 sx={{
                   fontWeight: 700,
-                  fontSize: 20,
+                  fontSize: "1.25rem",
                   color: C.textPrimary,
                   mb: -0.5,
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
                 }}
               >
                 {profile?.name || "Guest User"}
               </Typography>
-              <Typography sx={{ color: C.textSub, fontSize: 14 }}>
+              <Typography sx={{ color: C.textSub, fontSize: "clamp(14px, 0.95vw, 17px)", wordBreak: "break-word", overflowWrap:"anywhere"}}>
                 {profile?.email || "No email provided"}
               </Typography>
             </Box>
@@ -163,7 +184,7 @@ export default function LeetcodeProfileSidebar({
             <Box sx={{ mt: 0.5 }}>
               <Typography
                 component="span"
-                sx={{ fontSize: 14, color: C.textPrimary }}
+                sx={{ fontSize: "clamp(14px, 1vw, 17px)", color: C.textPrimary }}
               >
                 Resume{" "}
               </Typography>
@@ -176,7 +197,7 @@ export default function LeetcodeProfileSidebar({
                     color: C.accent,
                     fontWeight: 600,
                     textDecoration: "none",
-                    fontSize: 14,
+                    fontSize: "clamp(14px, 1vw, 17px)",
                     "&:hover": { textDecoration: "underline" },
                   }}
                 >
@@ -188,7 +209,7 @@ export default function LeetcodeProfileSidebar({
                   sx={{
                     color: C.accent,
                     fontWeight: 600,
-                    fontSize: 14,
+                    fontSize: "clamp(14px, 1vw, 17px)",
                     cursor: "pointer",
                     "&:hover": { textDecoration: "underline" },
                   }}
@@ -196,7 +217,7 @@ export default function LeetcodeProfileSidebar({
                   View Resume Text
                 </Typography>
               ) : (
-                <Typography fontSize={14} sx={{ color: C.textSub }}>
+                <Typography fontSize="0.95rem" sx={{ color: C.textSub }}>
                   Upload your resume to unlock AI insights.
                 </Typography>
               )}
@@ -216,7 +237,7 @@ export default function LeetcodeProfileSidebar({
         >
           <Typography sx={{ color: C.textPrimary }}>Focus</Typography>
           <Typography sx={{ opacity: 0.4, color: C.textSub }}>|</Typography>
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1,flexWrap: "wrap",minWidth: 0, }}>
             {profile?.primaryFocus?.slice(0, 2).map((focus) => (
               <Chip
                 key={focus}
@@ -247,7 +268,7 @@ export default function LeetcodeProfileSidebar({
                 />
               )
             ) : (
-              <Typography fontSize={14} sx={{ color: C.accent }}>
+              <Typography fontSize="0.95rem" sx={{ color: C.accent }}>
                 Add your focus
               </Typography>
             )}
@@ -295,11 +316,11 @@ export default function LeetcodeProfileSidebar({
           onClick={onEditClick}
           sx={{
             mt: 2.5,
-            py: 1.2,
+            py: 1.25,
             borderRadius: 2,
             textTransform: "none",
             fontWeight: 600,
-            fontSize: 16,
+            fontSize: "0.95rem",
             background: C.accentGrad,
             color: "#fff",
             boxShadow: "0 0 25px rgba(184,116,68,0.25)",
@@ -318,37 +339,38 @@ export default function LeetcodeProfileSidebar({
       {/* CAREER PROFILE */}
       <Typography
         fontWeight={700}
+        fontSize="clamp(18px, 1.2vw, 24px)"
         mb={1}
         sx={{ color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}
       >
         Career Profile
       </Typography>
       <Stack spacing={1}>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography fontSize={13} sx={{ color: C.textSub }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap",}}>
+          <Typography fontSize="clamp(13px, 0.9vw, 16px)" sx={{ color: C.textSub }}>
             Status
           </Typography>
-          <Typography fontSize={14} sx={{ color: C.textPrimary }}>
+          <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
             {profile?.status?.length
               ? profile.status.join(", ")
               : "No status set yet"}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography fontSize={13} sx={{ color: C.textSub }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap",}}>
+          <Typography fontSize="clamp(13px, 0.9vw, 16px)" sx={{ color: C.textSub }}>
             Seeking
           </Typography>
-          <Typography fontSize={14} sx={{ color: C.textPrimary }}>
+          <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
             {profile?.employmentType?.length
               ? profile.employmentType.join(", ")
               : "Open to all opportunities"}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography fontSize={13} sx={{ color: C.textSub }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap",}}>
+          <Typography fontSize="clamp(13px, 0.9vw, 16px)" sx={{ color: C.textSub }}>
             Location
           </Typography>
-          <Typography fontSize={14} sx={{ color: C.textPrimary }}>
+          <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
             {(profile as any)?.location || "Not specified"}
           </Typography>
         </Box>
@@ -359,6 +381,7 @@ export default function LeetcodeProfileSidebar({
       {/* PREFERRED ROLES */}
       <Typography
         fontWeight={700}
+        fontSize="1.05rem"
         mb={1}
         sx={{ color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}
       >
@@ -389,7 +412,7 @@ export default function LeetcodeProfileSidebar({
             />
           ))
         ) : (
-          <Typography fontSize={14} sx={{ color: C.accent }}>
+          <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.accent }}>
             Add your preferred roles so we can personalize your preparation
             plan.
           </Typography>
@@ -401,6 +424,7 @@ export default function LeetcodeProfileSidebar({
       {/* INDUSTRY INTERESTS */}
       <Typography
         fontWeight={700}
+        fontSize="1.05rem"
         mb={1}
         sx={{ color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}
       >
@@ -431,7 +455,7 @@ export default function LeetcodeProfileSidebar({
             />
           ))
         ) : (
-          <Typography fontSize={14} sx={{ color: C.accent }}>
+          <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.accent }}>
             Choose areas you're curious about to guide your learning path.
           </Typography>
         )}
@@ -451,6 +475,7 @@ export default function LeetcodeProfileSidebar({
           >
             <Typography
               fontWeight={700}
+              fontSize="1.05rem"
               sx={{
                 color: C.textPrimary,
                 fontFamily: "'Playfair Display', serif",
