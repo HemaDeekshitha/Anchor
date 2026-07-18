@@ -3,11 +3,25 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Drawer, Box, Typography, List, ListItemButton,
-  ListItemIcon, ListItemText, Divider,
-  useMediaQuery, useTheme,
+  Drawer,
+  Box,
+  Typography,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import { BriefcaseBusiness, ListTodo, LogOut, Trophy, User } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  ListTodo,
+  LogOut,
+  Trophy,
+  User,
+  Users,
+} from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { logoutSession } from "@/lib/auth-client";
 
@@ -19,16 +33,37 @@ interface SidebarProps {
 const drawerWidth = 280;
 
 const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
-  const theme    = useTheme();
+  const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/dashboard",           label: "My Plan",  icon: <ListTodo          size={isMobile ? 22 : 26} /> },
-    { href: "/rewards",             label: "Rewards",  icon: <Trophy            size={isMobile ? 22 : 26} /> },
-    { href: "/profile",             label: "Profile",  icon: <User              size={isMobile ? 22 : 26} /> },
-    { href: "/application-tracker", label: "Jobs",     icon: <BriefcaseBusiness size={isMobile ? 22 : 26} /> },
+    {
+      href: "/dashboard",
+      label: "My Plan",
+      icon: <ListTodo size={isMobile ? 22 : 26} />,
+    },
+    {
+      href: "/rewards",
+      label: "Rewards",
+      icon: <Trophy size={isMobile ? 22 : 26} />,
+    },
+    {
+      href: "/profile",
+      label: "Profile",
+      icon: <User size={isMobile ? 22 : 26} />,
+    },
+    {
+      href: "/application-tracker",
+      label: "Jobs",
+      icon: <BriefcaseBusiness size={isMobile ? 22 : 26} />,
+    },
+    {
+      href: "/community",
+      label: "Community",
+      icon: <Users size={isMobile ? 22 : 26} />,
+    },
   ];
 
   const handleLogOut = async () => {
@@ -42,32 +77,43 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
   };
 
   const content = (
-    <Box sx={{
-      width: drawerWidth,
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "space-between",
-      bgcolor: "#ffffff",
-      boxSizing: "border-box",
-      overflow: "hidden",
-    }}>
+    <Box
+      sx={{
+        width: drawerWidth,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        bgcolor: "#ffffff",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
       {/* TOP: Brand + Nav */}
       <Box>
         {/* Brand */}
-        <Box component={Link} href="/dashboard" sx={{
-          display: "flex", alignItems: "center", gap: 1.5,
-          px: 2.5, py: 2,
-          fontSize: {
-            xs: "1.4rem",
-            md: "1.7rem",
-            lg: "1.9rem",
-            xl: "2.1rem",
-          }, fontWeight: 700,
-          color: "#2c1a0a", textDecoration: "none",
-          fontFamily: "'Playfair Display', serif",
-          "&:hover": { color: "#b87444" },
-        }}>
+        <Box
+          component={Link}
+          href="/dashboard"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            px: 2.5,
+            py: 2,
+            fontSize: {
+              xs: "1.4rem",
+              md: "1.7rem",
+              lg: "1.9rem",
+              xl: "2.1rem",
+            },
+            fontWeight: 700,
+            color: "#2c1a0a",
+            textDecoration: "none",
+            fontFamily: "'Playfair Display', serif",
+            "&:hover": { color: "#b87444" },
+          }}
+        >
           <Box
             component="img"
             src="/assets/logo.png"
@@ -93,9 +139,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
         <Divider sx={{ borderColor: "#e8ddd0" }} />
 
         {/* Navigation */}
-        <List sx={{ px: 2, mt: 1, display: "flex", flexDirection: "column", gap: 0.2 }}>
+        <List
+          sx={{
+            px: 2,
+            mt: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 0.2,
+          }}
+        >
           {navItems.map(({ href, label, icon }) => {
-            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            const active =
+              pathname === href ||
+              (href !== "/dashboard" && pathname.startsWith(href));
             return (
               <ListItemButton
                 key={href}
@@ -108,9 +164,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
                     md: 1.4,
                     lg: 1.6,
                   },
-                  color:   active ? "#b87444" : "#8c6a50",
+                  color: active ? "#b87444" : "#8c6a50",
                   bgcolor: active ? "#fdfaf7" : "transparent",
-                  border:  active ? "1px solid #e8ddd0" : "1px solid transparent",
+                  border: active
+                    ? "1px solid #e8ddd0"
+                    : "1px solid transparent",
                   transition: "all 0.15s",
                   "&:hover": {
                     bgcolor: "#fdfaf7",
@@ -146,15 +204,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, onClose }) => {
         <Box
           onClick={handleLogOut}
           sx={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 1,
-            py: 1.5, borderRadius: 2, cursor: "pointer",
-            color: "#8c6a50", border: "1px solid #e8ddd0",
-            "&:hover": { bgcolor: "#fdfaf7", color: "#b87444", borderColor: "#b87444" },
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 1,
+            py: 1.5,
+            borderRadius: 2,
+            cursor: "pointer",
+            color: "#8c6a50",
+            border: "1px solid #e8ddd0",
+            "&:hover": {
+              bgcolor: "#fdfaf7",
+              color: "#b87444",
+              borderColor: "#b87444",
+            },
             transition: "all 0.15s",
           }}
         >
           <LogOut size={18} />
-          <Typography sx={{ fontSize: "0.9rem", fontWeight: 500 }}>Logout</Typography>
+          <Typography sx={{ fontSize: "0.9rem", fontWeight: 500 }}>
+            Logout
+          </Typography>
         </Box>
       </Box>
     </Box>

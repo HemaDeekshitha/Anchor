@@ -462,7 +462,7 @@ export default function LeetcodeProfileSidebar({
       </Box>
 
       {/* SKILLS */}
-      {(profile?.skills?.length ?? 0) > 0 && (
+      {/* {(profile?.skills?.length ?? 0) > 0 && (
         <>
           <Divider sx={{ my: 3, borderColor: C.divider }} />
           <Box
@@ -570,7 +570,7 @@ export default function LeetcodeProfileSidebar({
             </Box>
           )}
         </>
-      )}
+      )} */}
     </Card>
   );
 }
