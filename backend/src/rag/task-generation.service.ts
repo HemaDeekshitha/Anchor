@@ -152,6 +152,18 @@ export class TaskGenerationService {
     const userSkills = await this.userSkillRepo.find({ where: { userId } });
     const skillNames = userSkills.map((s) => s.skillName);
 
+    const role =
+    profile?.dedicatedRole?.trim() ||
+    profile?.preferredRole?.[0]?.trim() ||
+    null;
+
+    if (!role) {
+      this.logger.warn(
+        `Skipping generation for ${userId}: missing role`,
+      );
+      return [];
+    }
+
     const seenRows = await this.userSeenTaskRepo.find({ where: { user_id: userId } });
     const seenKeys = new Set(seenRows.map((r) => r.title_key));
     const seenTitles = seenRows.map((r) => r.title_key);
