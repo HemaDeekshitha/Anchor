@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Avatar,
   Box,
@@ -462,7 +462,7 @@ export default function LeetcodeProfileSidebar({
       </Box>
 
       {/* SKILLS */}
-      {/* {(profile?.skills?.length ?? 0) > 0 && (
+      {(profile?.skills?.length ?? 0) > 0 && (
         <>
           <Divider sx={{ my: 3, borderColor: C.divider }} />
           <Box
@@ -570,7 +570,27 @@ export default function LeetcodeProfileSidebar({
             </Box>
           )}
         </>
-      )} */}
+      )}
+      {(profile?.skills?.length ?? 0) === 0 && (
+        <>
+          <Divider sx={{ my: 3, borderColor: C.divider }} />
+          <Typography
+            fontWeight={700}
+            fontSize="1.05rem"
+            mb={1}
+            sx={{
+              color: C.textPrimary,
+              fontFamily: "'Playfair Display', serif",
+            }}
+          >
+            Skills
+          </Typography>
+          <Typography fontSize="0.95rem" sx={{ color: C.textSub }}>
+            No resume skills found yet. Upload or update your resume to add
+            them.
+          </Typography>
+        </>
+      )}
     </Card>
   );
 }

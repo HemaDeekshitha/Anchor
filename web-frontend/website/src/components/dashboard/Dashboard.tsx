@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, ClipboardCheck, ExternalLink } from "lucide-react";
 import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
@@ -28,6 +28,21 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const DAILY_PLAN_TIME_ZONE = "America/Los_Angeles";
+
+function getDailyPlanDate(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DAILY_PLAN_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
+}
 
 interface Task {
   id: number;
@@ -57,39 +72,60 @@ const Dashboard = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [userName, setUserName] = useState("");
+  const planDateRef = useRef(getDailyPlanDate());
+
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [tasksRes, submissions] = await Promise.all([
+        apiFetch(`${API_BASE_URL}/rag/tasks`),
+        api.getMySubmissions().catch((error) => {
+          // Submission history is supplemental; it must never hide today's
+          // plan when that separate endpoint is temporarily unavailable.
+          console.error("Failed to load submissions:", error);
+          return [];
+        }),
+      ]);
+      await requireOk(tasksRes, "Failed to load today's Smart Plan");
+      const data = await tasksRes.json();
+      setSubmissions(submissions);
+      if (data.smartPlan?.tasks) {
+        setSmartPlan(data.smartPlan.tasks);
+        setUserName(data.smartPlan.userName || "");
+      }
+      if (data.pendingTasks) {
+        const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
+          ...task,
+          id: Number(task.id),
+          taskId: Number(task.taskId ?? task.taskid ?? task.id),
+          status: task.status ?? "pending",
+        }));
+        setPendingTasks(normalizedPendingTasks);
+      }
+      planDateRef.current = getDailyPlanDate();
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        setIsLoading(true);
-        const [tasksRes, submissions] = await Promise.all([
-          apiFetch(`${API_BASE_URL}/rag/tasks`),
-          api.getMySubmissions(),
-        ]);
-        await requireOk(tasksRes, "Failed to load today's Smart Plan");
-        const data = await tasksRes.json();
-        setSubmissions(submissions);
-        if (data.smartPlan?.tasks) {
-          setSmartPlan(data.smartPlan.tasks);
-          setUserName(data.smartPlan.userName || "");
-        }
-        if (data.pendingTasks) {
-          const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
-            ...task,
-            id: Number(task.id),
-            taskId: Number(task.taskId ?? task.taskid ?? task.id),
-            status: task.status ?? "pending",
-          }));
-          setPendingTasks(normalizedPendingTasks);
-        }
-      } catch (error) {
-        console.error("Failed to load dashboard data:", error);
-      } finally {
-        setIsLoading(false);
+    void loadDashboardData();
+
+    // Keep an already-open dashboard synced to the Pacific daily boundary.
+    // The API creates the new plan on demand if the cron has not reached this
+    // user yet.
+    const rolloverTimer = window.setInterval(() => {
+      const currentPlanDate = getDailyPlanDate();
+      if (currentPlanDate !== planDateRef.current) {
+        planDateRef.current = currentPlanDate;
+        void loadDashboardData();
       }
-    }
-    loadDashboardData();
-  }, []);
+    }, 30_000);
+
+    return () => window.clearInterval(rolloverTimer);
+  }, [loadDashboardData]);
 
   const handleTaskClick = async (task: Task) => {
     const submissionTaskId = task.taskId ?? task.id;
@@ -164,29 +200,6 @@ const Dashboard = () => {
                   </Typography>
                 </Box>
 
-                {/* Status card */}
-                <Box sx={{
-                  display: "flex", alignItems: "center", gap: 1.5, padding:{  xs:"10px 12px", md:"12px 16px"},width: "fit-content",maxWidth: "100%",alignSelf: { xs: "flex-start", md: "center",},
-                  background: "linear-gradient(135deg, #fdfaf7, #f5ede0)",
-                  border: "1px solid #e8ddd0",
-                  boxShadow: "0 6px 20px rgba(44,26,10,0.06)",
-                }}>
-                  <Box sx={{
-                    width: 30, height: 30, borderRadius: 2,
-                    background: "linear-gradient(135deg, #f5ede0, #e8d4bc)",
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
-                  }}>
-                    ✦
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#2c1a0a" }}>
-                      Smart Plan Ready
-                    </Typography>
-                    <Typography sx={{ fontSize: 11, color: "#8c6a50" }}>
-                      Your tasks are ready today
-                    </Typography>
-                  </Box>
-                </Box>
               </Box>
             </Box>
 
@@ -203,7 +216,7 @@ const Dashboard = () => {
                 "&:hover": { transform: "translateY(-4px)", boxShadow: "0 18px 40px rgba(44,26,10,0.12)" },
               }}>
                 <Typography sx={{ fontSize: FONT.sm, fontWeight: 700, color: "#b87444", letterSpacing: ".08em" }}>
-                  🔥 DAILY PROGRESS
+                  DAILY PROGRESS
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <Box>
@@ -238,7 +251,7 @@ const Dashboard = () => {
               >
                 <CardContent sx={{ padding: {xs:2,md:2.5}, display: "flex", flexDirection: "column", gap: "clamp(10px,1vw,16px)" }}>
                   <Typography sx={{ fontSize: FONT.sm, fontWeight: 700, color: "#a0622e", letterSpacing: ".08em" }}>
-                    🎯 PENDING QUESTIONS
+                    PENDING QUESTIONS
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>
