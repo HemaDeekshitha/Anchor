@@ -284,13 +284,7 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
   const set = <K extends keyof EditableProfile>(k: K, v: EditableProfile[K]) => setForm((p) => ({ ...p, [k]: v }));
   const handleAvatarFile = (file: File) => { setPendingAvatarFile(file); setRemoveAvatar(false); set("avatarUrl", URL.createObjectURL(file)); };
   const handleRemoveAvatar = () => { setRemoveAvatar(true); setPendingAvatarFile(null); set("avatarUrl", null); };
-
-  const hasPreferredRole = form.preferredRoles.length > 0;
-  const saveDisabled = saving || !hasPreferredRole;
-  const handleSave = () => {
-    if (!hasPreferredRole) return;
-    onSave(form, pendingAvatarFile, pendingResumeFile, removeAvatar);
-  };
+  const handleSave = () => onSave(form, pendingAvatarFile, pendingResumeFile, removeAvatar);
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -447,11 +441,6 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
               <Divider sx={{ borderColor: C.divider }} />
               <TagInput label="Preferred Roles" hint="e.g. SWE, Frontend Engineer…" values={form.preferredRoles} onChange={(v) => set("preferredRoles", v)}
                 suggestions={["Software Engineer","Frontend Engineer","Backend Engineer","Full-Stack Engineer","ML Engineer","Data Scientist","Product Manager","DevOps Engineer"]} />
-              {form.preferredRoles.length === 0 && (
-                <Typography fontSize={12} sx={{ color: C.accent, mt: -2 }}>
-                  Add at least one preferred role to save.
-                </Typography>
-              )}
               <Divider sx={{ borderColor: C.divider }} />
               <TagInput label="Industry Interests" hint="e.g. Fintech, AI, Healthcare…" values={form.intrests} onChange={(v) => set("intrests", v)}
                 suggestions={["AI / ML","Fintech","Healthcare","EdTech","SaaS","Gaming","Cybersecurity","Climate Tech","E-commerce"]} />
@@ -488,15 +477,15 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
             }}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saveDisabled} sx={{
+            <Button onClick={handleSave} disabled={saving} sx={{
               textTransform: "none", fontWeight: 700, fontSize: 13, px: 3, py: 1, borderRadius: "10px",
-              background: saveDisabled ? "rgba(44,26,10,0.08)" : C.accentGrad,
-              color: saveDisabled ? C.textSub : "#fff",
-              boxShadow: saveDisabled ? "none" : "0 4px 14px rgba(184,116,68,0.28)",
+              background: saving ? "rgba(44,26,10,0.08)" : C.accentGrad,
+              color: saving ? C.textSub : "#fff",
+              boxShadow: saving ? "none" : "0 4px 14px rgba(184,116,68,0.28)",
               transition: "all 0.2s",
               "&:hover": {
-                background: saveDisabled ? "rgba(44,26,10,0.08)" : "linear-gradient(135deg, #a0622e, #8a4a1e)",
-                boxShadow: saveDisabled ? "none" : "0 4px 20px rgba(184,116,68,0.38)",
+                background: saving ? "rgba(44,26,10,0.08)" : "linear-gradient(135deg, #a0622e, #8a4a1e)",
+                boxShadow: saving ? "none" : "0 4px 20px rgba(184,116,68,0.38)",
               },
             }}>
               {saving ? (
