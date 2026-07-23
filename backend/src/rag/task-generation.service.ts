@@ -14,30 +14,30 @@ type Diff = 'easy' | 'medium' | 'hard';
 
 const ROLE_ONLY_FALLBACKS: Record<Diff, string[]> = {
   easy: [
-    'What are the core day-to-day responsibilities of a ${role}, and how would you explain them in an interview?',
-    'What does strong performance look like in the first 90 days as a ${role}?',
-    'Which foundational concepts should every ${role} be able to explain clearly, and why?',
+    'Tell me about a typical week as a ${role}. What work would you expect to own?',
+    'How would you explain what a ${role} does to someone outside the field in under two minutes?',
+    'What is one skill or habit interviewers look for in a strong ${role} candidate, and how would you show you have it?',
   ],
   medium: [
-    'Walk me through how you would approach an ambiguous project as a ${role}.',
-    'How would you prioritize competing requests as a ${role} when you cannot do everything?',
-    'Describe how you would communicate a technical or domain decision to a non-expert stakeholder as a ${role}.',
+    'Walk me through how you would start if you joined a team as a ${role} and the goals were unclear.',
+    'You have two urgent requests and time for only one. How would you decide as a ${role}, and what would you say to the person you delay?',
+    'Describe a time, or a scenario,where you had to push back on a request as a ${role}. How would you handle it in an interview answer?'
   ],
   hard: [
     'What trade-offs would you consider when making a high-impact decision as a ${role}?',
-    'What failure modes are common for a ${role}, and how would you detect and prevent them?',
-    'How would you measure whether your work as a ${role} actually improved the outcome that mattered?',
+    'How would you know after 30-60 days that you were succeeding as a ${role}? What signals would you track?',
+    'A project you own as a ${role} is going off track. Walk me through how you would diagnose the problem and recover.'  
   ],
 };
 
 const ROLE_SKILL_FALLBACKS: Record<Diff, string[]> = {
   easy: [
-    'In an interview for a ${role} role, explain what ${skill} is and one situation where you would reach for it first.',
+    'Interviewers for ${role} roles often ask about ${skill}. How would you explain it, and when would you use it?',
     'What is one common mistake people make with ${skill}, and how would you avoid it as a ${role}?',
     'How would you teach a teammate the basics of ${skill} in five minutes if they needed it for a ${role} task?',
   ],
   medium: [
-    'You are a ${role} asked to deliver a result under a one-week deadline. How would you use ${skill} in your plan, and what would you skip?',
+    'You are a ${role} with limited time. How would you use ${skill} to make progress this week, and what would you intentionally leave out?',
     'A stakeholder says the current approach using ${skill} is too slow or too complex. How would you respond as a ${role}?',
     'Walk me through how you would troubleshoot a broken or unexpected result that involves ${skill} in a ${role} workflow.',
   ],
