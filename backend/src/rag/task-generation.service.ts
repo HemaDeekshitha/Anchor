@@ -10,44 +10,6 @@ import { UserSkill } from '../skills/user-skills.entity';
 import { UserSeenTask } from './user-seen-task.entity';
 import { normalizeLeetcodeUrl } from './leetcode-url.util';
 
-type Diff = 'easy' | 'medium' | 'hard';
-
-const ROLE_ONLY_FALLBACKS: Record<Diff, string[]> = {
-  easy: [
-    'Tell me about a typical week as a ${role}. What work would you expect to own?',
-    'How would you explain what a ${role} does to someone outside the field in under two minutes?',
-    'What is one skill or habit interviewers look for in a strong ${role} candidate, and how would you show you have it?',
-  ],
-  medium: [
-    'Walk me through how you would start if you joined a team as a ${role} and the goals were unclear.',
-    'You have two urgent requests and time for only one. How would you decide as a ${role}, and what would you say to the person you delay?',
-    'Describe a time, or a scenario,where you had to push back on a request as a ${role}. How would you handle it in an interview answer?'
-  ],
-  hard: [
-    'What trade-offs would you consider when making a high-impact decision as a ${role}?',
-    'How would you know after 30-60 days that you were succeeding as a ${role}? What signals would you track?',
-    'A project you own as a ${role} is going off track. Walk me through how you would diagnose the problem and recover.'  
-  ],
-};
-
-const ROLE_SKILL_FALLBACKS: Record<Diff, string[]> = {
-  easy: [
-    'Interviewers for ${role} roles often ask about ${skill}. How would you explain it, and when would you use it?',
-    'What is one common mistake people make with ${skill}, and how would you avoid it as a ${role}?',
-    'How would you teach a teammate the basics of ${skill} in five minutes if they needed it for a ${role} task?',
-  ],
-  medium: [
-    'You are a ${role} with limited time. How would you use ${skill} to make progress this week, and what would you intentionally leave out?',
-    'A stakeholder says the current approach using ${skill} is too slow or too complex. How would you respond as a ${role}?',
-    'Walk me through how you would troubleshoot a broken or unexpected result that involves ${skill} in a ${role} workflow.',
-  ],
-  hard: [
-    'Compare ${skill} to one realistic alternative for a high-stakes ${role} decision. Which would you choose, and what would make you switch?',
-    'As a ${role}, how would you design a small end-to-end approach that depends on ${skill}, including how you would validate success and what you would monitor after release?',
-    'Tell me about the biggest risk of leaning too heavily on ${skill} in a ${role} context, and how you would mitigate it before it becomes a production or client problem.',
-  ],
-};
-
 interface GeneratedTaskDto {
   title: string;
   description?: string;
@@ -189,18 +151,6 @@ export class TaskGenerationService {
     const profile = await this.onboardingRepo.findOne({ where: { userId } });
     const userSkills = await this.userSkillRepo.find({ where: { userId } });
     const skillNames = userSkills.map((s) => s.skillName);
-
-    const role =
-    profile?.dedicatedRole?.trim() ||
-    profile?.preferredRole?.[0]?.trim() ||
-    null;
-
-    if (!role) {
-      this.logger.warn(
-        `Skipping generation for ${userId}: missing role`,
-      );
-      return [];
-    }
 
     const seenRows = await this.userSeenTaskRepo.find({ where: { user_id: userId } });
     const seenKeys = new Set(seenRows.map((r) => r.title_key));
@@ -372,67 +322,54 @@ export class TaskGenerationService {
     const role =
       profile?.dedicatedRole?.trim() ||
       profile?.preferredRole?.[0]?.trim() ||
-      null;
-    if (!role) return [];
-
-    const anchors = [
-      ...new Set(
-        [
-          ...(curriculum?.focus ?? []),
-          ...(profile?.resumeKeywords ?? []),
-          ...skills,
-        ]
-          .map((value) => value?.trim())
-          .filter(Boolean),
-      ),
+      'your target role';
+    const rawAnchors = [
+      ...(curriculum?.focus ?? []),
+      ...(profile?.resumeKeywords ?? []),
+      ...skills,
+      ...(profile?.areasOfInterest ?? []),
     ];
-
-    const bank = anchors.length > 0 ? ROLE_SKILL_FALLBACKS : ROLE_ONLY_FALLBACKS;
+    const anchors = [...new Set(rawAnchors.map((value) => value?.trim()).filter(Boolean))];
+    const safeAnchors = anchors.length >= 3
+      ? anchors
+      : [...anchors, `${role} fundamentals`, `${role} problem solving`, `${role} decision making`];
     const needed = Math.max(0, mix.total - alreadyGenerated);
     const output: GeneratedTaskDto[] = [];
+    const templates = {
+      easy: (anchor: string) =>
+        `What are the essential principles of ${anchor} for a ${role}, and how would you demonstrate them with a practical example?`,
+      medium: (anchor: string) =>
+        `How would you apply ${anchor} to a realistic problem faced by a ${role}, and how would you verify that your approach worked?`,
+      hard: (anchor: string) =>
+        `Which trade-offs, risks, and failure modes would you evaluate when using ${anchor} in a high-impact ${role} scenario?`,
+    };
     const remaining = {
       easy: Math.max(0, mix.easy - accepted.easy),
       medium: Math.max(0, mix.medium - accepted.medium),
       hard: Math.max(0, mix.hard - accepted.hard),
     };
 
-    const pools = {
-      easy: [...bank.easy],
-      medium: [...bank.medium],
-      hard: [...bank.hard],
-    };
-
-    for (let index = 0; output.length < needed && index < 20; index++) {
-      const difficulty = (['easy', 'medium', 'hard'] as Diff[]).find(
-        (candidate) => remaining[candidate] > 0 && pools[candidate].length > 0,
+    for (let index = 0; output.length < needed && index < safeAnchors.length * 3; index++) {
+      const difficulty = (['easy', 'medium', 'hard'] as const).find(
+        (candidate) => remaining[candidate] > 0,
       );
       if (!difficulty) break;
-
-      const pick = Math.floor(Math.random() * pools[difficulty].length);
-      const stem = pools[difficulty].splice(pick, 1)[0];
-      const skill = anchors.length > 0 ? anchors[index % anchors.length] : '';
-
-      const title = stem
-        .replaceAll('${role}', role)
-        .replaceAll('${skill}', skill);
-
+      const anchor = safeAnchors[index % safeAnchors.length];
+      const title = templates[difficulty](anchor);
       const titleKey = this.normaliseTitle(title);
       if (seenKeys.has(titleKey)) continue;
       seenKeys.add(titleKey);
       remaining[difficulty]--;
-
       output.push({
         title,
-        description: skill
-          ? `A strong answer should explain ${skill}, apply it in the context of ${role}, and describe how success would be measured.`
-          : `A strong answer should be specific to ${role}, use a concrete example, and show clear judgment.`,
-        category: skill ? 'Technical Concepts' : 'Behavioral',
+        description: `A strong answer should explain ${anchor}, apply it in the context of ${role}, justify the decisions made, and describe how success would be measured.`,
+        category: 'Technical Concepts',
         difficulty,
         priority: this.difficultyToPriority(difficulty),
-        tags: skill ? [skill, role] : [role],
+        tags: [anchor, role].slice(0, 5),
         time_minutes: 25,
         leetcodeUrl: undefined,
-        sourceKeywords: skill ? [skill] : [role],
+        sourceKeywords: [anchor],
         sourceResumePoint: null,
         selectionReason: curriculum
           ? `Required for week ${curriculum.week}: ${curriculum.phase}`
