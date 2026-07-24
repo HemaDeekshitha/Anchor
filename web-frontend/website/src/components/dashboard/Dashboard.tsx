@@ -72,6 +72,7 @@ const Dashboard = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [userName, setUserName] = useState("");
+  const [skippedReason, setSkippedReason] = useState<string | null>(null);
   const planDateRef = useRef(getDailyPlanDate());
 
   const loadDashboardData = useCallback(async () => {
@@ -93,6 +94,8 @@ const Dashboard = () => {
         setSmartPlan(data.smartPlan.tasks);
         setUserName(data.smartPlan.userName || "");
       }
+      setSkippedReason(data.smartPlan?.skippedReason ?? null);
+
       if (data.pendingTasks) {
         const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
           ...task,
@@ -315,7 +318,12 @@ const Dashboard = () => {
                 </Box>
 
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                  {smartPlan.map((task, index) => (
+                  {skippedReason === "missing_role" ? (
+                    <Typography sx={{ fontSize: FONT.sm, fontWeight: 700, color: "#b87444", letterSpacing: ".08em", py: 2 }}>
+                      Add a preferred role to see your daily tasks.
+                    </Typography>
+                  ) : (
+                    smartPlan.map((task, index) => (
                     <Card key={task.id} onClick={() => handleTaskClick(task)} sx={{
                       borderRadius: SIZE.radius, cursor: "pointer", transition: "all .2s ease",
                       border: task.status === "completed" ? "1px solid #d8dfd8" : "1px solid #e4d5c3",
@@ -411,7 +419,8 @@ const Dashboard = () => {
                         </Box>
                       </CardContent>
                     </Card>
-                  ))}
+                    ))
+                  )}
                 </Box>
                 </Box>
               </section>
