@@ -99,6 +99,7 @@ export class MomentumService {
         primaryFocus: dto.primaryFocus ?? null,
         currentStatus: dto.currentStatus ?? null,
         preferredRole: dto.preferredRole ?? null,
+        dedicatedRole: dto.preferredRole?.[0]?.trim() || null,
         areasOfInterest: dto.areasOfInterest ?? null,
         employmentType: dto.employmentType ?? null,
         resumeText: dto.resumeText ?? null,
@@ -111,8 +112,10 @@ export class MomentumService {
       onboarding.primaryFocus = dto.primaryFocus;
     if (dto.currentStatus !== undefined)
       onboarding.currentStatus = dto.currentStatus;
-    if (dto.preferredRole !== undefined)
+    if (dto.preferredRole !== undefined) {
       onboarding.preferredRole = dto.preferredRole;
+      onboarding.dedicatedRole = dto.preferredRole?.[0]?.trim() || null;
+    }
     if (dto.areasOfInterest !== undefined)
       onboarding.areasOfInterest = dto.areasOfInterest;
     if (dto.employmentType !== undefined)
