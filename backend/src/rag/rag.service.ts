@@ -13,6 +13,7 @@ import { TaskGenerationService } from './task-generation.service';
 import { PerformanceService } from './performance.service';
 import { LearningTracksService } from 'src/learning-tracks/learning-tracks.service';
 import { normalizeLeetcodeUrl } from './leetcode-url.util';
+import { OnboardingResponse } from 'src/onboarding/onboarding.entity';
 
 @Injectable()
 export class RagService {
@@ -39,6 +40,9 @@ export class RagService {
     private readonly taskGenerationService: TaskGenerationService,
     private readonly performanceService: PerformanceService,
     private readonly learningTracksService: LearningTracksService,
+
+    @InjectRepository(OnboardingResponse)
+    private readonly onboardingRepo: Repository<OnboardingResponse>,
   ) {}
 
   /** Clears the failure throttle for a user and immediately re-runs task generation. */
@@ -191,12 +195,28 @@ export class RagService {
         hard: 0,
       };
     }
+     // Skip generation if no role is found
+    const profile = await this.onboardingRepo.findOne({ where: { userId } });
+    const role =
+      profile?.dedicatedRole?.trim() ||
+      profile?.preferredRole?.[0]?.trim() ||
+      null;
+    
+    if (!role) {
+      return {
+        userName,
+        tasks: [],
+        skippedReason: 'missing_role' as const,
+      };
+    }    
 
     // ── 2. Determine difficulty mix based on past performance ────────────────
     // Deduplication of already-seen task titles is handled inside
     // TaskGenerationService via the user_seen_tasks table (title_key-based),
     // so no separate exclusion list is needed here.
     console.log(`📊 Performance mix for ${userName}:`, mix);
+
+
 
     // ── 3. Generate an adaptive 3–5 fresh tasks via LLM ─────────────────────
     // Seen-task history is fetched inside TaskGenerationService from the
