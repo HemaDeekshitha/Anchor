@@ -185,7 +185,6 @@ export class CreateCommentDto {
 
 export class VotePollDto {
   @IsArray()
-  @ArrayMinSize(1)
   @ArrayMaxSize(10)
   @IsUUID('4', { each: true })
   optionIds: string[];

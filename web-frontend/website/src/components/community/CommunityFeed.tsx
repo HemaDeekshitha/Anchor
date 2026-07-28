@@ -143,6 +143,8 @@ export type ForumPost = {
     id: string;
     allowsMultiple: boolean;
     endsAt: string | null;
+    status: "open" | "closed";
+    viewerOptionIds: string[];
     options: Array<{ id: string; text: string; voteCount: number }>;
   } | null;
 };
@@ -321,6 +323,8 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
         id: post.poll.id,
         allowsMultiple: post.poll.allowsMultiple,
         endsAt: post.poll.endsAt,
+        status: post.poll.status,
+        viewerOptionIds: post.poll.viewerOptionIds ?? [],
         options: post.poll.options,
       }
     : null,
@@ -349,6 +353,7 @@ const Composer = ({
   const [pollAllowsMultiple, setPollAllowsMultiple] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -428,6 +433,7 @@ const Composer = ({
     setPollAllowsMultiple(false);
     setFile(null);
     setMode("text");
+    setUploadProgress(0);
     setError("");
   };
   // T: O(1) and S: O(1)
@@ -443,6 +449,7 @@ const Composer = ({
   useEffect(() => {
     if (!open) return;
     const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (submitting) return;
       if (
         composerRef.current &&
         !composerRef.current.contains(event.target as Node)
@@ -454,7 +461,7 @@ const Composer = ({
     document.addEventListener("pointerdown", handleDocumentPointerDown);
     return () =>
       document.removeEventListener("pointerdown", handleDocumentPointerDown);
-  }, [open]);
+  }, [open, submitting]);
 
   const handlePollOptionChange = (index: number, value: string) => {
     setPollOptions((current) =>
@@ -494,6 +501,7 @@ const Composer = ({
       return;
     }
     setSubmitting(true);
+    setUploadProgress(0);
     setError("");
     try {
       const post = await createPost({
@@ -501,15 +509,16 @@ const Composer = ({
         body: content,
         mode: mode === "emoji" ? "text" : mode,
         file,
+        onUploadProgress: setUploadProgress,
         pollOptions,
         pollAllowsMultiple,
         pollEndsAt: new Date(
           Date.now() + pollDurationDays * 24 * 60 * 60 * 1_000,
         ).toISOString(),
       });
-      await onCreated(post);
       resetComposer();
       setOpen(false);
+      void onCreated(post);
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not create post",
@@ -561,6 +570,7 @@ const Composer = ({
           minRows={open ? 4 : 1}
           maxRows={open ? 8 : 1}
           value={content}
+          disabled={submitting}
           onFocus={handleOpen}
           onChange={(event) => setContent(event.target.value)}
           inputProps={{ maxLength: mode === "poll" ? 150 : 10_000 }}
@@ -794,6 +804,7 @@ const Composer = ({
             <Button
               size="small"
               variant="text"
+              disabled={submitting}
               onClick={() => handleMediaPicker(mode)}
               sx={{
                 color: C.accentDark,
@@ -846,6 +857,18 @@ const Composer = ({
         {error && (
           <Alert severity="error" sx={{ mt: 1.25, py: 0 }}>
             {error}
+          </Alert>
+        )}
+
+        {submitting && (mode === "image" || mode === "video") && (
+          <Alert
+            severity="info"
+            role="status"
+            aria-live="polite"
+            sx={{ mt: 1.25, py: 0 }}
+          >
+            Please wait while we upload your {mode}
+            {uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}
           </Alert>
         )}
 
@@ -980,7 +1003,7 @@ const PostCard = ({
   const [poll, setPoll] = useState(post.poll);
   const [votingOptionId, setVotingOptionId] = useState("");
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<string[]>(
-    [],
+    post.poll?.viewerOptionIds ?? [],
   );
   const [pollError, setPollError] = useState("");
   const [commentsLoaded, setCommentsLoaded] = useState(
@@ -1006,6 +1029,23 @@ const PostCard = ({
   const [editWindowOpen, setEditWindowOpen] = useState(
     Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000,
   );
+  const pollClosed = Boolean(
+    poll &&
+      (poll.status === "closed" ||
+        (poll.endsAt && new Date(poll.endsAt).getTime() <= Date.now())),
+  );
+
+  useEffect(() => {
+    setPoll(post.poll);
+    setSelectedPollOptionIds(post.poll?.viewerOptionIds ?? []);
+    setPollError("");
+  }, [post.poll]);
+  // T: O(1) and S: O(1)
+
+  useEffect(() => {
+    setFriendshipStatus(post.friendshipStatus);
+  }, [post.friendshipStatus]);
+  // T: O(1) and S: O(1)
 
   useEffect(() => {
     const remaining =
@@ -1050,14 +1090,35 @@ const PostCard = ({
     optionIds: string[],
     loadingOptionId: string,
   ) => {
-    if (!poll || votingOptionId || optionIds.length === 0) return;
+    if (!poll || votingOptionId) return;
+    const previousPoll = poll;
+    const previousOptionIds = poll.viewerOptionIds;
+    const previousOptionIdSet = new Set(previousOptionIds);
+    const nextOptionIdSet = new Set(optionIds);
+    const optimisticOptions = poll.options.map((option) => ({
+      ...option,
+      voteCount: Math.max(
+        0,
+        option.voteCount +
+          (nextOptionIdSet.has(option.id) ? 1 : 0) -
+          (previousOptionIdSet.has(option.id) ? 1 : 0),
+      ),
+    }));
     setVotingOptionId(loadingOptionId);
     setPollError("");
+    setPoll({
+      ...poll,
+      options: optimisticOptions,
+      viewerOptionIds: optionIds,
+    });
+    setSelectedPollOptionIds(optionIds);
     try {
       const options = await votePoll(poll.id, optionIds);
-      setPoll({ ...poll, options });
-      setSelectedPollOptionIds([]);
+      setPoll({ ...poll, options, viewerOptionIds: optionIds });
+      setSelectedPollOptionIds(optionIds);
     } catch (caught) {
+      setPoll(previousPoll);
+      setSelectedPollOptionIds(previousOptionIds);
       setPollError(
         caught instanceof Error ? caught.message : "Could not submit vote",
       );
@@ -1068,9 +1129,12 @@ const PostCard = ({
   // T: O(o) and S: O(o), where o is the number of poll options
 
   const handlePollOptionClick = (optionId: string) => {
-    if (!poll || votingOptionId) return;
+    if (!poll || pollClosed || votingOptionId) return;
     if (!poll.allowsMultiple) {
-      void submitPollVote([optionId], optionId);
+      void submitPollVote(
+        selectedPollOptionIds.includes(optionId) ? [] : [optionId],
+        optionId,
+      );
       return;
     }
     setSelectedPollOptionIds((current) =>
@@ -1479,7 +1543,7 @@ const PostCard = ({
       )}
 
       {poll && (
-        <Stack spacing={1} sx={{ mb: 2.5 }}>
+        <Stack spacing={1} sx={{ width: "100%", maxWidth: 480, mb: 2.5 }}>
           {poll.allowsMultiple && (
             <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
               Select one or more options, then submit your vote.
@@ -1488,46 +1552,76 @@ const PostCard = ({
           {poll.options.map((option) => (
             <Button
               key={option.id}
-              variant={
-                selectedPollOptionIds.includes(option.id)
-                  ? "contained"
-                  : "outlined"
-              }
-              disabled={Boolean(votingOptionId)}
+              variant="outlined"
+              disabled={pollClosed}
               onClick={() => handlePollOptionClick(option.id)}
               sx={{
                 justifyContent: "space-between",
                 borderColor: C.divider,
-                color: selectedPollOptionIds.includes(option.id)
-                  ? "#fff"
-                  : C.textPrimary,
-                bgcolor: selectedPollOptionIds.includes(option.id)
-                  ? C.accent
-                  : "transparent",
+                color: C.textPrimary,
+                bgcolor: "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 py: 1,
                 "&:hover": {
-                  borderColor: C.accent,
-                  bgcolor: selectedPollOptionIds.includes(option.id)
-                    ? C.accentDark
-                    : C.accentHover,
+                  borderColor: C.divider,
+                  bgcolor: "#fff",
                 },
               }}
             >
-              <span>{option.text}</span>
-              <span>
-                {votingOptionId === option.id
-                  ? "Voting…"
-                  : `${option.voteCount} votes`}
-              </span>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                {poll.allowsMultiple ? (
+                  <Checkbox
+                    checked={selectedPollOptionIds.includes(option.id)}
+                    tabIndex={-1}
+                    disableRipple
+                    sx={{
+                      p: 0,
+                      color: C.textMuted,
+                      pointerEvents: "none",
+                      "&.Mui-checked": { color: C.accent },
+                      "& .MuiSvgIcon-root": {
+                        fontSize: 18,
+                        transition: "color 180ms ease",
+                      },
+                    }}
+                  />
+                ) : (
+                  <Radio
+                    checked={selectedPollOptionIds.includes(option.id)}
+                    tabIndex={-1}
+                    disableRipple
+                    sx={{
+                      p: 0,
+                      color: C.textMuted,
+                      pointerEvents: "none",
+                      "&.Mui-checked": { color: C.accent },
+                      "& .MuiSvgIcon-root": {
+                        fontSize: 18,
+                        transition: "color 180ms ease",
+                      },
+                    }}
+                  />
+                )}
+                <span>{option.text}</span>
+              </Box>
+              <Box
+                component="span"
+                sx={{ transition: "color 180ms ease", whiteSpace: "nowrap" }}
+              >
+                {option.voteCount}{" "}
+                {option.voteCount === 1 ? "vote" : "votes"}
+              </Box>
             </Button>
           ))}
           {poll.allowsMultiple && (
             <Button
               variant="contained"
               disabled={
-                selectedPollOptionIds.length === 0 || Boolean(votingOptionId)
+                pollClosed ||
+                (selectedPollOptionIds.length === 0 &&
+                  poll.viewerOptionIds.length === 0) ||
+                Boolean(votingOptionId)
               }
               onClick={handleMultiplePollVote}
               sx={{
@@ -3567,21 +3661,40 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   const handlePostCreated = async (
     post: CommunityPostRecord,
   ): Promise<void> => {
-    const target = post.communityId ?? ALL_ID;
+    try {
+      const target = post.communityId ?? ALL_ID;
 
-    if (post.status === "published") {
-      await refreshPosts(target);
-      return;
-    }
+      if (post.status === "published") {
+        const optimisticPost: ForumPost = {
+          ...mapPost(post),
+          friendshipStatus: "self",
+        };
+        if (activePostScopeRef.current === target) {
+          setPosts((current) =>
+            current.some((item) => item.id === optimisticPost.id)
+              ? current
+              : [optimisticPost, ...current],
+          );
+        }
+        await refreshPosts(target);
+        return;
+      }
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      await delay(1_500);
-      const refreshed = await refreshPosts(target);
-      if (refreshed.some((item) => item.id === post.id)) return;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await delay(1_500);
+        const refreshed = await refreshPosts(target);
+        if (refreshed.some((item) => item.id === post.id)) return;
+      }
+      setPageError(
+        "Your media was uploaded and is still processing. It will appear after processing finishes.",
+      );
+    } catch (caught) {
+      setPageError(
+        caught instanceof Error
+          ? caught.message
+          : "Your post was created, but the feed could not be refreshed.",
+      );
     }
-    setPageError(
-      "Your media was uploaded and is still processing. It will appear after processing finishes.",
-    );
   };
   // T: O(p) and S: O(p), where p is returned posts and retries are bounded
 
