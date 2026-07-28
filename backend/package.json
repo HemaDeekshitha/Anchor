@@ -92,6 +92,9 @@
   "overrides": {
     "@nestjs/platform-express": {
       "multer": "2.2.0"
+    },
+    "typeorm": {
+      "glob": "11.1.0"
     }
   },
   "jest": {
