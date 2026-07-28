@@ -1,0 +1,56 @@
+limit_req_zone $binary_remote_addr zone=anchor_api_edge:10m rate=30r/s;
+
+upstream anchor_api {
+    least_conn;
+    keepalive 64;
+
+    # Add every healthy API instance here. One server is reverse proxying,
+    # two or more active servers provide load balancing.
+    server 127.0.0.1:3012 max_fails=3 fail_timeout=10s;
+    # server 127.0.0.1:3015 max_fails=3 fail_timeout=10s;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name anchor.feeltiptop.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name anchor.feeltiptop.com;
+
+    ssl_certificate /etc/letsencrypt/live/anchor.feeltiptop.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/anchor.feeltiptop.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    client_max_body_size 1m;
+
+    location / {
+        limit_req zone=anchor_api_edge burst=60 nodelay;
+        proxy_pass http://anchor_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 3s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 2;
+    }
+}

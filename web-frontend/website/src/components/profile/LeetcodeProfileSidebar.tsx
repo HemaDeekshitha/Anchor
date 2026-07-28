@@ -111,7 +111,7 @@ export default function LeetcodeProfileSidebar({
         },
         minWidth: 0,
         flexShrink: 1,
-        alignSelf: "flex-start",
+        alignSelf: "stretch",
         boxSizing: "border-box",
         borderRadius: 3,
         padding: { xs: 2, md: 2 },

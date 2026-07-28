@@ -5,8 +5,6 @@ import { ContactModule } from './contact/contact.module';
 import { HealthModule } from './health/health.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { RagModule } from './rag/rag.module';
-import { AuthService } from './auth/auth.service';
-import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { SubmissionModule } from './submissions/submission.module';
@@ -15,6 +13,8 @@ import { PointsModule } from './points/points.module';
 import { MomentumModule } from './momentum/momentum.module';
 import { ApplicationTrackerModule } from './application-tracker/application-tracker.module';
 import { LearningTracksModule } from './learning-tracks/learning-tracks.module';
+import { CommunityModule } from './community/community.module';
+import { databaseOptions } from './database/data-source';
 
 @Module({
   imports: [
@@ -26,18 +26,8 @@ import { LearningTracksModule } from './learning-tracks/learning-tracks.module';
     HealthModule,
     OnboardingModule,
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST,
-      port: Number(process.env.DATABASE_PORT),
-      username: process.env.DATABASE_USER,
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME,
+      ...databaseOptions(),
       autoLoadEntities: true,
-      synchronize: true, // CAREFUL: This auto-creates tables. Disable in production!
-      ssl:
-        process.env.DATABASE_SSL === 'true'
-          ? { rejectUnauthorized: false }
-          : false,
     }),
     RagModule,
     AuthModule,
@@ -47,6 +37,7 @@ import { LearningTracksModule } from './learning-tracks/learning-tracks.module';
     MomentumModule,
     ApplicationTrackerModule,
     LearningTracksModule,
+    CommunityModule,
   ],
 })
 export class AppModule {}
