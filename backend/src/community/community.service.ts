@@ -654,13 +654,16 @@ export class CommunityService {
       );
       return { post, eventId: event.id };
     });
-    for (const data of mediaJobs) {
-      await this.queue.enqueue({ name: 'media.verify', data });
-    }
-    await this.queue.enqueue({
-      name: 'outbox.dispatch',
-      data: { eventId: result.eventId },
-    });
+    const queueOperations = mediaJobs.map((data) =>
+      this.queue.enqueue({ name: 'media.verify', data }),
+    );
+    queueOperations.push(
+      this.queue.enqueue({
+        name: 'outbox.dispatch',
+        data: { eventId: result.eventId },
+      }),
+    );
+    void Promise.all(queueOperations);
     await this.invalidatePostCaches(communityId);
     return result.post;
   }
@@ -769,12 +772,17 @@ export class CommunityService {
         }),
       ]);
     const pollIds = polls.map((poll) => poll.id);
-    const options = pollIds.length
-      ? await this.pollOptionRepository.find({
-          where: { pollId: In(pollIds) },
-          order: { sortOrder: 'ASC' },
-        })
-      : [];
+    const [options, viewerPollVotes] = pollIds.length
+      ? await Promise.all([
+          this.pollOptionRepository.find({
+            where: { pollId: In(pollIds) },
+            order: { sortOrder: 'ASC' },
+          }),
+          this.pollVoteRepository.find({
+            where: { pollId: In(pollIds), userId: viewerId },
+          }),
+        ])
+      : [[], []];
     const authorById = new Map(authors.map((author) => [author.id, author]));
     const profileByUserId = new Map(
       profiles.map((profile) => [profile.userId, profile]),
@@ -793,6 +801,7 @@ export class CommunityService {
     const mediaByPost = new Map<string, PostMedia[]>();
     const pollByPost = new Map(polls.map((poll) => [poll.postId, poll]));
     const optionsByPoll = new Map<string, PollOption[]>();
+    const viewerOptionsByPoll = new Map<string, string[]>();
     for (const item of media) {
       const current = mediaByPost.get(item.postId) ?? [];
       current.push(item);
@@ -802,6 +811,11 @@ export class CommunityService {
       const current = optionsByPoll.get(option.pollId) ?? [];
       current.push(option);
       optionsByPoll.set(option.pollId, current);
+    }
+    for (const vote of viewerPollVotes) {
+      const current = viewerOptionsByPoll.get(vote.pollId) ?? [];
+      current.push(vote.optionId);
+      viewerOptionsByPoll.set(vote.pollId, current);
     }
     return posts.map((post) => {
       const poll = pollByPost.get(post.id);
@@ -838,12 +852,16 @@ export class CommunityService {
           ),
         })),
         poll: poll
-          ? { ...poll, options: optionsByPoll.get(poll.id) ?? [] }
+          ? {
+              ...poll,
+              options: optionsByPoll.get(poll.id) ?? [],
+              viewerOptionIds: viewerOptionsByPoll.get(poll.id) ?? [],
+            }
           : null,
       };
     });
   }
-  // T: O(l + m + o + f) and S: O(l + m + o + f), where l is posts, m is media, o is poll options, and f is friendship rows
+  // T: O(l + m + o + v + f) and S: O(l + m + o + v + f), where l is posts, m is media, o is poll options, v is viewer poll votes, and f is friendship rows
 
   async listPosts(
     userId: string,
@@ -1134,16 +1152,17 @@ export class CommunityService {
       if (!post) throw new NotFoundException('Post not found');
       await this.requirePostAccess(userId, post);
       const optionIds = [...new Set(dto.optionIds)];
-      if (!poll.allowsMultiple && optionIds.length !== 1) {
+      if (!poll.allowsMultiple && optionIds.length > 1) {
         throw new BadRequestException('Choose one poll option');
       }
-      const options = await manager.findBy(PollOption, {
-        pollId,
-        id: optionIds.length === 1 ? optionIds[0] : undefined,
-      });
       const validOptions =
-        optionIds.length === 1
-          ? options
+        optionIds.length === 0
+          ? []
+          : optionIds.length === 1
+            ? await manager.findBy(PollOption, {
+                pollId,
+                id: optionIds[0],
+              })
           : await manager
               .getRepository(PollOption)
               .createQueryBuilder('option')
@@ -1154,11 +1173,13 @@ export class CommunityService {
         throw new BadRequestException('Poll option is invalid');
       }
       await manager.delete(PollVote, { pollId, userId });
-      await manager.save(
-        optionIds.map((optionId) =>
-          manager.create(PollVote, { pollId, optionId, userId }),
-        ),
-      );
+      if (optionIds.length) {
+        await manager.save(
+          optionIds.map((optionId) =>
+            manager.create(PollVote, { pollId, optionId, userId }),
+          ),
+        );
+      }
       await manager.query(
         `UPDATE poll_options o SET "voteCount" =
           (SELECT COUNT(*) FROM poll_votes v WHERE v."optionId" = o.id)

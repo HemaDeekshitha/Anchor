@@ -27,6 +27,8 @@ export type CommunityPoll = {
   id: string;
   allowsMultiple: boolean;
   endsAt: string | null;
+  status: "open" | "closed";
+  viewerOptionIds: string[];
   options: Array<{ id: string; text: string; voteCount: number }>;
 };
 
@@ -105,6 +107,7 @@ export type CreatePostInput = {
   body: string;
   mode: "text" | "image" | "video" | "poll";
   file?: File | null;
+  onUploadProgress?: (percentage: number) => void;
   pollOptions?: string[];
   pollAllowsMultiple?: boolean;
   pollEndsAt?: string;
@@ -285,6 +288,7 @@ export async function acceptCommunityInvite(token: string): Promise<void> {
 async function uploadMedia(
   file: File,
   resourceType: "image" | "video",
+  onProgress?: (percentage: number) => void,
 ): Promise<string> {
   if (!file.type.startsWith(`${resourceType}/`)) {
     throw new Error(`Choose a valid ${resourceType} file`);
@@ -323,16 +327,63 @@ async function uploadMedia(
   form.append("folder", signature.folder);
   form.append("type", signature.type);
   form.append("signature", signature.signature);
-  const uploadResponse = await fetch(
-    `https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/${resourceType}/upload`,
-    { method: "POST", body: form },
-  );
-  if (!uploadResponse.ok) {
-    throw await readError(uploadResponse, "Cloudinary upload failed");
-  }
-  const uploaded = (await uploadResponse.json()) as { public_id?: string };
-  if (!uploaded.public_id) throw new Error("Cloudinary returned no asset ID");
-  return uploaded.public_id;
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/${resourceType}/upload`;
+
+  return new Promise<string>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", uploadUrl);
+    request.timeout = 5 * 60 * 1_000;
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onload = () => {
+      const payload = (() => {
+        try {
+          return JSON.parse(request.responseText) as {
+            public_id?: string;
+            error?: { message?: string };
+          };
+        } catch {
+          return null;
+        }
+      })();
+      if (request.status < 200 || request.status >= 300) {
+        reject(
+          new Error(
+            payload?.error?.message ||
+              `${resourceType === "video" ? "Video" : "Image"} upload failed`,
+          ),
+        );
+        return;
+      }
+      if (!payload?.public_id) {
+        reject(new Error("Media storage returned no asset ID"));
+        return;
+      }
+      onProgress?.(100);
+      resolve(payload.public_id);
+    };
+    request.onerror = () =>
+      reject(
+        new Error(
+          `${resourceType === "video" ? "Video" : "Image"} upload could not complete. Check your connection and try again.`,
+        ),
+      );
+    request.ontimeout = () =>
+      reject(
+        new Error(
+          `${resourceType === "video" ? "Video" : "Image"} upload timed out. Please try again.`,
+        ),
+      );
+    request.onabort = () =>
+      reject(
+        new Error(
+          `${resourceType === "video" ? "Video" : "Image"} upload was cancelled`,
+        ),
+      );
+    request.send(form);
+  });
 }
 // T: O(b) and S: O(b), where b is the uploaded file size
 
@@ -341,7 +392,11 @@ export async function createPost(
 ): Promise<CommunityPostRecord> {
   let providerAssetId: string | null = null;
   if ((input.mode === "image" || input.mode === "video") && input.file) {
-    providerAssetId = await uploadMedia(input.file, input.mode);
+    providerAssetId = await uploadMedia(
+      input.file,
+      input.mode,
+      input.onUploadProgress,
+    );
   }
   const options = (input.pollOptions ?? [])
     .map((option) => option.trim())
