@@ -1,6 +1,16 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  Typography,
+} from "@mui/material";
 import LeetcodeProfileSidebar from "./LeetcodeProfileSidebar";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import MomentumGraphCard from "./ProfileGraphCard";
@@ -21,9 +31,14 @@ export default function Profile() {
   const [emailOtp, setEmailOtp] = useState("");
   const [emailOtpError, setEmailOtpError] = useState("");
   const [profileSaveError, setProfileSaveError] = useState("");
-  const [passwordMode, setPasswordMode] = useState<"change" | "forgot" | null>(null);
+  const [passwordMode, setPasswordMode] = useState<"change" | "forgot" | null>(
+    null,
+  );
   const [pendingEmailSave, setPendingEmailSave] = useState<{
-    updated: EditableProfile; avatarFile: File | null; resumeFile: File | null; removeAvatar: boolean;
+    updated: EditableProfile;
+    avatarFile: File | null;
+    resumeFile: File | null;
+    removeAvatar: boolean;
   } | null>(null);
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -63,38 +78,53 @@ export default function Profile() {
     setSaving(true);
     setProfileSaveError("");
     try {
-      if (!emailAlreadyVerified && updated.email.trim().toLowerCase() !== String(profile?.email ?? "").toLowerCase()) {
+      if (
+        !emailAlreadyVerified &&
+        updated.email.trim().toLowerCase() !==
+          String(profile?.email ?? "").toLowerCase()
+      ) {
         const response = await apiFetch(`${API}/auth/email-change/request`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: updated.email.trim() }),
         });
         await requireOk(response, "Failed to send verification code");
         setPendingEmailSave({ updated, avatarFile, resumeFile, removeAvatar });
-        setEmailOtp(""); setEmailOtpError("");
+        setEmailOtp("");
+        setEmailOtpError("");
         return;
       }
       if (removeAvatar) {
-        const avatarResponse = await apiFetch(`${API}/momentum/profile/avatar`, {
-          method: "DELETE",
-        });
+        const avatarResponse = await apiFetch(
+          `${API}/momentum/profile/avatar`,
+          {
+            method: "DELETE",
+          },
+        );
         await requireOk(avatarResponse, "Failed to remove profile photo");
       } else if (avatarFile) {
         const fd = new FormData();
         fd.append("file", avatarFile);
-        const avatarResponse = await apiFetch(`${API}/momentum/profile/avatar`, {
-          method: "POST",
-          body: fd,
-        });
+        const avatarResponse = await apiFetch(
+          `${API}/momentum/profile/avatar`,
+          {
+            method: "POST",
+            body: fd,
+          },
+        );
         await requireOk(avatarResponse, "Failed to upload profile photo");
       }
 
       if (resumeFile) {
         const fd = new FormData();
         fd.append("file", resumeFile);
-        const resumeResponse = await apiFetch(`${API}/momentum/profile/resume`, {
-          method: "POST",
-          body: fd,
-        });
+        const resumeResponse = await apiFetch(
+          `${API}/momentum/profile/resume`,
+          {
+            method: "POST",
+            body: fd,
+          },
+        );
         await requireOk(resumeResponse, "Failed to upload resume");
       }
 
@@ -103,7 +133,6 @@ export default function Profile() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: updated.name,
-          email: updated.email,
           location: updated.location,
           primaryFocus: updated.primaryFocus,
           currentStatus: updated.status,
@@ -121,7 +150,8 @@ export default function Profile() {
       setProfile(freshData);
       setEditOpen(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save profile";
+      const message =
+        err instanceof Error ? err.message : "Failed to save profile";
       setProfileSaveError(
         message === "Email already in use"
           ? "An account already exists with this email. Please use a different email address."
@@ -131,22 +161,35 @@ export default function Profile() {
       setSaving(false);
     }
   }
+  // T: O(r) and S: O(r), where r is the uploaded resume or avatar payload
 
   async function verifyEmailChange() {
     if (!pendingEmailSave || emailOtp.length !== 6) return;
-    setSaving(true); setEmailOtpError("");
+    setSaving(true);
+    setEmailOtpError("");
     try {
       const response = await apiFetch(`${API}/auth/email-change/verify`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp: emailOtp }),
       });
       await requireOk(response, "Email verification failed");
       const pending = pendingEmailSave;
       setPendingEmailSave(null);
-      await handleProfileSave(pending.updated, pending.avatarFile, pending.resumeFile, pending.removeAvatar, true);
+      await handleProfileSave(
+        pending.updated,
+        pending.avatarFile,
+        pending.resumeFile,
+        pending.removeAvatar,
+        true,
+      );
     } catch (error) {
-      setEmailOtpError(error instanceof Error ? error.message : "Email verification failed");
-    } finally { setSaving(false); }
+      setEmailOtpError(
+        error instanceof Error ? error.message : "Email verification failed",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function resendEmailChangeOtp() {
@@ -154,12 +197,15 @@ export default function Profile() {
     setEmailOtpError("");
     try {
       const response = await apiFetch(`${API}/auth/email-change/request`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: pendingEmailSave.updated.email.trim() }),
       });
       await requireOk(response, "Could not resend verification code");
     } catch (error) {
-      setEmailOtpError(error instanceof Error ? error.message : "Could not resend code");
+      setEmailOtpError(
+        error instanceof Error ? error.message : "Could not resend code",
+      );
     }
   }
 
@@ -172,7 +218,7 @@ export default function Profile() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            background: "#ede8e0",
+            background: "#fff",
           }}
         >
           <CircularProgress sx={{ color: "#b87444" }} />
@@ -191,7 +237,7 @@ export default function Profile() {
           px: 0,
           py: 2,
           ml: 0,
-          background: "#ede8e0",
+          background: "#fff",
           overflowX: "hidden",
           boxSizing: "border-box",
           color: "#2c1a0a",
@@ -257,24 +303,59 @@ export default function Profile() {
         email={String(profile?.email ?? "")}
         onClose={() => setPasswordMode(null)}
       />
-      <Dialog open={Boolean(pendingEmailSave)} onClose={() => !saving && setPendingEmailSave(null)} PaperProps={{ sx: { borderRadius: 3, width: 430 } }}>
-        <DialogTitle sx={{ fontWeight: 800 }}>Verify your new email</DialogTitle>
+      <Dialog
+        open={Boolean(pendingEmailSave)}
+        onClose={() => !saving && setPendingEmailSave(null)}
+        PaperProps={{ sx: { borderRadius: 3, width: 430 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Verify your new email
+        </DialogTitle>
         <DialogContent>
           <Typography sx={{ color: "#8c6a50", mb: 2 }}>
-            Enter the six-digit code sent to {pendingEmailSave?.updated.email} before saving this change.
+            Enter the six-digit code sent to {pendingEmailSave?.updated.email}{" "}
+            before saving this change.
           </Typography>
           <Typography sx={{ color: "#8c6a50", fontSize: 13, mt: -1, mb: 2 }}>
-            If you don&apos;t see the email in your inbox, check your spam or junk folder.
+            If you don&apos;t see the email in your inbox, check your spam or
+            junk folder.
           </Typography>
-          <TextField fullWidth autoFocus label="Verification code" value={emailOtp}
-            onChange={(event) => setEmailOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            error={Boolean(emailOtpError)} helperText={emailOtpError}
-            inputProps={{ inputMode: "numeric", maxLength: 6, style: { textAlign: "center", letterSpacing: "0.45em", fontSize: 21, fontWeight: 700 } }} />
+          <TextField
+            fullWidth
+            autoFocus
+            label="Verification code"
+            value={emailOtp}
+            onChange={(event) =>
+              setEmailOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+            }
+            error={Boolean(emailOtpError)}
+            helperText={emailOtpError}
+            inputProps={{
+              inputMode: "numeric",
+              maxLength: 6,
+              style: {
+                textAlign: "center",
+                letterSpacing: "0.45em",
+                fontSize: 21,
+                fontWeight: 700,
+              },
+            }}
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={resendEmailChangeOtp} disabled={saving}>Resend code</Button>
-          <Button onClick={() => setPendingEmailSave(null)} disabled={saving}>Cancel</Button>
-          <Button variant="contained" onClick={verifyEmailChange} disabled={emailOtp.length !== 6 || saving}>Verify and save</Button>
+          <Button onClick={resendEmailChangeOtp} disabled={saving}>
+            Resend code
+          </Button>
+          <Button onClick={() => setPendingEmailSave(null)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={verifyEmailChange}
+            disabled={emailOtp.length !== 6 || saving}
+          >
+            Verify and save
+          </Button>
         </DialogActions>
       </Dialog>
     </LayoutWithSidebar>

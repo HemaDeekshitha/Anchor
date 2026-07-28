@@ -83,6 +83,11 @@ export class RagService {
       userId,
       requestedLimit,
     );
+    // All daily plans use at least four lanes so returning a persisted plan
+    // can never hide its foundations, applied, resume, or judgment question.
+    if (mix.total < 4) {
+      mix = await this.performanceService.getDifficultyMix(userId, 4);
+    }
     let limit = mix.total;
     const timezone = await this.getUserTimezone(userId);
     const today = getTodayInTimezone(timezone);
@@ -195,20 +200,20 @@ export class RagService {
         hard: 0,
       };
     }
-     // Skip generation if no role is found
+    // Skip generation if no role is found
     const profile = await this.onboardingRepo.findOne({ where: { userId } });
     const role =
       profile?.dedicatedRole?.trim() ||
       profile?.preferredRole?.[0]?.trim() ||
       null;
-    
+
     if (!role) {
       return {
         userName,
         tasks: [],
         skippedReason: 'missing_role' as const,
       };
-    }    
+    }
 
     // ── 2. Determine difficulty mix based on past performance ────────────────
     // Deduplication of already-seen task titles is handled inside
@@ -216,14 +221,14 @@ export class RagService {
     // so no separate exclusion list is needed here.
     console.log(`📊 Performance mix for ${userName}:`, mix);
 
-
-
     // ── 3. Generate an adaptive 3–5 fresh tasks via LLM ─────────────────────
     // Seen-task history is fetched inside TaskGenerationService from the
     // user_seen_tasks table — no need to pass recentTitles from here.
     const lastFailedAt = this.generationFailedAt.get(userId);
     if (lastFailedAt && Date.now() - lastFailedAt < this.RETRY_AFTER_MS) {
-      const minsLeft = Math.ceil((this.RETRY_AFTER_MS - (Date.now() - lastFailedAt)) / 60000);
+      const minsLeft = Math.ceil(
+        (this.RETRY_AFTER_MS - (Date.now() - lastFailedAt)) / 60000,
+      );
       console.warn(
         `⚠️ Skipping generation for ${userName} — failed recently, retry in ${minsLeft} min.`,
       );
@@ -296,23 +301,30 @@ export class RagService {
     return {
       userName,
       performanceLevel: mix.performanceLevel,
-      tasks: [...carriedTasks, ...generated.map((t) => ({
-        id: t.id,
-        title: t.title,
-        description: t.description ?? null,
-        category: t.category,
-        difficulty: t.difficulty,
-        priority: t.priority,
-        status: 'pending',
-        date: today,
-        task_date: today,
-        is_ai_generated: true,
-        leetcodeUrl: normalizeLeetcodeUrl(t.leetcodeUrl),
-      }))],
+      tasks: [
+        ...carriedTasks,
+        ...generated.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description ?? null,
+          category: t.category,
+          difficulty: t.difficulty,
+          priority: t.priority,
+          status: 'pending',
+          date: today,
+          task_date: today,
+          is_ai_generated: true,
+          leetcodeUrl: normalizeLeetcodeUrl(t.leetcodeUrl),
+        })),
+      ],
     };
   }
 
-  private getCurriculumContext(track: NonNullable<Awaited<ReturnType<LearningTracksService['getCurrent']>>>) {
+  private getCurriculumContext(
+    track: NonNullable<
+      Awaited<ReturnType<LearningTracksService['getCurrent']>>
+    >,
+  ) {
     const start = new Date(`${track.startDate}T00:00:00Z`).getTime();
     const elapsedWeeks = Math.max(
       0,
@@ -334,10 +346,12 @@ export class RagService {
   }
 
   private constrainCountToQuota(preferred: number, remaining: number) {
-    const allowed = [3, 4, 5].filter(
-      (count) => remaining - count === 0 || remaining - count >= 3,
+    const allowed = [4, 5].filter(
+      (count) => remaining - count === 0 || remaining - count >= 4,
     );
-    if (allowed.length === 0) return Math.min(preferred, remaining);
+    // Preserve the four required interview lanes at the end of a track even
+    // when this slightly exceeds the nominal question target.
+    if (allowed.length === 0) return Math.max(4, Math.min(preferred, 5));
     return allowed.reduce((closest, candidate) =>
       Math.abs(candidate - preferred) < Math.abs(closest - preferred)
         ? candidate

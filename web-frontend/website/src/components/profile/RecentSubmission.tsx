@@ -57,6 +57,7 @@ const RecentSubmissions = ({ submissions }: Props) => {
   return (
     <Card sx={{
       mt: 3, p: 3, borderRadius: 3,
+      flex: 1,
       background: C.cardBg,
       border: `1px solid ${C.divider}`,
       borderTop: `4px solid ${C.accent}`,

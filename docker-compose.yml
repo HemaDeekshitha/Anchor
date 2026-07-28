@@ -1,4 +1,52 @@
+x-backend-environment: &backend-environment
+  NODE_ENV: production
+  DATABASE_HOST: ${DATABASE_HOST}
+  DATABASE_PORT: ${DATABASE_PORT}
+  DATABASE_USER: ${DATABASE_USER}
+  DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+  DATABASE_NAME: ${DATABASE_NAME}
+  DATABASE_SSL: ${DATABASE_SSL}
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-20}
+  DATABASE_POOL_MIN: ${DATABASE_POOL_MIN:-2}
+  DATABASE_MIGRATIONS_RUN: ${DATABASE_MIGRATIONS_RUN:-false}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+  CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+  CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+  CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+  GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+  GOOGLE_GMAIL_CALLBACK_URL: ${GOOGLE_GMAIL_CALLBACK_URL}
+  SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+  SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL}
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+  GROQ_API_KEY: ${GROQ_API_KEY}
+  EVAL_PROVIDER: ${EVAL_PROVIDER}
+  TASK_PROVIDER: ${TASK_PROVIDER}
+  MAILJET_API_KEY: ${MAILJET_API_KEY}
+  MAILJET_SECRET_KEY: ${MAILJET_SECRET_KEY}
+  MAILJET_FROM_EMAIL: ${MAILJET_FROM_EMAIL}
+  MAILJET_FROM_NAME: ${MAILJET_FROM_NAME}
+  FRONTEND_URL: ${FRONTEND_URL:-https://anchorapp.feeltiptop.com}
+  APP_URL: ${APP_URL:-https://anchorapp.feeltiptop.com}
+  CORS_ORIGINS: ${CORS_ORIGINS:-https://anchorapp.feeltiptop.com}
+
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - community_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     container_name: anchor-backend
     build:
@@ -6,43 +54,34 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      NODE_ENV: production
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_SSL: ${DATABASE_SSL}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
-      GOOGLE_GMAIL_CALLBACK_URL: ${GOOGLE_GMAIL_CALLBACK_URL}
-      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
-      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      EVAL_PROVIDER: ${EVAL_PROVIDER}
-      TASK_PROVIDER: ${TASK_PROVIDER}
-      MAILJET_API_KEY: ${MAILJET_API_KEY}
-      MAILJET_SECRET_KEY: ${MAILJET_SECRET_KEY}
-      MAILJET_FROM_EMAIL: ${MAILJET_FROM_EMAIL}
-      MAILJET_FROM_NAME: ${MAILJET_FROM_NAME}
-      FRONTEND_URL: ${FRONTEND_URL:-https://anchorapp.feeltiptop.com}
-      APP_URL: ${APP_URL:-https://anchorapp.feeltiptop.com}
+      <<: *backend-environment
+      COMMUNITY_WORKER_ENABLED: "false"
     ports:
       - "127.0.0.1:3012:3001"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/health/ready"]
       interval: 15s
       timeout: 5s
       retries: 8
       start_period: 25s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  community-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *backend-environment
+      COMMUNITY_WORKER_ENABLED: "true"
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
 
   frontend:
     container_name: anchor-frontend
@@ -84,3 +123,4 @@ services:
 volumes:
   anchor_data:
   pgadmin_data:
+  community_redis_data:

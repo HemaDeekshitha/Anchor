@@ -190,7 +190,7 @@ export default function SignupPage() {
           padding: "clamp(32px,4vw,96px)",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
+          justifyContent: "flex-start",
         }}
       >
         {/* LOGO ROW */}
@@ -216,7 +216,7 @@ export default function SignupPage() {
         </Box>
 
         {/* MIDDLE — Welcome text + tagline */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: SPACE.md, py: 4 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: SPACE.md, mt: { xs: 6, md: "clamp(96px,14vh,180px)" } }}>
           <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize:  FONT.hero , fontWeight: 400, color: "#2c1a0a", lineHeight: 1.15 }}>
             Welcome to
           </Typography>
@@ -224,48 +224,18 @@ export default function SignupPage() {
             Anchor
           </Typography>
           <Typography sx={{ fontSize:  FONT.lg, color: "#8c6a50", lineHeight: 1.6, maxWidth: "clamp(400px,25vw,600px)",}}>
-            Your job search, organized.
+            Your job search companion.
           </Typography>
-          <Typography sx={{ fontSize:   FONT.md, color: "#2c1a0a", lineHeight: 1.6, maxWidth: "clamp(400px,25vw,600px)",}}>
-            Track applications, manage interviews, and stay consistent—without the overwhelm.
-          </Typography>
-        </Box>
-
-        {/* PREVIEW CARD */}
-        <Box
-          sx={{
-            background: "white",
-            borderRadius: "clamp(12px,1vw,20px)",
-            padding: "clamp(20px,2vw,40px)",
-            border: "1px solid #e8ddd0",
-          }}
-        >
-          {/* Avatar */}
-          <Box
-            sx={{
-              width: "clamp(50px,3vw,70px)", height: "clamp(50px,3vw,70px)", borderRadius: "50%",
-              background: "#f0e6d8",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto clamp(14px,1vw,24px)",
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b87444" strokeWidth="1.5">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-          </Box>
-
-          {/* Progress bars */}
-          <Box sx={{ display: "flex", flexDirection: "column", gap: "6px", mb: "10px" }}>
-            <Box sx={{ height: 6, borderRadius: 3, background: "#b87444", width: "40%" }} />
-            <Box sx={{ height: 6, borderRadius: 3, background: "#e8ddd0", width: "70%" }} />
-            <Box sx={{ height: 6, borderRadius: 3, background: "#e8ddd0", width: "50%" }} />
-          </Box>
-
-          <Typography sx={{ fontSize:  FONT.md, color: "#8c6a50" }}>
-            Your journey starts here.
+          <Typography sx={{ fontSize: "clamp(16px,1.1vw,22px)", color: "#2c1a0a", lineHeight: 1.6 }}>
+            <Box component="span" sx={{ display: "block", whiteSpace: { md: "nowrap" } }}>
+              Anchor guides your practice, keeps you focused,
+            </Box>
+            <Box component="span" sx={{ display: "block", whiteSpace: { md: "nowrap" } }}>
+              and helps you move steadily toward your next role.
+            </Box>
           </Typography>
         </Box>
+
       </Box>
 
       {/* ── RIGHT PANEL ── */}

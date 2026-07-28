@@ -132,6 +132,7 @@ export class MomentumService {
     await this.onboardingRepository.save(onboarding);
     return { success: true };
   }
+  // T: O(1) indexed database operations and S: O(1)
 
   /** Extracts a city/state or city/country location from raw resume text. */
   private extractLocationFromResume(text: string): string | null {
@@ -186,30 +187,42 @@ export class MomentumService {
   }
 
   async updateAvatar(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Choose a profile photo');
+    }
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Profile photo must be an image');
+    }
     const onboarding = await this.onboardingRepository.findOne({
       where: { userId },
     });
-
-    // Delete previous avatar from Cloudinary before uploading new one
-    if (onboarding?.profileImageUrl) {
-      await this.cloudinaryService.deleteImage(onboarding.profileImageUrl);
-    }
-
+    const previousImageUrl = onboarding?.profileImageUrl ?? null;
     const imageUrl = await this.cloudinaryService.uploadImage(file);
 
-    if (onboarding) {
-      onboarding.profileImageUrl = imageUrl;
-      await this.onboardingRepository.save(onboarding);
-    } else {
-      const fresh = this.onboardingRepository.create({
-        userId,
-        profileImageUrl: imageUrl,
-      });
-      await this.onboardingRepository.save(fresh);
+    try {
+      if (onboarding) {
+        onboarding.profileImageUrl = imageUrl;
+        await this.onboardingRepository.save(onboarding);
+      } else {
+        const fresh = this.onboardingRepository.create({
+          userId,
+          profileImageUrl: imageUrl,
+        });
+        await this.onboardingRepository.save(fresh);
+      }
+    } catch (error) {
+      await this.cloudinaryService.deleteImage(imageUrl).catch(() => undefined);
+      throw error;
+    }
+    if (previousImageUrl && previousImageUrl !== imageUrl) {
+      await this.cloudinaryService
+        .deleteImage(previousImageUrl)
+        .catch(() => undefined);
     }
 
     return { success: true, imageUrl };
   }
+  // T: O(1) provider and indexed database operations and S: O(1)
 
   async removeAvatar(userId: string) {
     const onboarding = await this.onboardingRepository.findOne({
@@ -224,6 +237,7 @@ export class MomentumService {
 
     return { success: true };
   }
+  // T: O(1) provider and indexed database operations and S: O(1)
   // ────────────────────────────────────────────────────────────────────────────
 
   async streamResume(userId: string, res: Response) {

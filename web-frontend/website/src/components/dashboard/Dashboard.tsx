@@ -13,7 +13,9 @@ import { SIZE } from "@/lib/sizes";
 import LearningTrackPanel from "../learning-plan/LearningTrackPanel";
 import { normalizeLeetcodeUrl } from "@/lib/leetcode-url";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -73,11 +75,13 @@ const Dashboard = () => {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [userName, setUserName] = useState("");
   const [skippedReason, setSkippedReason] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
   const planDateRef = useRef(getDailyPlanDate());
 
   const loadDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError("");
       const [tasksRes, submissions] = await Promise.all([
         apiFetch(`${API_BASE_URL}/rag/tasks`),
         api.getMySubmissions().catch((error) => {
@@ -107,7 +111,11 @@ const Dashboard = () => {
       }
       planDateRef.current = getDailyPlanDate();
     } catch (error) {
-      console.error("Failed to load dashboard data:", error);
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Could not load today's Smart Plan",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +165,19 @@ const Dashboard = () => {
     <LayoutWithSidebar>
       <div className={styles.dashboardContainer}>
         <LearningTrackPanel />
-        {isLoading ? (
+        {loadError ? (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={loadDashboardData}>
+                Retry
+              </Button>
+            }
+            sx={{ mt: 3, borderRadius: SIZE.radius }}
+          >
+            {loadError}
+          </Alert>
+        ) : isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
             <Card sx={{
               padding: SPACE.lg, borderRadius: SIZE.radius, maxWidth: SIZE.cardWidth, width: "100%", textAlign: "center",
@@ -230,11 +250,25 @@ const Dashboard = () => {
                       {completedCount} / {smartPlan.length} tasks completed
                     </Typography>
                   </Box>
-                  <Box sx={{ position: "relative" }}>
-                    <CircularProgress variant="determinate" value={100} size={42} thickness={4} sx={{ color: "#f5ede0" }} />
-                    <CircularProgress variant="determinate" value={progress} size={42} thickness={4} sx={{ color: "#b87444", position: "absolute", left: 0 }} />
-                    <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: FONT.sm, color: "#2c1a0a" }}>{progress}%</Typography>
+                  <Box sx={{ position: "relative", width: 54, height: 54, flexShrink: 0 }}>
+                    <CircularProgress
+                      variant="determinate"
+                      value={100}
+                      size={54}
+                      thickness={4}
+                      sx={{ color: "#f5ede0", position: "absolute", inset: 0 }}
+                    />
+                    <CircularProgress
+                      variant="determinate"
+                      value={progress}
+                      size={54}
+                      thickness={4}
+                      sx={{ color: "#b87444", position: "absolute", inset: 0 }}
+                    />
+                    <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", lineHeight: 1, color: "#2c1a0a", fontVariantNumeric: "tabular-nums" }}>
+                        {progress}%
+                      </Typography>
                     </Box>
                   </Box>
                 </Box>
