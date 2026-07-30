@@ -370,11 +370,10 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     >
       <Box
         sx={{
-          bgcolor: C.cardBg,
           mx: { xs: -2, md: -4 },
           mt: { xs: -2, md: -4 },
           px: { xs: 2, md: 4 },
-          pt: { xs: 2, md: 4 },
+          // pt: { xs: 2, md: 4 },
           pb: 2,
           borderBottom: `1px solid ${C.divider}`,
           boxShadow: "0 4px 20px rgba(44,26,10,0.05)",
