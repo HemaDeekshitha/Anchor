@@ -9,10 +9,7 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Chip,
 } from "@mui/material";
-import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import {
   CommunityRecord,
   CommunityFriendRequest,
@@ -34,7 +31,6 @@ import {
 
 import {
   Community,
-  CommunityPageTab,
   CreateCommunityFormInput,
   ForumPost,
   Friend,
@@ -42,35 +38,40 @@ import {
 } from "./Types";
 import { ALL_ID, C, SAMPLE_MEETINGS } from "./constants";
 import { delay, mapCommunity, mapPost } from "./utils";
-import CommunityNavigation from "./Communitynavigation";
 import PostCard from "./Postcard";
 import CommunitiesView from "./Communitiesview";
 import Composer from "./composer";
 import FriendsView from "./Friendsview";
+import ScheduleMeetings from "./Schedulemeetings";
+
+import CommunityRail from "./Communityrail";
+import FriendsRail from "./Friendsrail";
+
+// The page has three "views": the default two-column feed (posts + sidebar),
+// and two full-width managers (Communities, Friends) reached from the
+// sidebar instead of a top tab bar.
+type MainView = "feed" | "communities" | "friends";
 
 type Props = {
   meetings?: ScheduledMeeting[];
 };
 
 const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
-  const [pageTab, setPageTab] = useState<CommunityPageTab>("posts");
+  const [mainView, setMainView] = useState<MainView>("feed");
   const [activeCommunityId, setActiveCommunityId] = useState<string>(ALL_ID);
-  const [communityConversationId, setCommunityConversationId] = useState<
-    string | null
-  >(null);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<
     CommunityFriendRequest[]
   >([]);
-  const [conversationLoading, setConversationLoading] = useState(false);
+  const [feedLoading, setFeedLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const inviteHandled = useRef(false);
   const activePostScopeRef = useRef<string>(ALL_ID);
-  const conversationRequestRef = useRef(0);
+  const feedRequestRef = useRef(0);
 
   const refreshPosts = useCallback(async (communityId: string) => {
     activePostScopeRef.current = communityId;
@@ -137,7 +138,6 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
         try {
           await acceptCommunityInvite(inviteToken);
           window.history.replaceState({}, "", window.location.pathname);
-          setPageTab("communities");
         } catch (caught) {
           inviteError =
             caught instanceof Error
@@ -158,7 +158,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
         );
       const nextCommunityId = validSaved ? saved : ALL_ID;
       setActiveCommunityId(nextCommunityId);
-      await refreshPosts(ALL_ID);
+      await refreshPosts(nextCommunityId);
       setHydrated(true);
       if (inviteError) setPageError(inviteError);
     } catch (caught) {
@@ -213,59 +213,49 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   };
   // T: O(f + p) and S: O(f + p), where f is invited friends and p is first-post length
 
-  const handleOpenCommunity = async (communityId: string) => {
-    const requestId = conversationRequestRef.current + 1;
-    conversationRequestRef.current = requestId;
-    setConversationLoading(true);
-    setPosts([]);
+  // Selecting a community from the sidebar switches the feed to it directly
+  // (replacing the old tab -> "open community" flow).
+  const handleSelectCommunity = async (communityId: string) => {
+    const requestId = feedRequestRef.current + 1;
+    feedRequestRef.current = requestId;
+    setFeedLoading(true);
     setActiveCommunityId(communityId);
-    setCommunityConversationId(communityId);
-    setPageTab("communities");
+    setMainView("feed");
     setPageError("");
     try {
       await refreshPosts(communityId);
     } catch (caught) {
-      if (conversationRequestRef.current === requestId) {
+      if (feedRequestRef.current === requestId) {
         setPageError(
-          caught instanceof Error ? caught.message : "Could not open community"
+          caught instanceof Error ? caught.message : "Could not load this feed"
         );
       }
     } finally {
-      if (conversationRequestRef.current === requestId) {
-        setConversationLoading(false);
+      if (feedRequestRef.current === requestId) {
+        setFeedLoading(false);
       }
     }
   };
-  // T: O(p) and S: O(p), where p is the returned community posts
+  // T: O(p) and S: O(p), where p is the returned posts
 
-  const handlePageTabChange = (nextTab: CommunityPageTab) => {
-    setPageTab(nextTab);
+  const handleOpenCommunitiesManager = () => {
+    setMainView("communities");
     setPageError("");
-    setConversationLoading(false);
-    conversationRequestRef.current += 1;
-    if (nextTab === "posts") {
-      setCommunityConversationId(null);
-      void refreshPosts(ALL_ID).catch((caught) => {
-        setPageError(
-          caught instanceof Error ? caught.message : "Could not load posts"
-        );
-      });
-    }
-    if (nextTab === "communities") {
-      activePostScopeRef.current = "community-list";
-      setCommunityConversationId(null);
-    }
   };
   // T: O(1) and S: O(1)
 
-  const handleCloseCommunityConversation = () => {
-    conversationRequestRef.current += 1;
-    activePostScopeRef.current = "community-list";
-    setConversationLoading(false);
-    setCommunityConversationId(null);
+  const handleOpenFriendsManager = () => {
+    setMainView("friends");
+    setPageError("");
+  };
+  // T: O(1) and S: O(1)
+
+  const handleBackToFeed = () => {
+    setMainView("feed");
+    setPageError("");
     void refreshCommunities();
   };
-  // T: O(1) and S: O(1)
+  // T: O(c) and S: O(c), where c is returned communities
 
   const handlePostCreated = async (
     post: CommunityPostRecord
@@ -338,20 +328,21 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   };
   // T: O(f + r) and S: O(f + r), where f is friends and r is requests
 
-  const conversationCommunity = communities.find(
-    (community) => community.id === communityConversationId
+  const isAllView = activeCommunityId === ALL_ID;
+  const activeCommunity = communities.find(
+    (community) => community.id === activeCommunityId
   );
-  const visiblePosts = posts;
+  const communityNameById = new Map(communities.map((c) => [c.id, c.name]));
   const pendingFriendRequests = friendRequests.length;
 
   const pageHeading =
-    pageTab === "posts"
+    mainView === "communities"
+      ? "Communities"
+      : mainView === "friends"
+      ? "Friends"
+      : isAllView
       ? "All Communities"
-      : pageTab === "communities"
-      ? communityConversationId
-        ? conversationCommunity?.name ?? "Community"
-        : "Communities"
-      : "Friends";
+      : activeCommunity?.name ?? "Community";
 
   return (
     <Box
@@ -359,37 +350,35 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
         bgcolor: C.surface,
         minHeight: "100vh",
         p: { xs: 2, md: 4 },
-        "& .MuiInputLabel-root.Mui-focused": {
-          color: C.accentDark,
-        },
+        "& .MuiInputLabel-root.Mui-focused": { color: C.accentDark },
         "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
           {
             borderColor: C.accent,
             borderWidth: 2,
           },
-        "& .MuiRadio-root.Mui-checked": {
-          color: C.accent,
-        },
-        pb:
-          pageTab === "posts" || Boolean(communityConversationId)
-            ? { xs: "120px", sm: "116px", md: "120px" }
-            : { xs: 2, md: 4 },
+        "& .MuiRadio-root.Mui-checked": { color: C.accent },
       }}
     >
       <Box
         sx={{
-          bgcolor: C.cardBg,
           mx: { xs: -2, md: -4 },
           mt: { xs: -2, md: -4 },
           px: { xs: 2, md: 4 },
-          pt: { xs: 2, md: 4 },
+          // pt: { xs: 2, md: 4 },
           pb: 2,
           borderBottom: `1px solid ${C.divider}`,
           boxShadow: "0 4px 20px rgba(44,26,10,0.05)",
         }}
       >
         <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
-          <Typography sx={{ fontSize: "0.78rem", color: C.textMuted, mb: 0.3 }}>
+          <Typography
+            sx={{
+              fontSize: "0.9rem",
+              color: C.textMuted,
+              mb: 0.3,
+              fontWeight: 600,
+            }}
+          >
             Viewing
           </Typography>
           <Typography
@@ -398,20 +387,18 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
               fontWeight: 700,
               color: C.textPrimary,
               fontFamily: "'Playfair Display', serif",
-              mb: 2,
             }}
           >
             {pageHeading}
           </Typography>
-          <CommunityNavigation value={pageTab} onChange={handlePageTabChange} />
         </Box>
       </Box>
 
-      <Stack spacing={3} sx={{ maxWidth: 1200, mx: "auto", mt: 3 }}>
+      <Box sx={{ maxWidth: 1200, mx: "auto", mt: 3 }}>
         {pageError && (
           <Alert
             severity="error"
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: 2, mb: 3 }}
             action={
               <Button color="inherit" size="small" onClick={loadCommunityPage}>
                 Retry
@@ -422,104 +409,118 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
           </Alert>
         )}
 
-        {!loading && pendingFriendRequests > 0 && pageTab !== "friends" && (
-          <Card
-            onClick={() => handlePageTabChange("friends")}
-            sx={{
-              p: 2,
-              borderRadius: 3,
-              background: C.cardBg,
-              border: `1px solid ${C.accentBorder}`,
-              borderLeft: `4px solid ${C.accent}`,
-              boxShadow: "0 4px 20px rgba(44,26,10,0.06)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              cursor: "pointer",
-              maxWidth: 860,
-              width: "100%",
-              mx: "auto",
-              "&:hover": { background: C.accentHover },
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.3 }}>
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 2,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  bgcolor: C.accentFaint,
-                  color: C.accentDark,
-                  flexShrink: 0,
-                }}
-              >
-                <GroupsRoundedIcon sx={{ fontSize: 18 }} />
-              </Box>
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.88rem",
-                    fontWeight: 600,
-                    color: C.textPrimary,
-                  }}
-                >
-                  {pendingFriendRequests}{" "}
-                  {pendingFriendRequests === 1
-                    ? "pending friend request"
-                    : "pending friend requests"}
-                </Typography>
-                <Typography sx={{ fontSize: "0.75rem", color: C.textMuted }}>
-                  Review and respond in Friends
-                </Typography>
-              </Box>
-            </Box>
-            <Chip
-              label="View"
-              size="small"
-              icon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
-              sx={{
-                bgcolor: C.accentFaint,
-                color: C.accentDark,
-                fontWeight: 700,
-                fontSize: "0.72rem",
-              }}
-            />
-          </Card>
-        )}
-
         {loading && (
           <Box sx={{ display: "grid", placeItems: "center", py: 8 }}>
             <CircularProgress sx={{ color: C.accent }} />
           </Box>
         )}
 
-        {!loading && pageTab === "posts" && (
+        {!loading && mainView === "communities" && (
+          <Stack spacing={2}>
+            <Button
+              onClick={handleBackToFeed}
+              sx={{
+                alignSelf: "flex-start",
+                color: C.accentDark,
+                textTransform: "none",
+                fontWeight: 600,
+                px: 0,
+              }}
+            >
+              ← Back to feed
+            </Button>
+            <CommunitiesView
+              communities={communities}
+              friends={friends}
+              meetings={meetings}
+              onJoin={handleJoinCommunity}
+              onCreate={handleCreateCommunity}
+              onOpen={handleSelectCommunity}
+            />
+          </Stack>
+        )}
+
+        {!loading && mainView === "friends" && (
+          <Stack spacing={2}>
+            <Button
+              onClick={handleBackToFeed}
+              sx={{
+                alignSelf: "flex-start",
+                color: C.accentDark,
+                textTransform: "none",
+                fontWeight: 600,
+                px: 0,
+              }}
+            >
+              ← Back to feed
+            </Button>
+            <FriendsView
+              friends={friends}
+              friendRequests={friendRequests}
+              onAddFriend={handleAddFriend}
+              onResolveRequest={handleResolveFriendRequest}
+              onCancelRequest={handleCancelFriendRequest}
+            />
+          </Stack>
+        )}
+
+        {!loading && mainView === "feed" && (
           <Box
             sx={{
-              width: "100%",
-              maxWidth: 860,
-              mx: "auto",
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "2.4fr 1fr" },
+              gap: 3,
+              alignItems: "start",
             }}
           >
+            {/* Feed column */}
             <Stack spacing={3}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  justifyContent: "space-between",
-                  gap: 2,
-                }}
-              >
-                <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
-                  Share what you&apos;re learning, building, or curious about.
-                  Ask a question or join the conversation.
-                </Typography>
-              </Box>
+              {pendingFriendRequests > 0 && (
+                <Card
+                  onClick={handleOpenFriendsManager}
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
+                    background: C.cardBg,
+                    border: `1px solid ${C.accentBorder}`,
+                    borderLeft: `4px solid ${C.accent}`,
+                    boxShadow: "0 4px 20px rgba(44,26,10,0.06)",
+                    cursor: "pointer",
+                    "&:hover": { background: C.accentHover },
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: "0.88rem",
+                      fontWeight: 600,
+                      color: C.textPrimary,
+                    }}
+                  >
+                    {pendingFriendRequests}{" "}
+                    {pendingFriendRequests === 1
+                      ? "pending friend request"
+                      : "pending friend requests"}{" "}
+                    — review in Friends
+                  </Typography>
+                </Card>
+              )}
 
-              {visiblePosts.length === 0 ? (
+              {/* <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
+                Share what you&apos;re learning, building, or curious about. Ask
+                a question or join the conversation.
+              </Typography> */}
+
+              <Composer
+                scope={isAllView ? "global" : "community"}
+                communityId={isAllView ? undefined : activeCommunityId}
+                onCreated={handlePostCreated}
+              />
+
+              {feedLoading ? (
+                <Box sx={{ display: "grid", placeItems: "center", py: 6 }}>
+                  <CircularProgress size={28} sx={{ color: C.accent }} />
+                </Box>
+              ) : posts.length === 0 ? (
                 <Card
                   sx={{
                     p: 4,
@@ -531,155 +532,51 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
                   }}
                 >
                   <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
-                    No member posts yet — be the first to share something.
+                    {isAllView
+                      ? "No member posts yet — be the first to share something."
+                      : "No messages yet — start this community's conversation."}
                   </Typography>
                 </Card>
               ) : (
-                visiblePosts.map((post) => (
+                posts.map((post) => (
                   <PostCard
                     key={post.id}
                     post={post}
+                    communityName={
+                      isAllView && post.communityId
+                        ? communityNameById.get(post.communityId)
+                        : undefined
+                    }
                     onUpdated={handlePostUpdated}
                     onDeleted={handlePostDeleted}
                   />
                 ))
               )}
             </Stack>
+
+            {/* Sidebar column */}
+            <Stack spacing={3}>
+              <ScheduleMeetings
+                meetings={meetings}
+                activeCommunityId={activeCommunityId}
+                activeCommunityName={activeCommunity?.name}
+              />
+              <CommunityRail
+                communities={communities}
+                activeCommunityId={activeCommunityId}
+                onSelect={handleSelectCommunity}
+                onJoin={handleJoinCommunity}
+                onManage={handleOpenCommunitiesManager}
+              />
+              <FriendsRail
+                friends={friends}
+                friendRequests={friendRequests}
+                onManage={handleOpenFriendsManager}
+              />
+            </Stack>
           </Box>
         )}
-
-        {!loading &&
-          pageTab === "communities" &&
-          communityConversationId &&
-          conversationCommunity && (
-            <Box sx={{ width: "100%", maxWidth: 860, mx: "auto" }}>
-              <Stack spacing={3}>
-                <Box>
-                  <Button
-                    onClick={handleCloseCommunityConversation}
-                    sx={{
-                      color: C.accentDark,
-                      textTransform: "none",
-                      px: 0,
-                      mb: 1,
-                      fontWeight: 600,
-                    }}
-                  >
-                    ← Back to communities
-                  </Button>
-                  <Typography
-                    sx={{
-                      color: C.textPrimary,
-                      fontFamily: "'Playfair Display', serif",
-                      fontSize: "1.45rem",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {conversationCommunity.name}
-                  </Typography>
-                  <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
-                    Conversation shared only with this community&apos;s members.
-                  </Typography>
-                </Box>
-                {conversationLoading ? (
-                  <Box
-                    sx={{
-                      minHeight: 180,
-                      display: "grid",
-                      placeItems: "center",
-                    }}
-                  >
-                    <CircularProgress size={28} sx={{ color: C.accent }} />
-                  </Box>
-                ) : visiblePosts.length === 0 ? (
-                  <Card
-                    sx={{
-                      p: 4,
-                      borderRadius: 3,
-                      border: `1px solid ${C.divider}`,
-                      textAlign: "center",
-                      background: C.cardBg,
-                      boxShadow: "0 4px 20px rgba(44,26,10,0.06)",
-                    }}
-                  >
-                    <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
-                      No messages yet — start this community&apos;s
-                      conversation.
-                    </Typography>
-                  </Card>
-                ) : (
-                  visiblePosts.map((post) => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      communityName={conversationCommunity.name}
-                      onUpdated={handlePostUpdated}
-                      onDeleted={handlePostDeleted}
-                    />
-                  ))
-                )}
-              </Stack>
-            </Box>
-          )}
-
-        {!loading &&
-          (pageTab === "posts" ||
-            (pageTab === "communities" &&
-              Boolean(communityConversationId))) && (
-            <Box
-              sx={{
-                position: "fixed",
-                left: { xs: 0, md: "var(--anchor-sidebar-width, 84px)" },
-                right: 0,
-                bottom: { xs: 14, md: 18 },
-                zIndex: 1100,
-                px: { xs: 2, sm: 3, md: 4, lg: 5 },
-                py: { xs: 0.5, md: 0.55 },
-                bgcolor: "transparent",
-                borderTop: "none",
-                boxShadow: "none",
-                pointerEvents: "none",
-                transition: "left 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-              }}
-            >
-              <Box
-                sx={{
-                  width: "100%",
-                  maxWidth: 860,
-                  mx: "auto",
-                  pointerEvents: "auto",
-                }}
-              >
-                <Composer
-                  scope={pageTab === "posts" ? "global" : "community"}
-                  communityId={communityConversationId ?? undefined}
-                  onCreated={handlePostCreated}
-                />
-              </Box>
-            </Box>
-          )}
-
-        {!loading && pageTab === "communities" && !communityConversationId && (
-          <CommunitiesView
-            communities={communities}
-            friends={friends}
-            meetings={meetings}
-            onJoin={handleJoinCommunity}
-            onCreate={handleCreateCommunity}
-            onOpen={handleOpenCommunity}
-          />
-        )}
-
-        {!loading && pageTab === "friends" && (
-          <FriendsView
-            friends={friends}
-            friendRequests={friendRequests}
-            onAddFriend={handleAddFriend}
-            onResolveRequest={handleResolveFriendRequest}
-            onCancelRequest={handleCancelFriendRequest}
-          />
-        )}
-      </Stack>
+      </Box>
     </Box>
   );
 };
