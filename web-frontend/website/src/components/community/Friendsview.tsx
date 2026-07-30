@@ -28,26 +28,31 @@ import FriendRow from "./Frienddrow";
 const FriendsView = ({
   friends,
   friendRequests,
+  sentRequests,
   onAddFriend,
   onResolveRequest,
   onCancelRequest,
 }: {
   friends: Friend[];
   friendRequests: CommunityFriendRequest[];
-  onAddFriend: (friendId: string) => Promise<void>;
+  sentRequests: Friend[];
+  onAddFriend: (friend: Friend) => Promise<void>;
   onResolveRequest: (
     requestId: string,
     status: "accepted" | "declined"
   ) => Promise<void>;
   onCancelRequest: (userId: string) => Promise<void>;
 }) => {
-  const [section, setSection] = useState<"friends" | "requests">("friends");
+  const [section, setSection] = useState<"friends" | "requests" | "sent">(
+    "friends"
+  );
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [requestActionId, setRequestActionId] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [cancellingId, setCancellingId] = useState("");
   const normalizedSearch = search.trim().toLowerCase();
   const currentFriends = friends.filter((friend) => friend.isFriend);
 
@@ -103,15 +108,15 @@ const FriendsView = ({
     };
   }, [normalizedSearch]);
 
-  const handleSearchResultAdd = async (friendId: string) => {
+  const handleSearchResultAdd = async (friend: Friend) => {
     setSearchError("");
     try {
-      await onAddFriend(friendId);
+      await onAddFriend(friend);
       setSearchResults((current) =>
-        current.map((friend) =>
-          friend.id === friendId
-            ? { ...friend, friendshipStatus: "pending" }
-            : friend
+        current.map((item) =>
+          item.id === friend.id
+            ? { ...item, friendshipStatus: "pending" }
+            : item
         )
       );
     } catch (caught) {
@@ -162,6 +167,24 @@ const FriendsView = ({
       );
     } finally {
       setRequestActionId("");
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleCancelSentRequest = async (friendId: string) => {
+    if (cancellingId) return;
+    setCancellingId(friendId);
+    setRequestError("");
+    try {
+      await onCancelRequest(friendId);
+    } catch (caught) {
+      setRequestError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not cancel friend request"
+      );
+    } finally {
+      setCancellingId("");
     }
   };
   // T: O(1) and S: O(1)
@@ -230,7 +253,7 @@ const FriendsView = ({
               <FriendRow
                 key={friend.id}
                 friend={friend}
-                onAddFriend={handleSearchResultAdd}
+                onAddFriend={() => handleSearchResultAdd(friend)}
                 onCancelRequest={handleSearchResultCancel}
               />
             ))}
@@ -271,7 +294,9 @@ const FriendsView = ({
       <Box>
         <Tabs
           value={section}
-          onChange={(_, value: "friends" | "requests") => setSection(value)}
+          onChange={(_, value: "friends" | "requests" | "sent") =>
+            setSection(value)
+          }
           variant="fullWidth"
           sx={{
             mb: 2,
@@ -293,10 +318,11 @@ const FriendsView = ({
             value="requests"
             label={`Friend Requests (${friendRequests.length})`}
           />
+          <Tab value="sent" label={`Sent (${sentRequests.length})`} />
         </Tabs>
 
-        {section === "friends" ? (
-          currentFriends.length === 0 ? (
+        {section === "friends" &&
+          (currentFriends.length === 0 ? (
             <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
               Your accepted friends will appear here.
             </Typography>
@@ -324,80 +350,152 @@ const FriendsView = ({
                 >
                   <FriendRow
                     friend={friend}
-                    onAddFriend={onAddFriend}
+                    onAddFriend={() => handleSearchResultAdd(friend)}
                     compact
                   />
                 </Card>
               ))}
             </Box>
-          )
-        ) : friendRequests.length === 0 ? (
-          <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
-            You have no pending friend requests.
-          </Typography>
-        ) : (
-          <Stack divider={<Divider sx={{ borderColor: C.divider }} />}>
-            {friendRequests.map((request) => (
-              <Box
-                key={request.id}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1.3,
-                  py: 1.5,
-                }}
-              >
-                <Avatar
-                  src={request.avatarUrl ?? undefined}
-                  alt={request.name}
+          ))}
+
+        {section === "requests" &&
+          (friendRequests.length === 0 ? (
+            <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
+              You have no pending friend requests.
+            </Typography>
+          ) : (
+            <Stack divider={<Divider sx={{ borderColor: C.divider }} />}>
+              {friendRequests.map((request) => (
+                <Box
+                  key={request.id}
                   sx={{
-                    width: 44,
-                    height: 44,
-                    bgcolor: C.accentFaint,
-                    color: C.accentDark,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.3,
+                    py: 1.5,
                   }}
                 >
-                  {request.name.charAt(0)}
-                </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ color: C.textPrimary, fontWeight: 700 }}>
-                    {request.name}
-                  </Typography>
-                  <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                    {request.handle} · {request.role}
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="contained"
-                    disabled={Boolean(requestActionId)}
-                    onClick={() => handleResolveRequest(request.id, "accepted")}
+                  <Avatar
+                    src={request.avatarUrl ?? undefined}
+                    alt={request.name}
                     sx={{
-                      bgcolor: C.accent,
-                      textTransform: "none",
-                      boxShadow: "none",
-                      "&:hover": { bgcolor: C.accentDark, boxShadow: "none" },
+                      width: 44,
+                      height: 44,
+                      bgcolor: C.accentFaint,
+                      color: C.accentDark,
                     }}
                   >
-                    Accept
-                  </Button>
+                    {request.name.charAt(0)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ color: C.textPrimary, fontWeight: 700 }}>
+                      {request.name}
+                    </Typography>
+                    <Typography
+                      sx={{ color: C.textMuted, fontSize: "0.75rem" }}
+                    >
+                      {request.handle} · {request.role}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="contained"
+                      disabled={Boolean(requestActionId)}
+                      onClick={() =>
+                        handleResolveRequest(request.id, "accepted")
+                      }
+                      sx={{
+                        bgcolor: C.accent,
+                        textTransform: "none",
+                        boxShadow: "none",
+                        "&:hover": { bgcolor: C.accentDark, boxShadow: "none" },
+                      }}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      disabled={Boolean(requestActionId)}
+                      onClick={() =>
+                        handleResolveRequest(request.id, "declined")
+                      }
+                      sx={{
+                        color: C.textSub,
+                        borderColor: C.divider,
+                        textTransform: "none",
+                      }}
+                    >
+                      Decline
+                    </Button>
+                  </Stack>
+                </Box>
+              ))}
+            </Stack>
+          ))}
+
+        {section === "sent" &&
+          (sentRequests.length === 0 ? (
+            <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
+              Requests you send will appear here until they&apos;re accepted.
+            </Typography>
+          ) : (
+            <Stack divider={<Divider sx={{ borderColor: C.divider }} />}>
+              {sentRequests.map((friend) => (
+                <Box
+                  key={friend.id}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.3,
+                    py: 1.5,
+                  }}
+                >
+                  <Avatar
+                    src={friend.avatarUrl ?? undefined}
+                    alt={friend.name}
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      bgcolor: C.accentFaint,
+                      color: C.accentDark,
+                    }}
+                  >
+                    {friend.name.charAt(0)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ color: C.textPrimary, fontWeight: 700 }}>
+                      {friend.name}
+                    </Typography>
+                    <Typography
+                      sx={{ color: C.textMuted, fontSize: "0.75rem" }}
+                    >
+                      {friend.handle} · {friend.role}
+                    </Typography>
+                  </Box>
                   <Button
                     variant="outlined"
-                    disabled={Boolean(requestActionId)}
-                    onClick={() => handleResolveRequest(request.id, "declined")}
+                    disabled={cancellingId === friend.id}
+                    onClick={() => handleCancelSentRequest(friend.id)}
                     sx={{
                       color: C.textSub,
                       borderColor: C.divider,
                       textTransform: "none",
+                      "&:hover": {
+                        borderColor: C.red,
+                        color: C.red,
+                        bgcolor: "rgba(184,68,68,0.06)",
+                      },
                     }}
                   >
-                    Decline
+                    {cancellingId === friend.id
+                      ? "Cancelling…"
+                      : "Cancel request"}
                   </Button>
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-        )}
+                </Box>
+              ))}
+            </Stack>
+          ))}
+
         {requestError && (
           <Typography
             role="alert"
@@ -410,6 +508,6 @@ const FriendsView = ({
     </Stack>
   );
 };
-// T: O(f) and S: O(f), where f is the number of friends
+// T: O(f + s) and S: O(f + s), where f is friends and s is sent requests
 
 export default FriendsView;

@@ -43,7 +43,6 @@ import CommunitiesView from "./Communitiesview";
 import Composer from "./composer";
 import FriendsView from "./Friendsview";
 import ScheduleMeetings from "./Schedulemeetings";
-
 import CommunityRail from "./Communityrail";
 import FriendsRail from "./Friendsrail";
 
@@ -65,6 +64,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   const [friendRequests, setFriendRequests] = useState<
     CommunityFriendRequest[]
   >([]);
+  const [sentRequests, setSentRequests] = useState<Friend[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -309,13 +309,22 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   };
   // T: O(p) and S: O(p), where p is the number of displayed posts
 
-  const handleAddFriend = async (friendId: string): Promise<void> => {
-    await sendFriendRequest(friendId);
+  const handleAddFriend = async (friend: Friend): Promise<void> => {
+    await sendFriendRequest(friend.id);
+    setSentRequests((current) =>
+      current.some((item) => item.id === friend.id)
+        ? current
+        : [
+            ...current,
+            { ...friend, isFriend: false, friendshipStatus: "pending" },
+          ]
+    );
   };
   // T: O(1) network request and S: O(1)
 
   const handleCancelFriendRequest = async (userId: string): Promise<void> => {
     await cancelFriendRequest(userId);
+    setSentRequests((current) => current.filter((item) => item.id !== userId));
   };
   // T: O(1) network request and S: O(1)
 
@@ -361,24 +370,18 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     >
       <Box
         sx={{
+          bgcolor: C.cardBg,
           mx: { xs: -2, md: -4 },
           mt: { xs: -2, md: -4 },
           px: { xs: 2, md: 4 },
-          // pt: { xs: 2, md: 4 },
+          pt: { xs: 2, md: 4 },
           pb: 2,
           borderBottom: `1px solid ${C.divider}`,
           boxShadow: "0 4px 20px rgba(44,26,10,0.05)",
         }}
       >
         <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
-          <Typography
-            sx={{
-              fontSize: "0.9rem",
-              color: C.textMuted,
-              mb: 0.3,
-              fontWeight: 600,
-            }}
-          >
+          <Typography sx={{ fontSize: "0.78rem", color: C.textMuted, mb: 0.3 }}>
             Viewing
           </Typography>
           <Typography
@@ -457,6 +460,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
             <FriendsView
               friends={friends}
               friendRequests={friendRequests}
+              sentRequests={sentRequests}
               onAddFriend={handleAddFriend}
               onResolveRequest={handleResolveFriendRequest}
               onCancelRequest={handleCancelFriendRequest}
@@ -505,10 +509,10 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
                 </Card>
               )}
 
-              {/* <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
+              <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
                 Share what you&apos;re learning, building, or curious about. Ask
                 a question or join the conversation.
-              </Typography> */}
+              </Typography>
 
               <Composer
                 scope={isAllView ? "global" : "community"}
