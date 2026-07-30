@@ -30,6 +30,7 @@ const FriendsView = ({
   friendRequests,
   onAddFriend,
   onResolveRequest,
+  onCancelRequest,
 }: {
   friends: Friend[];
   friendRequests: CommunityFriendRequest[];
@@ -38,6 +39,7 @@ const FriendsView = ({
     requestId: string,
     status: "accepted" | "declined"
   ) => Promise<void>;
+  onCancelRequest: (userId: string) => Promise<void>;
 }) => {
   const [section, setSection] = useState<"friends" | "requests">("friends");
   const [search, setSearch] = useState("");
@@ -117,6 +119,27 @@ const FriendsView = ({
         caught instanceof Error
           ? caught.message
           : "Could not send friend request"
+      );
+    }
+  };
+  // T: O(r) and S: O(r), where r is the current search results
+
+  const handleSearchResultCancel = async (friendId: string) => {
+    setSearchError("");
+    try {
+      await onCancelRequest(friendId);
+      setSearchResults((current) =>
+        current.map((friend) =>
+          friend.id === friendId
+            ? { ...friend, friendshipStatus: "none" }
+            : friend
+        )
+      );
+    } catch (caught) {
+      setSearchError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not cancel friend request"
       );
     }
   };
@@ -208,6 +231,7 @@ const FriendsView = ({
                 key={friend.id}
                 friend={friend}
                 onAddFriend={handleSearchResultAdd}
+                onCancelRequest={handleSearchResultCancel}
               />
             ))}
             {searching && (

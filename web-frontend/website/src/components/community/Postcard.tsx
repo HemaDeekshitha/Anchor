@@ -44,6 +44,7 @@ import {
   deletePost,
   votePoll,
   votePost,
+  cancelFriendRequest,
 } from "@/lib/community-api";
 import { C } from "./constants";
 import { ForumComment, ForumPost } from "./Types";
@@ -252,6 +253,25 @@ const PostCard = ({
     } catch (caught) {
       setActionMessage(
         caught instanceof Error ? caught.message : "Could not add friend"
+      );
+    } finally {
+      setFriendActionPending(false);
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleCancelFriendRequest = async () => {
+    if (friendshipStatus !== "pending" || friendActionPending) return;
+    setFriendActionPending(true);
+    setActionMessage("");
+    try {
+      await cancelFriendRequest(post.authorId);
+      setFriendshipStatus("none");
+    } catch (caught) {
+      setActionMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Could not cancel friend request"
       );
     } finally {
       setFriendActionPending(false);
@@ -519,23 +539,32 @@ const PostCard = ({
         {friendshipStatus === "none" || friendshipStatus === "pending" ? (
           <Button
             size="small"
-            onClick={handleAddFriend}
-            disabled={friendActionPending || friendshipStatus !== "none"}
+            onClick={
+              friendshipStatus === "none"
+                ? handleAddFriend
+                : handleCancelFriendRequest
+            }
+            disabled={friendActionPending}
             startIcon={
               friendshipStatus === "none" ? <PersonAddAltRoundedIcon /> : null
             }
             sx={{
-              color: C.accentDark,
+              color: friendshipStatus === "none" ? C.accentDark : C.textSub,
               textTransform: "none",
               fontWeight: 700,
               "&.Mui-disabled": { color: C.textMuted },
+              ...(friendshipStatus === "pending" && {
+                "&:hover": { color: C.red },
+              }),
             }}
           >
             {friendActionPending
-              ? "Adding…"
+              ? friendshipStatus === "none"
+                ? "Adding…"
+                : "Cancelling…"
               : friendshipStatus === "none"
               ? "Add as friend"
-              : "Request sent"}
+              : "Cancel request"}
           </Button>
         ) : (
           <>

@@ -11,9 +11,11 @@ const FriendRow = ({
   friend,
   onAddFriend,
   compact = false,
+  onCancelRequest,
 }: {
   friend: Friend;
   onAddFriend: (friendId: string) => void | Promise<void>;
+  onCancelRequest?: (friendId: string) => void | Promise<void>;
   compact?: boolean;
 }) => {
   return (
@@ -69,15 +71,36 @@ const FriendRow = ({
           }}
         />
       ) : friend.friendshipStatus === "pending" ? (
-        <Chip
-          label="Pending"
-          size="small"
-          sx={{
-            bgcolor: C.accentFaint,
-            color: C.accentDark,
-            fontWeight: 600,
-          }}
-        />
+        onCancelRequest ? (
+          <Button
+            size="small"
+            onClick={() => onCancelRequest(friend.id)}
+            sx={{
+              color: C.textSub,
+              bgcolor: "transparent",
+              border: `1px solid ${C.divider}`,
+              borderRadius: 2,
+              textTransform: "none",
+              "&:hover": {
+                borderColor: C.red,
+                color: C.red,
+                bgcolor: "rgba(184,68,68,0.06)",
+              },
+            }}
+          >
+            Cancel request
+          </Button>
+        ) : (
+          <Chip
+            label="Pending"
+            size="small"
+            sx={{
+              bgcolor: C.accentFaint,
+              color: C.accentDark,
+              fontWeight: 600,
+            }}
+          />
+        )
       ) : (
         <Button
           size="small"

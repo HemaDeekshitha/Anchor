@@ -307,16 +307,23 @@ export class CommunityController {
   }
   // T: O(log F) and S: O(1)
 
+  @Delete('friends/requests/by-user/:userId')
+  @DistributedRateLimit(20, 60)
+  cancelFriendRequest(
+    @Req() request: Request,
+    @Param('userId') userId: string,
+  ) {
+    return this.communityService.cancelFriendRequest(
+      this.userId(request),
+      userId,
+    );
+  }
+  // T: O(log F) and S: O(1), where F is friendships
+
   @Delete('friends/:friendId')
   @DistributedRateLimit(20, 60)
-  removeFriend(
-    @Req() request: Request,
-    @Param('friendId') friendId: string,
-  ) {
-    return this.communityService.removeFriend(
-      this.userId(request),
-      friendId,
-    );
+  removeFriend(@Req() request: Request, @Param('friendId') friendId: string) {
+    return this.communityService.removeFriend(this.userId(request), friendId);
   }
   // T: O(log F) and S: O(1)
 }

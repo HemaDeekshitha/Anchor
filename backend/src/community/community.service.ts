@@ -1163,12 +1163,12 @@ export class CommunityService {
                 pollId,
                 id: optionIds[0],
               })
-          : await manager
-              .getRepository(PollOption)
-              .createQueryBuilder('option')
-              .where('option."pollId" = :pollId', { pollId })
-              .andWhere('option.id IN (:...optionIds)', { optionIds })
-              .getMany();
+            : await manager
+                .getRepository(PollOption)
+                .createQueryBuilder('option')
+                .where('option."pollId" = :pollId', { pollId })
+                .andWhere('option.id IN (:...optionIds)', { optionIds })
+                .getMany();
       if (validOptions.length !== optionIds.length) {
         throw new BadRequestException('Poll option is invalid');
       }
@@ -1493,6 +1493,43 @@ export class CommunityService {
     });
     if (!friendship) {
       throw new NotFoundException('Accepted friendship not found');
+    }
+    await this.friendshipRepository.delete(friendship.id);
+    await Promise.all([
+      this.cache.deleteByPrefix(
+        `community:people-search:${friendship.requesterId}:`,
+      ),
+      this.cache.deleteByPrefix(
+        `community:people-search:${friendship.addresseeId}:`,
+      ),
+      this.cache.deleteByPrefix('community:global-posts:'),
+      this.cache.deleteByPrefix('community:posts:'),
+      this.cache.deleteByPrefix('community:feed:'),
+    ]);
+    return { success: true };
+  }
+  // T: O(log F) and S: O(1), where F is friendships
+
+  async cancelFriendRequest(
+    userId: string,
+    targetUserId: string,
+  ): Promise<{ success: true }> {
+    if (userId === targetUserId) {
+      throw new BadRequestException('You cannot cancel a request to yourself');
+    }
+    const [userLowId, userHighId] = [userId, targetUserId].sort();
+    const friendship = await this.friendshipRepository.findOneBy({
+      userLowId,
+      userHighId,
+      status: 'pending',
+    });
+    if (!friendship) {
+      throw new NotFoundException('Friend request not found');
+    }
+    if (friendship.requesterId !== userId) {
+      throw new ForbiddenException(
+        'Only the sender can cancel a friend request',
+      );
     }
     await this.friendshipRepository.delete(friendship.id);
     await Promise.all([

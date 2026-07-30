@@ -29,6 +29,7 @@ import {
   sendFriendRequest,
   resolveFriendRequest,
   CommunityPostRecord,
+  cancelFriendRequest,
 } from "@/lib/community-api";
 
 import {
@@ -320,6 +321,11 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
 
   const handleAddFriend = async (friendId: string): Promise<void> => {
     await sendFriendRequest(friendId);
+  };
+  // T: O(1) network request and S: O(1)
+
+  const handleCancelFriendRequest = async (userId: string): Promise<void> => {
+    await cancelFriendRequest(userId);
   };
   // T: O(1) network request and S: O(1)
 
@@ -670,6 +676,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
             friendRequests={friendRequests}
             onAddFriend={handleAddFriend}
             onResolveRequest={handleResolveFriendRequest}
+            onCancelRequest={handleCancelFriendRequest}
           />
         )}
       </Stack>
