@@ -42,6 +42,11 @@ export class CreateCommunityDto {
   @ArrayMaxSize(50)
   @IsUUID('4', { each: true })
   friendIds?: string[];
+
+  @IsArray()
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  adminFriendIds?: string[];
 }
 
 export class ListQueryDto {

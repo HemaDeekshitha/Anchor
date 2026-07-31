@@ -28,6 +28,7 @@ import {
   CommunityPostRecord,
   cancelFriendRequest,
   listSentFriendRequests,
+  deleteCommunity,
 } from "@/lib/community-api";
 
 import {
@@ -95,7 +96,9 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     ]);
     const joinedIds = new Set(joinedRecords.map((community) => community.id));
     const combined = new Map<string, CommunityRecord>();
-    for (const community of [...joinedRecords, ...discoverRecords]) {
+    // Discover records go in first so joined records (which carry `role`)
+    // always win when a community appears in both lists.
+    for (const community of [...discoverRecords, ...joinedRecords]) {
       combined.set(community.id, community);
     }
     const mapped = [...combined.values()].map((community) =>
@@ -104,6 +107,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     setCommunities(mapped);
     return mapped;
   }, []);
+  // T: O(c) and S: O(c), where c is returned communities
   // T: O(c) and S: O(c), where c is returned communities
 
   const refreshFriendWorkspace = useCallback(async () => {
@@ -212,6 +216,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       description: input.description,
       visibility: input.visibility,
       friendIds: input.friendIds,
+      adminFriendIds: input.adminFriendIds,
     });
     if (input.firstPost) {
       await createPost({
@@ -223,11 +228,25 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     const inviteLink = input.createShareLink
       ? await createInviteLink(record.id)
       : null;
-    const community = mapCommunity(record, true);
+    const community = mapCommunity({ ...record, role: "owner" }, true);
     await refreshCommunities();
     return { community, inviteLink };
   };
   // T: O(f + p) and S: O(f + p), where f is invited friends and p is first-post length
+
+  const handleDeleteCommunity = async (communityId: string): Promise<void> => {
+    await deleteCommunity(communityId);
+    setCommunities((current) =>
+      current.filter((community) => community.id !== communityId)
+    );
+    await refreshCommunities();
+    if (activeCommunityId === communityId) {
+      setActiveCommunityId(ALL_ID);
+      await refreshPosts(ALL_ID);
+    }
+  };
+  // T: O(c) and S: O(c), where c is returned communities
+  // T: O(c) and S: O(c), where c is returned communities
 
   // Selecting a community from the sidebar switches the feed to it directly
   // (replacing the old tab -> "open community" flow).
@@ -454,6 +473,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
               onJoin={handleJoinCommunity}
               onCreate={handleCreateCommunity}
               onOpen={handleSelectCommunity}
+              onDelete={handleDeleteCommunity}
             />
           </Stack>
         )}

@@ -50,13 +50,6 @@ import {
 import { ALL_ID, C } from "./constants";
 import ScheduleMeetings from "./Schedulemeetings";
 
-// NOTE: `isOwner` / `isAdmin` are not on the shared Community type yet — this
-// is a forward-compatible local shape so the Delete/admin UI can be built now
-// and wired up as soon as the backend/Types.ts include real values. Until
-// then both flags are `undefined`, so the Delete action stays hidden for
-// everyone (the safe default).
-type CommunityWithRole = Community & { isOwner?: boolean; isAdmin?: boolean };
-
 const CommunitiesView = ({
   communities,
   friends,
@@ -95,6 +88,9 @@ const CommunitiesView = ({
   const [deleteTarget, setDeleteTarget] = useState<Community | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  const [createdInviteLink, setCreatedInviteLink] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const joinedCommunities = communities.filter((community) => community.joined);
   const scheduleCommunity = joinedCommunities.find(
@@ -151,14 +147,13 @@ const CommunitiesView = ({
         description: description.trim() || "A new Anchor community",
         visibility,
         friendIds: selectedFriendIds,
+        adminFriendIds: selectedAdminIds,
         firstPost: communityPost.trim(),
         createShareLink: shareLink,
       });
-      setCreatedMessage(
-        result.inviteLink
-          ? `${normalizedTitle} was created. Invite link: ${result.inviteLink}`
-          : `${normalizedTitle} was created.`
-      );
+
+      setCreatedMessage(`${normalizedTitle} was created.`);
+      setCreatedInviteLink(result.inviteLink ?? "");
       setTitle("");
       setDescription("");
       setCommunityPost("");
@@ -355,9 +350,8 @@ const CommunitiesView = ({
                 >
                   {joinedCommunities.map((community) => {
                     const isSelected = community.id === scheduleCommunityId;
-                    const role = community as CommunityWithRole;
                     const canManage = Boolean(
-                      onDelete && (role.isOwner || role.isAdmin)
+                      onDelete && (community.isOwner || community.isAdmin)
                     );
                     return (
                       <Box
@@ -739,16 +733,68 @@ const CommunitiesView = ({
                 </Button>
                 {formError && <Alert severity="error">{formError}</Alert>}
                 {createdMessage && (
-                  <Typography
-                    role="status"
-                    sx={{
-                      color: C.green,
-                      fontWeight: 600,
-                      fontSize: "0.84rem",
-                    }}
-                  >
-                    {createdMessage}
-                  </Typography>
+                  <Stack spacing={1}>
+                    <Typography
+                      role="status"
+                      sx={{
+                        color: C.green,
+                        fontWeight: 600,
+                        fontSize: "0.84rem",
+                      }}
+                    >
+                      {createdMessage}
+                    </Typography>
+                    {createdInviteLink && (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          p: 1.2,
+                          borderRadius: 2,
+                          bgcolor: C.accentFaint,
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            flex: 1,
+                            fontSize: "0.78rem",
+                            color: C.accentDark,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {createdInviteLink}
+                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                createdInviteLink
+                              );
+                              setLinkCopied(true);
+                              window.setTimeout(
+                                () => setLinkCopied(false),
+                                2000
+                              );
+                            } catch {
+                              setFormError("Could not copy the invite link.");
+                            }
+                          }}
+                          sx={{
+                            flexShrink: 0,
+                            textTransform: "none",
+                            fontWeight: 700,
+                            color: C.accentDark,
+                          }}
+                        >
+                          {linkCopied ? "Copied!" : "Copy"}
+                        </Button>
+                      </Box>
+                    )}
+                  </Stack>
                 )}
               </Stack>
 
@@ -873,14 +919,7 @@ const CommunitiesView = ({
                     })}
                   </Stack>
                 )}
-                {selectedAdminIds.length > 0 && (
-                  <Typography
-                    sx={{ color: C.textMuted, fontSize: "0.7rem", mt: 1 }}
-                  >
-                    Admin assignment will take effect once backend support for
-                    community admins is added.
-                  </Typography>
-                )}
+
                 {shareLink && (
                   <Box
                     sx={{

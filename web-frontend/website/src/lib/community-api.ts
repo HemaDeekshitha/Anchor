@@ -15,6 +15,7 @@ export type CommunityRecord = {
   postCount: number;
   status: "active" | "archived" | "deleted";
   createdAt: string;
+  role?: "owner" | "admin" | "member";
 };
 
 export type CommunityMedia = {
@@ -100,6 +101,7 @@ export type CreateCommunityInput = {
   description: string;
   visibility: CommunityVisibility;
   friendIds: string[];
+  adminFriendIds: string[];
 };
 
 export type CreatePostInput = {
@@ -238,6 +240,7 @@ export async function createCommunity(
       visibility: input.visibility,
       joinPolicy: input.visibility === "private" ? "invite_only" : "open",
       friendIds: input.friendIds,
+      adminFriendIds: input.adminFriendIds,
     }),
   });
   if (!response.ok)
@@ -245,6 +248,31 @@ export async function createCommunity(
   return response.json() as Promise<CommunityRecord>;
 }
 // T: O(f) and S: O(f), where f is the invited friends
+
+export async function deleteCommunity(communityId: string): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not delete community");
+  }
+}
+// T: O(1) and S: O(1)
+
+export async function removeCommunityMember(
+  communityId: string,
+  userId: string
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/members/${userId}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not remove member");
+  }
+}
+// T: O(1) and S: O(1)
 
 export async function joinCommunity(communityId: string): Promise<void> {
   const response = await apiFetch(

@@ -331,4 +331,32 @@ export class CommunityController {
     return this.communityService.removeFriend(this.userId(request), friendId);
   }
   // T: O(log F) and S: O(1)
+
+  @Delete('communities/:communityId')
+  @DistributedRateLimit(10, 60)
+  deleteCommunity(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+  ) {
+    return this.communityService.deleteCommunity(
+      this.userId(request),
+      communityId,
+    );
+  }
+  // T: O(M) and S: O(1), where M is members deactivated
+
+  @Delete('communities/:communityId/members/:userId')
+  @DistributedRateLimit(20, 60)
+  removeMember(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+    @Param('userId') targetUserId: string,
+  ) {
+    return this.communityService.removeMember(
+      this.userId(request),
+      communityId,
+      targetUserId,
+    );
+  }
+  // T: O(log M) and S: O(1)
 }

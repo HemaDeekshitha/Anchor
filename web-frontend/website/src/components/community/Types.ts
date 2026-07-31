@@ -63,6 +63,8 @@ export type Community = {
   isActive: boolean;
   visibility: CommunityVisibility;
   joinPolicy: "open" | "approval" | "invite_only";
+  isOwner: boolean;
+  isAdmin: boolean;
 };
 
 export type CommunityPageTab = "posts" | "communities" | "friends";
@@ -75,6 +77,7 @@ export type CreateCommunityFormInput = {
   description: string;
   visibility: CommunityVisibility;
   friendIds: string[];
+  adminFriendIds: string[];
   firstPost: string;
   createShareLink: boolean;
 };

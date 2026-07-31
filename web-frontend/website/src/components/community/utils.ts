@@ -28,6 +28,8 @@ export const mapCommunity = (
   isActive: community.status === "active",
   visibility: community.visibility,
   joinPolicy: community.joinPolicy,
+  isOwner: community.role === "owner",
+  isAdmin: community.role === "admin",
 });
 // T: O(1) and S: O(1)
 
