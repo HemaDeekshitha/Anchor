@@ -88,4 +88,5 @@ export type Friend = {
   mutualFriends: number;
   isFriend: boolean;
   friendshipStatus?: "none" | "pending" | "accepted";
+  createdAt?: string;
 };

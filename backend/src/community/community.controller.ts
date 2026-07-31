@@ -281,7 +281,12 @@ export class CommunityController {
     return this.communityService.listFriendRequests(this.userId(request));
   }
   // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
-
+  @Get('friends/requests/sent')
+  @DistributedRateLimit(120, 60)
+  listSentFriendRequests(@Req() request: Request) {
+    return this.communityService.listSentFriendRequests(this.userId(request));
+  }
+  // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
   @Post('friends/requests')
   @DistributedRateLimit(20, 60)
   sendFriendRequest(

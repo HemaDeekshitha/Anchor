@@ -20,6 +20,11 @@ import {
   Alert,
   Radio,
   RadioGroup,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Chip,
   Typography,
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
@@ -30,6 +35,8 @@ import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import ViewListRoundedIcon from "@mui/icons-material/ViewListRounded";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import { CommunityVisibility } from "@/lib/community-api";
 
 import {
@@ -40,8 +47,15 @@ import {
   Friend,
   ScheduledMeeting,
 } from "./Types";
-import { ALL_ID, C } from "./Constants";
+import { ALL_ID, C } from "./constants";
 import ScheduleMeetings from "./Schedulemeetings";
+
+// NOTE: `isOwner` / `isAdmin` are not on the shared Community type yet — this
+// is a forward-compatible local shape so the Delete/admin UI can be built now
+// and wired up as soon as the backend/Types.ts include real values. Until
+// then both flags are `undefined`, so the Delete action stays hidden for
+// everyone (the safe default).
+type CommunityWithRole = Community & { isOwner?: boolean; isAdmin?: boolean };
 
 const CommunitiesView = ({
   communities,
@@ -50,6 +64,7 @@ const CommunitiesView = ({
   onJoin,
   onCreate,
   onOpen,
+  onDelete,
 }: {
   communities: Community[];
   friends: Friend[];
@@ -59,6 +74,7 @@ const CommunitiesView = ({
     input: CreateCommunityFormInput
   ) => Promise<{ community: Community; inviteLink: string | null }>;
   onOpen: (communityId: string) => void;
+  onDelete?: (communityId: string) => Promise<void>;
 }) => {
   const [section, setSection] = useState<CommunitySectionTab>("current");
   const [layout, setLayout] = useState<CommunityLayout>("grid");
@@ -69,12 +85,16 @@ const CommunitiesView = ({
   const [description, setDescription] = useState("");
   const [communityPost, setCommunityPost] = useState("");
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
   const [shareLink, setShareLink] = useState(true);
   const [visibility, setVisibility] = useState<CommunityVisibility>("public");
   const [createdMessage, setCreatedMessage] = useState("");
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Community | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const joinedCommunities = communities.filter((community) => community.joined);
   const scheduleCommunity = joinedCommunities.find(
@@ -87,6 +107,7 @@ const CommunitiesView = ({
       .toLowerCase()
       .includes(normalizedSearch);
   });
+  const invitableFriends = friends.filter((friend) => friend.isFriend);
 
   const handleSectionChange = (
     _event: React.SyntheticEvent,
@@ -103,8 +124,20 @@ const CommunitiesView = ({
         ? current.filter((id) => id !== friendId)
         : [...current, friendId]
     );
+    // An un-invited friend can't stay marked as admin.
+    setSelectedAdminIds((current) => current.filter((id) => id !== friendId));
   };
   // T: O(f) and S: O(f), where f is the number of selected friends
+
+  const handleAdminToggle = (friendId: string) => {
+    if (!selectedFriendIds.includes(friendId)) return;
+    setSelectedAdminIds((current) =>
+      current.includes(friendId)
+        ? current.filter((id) => id !== friendId)
+        : [...current, friendId]
+    );
+  };
+  // T: O(a) and S: O(a), where a is the number of selected admins
 
   const handleCreate = async () => {
     const normalizedTitle = title.trim();
@@ -130,6 +163,7 @@ const CommunitiesView = ({
       setDescription("");
       setCommunityPost("");
       setSelectedFriendIds([]);
+      setSelectedAdminIds([]);
       setVisibility("public");
     } catch (caught) {
       setFormError(
@@ -153,6 +187,23 @@ const CommunitiesView = ({
       );
     } finally {
       setJoiningId("");
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deleting || !onDelete) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await onDelete(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (caught) {
+      setDeleteError(
+        caught instanceof Error ? caught.message : "Could not delete community"
+      );
+    } finally {
+      setDeleting(false);
     }
   };
   // T: O(1) and S: O(1)
@@ -304,6 +355,10 @@ const CommunitiesView = ({
                 >
                   {joinedCommunities.map((community) => {
                     const isSelected = community.id === scheduleCommunityId;
+                    const role = community as CommunityWithRole;
+                    const canManage = Boolean(
+                      onDelete && (role.isOwner || role.isAdmin)
+                    );
                     return (
                       <Box
                         key={community.id}
@@ -396,20 +451,42 @@ const CommunitiesView = ({
                             </Typography>
                           </Box>
                         </Box>
-                        <Button
-                          size="small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onOpen(community.id);
-                          }}
-                          sx={{
-                            color: C.accentDark,
-                            textTransform: "none",
-                            flexShrink: 0,
-                          }}
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          alignItems="center"
+                          sx={{ flexShrink: 0 }}
                         >
-                          Open
-                        </Button>
+                          <Button
+                            size="small"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpen(community.id);
+                            }}
+                            sx={{ color: C.accentDark, textTransform: "none" }}
+                          >
+                            Open
+                          </Button>
+                          {canManage && (
+                            <Tooltip title="Delete community">
+                              <IconButton
+                                aria-label={`Delete ${community.name}`}
+                                size="small"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDeleteError("");
+                                  setDeleteTarget(community);
+                                }}
+                                sx={{
+                                  color: C.textMuted,
+                                  "&:hover": { color: C.red },
+                                }}
+                              >
+                                <DeleteOutlineRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
                       </Box>
                     );
                   })}
@@ -697,60 +774,113 @@ const CommunitiesView = ({
                 <Typography
                   sx={{ color: C.textMuted, fontSize: "0.76rem", mb: 1.5 }}
                 >
-                  Selected friends will receive an invitation.
+                  Selected friends will receive an invitation. Mark anyone as an
+                  admin so they can help manage the community.
                 </Typography>
-                <Stack spacing={0.5}>
-                  {friends
-                    .filter((friend) => friend.isFriend)
-                    .map((friend) => (
-                      <Box
-                        key={friend.id}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          py: 0.6,
-                        }}
-                      >
-                        <Checkbox
-                          size="small"
-                          checked={selectedFriendIds.includes(friend.id)}
-                          onChange={() => handleFriendToggle(friend.id)}
+                {invitableFriends.length === 0 ? (
+                  <Typography
+                    sx={{ color: C.textMuted, fontSize: "0.8rem", py: 1 }}
+                  >
+                    Add friends first to invite them here.
+                  </Typography>
+                ) : (
+                  <Stack spacing={0.25}>
+                    {invitableFriends.map((friend) => {
+                      const isInvited = selectedFriendIds.includes(friend.id);
+                      const isAdmin = selectedAdminIds.includes(friend.id);
+                      return (
+                        <Box
+                          key={friend.id}
                           sx={{
-                            color: C.divider,
-                            "&.Mui-checked": { color: C.accent },
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            py: 0.6,
+                            px: 0.5,
+                            mx: -0.5,
+                            borderRadius: 1.5,
+                            cursor: "pointer",
+                            "&:hover": { bgcolor: C.accentHover },
                           }}
-                        />
-                        <Avatar
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            mr: 1,
-                            bgcolor: C.accentFaint,
-                            color: C.accentDark,
-                            fontSize: "0.75rem",
-                          }}
+                          onClick={() => handleFriendToggle(friend.id)}
                         >
-                          {friend.name.charAt(0)}
-                        </Avatar>
-                        <Box>
-                          <Typography
+                          <Checkbox
+                            size="small"
+                            checked={isInvited}
+                            tabIndex={-1}
+                            disableRipple
                             sx={{
-                              color: C.textPrimary,
-                              fontSize: "0.82rem",
-                              fontWeight: 600,
+                              p: 0.5,
+                              color: C.divider,
+                              pointerEvents: "none",
+                              "&.Mui-checked": { color: C.accent },
+                            }}
+                          />
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              ml: 0.5,
+                              mr: 1,
+                              bgcolor: C.accentFaint,
+                              color: C.accentDark,
+                              fontSize: "0.75rem",
                             }}
                           >
-                            {friend.name}
-                          </Typography>
-                          <Typography
-                            sx={{ color: C.textMuted, fontSize: "0.7rem" }}
-                          >
-                            {friend.handle}
-                          </Typography>
+                            {friend.name.charAt(0)}
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
+                              sx={{
+                                color: C.textPrimary,
+                                fontSize: "0.82rem",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {friend.name}
+                            </Typography>
+                            <Typography
+                              sx={{ color: C.textMuted, fontSize: "0.7rem" }}
+                            >
+                              {friend.handle}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            icon={<ShieldRoundedIcon sx={{ fontSize: 14 }} />}
+                            label={isAdmin ? "Admin" : "Make admin"}
+                            size="small"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleAdminToggle(friend.id);
+                            }}
+                            disabled={!isInvited}
+                            sx={{
+                              flexShrink: 0,
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              bgcolor: isAdmin ? C.accentFaint : "transparent",
+                              color: isAdmin ? C.accentDark : C.textMuted,
+                              border: `1px solid ${
+                                isAdmin ? C.accent : C.divider
+                              }`,
+                              "& .MuiChip-icon": {
+                                color: isAdmin ? C.accentDark : C.textMuted,
+                              },
+                            }}
+                          />
                         </Box>
-                      </Box>
-                    ))}
-                </Stack>
+                      );
+                    })}
+                  </Stack>
+                )}
+                {selectedAdminIds.length > 0 && (
+                  <Typography
+                    sx={{ color: C.textMuted, fontSize: "0.7rem", mt: 1 }}
+                  >
+                    Admin assignment will take effect once backend support for
+                    community admins is added.
+                  </Typography>
+                )}
                 {shareLink && (
                   <Box
                     sx={{
@@ -775,6 +905,47 @@ const CommunitiesView = ({
           )}
         </Box>
       </Card>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ color: C.textPrimary, fontWeight: 700 }}>
+          Delete {deleteTarget?.name}?
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
+            This removes the community, its posts, and its conversation for
+            every member. This action cannot be undone.
+          </Typography>
+          {deleteError && (
+            <Typography sx={{ color: C.red, fontSize: "0.78rem", mt: 1.5 }}>
+              {deleteError}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setDeleteTarget(null)}
+            disabled={deleting}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+            disabled={deleting}
+            sx={{ textTransform: "none", boxShadow: "none" }}
+          >
+            {deleting ? "Deleting…" : "Delete community"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 };

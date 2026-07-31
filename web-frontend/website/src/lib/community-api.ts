@@ -113,6 +113,16 @@ export type CreatePostInput = {
   pollEndsAt?: string;
 };
 
+export type CommunitySentFriendRequest = {
+  id: string;
+  addresseeId: string;
+  name: string;
+  handle: string;
+  role: string;
+  avatarUrl: string | null;
+  createdAt: string;
+};
+
 type Page<T> = { items: T[]; nextCursor: string | null };
 
 async function readError(
@@ -575,3 +585,16 @@ export async function cancelFriendRequest(userId: string): Promise<void> {
   }
 }
 // T: O(1) and S: O(1)
+
+export async function listSentFriendRequests(): Promise<
+  CommunitySentFriendRequest[]
+> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/friends/requests/sent`
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not load sent friend requests");
+  }
+  return response.json() as Promise<CommunitySentFriendRequest[]>;
+}
+// T: O(r) and S: O(r), where r is the returned requests

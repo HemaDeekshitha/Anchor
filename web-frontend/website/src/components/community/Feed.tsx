@@ -27,6 +27,7 @@ import {
   resolveFriendRequest,
   CommunityPostRecord,
   cancelFriendRequest,
+  listSentFriendRequests,
 } from "@/lib/community-api";
 
 import {
@@ -106,10 +107,12 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   // T: O(c) and S: O(c), where c is returned communities
 
   const refreshFriendWorkspace = useCallback(async () => {
-    const [friendRecords, requestRecords] = await Promise.all([
-      listFriends(),
-      listFriendRequests(),
-    ]);
+    const [friendRecords, requestRecords, sentRequestRecords] =
+      await Promise.all([
+        listFriends(),
+        listFriendRequests(),
+        listSentFriendRequests(),
+      ]);
     setFriends(
       friendRecords.map((friend) => ({
         id: friend.id,
@@ -121,9 +124,22 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       }))
     );
     setFriendRequests(requestRecords);
-    return { friendRecords, requestRecords };
+    setSentRequests(
+      sentRequestRecords.map((request) => ({
+        id: request.addresseeId,
+        name: request.name,
+        handle: request.handle,
+        role: request.role,
+        avatarUrl: request.avatarUrl,
+        mutualFriends: 0,
+        isFriend: false,
+        friendshipStatus: "pending",
+        createdAt: request.createdAt,
+      }))
+    );
+    return { friendRecords, requestRecords, sentRequestRecords };
   }, []);
-  // T: O(f + r) and S: O(f + r), where f is friends and r is requests
+  // T: O(f + r + s) and S: O(f + r + s), where f is friends, r is incoming requests, and s is sent requests
 
   const loadCommunityPage = useCallback(async () => {
     setLoading(true);

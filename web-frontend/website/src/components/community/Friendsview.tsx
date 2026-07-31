@@ -24,6 +24,7 @@ import {
 import { C } from "./constants";
 import { Friend } from "./Types";
 import FriendRow from "./Frienddrow";
+import { formatTimeAgo } from "./utils";
 
 const FriendsView = ({
   friends,
@@ -188,6 +189,16 @@ const FriendsView = ({
     }
   };
   // T: O(1) and S: O(1)
+
+  // in Friendsview.tsx, near other helpers
+  const formatSentAgo = (createdAt: string) => {
+    const days = Math.floor(
+      (Date.now() - new Date(createdAt).getTime()) / (24 * 60 * 60 * 1000)
+    );
+    if (days <= 0) return "today";
+    if (days === 1) return "1 day ago";
+    return `${days} days ago`;
+  };
 
   return (
     <Stack spacing={3}>
@@ -471,6 +482,13 @@ const FriendsView = ({
                     >
                       {friend.handle} · {friend.role}
                     </Typography>
+                    {friend.createdAt && (
+                      <Typography
+                        sx={{ color: C.textSub, fontSize: "0.7rem", mt: 0.2 }}
+                      >
+                        Sent {formatSentAgo(friend.createdAt)}
+                      </Typography>
+                    )}
                   </Box>
                   <Button
                     variant="outlined"

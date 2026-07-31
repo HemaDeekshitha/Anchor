@@ -1409,7 +1409,63 @@ export class CommunityService {
     });
   }
   // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
-
+  async listSentFriendRequests(userId: string): Promise<
+    Array<{
+      id: string;
+      addresseeId: string;
+      name: string;
+      handle: string;
+      role: string;
+      avatarUrl: string | null;
+      createdAt: Date;
+    }>
+  > {
+    const requests = await this.friendshipRepository
+      .createQueryBuilder('friendship')
+      .innerJoin(User, 'addressee', 'addressee.id = friendship."addresseeId"')
+      .where('friendship."requesterId" = CAST(:userId AS uuid)', { userId })
+      .andWhere('friendship.status = :status', { status: 'pending' })
+      .select('friendship.id', 'id')
+      .addSelect('friendship."addresseeId"', 'addresseeId')
+      .addSelect('friendship."createdAt"', 'createdAt')
+      .addSelect('addressee.name', 'name')
+      .addSelect(`CONCAT('@', SPLIT_PART(addressee.email, '@', 1))`, 'handle')
+      .orderBy('friendship."createdAt"', 'DESC')
+      .limit(50)
+      .getRawMany<{
+        id: string;
+        addresseeId: string;
+        name: string;
+        handle: string;
+        createdAt: Date;
+      }>();
+    const addresseeIds = requests.map((request) => request.addresseeId);
+    const profiles = addresseeIds.length
+      ? await this.onboardingRepository.find({
+          where: { userId: In(addresseeIds) },
+          order: { createdAt: 'DESC' },
+        })
+      : [];
+    const latestProfileByUserId = new Map<string, OnboardingResponse>();
+    for (const profile of profiles) {
+      if (!latestProfileByUserId.has(profile.userId)) {
+        latestProfileByUserId.set(profile.userId, profile);
+      }
+    }
+    return requests.map((request) => {
+      const profile = latestProfileByUserId.get(request.addresseeId);
+      return {
+        ...request,
+        role:
+          profile?.dedicatedRole ??
+          profile?.preferredRole?.[0] ??
+          profile?.currentStatus?.[0] ??
+          'Anchor member',
+        avatarUrl: profile?.profileImageUrl ?? null,
+      };
+    });
+  }
+  // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
   async sendFriendRequest(
     userId: string,
     dto: SendFriendRequestDto,
