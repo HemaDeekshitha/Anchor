@@ -14,7 +14,7 @@ import { SkillsModule } from 'src/skills/skill.module';
 import { UserDailyTask } from 'src/rag/rag-daily-user-tasks.entity';
 import { RagTask } from 'src/rag/rag-task.entity';
 import { TaskSubmission } from 'src/submissions/submission.entity';
-import { GeminiService } from 'src/ai/gemini.service';
+import { AiModule } from 'src/ai/ai.module';
 
 @Module({
   imports: [
@@ -28,13 +28,9 @@ import { GeminiService } from 'src/ai/gemini.service';
       TaskSubmission,
     ]),
     SkillsModule,
+    AiModule,
   ],
   controllers: [MomentumController],
-  providers: [
-    MomentumService,
-    CloudinaryProvider,
-    CloudinaryService,
-    GeminiService,
-  ],
+  providers: [MomentumService, CloudinaryProvider, CloudinaryService],
 })
 export class MomentumModule {}

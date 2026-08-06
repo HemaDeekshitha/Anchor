@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { OpenAI } from 'openai';
 import { RagTask } from '../rag/rag-task.entity';
 import { EvaluationResult } from './interfaces/evaluation-result.interface';
+import { EvalRagService } from './eval-rag/eval-rag.service';
+import { EvalType } from './eval-rag/eval-exemplar.types';
 
 interface EvalProvider {
   name: string;
@@ -24,7 +26,10 @@ const EVAL_PROVIDERS: EvalProvider[] = [
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private readonly evalRagService: EvalRagService,
+  ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (!apiKey) {
       throw new Error(
@@ -39,10 +44,85 @@ export class GeminiService {
     return new Promise((r) => setTimeout(r, ms));
   }
 
+
+  private jsonSchema(evalType: EvalType): string {
+    switch (evalType) {
+      case 'leetcode':
+        return `{
+  "score": 8.0,
+  "isCorrect": true,
+  "isValidSyntax": true,
+  "detectedLanguage": "Python",
+  "handlesEdgeCases": true,
+  "hasReasonableComplexity": true,
+  "feedback": "Clean and efficient solution.",
+  "approved": true,
+  "confidence": 0.90
+}`;
+      case 'star':
+        return `{
+  "score": 8.5,
+  "hasSituation": true,
+  "hasTask": true,
+  "hasAction": true,
+  "hasResult": true,
+  "isSpecific": true,
+  "wordCount": 250,
+  "feedback": "Strong answer with clear STAR structure.",
+  "approved": true,
+  "confidence": 0.92
+}`;
+      case 'concept':
+        return `{
+  "score": 7.5,
+  "isAccurate": true,
+  "coversKeyPoints": true,
+  "hasExamples": true,
+  "showsUnderstanding": true,
+  "wordCount": 180,
+  "feedback": "Good explanation covering the key concepts.",
+  "approved": true,
+  "confidence": 0.88
+}`;
+      case 'design':
+        return `{
+  "score": 8.0,
+  "hasComponents": true,
+  "discussesTradeoffs": true,
+  "considersScalability": true,
+  "wordCount": 220,
+  "feedback": "Solid system design with good component breakdown.",
+  "approved": true,
+  "confidence": 0.85
+}`;
+      case 'code_explanation':
+        return `{
+  "score": 7.0,
+  "explainsApproach": true,
+  "mentionsComplexity": true,
+  "showsUnderstanding": true,
+  "wordCount": 150,
+  "feedback": "Good explanation of the approach.",
+  "approved": true,
+  "confidence": 0.80
+}`;
+      default:
+        return `{
+  "score": 7.0,
+  "feedback": "Good effort. Your answer addresses the question.",
+  "approved": true,
+  "confidence": 0.75
+}`;
+    }
+  }
+
   // ─── Unified provider call ───────────────────────────────────────────────────
 
-  private async callWithFallback(prompt: string): Promise<string> {
-    const selected = this.configService.get<string>('EVAL_PROVIDER') ?? 'gemini-2.0';
+  private async callWithFallback(
+    prompt: string,
+  ): Promise<{ text: string; provider: string; model: string }> {
+    const selected =
+      this.configService.get<string>('EVAL_PROVIDER') ?? 'gemini-2.5';
 
     const primary = EVAL_PROVIDERS.find(p => p.name === selected);
     if (!primary) throw new Error(`Unknown EVAL_PROVIDER: ${selected}`);
@@ -89,8 +169,11 @@ export class GeminiService {
           }
 
           console.log(`[Eval] provider=${provider.name} success`);
-          return text;
-
+          return {
+            text,
+            provider: provider.name,
+            model: provider.model,
+          };
         } catch (err: any) {
           const msg = String(err?.message ?? err);
           const is503 = /503|Service Unavailable|high demand/i.test(msg);
@@ -135,13 +218,35 @@ export class GeminiService {
     }
   }
 
+  /**
+   * Builds the exact prompt that would be sent (for benches / cost estimates).
+   */
+  buildEvaluationPrompt(
+    task: RagTask,
+    userAnswer: string,
+  ): { prompt: string; evalType: EvalType; approxTokens: number } {
+    const evalType: EvalType =
+      task.leetcodeUrl || /leetcode/i.test(task.title)
+        ? 'leetcode'
+        : (this.getEvaluationType(task.category) as EvalType);
+    const prompt = this.composePrompt(evalType, task, userAnswer);
+    return {
+      prompt,
+      evalType,
+      approxTokens: Math.ceil(prompt.length / 4),
+    };
+  }
+
   // ─── Evaluation methods ───────────────────────────────────────────────────────
 
-  private async evaluateLeetcodeCode(
+  private composePrompt(
+    evalType: EvalType,
     task: RagTask,
-    userCode: string,
-  ): Promise<EvaluationResult> {
-    const prompt = `
+    userAnswer: string,
+  ): string {
+    switch (evalType) {
+      case 'leetcode':
+        return `
 You are a senior software engineer reviewing a LeetCode solution.
 
 PROBLEM: "${task.title}"
@@ -150,7 +255,7 @@ Difficulty: ${task.difficulty}
 
 USER'S CODE:
 \`\`\`
-${userCode}
+${userAnswer}
 \`\`\`
 
 The user may submit a solution in ANY programming language.
@@ -167,45 +272,17 @@ Be generous: if the code looks like a legitimate accepted solution, approve it.
 Only reject if the submission is empty, completely unrelated, or clearly incorrect.
 
 Return ONLY valid JSON (no markdown, no backticks):
-{
-  "score": 8.0,
-  "isCorrect": true,
-  "isValidSyntax": true,
-  "detectedLanguage": "Python",
-  "handlesEdgeCases": true,
-  "hasReasonableComplexity": true,
-  "feedback": "Clean and efficient solution.",
-  "approved": true,
-  "confidence": 0.90
-}
+${this.jsonSchema('leetcode')}
 `;
-    return this.callGeminiAndParse(prompt, 'leetcode');
-  }
-
-  private getEvaluationType(category: string): string {
-    const map: Record<string, string> = {
-      Behavioral: 'star',
-      'Technical Concepts': 'concept',
-      'System Design': 'design',
-      DSA: 'code_explanation',
-      'Learning & Upskilling': 'concept',
-      'Tech Trends & Deep Dives': 'concept',
-    };
-    return map[category] || 'general';
-  }
-
-  private async evaluateSTAR(
-    task: RagTask,
-    userAnswer: string,
-  ): Promise<EvaluationResult> {
-    const prompt = `
+      case 'star':
+        return `
 Evaluate this behavioral interview answer.
 
 TASK DETAILS:
 Title: "${task.title}"
 Category: ${task.category}
 Difficulty: ${task.difficulty}
-Tags: ${task.tags.join(', ')}
+Tags: ${(task.tags ?? []).join(', ')}
 
 EXPECTED FORMAT: STAR (Situation, Task, Action, Result)
 
@@ -224,27 +301,10 @@ EVALUATION CRITERIA:
 Minimum 150 words expected.
 
 Return ONLY valid JSON (no markdown, no code blocks, no backticks):
-{
-  "score": 8.5,
-  "hasSituation": true,
-  "hasTask": true,
-  "hasAction": true,
-  "hasResult": true,
-  "isSpecific": true,
-  "wordCount": 250,
-  "feedback": "Strong answer with clear STAR structure. The situation and actions are well-defined. Consider adding specific metrics in the result section.",
-  "approved": true,
-  "confidence": 0.92
-}
+${this.jsonSchema('star')}
 `;
-    return this.callGeminiAndParse(prompt, task.difficulty);
-  }
-
-  private async evaluateConcept(
-    task: RagTask,
-    userAnswer: string,
-  ): Promise<EvaluationResult> {
-    const prompt = `
+      case 'concept':
+        return `
 Evaluate this technical concept explanation.
 
 TASK DETAILS:
@@ -265,26 +325,10 @@ EVALUATION CRITERIA:
 Minimum 100 words expected.
 
 Return ONLY valid JSON (no markdown, no code blocks):
-{
-  "score": 7.5,
-  "isAccurate": true,
-  "coversKeyPoints": true,
-  "hasExamples": true,
-  "showsUnderstanding": true,
-  "wordCount": 180,
-  "feedback": "Good explanation covering the key concepts. Adding a practical example would strengthen your answer.",
-  "approved": true,
-  "confidence": 0.88
-}
+${this.jsonSchema('concept')}
 `;
-    return this.callGeminiAndParse(prompt, task.difficulty);
-  }
-
-  private async evaluateSystemDesign(
-    task: RagTask,
-    userAnswer: string,
-  ): Promise<EvaluationResult> {
-    const prompt = `
+      case 'design':
+        return `
 Evaluate this system design explanation.
 
 TASK DETAILS:
@@ -305,25 +349,10 @@ EVALUATION CRITERIA:
 Minimum 150 words expected.
 
 Return ONLY valid JSON (no markdown, no code blocks):
-{
-  "score": 8.0,
-  "hasComponents": true,
-  "discussesTradeoffs": true,
-  "considersScalability": true,
-  "wordCount": 220,
-  "feedback": "Solid system design with good component breakdown. Consider discussing how you'd handle failure scenarios.",
-  "approved": true,
-  "confidence": 0.85
-}
+${this.jsonSchema('design')}
 `;
-    return this.callGeminiAndParse(prompt, task.difficulty);
-  }
-
-  private async evaluateCodeExplanation(
-    task: RagTask,
-    userAnswer: string,
-  ): Promise<EvaluationResult> {
-    const prompt = `
+      case 'code_explanation':
+        return `
 Evaluate this algorithm/code explanation.
 
 TASK DETAILS:
@@ -343,25 +372,10 @@ EVALUATION CRITERIA:
 Minimum 100 words expected.
 
 Return ONLY valid JSON (no markdown, no code blocks):
-{
-  "score": 7.0,
-  "explainsApproach": true,
-  "mentionsComplexity": true,
-  "showsUnderstanding": true,
-  "wordCount": 150,
-  "feedback": "Good explanation of the approach. Adding complexity analysis would improve your answer.",
-  "approved": true,
-  "confidence": 0.80
-}
+${this.jsonSchema('code_explanation')}
 `;
-    return this.callGeminiAndParse(prompt, task.difficulty);
-  }
-
-  private async evaluateGeneral(
-    task: RagTask,
-    userAnswer: string,
-  ): Promise<EvaluationResult> {
-    const prompt = `
+      default:
+        return `
 Evaluate this answer.
 
 TASK: "${task.title}"
@@ -376,14 +390,90 @@ Evaluate if the answer:
 3. Shows effort and understanding
 
 Return ONLY valid JSON (no markdown, no code blocks):
-{
-  "score": 7.0,
-  "feedback": "Good effort. Your answer addresses the question.",
-  "approved": true,
-  "confidence": 0.75
-}
+${this.jsonSchema('general')}
 `;
-    return this.callGeminiAndParse(prompt, task.difficulty);
+    }
+  }
+
+  private async evaluateLeetcodeCode(
+    task: RagTask,
+    userCode: string,
+  ): Promise<EvaluationResult> {
+    return this.callGeminiAndParse(
+      this.composePrompt('leetcode', task, userCode),
+      'leetcode',
+      { evalType: 'leetcode', task, userAnswer: userCode },
+    );
+  }
+
+  getEvaluationType(category: string): string {
+    const map: Record<string, string> = {
+      Behavioral: 'star',
+      'Behavioral & Leadership': 'star',
+      'Behavioral & Professional Judgment': 'star',
+      'Technical Concepts': 'concept',
+      'System Design': 'design',
+      DSA: 'code_explanation',
+      'Learning & Upskilling': 'concept',
+      'Tech Trends & Deep Dives': 'concept',
+      'Resume & Project Deep-Dive': 'general',
+    };
+    return map[category] || 'general';
+  }
+
+  private async evaluateSTAR(
+    task: RagTask,
+    userAnswer: string,
+  ): Promise<EvaluationResult> {
+    return this.callGeminiAndParse(
+      this.composePrompt('star', task, userAnswer),
+      task.difficulty,
+      { evalType: 'star', task, userAnswer },
+    );
+  }
+
+  private async evaluateConcept(
+    task: RagTask,
+    userAnswer: string,
+  ): Promise<EvaluationResult> {
+    return this.callGeminiAndParse(
+      this.composePrompt('concept', task, userAnswer),
+      task.difficulty,
+      { evalType: 'concept', task, userAnswer },
+    );
+  }
+
+  private async evaluateSystemDesign(
+    task: RagTask,
+    userAnswer: string,
+  ): Promise<EvaluationResult> {
+    return this.callGeminiAndParse(
+      this.composePrompt('design', task, userAnswer),
+      task.difficulty,
+      { evalType: 'design', task, userAnswer },
+    );
+  }
+
+  private async evaluateCodeExplanation(
+    task: RagTask,
+    userAnswer: string,
+  ): Promise<EvaluationResult> {
+    return this.callGeminiAndParse(
+      this.composePrompt('code_explanation', task, userAnswer),
+      task.difficulty,
+      { evalType: 'code_explanation', task, userAnswer },
+    );
+  }
+
+  private async evaluateGeneral(
+    task: RagTask,
+    userAnswer: string,
+  ): Promise<EvaluationResult> {
+    return this.callGeminiAndParse(
+      this.composePrompt('general', task, userAnswer),
+      task.difficulty,
+      { evalType: 'general', task, userAnswer },
+    );
   }
 
   // ─── Parse response ───────────────────────────────────────────────────────────
@@ -391,10 +481,11 @@ Return ONLY valid JSON (no markdown, no code blocks):
   private async callGeminiAndParse(
     prompt: string,
     difficulty: string,
+    ctx: { evalType: EvalType; task: RagTask; userAnswer: string },
   ): Promise<EvaluationResult> {
     try {
-      const text = await this.callWithFallback(prompt);
-      console.log(`[Eval] Using provider: ${this.configService.get('EVAL_PROVIDER') ?? 'gemini-2.0'}`);
+      const { text, provider, model } = await this.callWithFallback(prompt);
+      console.log(`[Eval] Using provider: ${provider} (${model})`);
 
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -402,35 +493,74 @@ Return ONLY valid JSON (no markdown, no code blocks):
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
+      const score = Number(parsed.score);
+      if (!Number.isFinite(score) || typeof parsed.feedback !== 'string') {
+        throw new Error('Invalid evaluation JSON payload');
+      }
 
       const passingScore = this.getPassingScore(difficulty);
-      const approved = parsed.score >= passingScore;
+      const approved = score >= passingScore;
 
       console.log('🤖 AI returned:', parsed.approved);
       console.log('✅ We calculated:', approved);
-      console.log('📊 Score:', parsed.score, 'vs', passingScore);
+      console.log('📊 Score:', score, 'vs', passingScore);
 
       delete parsed.approved;
 
       return {
-        score: parsed.score,
+        score,
         feedback: parsed.feedback,
         approved,
         confidence: parsed.confidence || 0.8,
         details: {
           ...parsed,
+          score,
           approved,
           passingScore,
+          source: 'llm',
+          provider,
+          model,
         },
       };
     } catch (error) {
-      console.error('Evaluation error:', error);
+      console.warn(
+        `[Eval] LLM failed — using RAG-only fallback: ${String((error as Error)?.message ?? error).slice(0, 160)}`,
+      );
+      const rag = this.evalRagService.gradeWithoutLlm(
+        ctx.evalType,
+        difficulty,
+        ctx.task.title,
+        ctx.userAnswer,
+        ctx.task.tags ?? [],
+      );
+
+      // Final fallback: no matching exemplar in the bank
+      if (rag.exemplarIds.length === 0) {
+        console.warn('[Eval] RAG fallback unavailable — no exemplar matched');
+        return {
+          score: 0,
+          feedback: rag.feedback,
+          approved: false,
+          confidence: 0,
+          details: {
+            approved: false,
+            passingScore: this.getPassingScore(difficulty),
+            source: 'unavailable',
+          },
+        };
+      }
+
       return {
-        score: 0,
-        feedback: 'Unable to evaluate submission. Please try again.',
-        approved: false,
-        confidence: 0,
-        details: { approved: false },
+        score: rag.score,
+        feedback: rag.feedback,
+        approved: rag.approved,
+        confidence: 0.55,
+        details: {
+          approved: rag.approved,
+          passingScore: this.getPassingScore(difficulty),
+          source: 'rag-fallback',
+          exemplarIds: rag.exemplarIds,
+        },
       };
     }
   }
