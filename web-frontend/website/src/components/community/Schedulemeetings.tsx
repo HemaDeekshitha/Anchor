@@ -7,6 +7,7 @@ import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import { C, ALL_ID } from "./constants";
 import { ScheduledMeeting } from "./Types";
+import { useRouter } from "next/navigation";
 
 const ScheduleMeetings = ({
   meetings,
@@ -17,6 +18,7 @@ const ScheduleMeetings = ({
   activeCommunityId: string;
   activeCommunityName?: string;
 }) => {
+  const route = useRouter();
   const isAllView = activeCommunityId === ALL_ID;
   const scopedMeetings = meetings.filter(
     (m) => m.communityId === activeCommunityId
@@ -91,6 +93,13 @@ const ScheduleMeetings = ({
               cursor: "pointer",
               mb: 2.5,
               "&:hover": { opacity: 0.92 },
+            }}
+            onClick={() => {
+              window.open(
+                "https://comm360.feeltiptop.com/",
+                "_blank",
+                "noopener,noreferrer"
+              );
             }}
           >
             <CalendarMonthRoundedIcon sx={{ fontSize: 18 }} />
