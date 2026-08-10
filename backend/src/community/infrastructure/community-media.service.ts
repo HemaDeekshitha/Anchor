@@ -75,6 +75,7 @@ export class CommunityMediaService {
       sign_url: true,
       secure: true,
       expires_at: Math.floor(Date.now() / 1000) + 15 * 60,
+      format: resourceType === 'video' ? 'mp4' : undefined,
       transformation:
         resourceType === 'image'
           ? [
