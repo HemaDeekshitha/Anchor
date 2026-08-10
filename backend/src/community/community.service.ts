@@ -265,6 +265,7 @@ export class CommunityService {
             : friendship.userLowId,
         );
         if (acceptedIds.length > 0) {
+          const adminIdSet = new Set(dto.adminFriendIds ?? []);
           await manager.save(
             acceptedIds.map((inviteeUserId) =>
               manager.create(CommunityInvite, {
@@ -273,6 +274,9 @@ export class CommunityService {
                 inviteeUserId,
                 kind: 'direct',
                 maxUses: 1,
+                roleOnAccept: adminIdSet.has(inviteeUserId)
+                  ? 'admin'
+                  : 'member',
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
               }),
             ),
@@ -339,6 +343,23 @@ export class CommunityService {
     const rows = await builder.getMany();
     const hasMore = rows.length > query.limit;
     const items = hasMore ? rows.slice(0, query.limit) : rows;
+    if (scope === 'joined' && items.length) {
+      const memberships = await this.memberRepository.find({
+        where: {
+          communityId: In(items.map((community) => community.id)),
+          userId,
+          status: 'active',
+        },
+      });
+      const roleByCommunityId = new Map(
+        memberships.map((m) => [m.communityId, m.role]),
+      );
+      for (const item of items as Array<
+        Community & { role?: CommunityMember['role'] }
+      >) {
+        item.role = roleByCommunityId.get(item.id);
+      }
+    }
     const result = {
       items,
       nextCursor:
@@ -349,6 +370,7 @@ export class CommunityService {
     await this.cache.setJson(cacheKey, result, 45);
     return result;
   }
+  // T: O(l log C) and S: O(l), where l is page size and C is communities
   // T: O(l log C) and S: O(l), where l is page size and C is communities
 
   async getCommunity(userId: string, communityId: string): Promise<Community> {
@@ -478,7 +500,7 @@ export class CommunityService {
         ...membership,
         communityId: invite.communityId,
         userId,
-        role: membership?.role ?? 'member',
+        role: membership?.role ?? invite.roleOnAccept ?? 'member',
         status: 'active',
       });
       const saved = await repository.save(membership);
@@ -526,7 +548,7 @@ export class CommunityService {
         ...membership,
         communityId: invite.communityId,
         userId,
-        role: membership?.role ?? 'member',
+        role: membership?.role ?? invite.roleOnAccept ?? 'member',
         status: 'active',
       });
       const saved = await repository.save(membership);
@@ -546,7 +568,88 @@ export class CommunityService {
     return membership;
   }
   // T: O(log I + log M) and S: O(1), where I is invitations and M is memberships
+  async deleteCommunity(
+    userId: string,
+    communityId: string,
+  ): Promise<{ success: true }> {
+    const affectedUserIds = await this.dataSource.transaction(
+      async (manager) => {
+        const community = await manager.findOne(Community, {
+          where: { id: communityId, status: 'active' },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!community) throw new NotFoundException('Community not found');
+        const membership = await manager.findOneBy(CommunityMember, {
+          communityId,
+          userId,
+          status: 'active',
+        });
+        if (!membership || !['owner', 'admin'].includes(membership.role)) {
+          throw new ForbiddenException('Community access denied');
+        }
+        const members = await manager.find(CommunityMember, {
+          where: { communityId, status: 'active' },
+          select: { userId: true },
+        });
+        community.status = 'deleted';
+        await manager.save(community);
+        await manager.update(
+          CommunityMember,
+          { communityId },
+          { status: 'removed' },
+        );
+        return members.map((member) => member.userId);
+      },
+    );
+    await Promise.all([
+      this.cache.deleteByPrefix('community:list:discover:'),
+      ...affectedUserIds.map((memberId) =>
+        this.cache.deleteByPrefix(`community:list:joined:${memberId}:`),
+      ),
+      this.invalidatePostCaches(communityId),
+    ]);
+    return { success: true };
+  }
+  // T: O(M) and S: O(M), where M is members deactivated
 
+  async removeMember(
+    actingUserId: string,
+    communityId: string,
+    targetUserId: string,
+  ): Promise<{ success: true }> {
+    await this.dataSource.transaction(async (manager) => {
+      const actingMember = await manager.findOneBy(CommunityMember, {
+        communityId,
+        userId: actingUserId,
+        status: 'active',
+      });
+      if (!actingMember || !['owner', 'admin'].includes(actingMember.role)) {
+        throw new ForbiddenException('Community access denied');
+      }
+      if (targetUserId === actingUserId) {
+        throw new BadRequestException('You cannot remove yourself this way');
+      }
+      const targetMember = await manager.findOneBy(CommunityMember, {
+        communityId,
+        userId: targetUserId,
+        status: 'active',
+      });
+      if (!targetMember) throw new NotFoundException('Member not found');
+      if (targetMember.role === 'owner') {
+        throw new ForbiddenException('The community owner cannot be removed');
+      }
+      if (actingMember.role === 'admin' && targetMember.role === 'admin') {
+        throw new ForbiddenException('Admins cannot remove other admins');
+      }
+      targetMember.status = 'removed';
+      await manager.save(targetMember);
+      await manager.decrement(Community, { id: communityId }, 'memberCount', 1);
+    });
+    await this.cache.deleteByPrefix(`community:list:joined:${targetUserId}:`);
+    return { success: true };
+  }
+  // T: O(log M) and S: O(1)
+  // T: O(M) and S: O(1), where M is members deactivated
   async createPost(
     userId: string,
     communityId: string,
@@ -1164,12 +1267,12 @@ export class CommunityService {
                 pollId,
                 id: optionIds[0],
               })
-          : await manager
-              .getRepository(PollOption)
-              .createQueryBuilder('option')
-              .where('option."pollId" = :pollId', { pollId })
-              .andWhere('option.id IN (:...optionIds)', { optionIds })
-              .getMany();
+            : await manager
+                .getRepository(PollOption)
+                .createQueryBuilder('option')
+                .where('option."pollId" = :pollId', { pollId })
+                .andWhere('option.id IN (:...optionIds)', { optionIds })
+                .getMany();
       if (validOptions.length !== optionIds.length) {
         throw new BadRequestException('Poll option is invalid');
       }
@@ -1410,7 +1513,63 @@ export class CommunityService {
     });
   }
   // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
-
+  async listSentFriendRequests(userId: string): Promise<
+    Array<{
+      id: string;
+      addresseeId: string;
+      name: string;
+      handle: string;
+      role: string;
+      avatarUrl: string | null;
+      createdAt: Date;
+    }>
+  > {
+    const requests = await this.friendshipRepository
+      .createQueryBuilder('friendship')
+      .innerJoin(User, 'addressee', 'addressee.id = friendship."addresseeId"')
+      .where('friendship."requesterId" = CAST(:userId AS uuid)', { userId })
+      .andWhere('friendship.status = :status', { status: 'pending' })
+      .select('friendship.id', 'id')
+      .addSelect('friendship."addresseeId"', 'addresseeId')
+      .addSelect('friendship."createdAt"', 'createdAt')
+      .addSelect('addressee.name', 'name')
+      .addSelect(`CONCAT('@', SPLIT_PART(addressee.email, '@', 1))`, 'handle')
+      .orderBy('friendship."createdAt"', 'DESC')
+      .limit(50)
+      .getRawMany<{
+        id: string;
+        addresseeId: string;
+        name: string;
+        handle: string;
+        createdAt: Date;
+      }>();
+    const addresseeIds = requests.map((request) => request.addresseeId);
+    const profiles = addresseeIds.length
+      ? await this.onboardingRepository.find({
+          where: { userId: In(addresseeIds) },
+          order: { createdAt: 'DESC' },
+        })
+      : [];
+    const latestProfileByUserId = new Map<string, OnboardingResponse>();
+    for (const profile of profiles) {
+      if (!latestProfileByUserId.has(profile.userId)) {
+        latestProfileByUserId.set(profile.userId, profile);
+      }
+    }
+    return requests.map((request) => {
+      const profile = latestProfileByUserId.get(request.addresseeId);
+      return {
+        ...request,
+        role:
+          profile?.dedicatedRole ??
+          profile?.preferredRole?.[0] ??
+          profile?.currentStatus?.[0] ??
+          'Anchor member',
+        avatarUrl: profile?.profileImageUrl ?? null,
+      };
+    });
+  }
+  // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
   async sendFriendRequest(
     userId: string,
     dto: SendFriendRequestDto,
@@ -1494,6 +1653,43 @@ export class CommunityService {
     });
     if (!friendship) {
       throw new NotFoundException('Accepted friendship not found');
+    }
+    await this.friendshipRepository.delete(friendship.id);
+    await Promise.all([
+      this.cache.deleteByPrefix(
+        `community:people-search:${friendship.requesterId}:`,
+      ),
+      this.cache.deleteByPrefix(
+        `community:people-search:${friendship.addresseeId}:`,
+      ),
+      this.cache.deleteByPrefix('community:global-posts:'),
+      this.cache.deleteByPrefix('community:posts:'),
+      this.cache.deleteByPrefix('community:feed:'),
+    ]);
+    return { success: true };
+  }
+  // T: O(log F) and S: O(1), where F is friendships
+
+  async cancelFriendRequest(
+    userId: string,
+    targetUserId: string,
+  ): Promise<{ success: true }> {
+    if (userId === targetUserId) {
+      throw new BadRequestException('You cannot cancel a request to yourself');
+    }
+    const [userLowId, userHighId] = [userId, targetUserId].sort();
+    const friendship = await this.friendshipRepository.findOneBy({
+      userLowId,
+      userHighId,
+      status: 'pending',
+    });
+    if (!friendship) {
+      throw new NotFoundException('Friend request not found');
+    }
+    if (friendship.requesterId !== userId) {
+      throw new ForbiddenException(
+        'Only the sender can cancel a friend request',
+      );
     }
     await this.friendshipRepository.delete(friendship.id);
     await Promise.all([

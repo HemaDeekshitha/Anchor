@@ -12,7 +12,7 @@ import {
 export type CommunityVisibility = 'public' | 'private';
 export type CommunityJoinPolicy = 'open' | 'approval' | 'invite_only';
 export type CommunityMemberRole = 'owner' | 'admin' | 'moderator' | 'member';
-export type CommunityMemberStatus = 'active' | 'pending' | 'banned' | 'left';
+export type CommunityMemberStatus = 'active' | 'pending' | 'removed';
 export type CommunityPostKind = 'text' | 'media' | 'poll';
 export type CommunityPostStatus =
   | 'processing'
@@ -178,6 +178,10 @@ export class CommunityInvite {
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
+
+  // CommunityInvite entity
+  @Column({ type: 'varchar', default: 'member' })
+  roleOnAccept: CommunityMember['role'];
 }
 
 @Entity('community_posts')
