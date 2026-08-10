@@ -158,6 +158,81 @@ describe('TaskGenerationService daily interview plan', () => {
     expect(tasks[2].title).toContain('Reduced API latency by 30%');
   });
 
+  it('keeps all software lanes available after curated outage questions were seen', () => {
+    const profile = {
+      dedicatedRole: 'Software Engineer',
+      resumeText:
+        'Reduced API latency by 30% using Redis caching and implemented cache invalidation for frequently requested records.',
+    } as OnboardingResponse;
+    const mix = { easy: 2, medium: 1, hard: 1, total: 4 };
+    const seenUrls = new Set<string>();
+    const seenTitles = new Set<string>();
+
+    for (let index = 0; index < 5; index++) {
+      const task = internal.buildLeetcodeFallbackTask(
+        'hard',
+        seenUrls,
+        seenTitles,
+      );
+      expect(task).not.toBeNull();
+      seenUrls.add(task!.leetcodeUrl!);
+      seenTitles.add(task!.title.toLowerCase().trim());
+    }
+
+    const repeatedLeetcode = internal.buildLeetcodeFallbackTask(
+      'hard',
+      seenUrls,
+      seenTitles,
+    );
+    expect(repeatedLeetcode).not.toBeNull();
+    expect(seenUrls.has(repeatedLeetcode!.leetcodeUrl!)).toBe(true);
+
+    const firstFallback = internal.buildRoleFallbackTasks(
+      profile,
+      ['Redis'],
+      undefined,
+      mix,
+      { easy: 0, medium: 0, hard: 1 },
+      seenTitles,
+      1,
+      new Set(['dsa']),
+      true,
+      getRoleBlueprint('Software Engineer').dailyLanes,
+    );
+    const exhaustedTitles = new Set([
+      ...seenTitles,
+      ...firstFallback.map((task) => task.title.toLowerCase().trim()),
+    ]);
+    const repairedFallback = internal.buildRoleFallbackTasks(
+      profile,
+      ['Redis'],
+      undefined,
+      mix,
+      { easy: 0, medium: 0, hard: 1 },
+      exhaustedTitles,
+      1,
+      new Set(['dsa']),
+      true,
+      getRoleBlueprint('Software Engineer').dailyLanes,
+    );
+    const repairedPlan = [repeatedLeetcode!, ...repairedFallback];
+
+    expect(repairedFallback.map((task) => task.category)).toEqual([
+      'System Design',
+      'Behavioral',
+      'Resume & Project Deep-Dive',
+    ]);
+    expect(() =>
+      internal.assertFinalPlanRequirements(repairedPlan, mix, true, seenUrls, [
+        'dsa',
+        'system design',
+        'behavioral',
+        'resume project deep dive',
+      ]),
+    ).not.toThrow();
+  });
+  // T: O(n) and S: O(n), where n is the curated fallback pool size
+
   it('selects an unseen LeetCode problem and rejects an incomplete lane set', () => {
     const leetcode = internal.buildLeetcodeFallbackTask(
       'hard',

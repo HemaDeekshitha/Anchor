@@ -754,7 +754,6 @@ export class TaskGenerationService {
     if (softwareRole) {
       if (
         leetcodeUrls.length !== 1 ||
-        seenLeetcodeUrls.has(leetcodeUrls[0]) ||
         leetcodeTasks[0].category !== 'DSA' ||
         this.sanitiseDifficulty(leetcodeTasks[0].difficulty) !==
           this.leetcodeDifficulty(mix) ||
@@ -781,6 +780,7 @@ export class TaskGenerationService {
       );
     }
   }
+  // T: O(n + m) and S: O(n), where n is the plan size and m is the number of required categories
 
   private async getSeenLeetcodeUrls(userId: string): Promise<Set<string>> {
     const rows = await this.ragTaskRepo
@@ -802,12 +802,20 @@ export class TaskGenerationService {
     seenUrls: Set<string>,
     seenTitles: Set<string>,
   ): GeneratedTaskDto | null {
-    const problem = LEETCODE_FALLBACKS[difficulty].find(
-      (candidate) =>
-        !seenUrls.has(candidate.url) &&
-        !seenTitles.has(this.normaliseTitle(candidate.title)),
-    );
+    const candidates = LEETCODE_FALLBACKS[difficulty];
+    const problem =
+      candidates.find(
+        (candidate) =>
+          !seenUrls.has(candidate.url) &&
+          !seenTitles.has(this.normaliseTitle(candidate.title)),
+      ) ?? candidates[seenUrls.size % candidates.length];
     if (!problem) return null;
+
+    if (seenUrls.has(problem.url)) {
+      this.logger.warn(
+        `Reusing a curated ${difficulty} LeetCode fallback because every offline option has already been seen.`,
+      );
+    }
 
     return {
       title: problem.title,
@@ -824,6 +832,7 @@ export class TaskGenerationService {
       selectionReason: 'Daily coding interview practice',
     };
   }
+  // T: O(n) and S: O(1), where n is the number of curated problems for the difficulty
 
   private professionalCategoryForTask(
     task: GeneratedTaskDto,
@@ -998,6 +1007,7 @@ export class TaskGenerationService {
       preference: Diff[],
       description: string,
       sourceResumePoint: string | null = null,
+      allowPreviouslySeen = false,
     ) => {
       if (output.length >= needed) return;
       const categoryKey = this.normaliseCategory(category);
@@ -1006,7 +1016,7 @@ export class TaskGenerationService {
       if (
         !difficulty ||
         usedCategories.has(categoryKey) ||
-        seenKeys.has(titleKey)
+        (!allowPreviouslySeen && seenKeys.has(titleKey))
       ) {
         return;
       }
@@ -1031,9 +1041,10 @@ export class TaskGenerationService {
     };
 
     if (!usedCategories.has(this.normaliseCategory('System Design'))) {
-      const title = SYSTEM_DESIGN_FALLBACKS.find(
+      const unseenTitle = SYSTEM_DESIGN_FALLBACKS.find(
         (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
       );
+      const title = unseenTitle ?? SYSTEM_DESIGN_FALLBACKS[0];
       if (title) {
         addTask(
           'System Design',
@@ -1041,14 +1052,17 @@ export class TaskGenerationService {
           'system design delivery framework and trade-offs',
           ['hard', 'medium', 'easy'],
           'A strong answer should clarify requirements and constraints first, estimate scale where relevant, define APIs and data models, explain the high-level design, identify bottlenecks, and defend trade-offs.',
+          null,
+          !unseenTitle,
         );
       }
     }
 
     if (!usedCategories.has(this.normaliseCategory('Behavioral'))) {
-      const title = BEHAVIORAL_FALLBACKS.find(
+      const unseenTitle = BEHAVIORAL_FALLBACKS.find(
         (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
       );
+      const title = unseenTitle ?? BEHAVIORAL_FALLBACKS[0];
       if (title) {
         addTask(
           'Behavioral',
@@ -1056,6 +1070,8 @@ export class TaskGenerationService {
           'behavioral evidence using STAR',
           ['easy', 'medium', 'hard'],
           'Use a specific STAR example. Make personal ownership, decisions, communication, measurable outcome, and learning explicit.',
+          null,
+          !unseenTitle,
         );
       }
     }
@@ -1082,11 +1098,14 @@ export class TaskGenerationService {
           `Which project best demonstrates your readiness for ${role}? Walk through the problem, your personal ownership, the implementation choices, the measurable result, and what you would improve now?`,
         );
       }
-      const title = resumeCandidates.find(
+      const unseenTitle = resumeCandidates.find(
         (candidate) =>
           candidate.length <= 260 &&
           !seenKeys.has(this.normaliseTitle(candidate)),
       );
+      const title =
+        unseenTitle ??
+        resumeCandidates.find((candidate) => candidate.length <= 260);
       if (title) {
         const sourceResumePoint =
           evidencePoints.find((point) => title.includes(point)) ?? null;
@@ -1097,6 +1116,7 @@ export class TaskGenerationService {
           ['medium', 'hard', 'easy'],
           'A strong answer must defend the stated resume evidence with a baseline, personal contribution, technical choices, alternatives considered, measurement method, result, and lessons learned.',
           sourceResumePoint,
+          !unseenTitle,
         );
       }
     }
@@ -1119,6 +1139,7 @@ export class TaskGenerationService {
     }
     return output;
   }
+  // T: O(n + m) and S: O(n), where n is the fallback pool size and m is the resume evidence size
 
   private buildProfessionalFallbackTasks(
     profile: OnboardingResponse | null,
@@ -1282,14 +1303,7 @@ export class TaskGenerationService {
           ?.name ??
         role;
       const title = `For a realistic ${role} interview case involving ${anchor}, how would you clarify the constraints, apply the relevant principles, compare alternatives, manage the main risks, and validate the result?`;
-      addTask(
-        lane,
-        title,
-        anchor,
-        ['medium', 'easy', 'hard'],
-        null,
-        true,
-      );
+      addTask(lane, title, anchor, ['medium', 'easy', 'hard'], null, true);
     }
 
     // Some profession blueprints intentionally define only three mandatory
@@ -1303,8 +1317,7 @@ export class TaskGenerationService {
     ) {
       const anchor =
         anchors[
-          (dailyLanes.length + supplementalIndex) %
-            Math.max(anchors.length, 1)
+          (dailyLanes.length + supplementalIndex) % Math.max(anchors.length, 1)
         ] ??
         blueprint.competencies[
           supplementalIndex % Math.max(blueprint.competencies.length, 1)

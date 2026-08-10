@@ -551,25 +551,25 @@ export class CommunityService {
     userId: string,
     communityId: string,
     dto: CreatePostDto,
-  ): Promise<CommunityPost> {
+  ): Promise<unknown> {
     await this.requireMembership(userId, communityId);
     return this.createPostRecord(userId, communityId, dto);
   }
-  // T: O(m + o) and S: O(m + o), where m is media and o is poll options
+  // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
 
   async createGlobalPost(
     userId: string,
     dto: CreatePostDto,
-  ): Promise<CommunityPost> {
+  ): Promise<unknown> {
     return this.createPostRecord(userId, null, dto);
   }
-  // T: O(m + o) and S: O(m + o), where m is media and o is poll options
+  // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
 
   private async createPostRecord(
     userId: string,
     communityId: string | null,
     dto: CreatePostDto,
-  ): Promise<CommunityPost> {
+  ): Promise<unknown> {
     if (!dto.body?.trim() && !dto.media?.length && !dto.poll) {
       throw new BadRequestException('Post content is required');
     }
@@ -665,9 +665,10 @@ export class CommunityService {
     );
     void Promise.all(queueOperations);
     await this.invalidatePostCaches(communityId);
-    return result.post;
+    const [createdPost] = await this.hydratePosts([result.post], userId);
+    return createdPost;
   }
-  // T: O(m + o) and S: O(m + o), where m is media and o is poll options
+  // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
 
   async updatePost(
     userId: string,
@@ -753,7 +754,7 @@ export class CommunityService {
           where: { id: In(authorIds) },
         }),
         this.postMediaRepository.find({
-          where: { postId: In(postIds), status: 'ready' },
+          where: { postId: In(postIds), status: In(['pending', 'ready']) },
           order: { sortOrder: 'ASC' },
         }),
         this.pollRepository.find({ where: { postId: In(postIds) } }),

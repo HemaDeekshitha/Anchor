@@ -107,7 +107,12 @@ export type CreatePostInput = {
   body: string;
   mode: "text" | "image" | "video" | "poll";
   file?: File | null;
-  onUploadProgress?: (percentage: number) => void;
+  onUploadProgress?: (
+    percentage: number,
+    loadedBytes: number,
+    totalBytes: number,
+  ) => void;
+  onUploadComplete?: () => void;
   pollOptions?: string[];
   pollAllowsMultiple?: boolean;
   pollEndsAt?: string;
@@ -288,10 +293,24 @@ export async function acceptCommunityInvite(token: string): Promise<void> {
 async function uploadMedia(
   file: File,
   resourceType: "image" | "video",
-  onProgress?: (percentage: number) => void,
+  onProgress?: (
+    percentage: number,
+    loadedBytes: number,
+    totalBytes: number,
+  ) => void,
 ): Promise<string> {
-  if (!file.type.startsWith(`${resourceType}/`)) {
-    throw new Error(`Choose a valid ${resourceType} file`);
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const acceptedExtensions =
+    resourceType === "video"
+      ? new Set(["mp4", "mov", "m4v", "webm"])
+      : new Set(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif"]);
+  const hasAcceptedMimeType = file.type.startsWith(`${resourceType}/`);
+  if (!hasAcceptedMimeType && !acceptedExtensions.has(extension)) {
+    throw new Error(
+      resourceType === "video"
+        ? "Choose a valid MP4, MOV, M4V, or WebM video"
+        : "Choose a valid image file",
+    );
   }
   const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
   if (file.size > maxBytes) {
@@ -335,7 +354,11 @@ async function uploadMedia(
     request.timeout = 5 * 60 * 1_000;
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
-      onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+      onProgress?.(
+        Math.min(100, Math.floor((event.loaded / event.total) * 100)),
+        event.loaded,
+        event.total,
+      );
     };
     request.onload = () => {
       const payload = (() => {
@@ -361,7 +384,7 @@ async function uploadMedia(
         reject(new Error("Media storage returned no asset ID"));
         return;
       }
-      onProgress?.(100);
+      onProgress?.(100, file.size, file.size);
       resolve(payload.public_id);
     };
     request.onerror = () =>
@@ -397,6 +420,7 @@ export async function createPost(
       input.mode,
       input.onUploadProgress,
     );
+    input.onUploadComplete?.();
   }
   const options = (input.pollOptions ?? [])
     .map((option) => option.trim())
