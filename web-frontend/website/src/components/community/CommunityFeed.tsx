@@ -118,6 +118,7 @@ export type ForumComment = {
 export type ForumPost = {
   id: string;
   communityId: string | null;
+  status: "processing" | "published" | "removed" | "deleted";
   category: string;
   type: "Discussion" | "Doubt" | "Achievement";
   createdAt: string;
@@ -293,6 +294,7 @@ const mapCommunity = (
 const mapPost = (post: CommunityPostRecord): ForumPost => ({
   id: post.id,
   communityId: post.communityId,
+  status: post.status,
   category: post.kind === "poll" ? "Poll" : "Discussion",
   type: "Discussion",
   createdAt: post.createdAt,
@@ -335,6 +337,12 @@ const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 // T: O(1) scheduled work and S: O(1)
 
+const formatUploadBytes = (bytes: number): string => {
+  if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(0)} KB`;
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+};
+// T: O(1) and S: O(1)
+
 // ── Composer ─────────────────────────────────────────────────────────────────
 const Composer = ({
   scope,
@@ -354,6 +362,11 @@ const Composer = ({
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalUploadBytes, setTotalUploadBytes] = useState(0);
+  const [uploadStage, setUploadStage] = useState<
+    "idle" | "uploading" | "processing"
+  >("idle");
   const [error, setError] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -434,6 +447,9 @@ const Composer = ({
     setFile(null);
     setMode("text");
     setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(0);
+    setUploadStage("idle");
     setError("");
   };
   // T: O(1) and S: O(1)
@@ -502,6 +518,11 @@ const Composer = ({
     }
     setSubmitting(true);
     setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(file?.size ?? 0);
+    setUploadStage(
+      mode === "image" || mode === "video" ? "uploading" : "idle",
+    );
     setError("");
     try {
       const post = await createPost({
@@ -509,7 +530,12 @@ const Composer = ({
         body: content,
         mode: mode === "emoji" ? "text" : mode,
         file,
-        onUploadProgress: setUploadProgress,
+        onUploadProgress: (percentage, loadedBytes, totalBytes) => {
+          setUploadProgress(percentage);
+          setUploadedBytes(loadedBytes);
+          setTotalUploadBytes(totalBytes);
+        },
+        onUploadComplete: () => setUploadStage("processing"),
         pollOptions,
         pollAllowsMultiple,
         pollEndsAt: new Date(
@@ -867,8 +893,13 @@ const Composer = ({
             aria-live="polite"
             sx={{ mt: 1.25, py: 0 }}
           >
-            Please wait while we upload your {mode}
-            {uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}
+            {uploadStage === "processing"
+              ? `${mode === "video" ? "Video" : "Image"} uploaded · Preparing your post…`
+              : `Uploading your ${mode} · ${uploadProgress}%${
+                  totalUploadBytes > 0
+                    ? ` (${formatUploadBytes(uploadedBytes)} of ${formatUploadBytes(totalUploadBytes)})`
+                    : ""
+                }`}
           </Alert>
         )}
 
@@ -971,7 +1002,7 @@ const Composer = ({
         ref={videoInputRef}
         hidden
         type="file"
-        accept="video/*"
+        accept="video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm"
         onChange={(event) =>
           handleMediaSelected("video", event.target.files?.[0] ?? null)
         }
@@ -1005,6 +1036,10 @@ const PostCard = ({
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<string[]>(
     post.poll?.viewerOptionIds ?? [],
   );
+  const pollRef = useRef(post.poll);
+  const confirmedPollRef = useRef(post.poll);
+  const queuedPollOptionIdsRef = useRef<string[] | null>(null);
+  const pollVoteInFlightRef = useRef(false);
   const [pollError, setPollError] = useState("");
   const [commentsLoaded, setCommentsLoaded] = useState(
     Boolean(post.initialComments?.length),
@@ -1036,6 +1071,9 @@ const PostCard = ({
   );
 
   useEffect(() => {
+    if (pollVoteInFlightRef.current) return;
+    pollRef.current = post.poll;
+    confirmedPollRef.current = post.poll;
     setPoll(post.poll);
     setSelectedPollOptionIds(post.poll?.viewerOptionIds ?? []);
     setPollError("");
@@ -1086,16 +1124,12 @@ const PostCard = ({
   };
   // T: O(c) and S: O(c), where c is the number of displayed comments
 
-  const submitPollVote = async (
-    optionIds: string[],
-    loadingOptionId: string,
-  ) => {
-    if (!poll || votingOptionId) return;
-    const previousPoll = poll;
-    const previousOptionIds = poll.viewerOptionIds;
-    const previousOptionIdSet = new Set(previousOptionIds);
+  const updatePollSelectionOptimistically = (optionIds: string[]): void => {
+    const currentPoll = pollRef.current;
+    if (!currentPoll) return;
+    const previousOptionIdSet = new Set(currentPoll.viewerOptionIds);
     const nextOptionIdSet = new Set(optionIds);
-    const optimisticOptions = poll.options.map((option) => ({
+    const optimisticOptions = currentPoll.options.map((option) => ({
       ...option,
       voteCount: Math.max(
         0,
@@ -1104,35 +1138,83 @@ const PostCard = ({
           (previousOptionIdSet.has(option.id) ? 1 : 0),
       ),
     }));
+    const optimisticPoll = {
+      ...currentPoll,
+      options: optimisticOptions,
+      viewerOptionIds: [...optionIds],
+    };
+    pollRef.current = optimisticPoll;
+    setPoll(optimisticPoll);
+    setSelectedPollOptionIds(optionIds);
+  };
+  // T: O(o) and S: O(o), where o is the number of poll options
+
+  const flushQueuedPollVote = async (): Promise<void> => {
+    if (pollVoteInFlightRef.current || !pollRef.current) return;
+    pollVoteInFlightRef.current = true;
+    setVotingOptionId("saving");
+
+    try {
+      while (queuedPollOptionIdsRef.current !== null) {
+        const requestedOptionIds = queuedPollOptionIdsRef.current;
+        queuedPollOptionIdsRef.current = null;
+        const activePoll: NonNullable<ForumPost["poll"]> | null =
+          pollRef.current ?? null;
+        if (!activePoll) return;
+
+        try {
+          const options = await votePoll(activePoll.id, requestedOptionIds);
+          const confirmedPoll: NonNullable<ForumPost["poll"]> = {
+            ...(confirmedPollRef.current ?? activePoll),
+            options,
+            viewerOptionIds: [...requestedOptionIds],
+          };
+          confirmedPollRef.current = confirmedPoll;
+
+          if (queuedPollOptionIdsRef.current === null) {
+            pollRef.current = confirmedPoll;
+            setPoll(confirmedPoll);
+            setSelectedPollOptionIds(requestedOptionIds);
+          }
+        } catch (caught) {
+          if (queuedPollOptionIdsRef.current !== null) continue;
+          const confirmedPoll = confirmedPollRef.current;
+          pollRef.current = confirmedPoll;
+          setPoll(confirmedPoll);
+          setSelectedPollOptionIds(confirmedPoll?.viewerOptionIds ?? []);
+          setPollError(
+            caught instanceof Error ? caught.message : "Could not submit vote",
+          );
+        }
+      }
+    } finally {
+      pollVoteInFlightRef.current = false;
+      setVotingOptionId("");
+      if (queuedPollOptionIdsRef.current !== null) {
+        void flushQueuedPollVote();
+      }
+    }
+  };
+  // T: O(q * o) and S: O(o), where q is coalesced requests and o is poll options
+
+  const queuePollVote = (
+    optionIds: string[],
+    loadingOptionId: string,
+  ): void => {
+    queuedPollOptionIdsRef.current = [...optionIds];
     setVotingOptionId(loadingOptionId);
     setPollError("");
-    setPoll({
-      ...poll,
-      options: optimisticOptions,
-      viewerOptionIds: optionIds,
-    });
-    setSelectedPollOptionIds(optionIds);
-    try {
-      const options = await votePoll(poll.id, optionIds);
-      setPoll({ ...poll, options, viewerOptionIds: optionIds });
-      setSelectedPollOptionIds(optionIds);
-    } catch (caught) {
-      setPoll(previousPoll);
-      setSelectedPollOptionIds(previousOptionIds);
-      setPollError(
-        caught instanceof Error ? caught.message : "Could not submit vote",
-      );
-    } finally {
-      setVotingOptionId("");
-    }
+    updatePollSelectionOptimistically(optionIds);
+    void flushQueuedPollVote();
   };
   // T: O(o) and S: O(o), where o is the number of poll options
 
   const handlePollOptionClick = (optionId: string) => {
-    if (!poll || pollClosed || votingOptionId) return;
-    if (!poll.allowsMultiple) {
-      void submitPollVote(
-        selectedPollOptionIds.includes(optionId) ? [] : [optionId],
+    const currentPoll = pollRef.current;
+    if (!currentPoll || pollClosed) return;
+    if (!currentPoll.allowsMultiple) {
+      queuePollVote(
+        currentPoll.viewerOptionIds.includes(optionId) ? [] : [optionId],
         optionId,
       );
       return;
@@ -1146,7 +1228,7 @@ const PostCard = ({
   // T: O(o) and S: O(o), where o is the number of selected poll options
 
   const handleMultiplePollVote = () => {
-    void submitPollVote(selectedPollOptionIds, "multiple");
+    queuePollVote(selectedPollOptionIds, "multiple");
   };
   // T: O(o) and S: O(o), where o is the number of selected poll options
 
@@ -1507,7 +1589,31 @@ const PostCard = ({
         {displayBody}
       </Typography>
 
-      {post.media?.map((item) =>
+      {post.status === "processing" && (
+        <Box
+          role="status"
+          aria-live="polite"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            mb: 2,
+            px: 1.5,
+            py: 1.25,
+            border: `1px solid ${C.divider}`,
+            borderRadius: 2,
+            bgcolor: "#fff",
+          }}
+        >
+          <CircularProgress size={17} sx={{ color: C.accent }} />
+          <Typography sx={{ color: C.textSub, fontSize: "0.82rem" }}>
+            Upload complete. Preparing your media for playback…
+          </Typography>
+        </Box>
+      )}
+
+      {post.status === "published" &&
+        post.media?.map((item) =>
         item.type === "image" ? (
           <Box
             key={item.id}
@@ -1540,7 +1646,7 @@ const PostCard = ({
             }}
           />
         ),
-      )}
+        )}
 
       {poll && (
         <Stack spacing={1} sx={{ width: "100%", maxWidth: 480, mb: 2.5 }}>
@@ -3658,45 +3764,55 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   };
   // T: O(1) and S: O(1)
 
+  const reconcileCreatedPost = useCallback(
+    async (postId: string, target: string): Promise<void> => {
+      for (let attempt = 0; attempt < 45; attempt += 1) {
+        await delay(attempt < 5 ? 1_000 : 2_000);
+        try {
+          const records =
+            target === ALL_ID
+              ? await listGlobalPosts()
+              : await listCommunityFeed(target);
+          const mapped = records.map(mapPost);
+          if (!mapped.some((item) => item.id === postId)) continue;
+          if (activePostScopeRef.current === target) {
+            setPosts(mapped);
+          }
+          return;
+        } catch {
+          // A temporary refresh failure must not turn a successful upload red.
+        }
+      }
+    },
+    [],
+  );
+  // T: O(r * p) and S: O(p), where r is bounded retries and p is returned posts
+
   const handlePostCreated = async (
     post: CommunityPostRecord,
   ): Promise<void> => {
-    try {
-      const target = post.communityId ?? ALL_ID;
-
-      if (post.status === "published") {
-        const optimisticPost: ForumPost = {
-          ...mapPost(post),
-          friendshipStatus: "self",
-        };
-        if (activePostScopeRef.current === target) {
-          setPosts((current) =>
-            current.some((item) => item.id === optimisticPost.id)
-              ? current
-              : [optimisticPost, ...current],
-          );
-        }
-        await refreshPosts(target);
-        return;
-      }
-
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        await delay(1_500);
-        const refreshed = await refreshPosts(target);
-        if (refreshed.some((item) => item.id === post.id)) return;
-      }
-      setPageError(
-        "Your media was uploaded and is still processing. It will appear after processing finishes.",
-      );
-    } catch (caught) {
-      setPageError(
-        caught instanceof Error
-          ? caught.message
-          : "Your post was created, but the feed could not be refreshed.",
+    setPageError("");
+    const target = post.communityId ?? ALL_ID;
+    const optimisticPost: ForumPost = {
+      ...mapPost(post),
+      friendshipStatus: "self",
+    };
+    if (activePostScopeRef.current === target) {
+      setPosts((current) =>
+        current.some((item) => item.id === optimisticPost.id)
+          ? current
+          : [optimisticPost, ...current],
       );
     }
+
+    if (post.status === "processing") {
+      void reconcileCreatedPost(post.id, target);
+      return;
+    }
+
+    void refreshPosts(target).catch(() => undefined);
   };
-  // T: O(p) and S: O(p), where p is returned posts and retries are bounded
+  // T: O(p) and S: O(p), where p is the number of displayed posts
 
   const handlePostUpdated = (postId: string, body: string): void => {
     setPosts((current) =>
