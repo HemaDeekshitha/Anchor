@@ -264,7 +264,7 @@ const SAMPLE_MEETINGS: ScheduledMeeting[] = [
 const formatTimeAgo = (createdAt: string) => {
   const elapsedMinutes = Math.max(
     0,
-    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60_000),
+    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60_000)
   );
   if (elapsedMinutes < 1) return "now";
   if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
@@ -275,7 +275,7 @@ const formatTimeAgo = (createdAt: string) => {
 
 const mapCommunity = (
   community: CommunityRecord,
-  joined: boolean,
+  joined: boolean
 ): Community => ({
   id: community.id,
   slug: community.slug,
@@ -405,14 +405,14 @@ const Composer = ({
 
   const handleMediaSelected = (
     resourceType: "image" | "video",
-    selectedFile: File | null,
+    selectedFile: File | null
   ) => {
     const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
     if (selectedFile && selectedFile.size > maxBytes) {
       setError(
         `${resourceType === "video" ? "Video" : "Image"} must be smaller than ${
           maxBytes / 1_000_000
-        } MB`,
+        } MB`
       );
       setFile(null);
       return;
@@ -482,15 +482,15 @@ const Composer = ({
   const handlePollOptionChange = (index: number, value: string) => {
     setPollOptions((current) =>
       current.map((option, optionIndex) =>
-        optionIndex === index ? value : option,
-      ),
+        optionIndex === index ? value : option
+      )
     );
   };
   // T: O(p) and S: O(p), where p is the number of poll options
 
   const handleAddPollOption = () => {
     setPollOptions((current) =>
-      current.length < 10 ? [...current, ""] : current,
+      current.length < 10 ? [...current, ""] : current
     );
   };
   // T: O(p) and S: O(p), where p is the number of poll options
@@ -498,7 +498,7 @@ const Composer = ({
   const handleRemovePollOption = (index: number) => {
     if (index < 2) return;
     setPollOptions((current) =>
-      current.filter((_, optionIndex) => optionIndex !== index),
+      current.filter((_, optionIndex) => optionIndex !== index)
     );
   };
   // T: O(p) and S: O(p), where p is the number of poll options
@@ -509,10 +509,10 @@ const Composer = ({
         scope === "community" && !communityId
           ? "Choose a community before posting."
           : mode === "poll" && validPollOptions.length < 2
-            ? "A poll needs at least two options."
-            : (mode === "image" || mode === "video") && !file
-              ? `Choose a ${mode} to upload.`
-              : "Write something before posting.",
+          ? "A poll needs at least two options."
+          : (mode === "image" || mode === "video") && !file
+          ? `Choose a ${mode} to upload.`
+          : "Write something before posting."
       );
       return;
     }
@@ -520,9 +520,7 @@ const Composer = ({
     setUploadProgress(0);
     setUploadedBytes(0);
     setTotalUploadBytes(file?.size ?? 0);
-    setUploadStage(
-      mode === "image" || mode === "video" ? "uploading" : "idle",
-    );
+    setUploadStage(mode === "image" || mode === "video" ? "uploading" : "idle");
     setError("");
     try {
       const post = await createPost({
@@ -539,7 +537,7 @@ const Composer = ({
         pollOptions,
         pollAllowsMultiple,
         pollEndsAt: new Date(
-          Date.now() + pollDurationDays * 24 * 60 * 60 * 1_000,
+          Date.now() + pollDurationDays * 24 * 60 * 60 * 1_000
         ).toISOString(),
       });
       resetComposer();
@@ -547,7 +545,7 @@ const Composer = ({
       void onCreated(post);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Could not create post",
+        caught instanceof Error ? caught.message : "Could not create post"
       );
     } finally {
       setSubmitting(false);
@@ -823,9 +821,9 @@ const Composer = ({
             <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
               {file
                 ? file.name
-                : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
-                    mode === "video" ? " · max 50 MB" : ""
-                  }`}
+                : `Choose ${
+                    mode === "image" ? "an image" : "a video"
+                  } from your device${mode === "video" ? " · max 50 MB" : ""}`}
             </Typography>
             <Button
               size="small"
@@ -894,10 +892,14 @@ const Composer = ({
             sx={{ mt: 1.25, py: 0 }}
           >
             {uploadStage === "processing"
-              ? `${mode === "video" ? "Video" : "Image"} uploaded · Preparing your post…`
+              ? `${
+                  mode === "video" ? "Video" : "Image"
+                } uploaded · Preparing your post…`
               : `Uploading your ${mode} · ${uploadProgress}%${
                   totalUploadBytes > 0
-                    ? ` (${formatUploadBytes(uploadedBytes)} of ${formatUploadBytes(totalUploadBytes)})`
+                    ? ` (${formatUploadBytes(
+                        uploadedBytes
+                      )} of ${formatUploadBytes(totalUploadBytes)})`
                     : ""
                 }`}
           </Alert>
@@ -1025,7 +1027,7 @@ const PostCard = ({
   onDeleted: (postId: string) => void;
 }) => {
   const [comments, setComments] = useState<ForumComment[]>(
-    post.initialComments ?? [],
+    post.initialComments ?? []
   );
   const [showComments, setShowComments] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -1034,7 +1036,7 @@ const PostCard = ({
   const [poll, setPoll] = useState(post.poll);
   const [votingOptionId, setVotingOptionId] = useState("");
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<string[]>(
-    post.poll?.viewerOptionIds ?? [],
+    post.poll?.viewerOptionIds ?? []
   );
   const pollRef = useRef(post.poll);
   const confirmedPollRef = useRef(post.poll);
@@ -1042,10 +1044,10 @@ const PostCard = ({
   const pollVoteInFlightRef = useRef(false);
   const [pollError, setPollError] = useState("");
   const [commentsLoaded, setCommentsLoaded] = useState(
-    Boolean(post.initialComments?.length),
+    Boolean(post.initialComments?.length)
   );
   const [friendshipStatus, setFriendshipStatus] = useState(
-    post.friendshipStatus,
+    post.friendshipStatus
   );
   const [friendActionPending, setFriendActionPending] = useState(false);
   const [liked, setLiked] = useState(post.viewerVote === 1);
@@ -1054,7 +1056,7 @@ const PostCard = ({
   const [actionMessage, setActionMessage] = useState("");
   const [displayBody, setDisplayBody] = useState(post.body);
   const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(
-    null,
+    null
   );
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -1062,12 +1064,12 @@ const PostCard = ({
   const [postActionPending, setPostActionPending] = useState(false);
   const [postActionError, setPostActionError] = useState("");
   const [editWindowOpen, setEditWindowOpen] = useState(
-    Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000,
+    Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000
   );
   const pollClosed = Boolean(
     poll &&
       (poll.status === "closed" ||
-        (poll.endsAt && new Date(poll.endsAt).getTime() <= Date.now())),
+        (poll.endsAt && new Date(poll.endsAt).getTime() <= Date.now()))
   );
 
   useEffect(() => {
@@ -1116,7 +1118,7 @@ const PostCard = ({
       setReplyText("");
     } catch (caught) {
       setReplyError(
-        caught instanceof Error ? caught.message : "Could not add reply",
+        caught instanceof Error ? caught.message : "Could not add reply"
       );
     } finally {
       setReplying(false);
@@ -1135,7 +1137,7 @@ const PostCard = ({
         0,
         option.voteCount +
           (nextOptionIdSet.has(option.id) ? 1 : 0) -
-          (previousOptionIdSet.has(option.id) ? 1 : 0),
+          (previousOptionIdSet.has(option.id) ? 1 : 0)
       ),
     }));
     const optimisticPoll = {
@@ -1183,7 +1185,7 @@ const PostCard = ({
           setPoll(confirmedPoll);
           setSelectedPollOptionIds(confirmedPoll?.viewerOptionIds ?? []);
           setPollError(
-            caught instanceof Error ? caught.message : "Could not submit vote",
+            caught instanceof Error ? caught.message : "Could not submit vote"
           );
         }
       }
@@ -1199,7 +1201,7 @@ const PostCard = ({
 
   const queuePollVote = (
     optionIds: string[],
-    loadingOptionId: string,
+    loadingOptionId: string
   ): void => {
     queuedPollOptionIdsRef.current = [...optionIds];
     setVotingOptionId(loadingOptionId);
@@ -1215,14 +1217,14 @@ const PostCard = ({
     if (!currentPoll.allowsMultiple) {
       queuePollVote(
         currentPoll.viewerOptionIds.includes(optionId) ? [] : [optionId],
-        optionId,
+        optionId
       );
       return;
     }
     setSelectedPollOptionIds((current) =>
       current.includes(optionId)
         ? current.filter((id) => id !== optionId)
-        : [...current, optionId],
+        : [...current, optionId]
     );
   };
   // T: O(o) and S: O(o), where o is the number of selected poll options
@@ -1245,12 +1247,12 @@ const PostCard = ({
           authorName: comment.author?.name ?? "Anchor member",
           body: comment.body,
           timeAgo: formatTimeAgo(comment.createdAt),
-        })),
+        }))
       );
       setCommentsLoaded(true);
     } catch (caught) {
       setReplyError(
-        caught instanceof Error ? caught.message : "Could not load replies",
+        caught instanceof Error ? caught.message : "Could not load replies"
       );
     }
   };
@@ -1265,7 +1267,7 @@ const PostCard = ({
       setFriendshipStatus("pending");
     } catch (caught) {
       setActionMessage(
-        caught instanceof Error ? caught.message : "Could not add friend",
+        caught instanceof Error ? caught.message : "Could not add friend"
       );
     } finally {
       setFriendActionPending(false);
@@ -1284,7 +1286,7 @@ const PostCard = ({
       setLikeCount(result.upvotes);
     } catch (caught) {
       setActionMessage(
-        caught instanceof Error ? caught.message : "Could not update like",
+        caught instanceof Error ? caught.message : "Could not update like"
       );
     } finally {
       setLikePending(false);
@@ -1294,7 +1296,7 @@ const PostCard = ({
 
   const handleSharePost = async () => {
     const url = `${window.location.origin}/community?post=${encodeURIComponent(
-      post.id,
+      post.id
     )}`;
     setActionMessage("");
     try {
@@ -1325,7 +1327,7 @@ const PostCard = ({
   const handleCopyPostLink = async () => {
     setOwnerMenuAnchor(null);
     const url = `${window.location.origin}/community?post=${encodeURIComponent(
-      post.id,
+      post.id
     )}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -1349,7 +1351,7 @@ const PostCard = ({
       setActionMessage(
         caught instanceof Error
           ? caught.message
-          : `Could not unfollow ${post.authorName}`,
+          : `Could not unfollow ${post.authorName}`
       );
     } finally {
       setFriendActionPending(false);
@@ -1379,7 +1381,7 @@ const PostCard = ({
       setEditOpen(false);
     } catch (caught) {
       setPostActionError(
-        caught instanceof Error ? caught.message : "Could not edit post",
+        caught instanceof Error ? caught.message : "Could not edit post"
       );
     } finally {
       setPostActionPending(false);
@@ -1404,7 +1406,7 @@ const PostCard = ({
       onDeleted(post.id);
     } catch (caught) {
       setPostActionError(
-        caught instanceof Error ? caught.message : "Could not delete post",
+        caught instanceof Error ? caught.message : "Could not delete post"
       );
     } finally {
       setPostActionPending(false);
@@ -1482,8 +1484,8 @@ const PostCard = ({
             {friendActionPending
               ? "Adding…"
               : friendshipStatus === "none"
-                ? "Add as friend"
-                : "Request sent"}
+              ? "Add as friend"
+              : "Request sent"}
           </Button>
         ) : (
           <>
@@ -1614,38 +1616,38 @@ const PostCard = ({
 
       {post.status === "published" &&
         post.media?.map((item) =>
-        item.type === "image" ? (
-          <Box
-            key={item.id}
-            component="img"
-            src={item.url}
-            alt="Community post upload"
-            sx={{
-              display: "block",
-              width: "100%",
-              maxHeight: 560,
-              objectFit: "contain",
-              borderRadius: 2,
-              bgcolor: C.surface,
-              mb: 2,
-            }}
-          />
-        ) : (
-          <Box
-            key={item.id}
-            component="video"
-            src={item.url}
-            controls
-            sx={{
-              display: "block",
-              width: "100%",
-              maxHeight: 560,
-              borderRadius: 2,
-              bgcolor: "#111",
-              mb: 2,
-            }}
-          />
-        ),
+          item.type === "image" ? (
+            <Box
+              key={item.id}
+              component="img"
+              src={item.url}
+              alt="Community post upload"
+              sx={{
+                display: "block",
+                width: "100%",
+                maxHeight: 560,
+                objectFit: "contain",
+                borderRadius: 2,
+                bgcolor: C.surface,
+                mb: 2,
+              }}
+            />
+          ) : (
+            <Box
+              key={item.id}
+              component="video"
+              src={item.url}
+              controls
+              sx={{
+                display: "block",
+                width: "100%",
+                maxHeight: 560,
+                borderRadius: 2,
+                bgcolor: "#111",
+                mb: 2,
+              }}
+            />
+          )
         )}
 
       {poll && (
@@ -1715,8 +1717,7 @@ const PostCard = ({
                 component="span"
                 sx={{ transition: "color 180ms ease", whiteSpace: "nowrap" }}
               >
-                {option.voteCount}{" "}
-                {option.voteCount === 1 ? "vote" : "votes"}
+                {option.voteCount} {option.voteCount === 1 ? "vote" : "votes"}
               </Box>
             </Button>
           ))}
@@ -2091,7 +2092,7 @@ const ScheduleMeetings = ({
 }) => {
   const isAllView = activeCommunityId === ALL_ID;
   const scopedMeetings = meetings.filter(
-    (m) => m.communityId === activeCommunityId,
+    (m) => m.communityId === activeCommunityId
   );
 
   return (
@@ -2300,7 +2301,7 @@ const CommunityNavigation = ({
 }) => {
   const handleChange = (
     _event: React.SyntheticEvent,
-    nextValue: CommunityPageTab,
+    nextValue: CommunityPageTab
   ) => {
     onChange(nextValue);
   };
@@ -2361,7 +2362,7 @@ const CommunitiesView = ({
   meetings: ScheduledMeeting[];
   onJoin: (communityId: string) => Promise<void>;
   onCreate: (
-    input: CreateCommunityFormInput,
+    input: CreateCommunityFormInput
   ) => Promise<{ community: Community; inviteLink: string | null }>;
   onOpen: (communityId: string) => void;
 }) => {
@@ -2383,7 +2384,7 @@ const CommunitiesView = ({
 
   const joinedCommunities = communities.filter((community) => community.joined);
   const scheduleCommunity = joinedCommunities.find(
-    (community) => community.id === scheduleCommunityId,
+    (community) => community.id === scheduleCommunityId
   );
   const normalizedSearch = search.trim().toLowerCase();
   const discoverableCommunities = communities.filter((community) => {
@@ -2395,7 +2396,7 @@ const CommunitiesView = ({
 
   const handleSectionChange = (
     _event: React.SyntheticEvent,
-    value: CommunitySectionTab,
+    value: CommunitySectionTab
   ) => {
     setSection(value);
     setCreatedMessage("");
@@ -2406,7 +2407,7 @@ const CommunitiesView = ({
     setSelectedFriendIds((current) =>
       current.includes(friendId)
         ? current.filter((id) => id !== friendId)
-        : [...current, friendId],
+        : [...current, friendId]
     );
   };
   // T: O(f) and S: O(f), where f is the number of selected friends
@@ -2429,7 +2430,7 @@ const CommunitiesView = ({
       setCreatedMessage(
         result.inviteLink
           ? `${normalizedTitle} was created. Invite link: ${result.inviteLink}`
-          : `${normalizedTitle} was created.`,
+          : `${normalizedTitle} was created.`
       );
       setTitle("");
       setDescription("");
@@ -2438,7 +2439,7 @@ const CommunitiesView = ({
       setVisibility("public");
     } catch (caught) {
       setFormError(
-        caught instanceof Error ? caught.message : "Could not create community",
+        caught instanceof Error ? caught.message : "Could not create community"
       );
     } finally {
       setCreating(false);
@@ -2454,7 +2455,7 @@ const CommunitiesView = ({
       await onJoin(communityId);
     } catch (caught) {
       setFormError(
-        caught instanceof Error ? caught.message : "Could not join community",
+        caught instanceof Error ? caught.message : "Could not join community"
       );
     } finally {
       setJoiningId("");
@@ -2822,8 +2823,8 @@ const CommunitiesView = ({
                       {community.joined
                         ? "Joined"
                         : joiningId === community.id
-                          ? "Joining…"
-                          : "Join"}
+                        ? "Joining…"
+                        : "Join"}
                     </Button>
                   </Box>
                 ))}
@@ -3097,7 +3098,7 @@ const FriendsView = ({
   onAddFriend: (friendId: string) => Promise<void>;
   onResolveRequest: (
     requestId: string,
-    status: "accepted" | "declined",
+    status: "accepted" | "declined"
   ) => Promise<void>;
 }) => {
   const [section, setSection] = useState<"friends" | "requests">("friends");
@@ -3139,14 +3140,14 @@ const FriendsView = ({
               mutualFriends: 0,
               isFriend: person.friendshipStatus === "accepted",
               friendshipStatus: person.friendshipStatus,
-            })),
+            }))
           );
         } catch (caught) {
           if (!cancelled) {
             setSearchError(
               caught instanceof Error
                 ? caught.message
-                : "Could not search for people",
+                : "Could not search for people"
             );
           }
         } finally {
@@ -3170,14 +3171,14 @@ const FriendsView = ({
         current.map((friend) =>
           friend.id === friendId
             ? { ...friend, friendshipStatus: "pending" }
-            : friend,
-        ),
+            : friend
+        )
       );
     } catch (caught) {
       setSearchError(
         caught instanceof Error
           ? caught.message
-          : "Could not send friend request",
+          : "Could not send friend request"
       );
     }
   };
@@ -3185,7 +3186,7 @@ const FriendsView = ({
 
   const handleResolveRequest = async (
     requestId: string,
-    status: "accepted" | "declined",
+    status: "accepted" | "declined"
   ) => {
     if (requestActionId) return;
     setRequestActionId(requestId);
@@ -3196,7 +3197,7 @@ const FriendsView = ({
       setRequestError(
         caught instanceof Error
           ? caught.message
-          : "Could not update friend request",
+          : "Could not update friend request"
       );
     } finally {
       setRequestActionId("");
@@ -3408,9 +3409,7 @@ const FriendsView = ({
                   <Button
                     variant="contained"
                     disabled={Boolean(requestActionId)}
-                    onClick={() =>
-                      handleResolveRequest(request.id, "accepted")
-                    }
+                    onClick={() => handleResolveRequest(request.id, "accepted")}
                     sx={{
                       bgcolor: C.accent,
                       textTransform: "none",
@@ -3423,9 +3422,7 @@ const FriendsView = ({
                   <Button
                     variant="outlined"
                     disabled={Boolean(requestActionId)}
-                    onClick={() =>
-                      handleResolveRequest(request.id, "declined")
-                    }
+                    onClick={() => handleResolveRequest(request.id, "declined")}
                     sx={{
                       color: C.textSub,
                       borderColor: C.divider,
@@ -3594,7 +3591,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       combined.set(community.id, community);
     }
     const mapped = [...combined.values()].map((community) =>
-      mapCommunity(community, joinedIds.has(community.id)),
+      mapCommunity(community, joinedIds.has(community.id))
     );
     setCommunities(mapped);
     return mapped;
@@ -3614,7 +3611,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
         role: "Anchor member",
         mutualFriends: 0,
         isFriend: true,
-      })),
+      }))
     );
     setFriendRequests(requestRecords);
     return { friendRecords, requestRecords };
@@ -3627,7 +3624,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     try {
       let inviteError = "";
       const inviteToken = new URLSearchParams(window.location.search).get(
-        "invite",
+        "invite"
       );
       if (inviteToken && !inviteHandled.current) {
         inviteHandled.current = true;
@@ -3651,7 +3648,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       const validSaved =
         saved === ALL_ID ||
         mappedCommunities.some(
-          (community) => community.id === saved && community.joined,
+          (community) => community.id === saved && community.joined
         );
       const nextCommunityId = validSaved ? saved : ALL_ID;
       setActiveCommunityId(nextCommunityId);
@@ -3662,7 +3659,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       setPageError(
         caught instanceof Error
           ? caught.message
-          : "Could not load the Community page",
+          : "Could not load the Community page"
       );
     } finally {
       setLoading(false);
@@ -3686,13 +3683,14 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   // T: O(c) and S: O(c), where c is returned communities
 
   const handleCreateCommunity = async (
-    input: CreateCommunityFormInput,
+    input: CreateCommunityFormInput
   ): Promise<{ community: Community; inviteLink: string | null }> => {
     const record = await createCommunity({
       name: input.name,
       description: input.description,
       visibility: input.visibility,
       friendIds: input.friendIds,
+      adminFriendIds: [],
     });
     if (input.firstPost) {
       await createPost({
@@ -3724,7 +3722,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     } catch (caught) {
       if (conversationRequestRef.current === requestId) {
         setPageError(
-          caught instanceof Error ? caught.message : "Could not open community",
+          caught instanceof Error ? caught.message : "Could not open community"
         );
       }
     } finally {
@@ -3744,7 +3742,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       setCommunityConversationId(null);
       void refreshPosts(ALL_ID).catch((caught) => {
         setPageError(
-          caught instanceof Error ? caught.message : "Could not load posts",
+          caught instanceof Error ? caught.message : "Could not load posts"
         );
       });
     }
@@ -3784,12 +3782,12 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
         }
       }
     },
-    [],
+    []
   );
   // T: O(r * p) and S: O(p), where r is bounded retries and p is returned posts
 
   const handlePostCreated = async (
-    post: CommunityPostRecord,
+    post: CommunityPostRecord
   ): Promise<void> => {
     setPageError("");
     const target = post.communityId ?? ALL_ID;
@@ -3801,7 +3799,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       setPosts((current) =>
         current.some((item) => item.id === optimisticPost.id)
           ? current
-          : [optimisticPost, ...current],
+          : [optimisticPost, ...current]
       );
     }
 
@@ -3816,7 +3814,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
 
   const handlePostUpdated = (postId: string, body: string): void => {
     setPosts((current) =>
-      current.map((post) => (post.id === postId ? { ...post, body } : post)),
+      current.map((post) => (post.id === postId ? { ...post, body } : post))
     );
   };
   // T: O(p) and S: O(p), where p is the number of displayed posts
@@ -3833,7 +3831,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
 
   const handleResolveFriendRequest = async (
     requestId: string,
-    status: "accepted" | "declined",
+    status: "accepted" | "declined"
   ): Promise<void> => {
     await resolveFriendRequest(requestId, status);
     await refreshFriendWorkspace();
@@ -3841,7 +3839,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   // T: O(f + r) and S: O(f + r), where f is friends and r is requests
 
   const conversationCommunity = communities.find(
-    (community) => community.id === communityConversationId,
+    (community) => community.id === communityConversationId
   );
   const visiblePosts = posts;
 
