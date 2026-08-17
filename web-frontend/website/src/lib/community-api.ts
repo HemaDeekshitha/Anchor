@@ -15,7 +15,6 @@ export type CommunityRecord = {
   postCount: number;
   status: "active" | "archived" | "deleted";
   createdAt: string;
-  role?: "owner" | "admin" | "member";
 };
 
 export type CommunityMedia = {
@@ -101,7 +100,6 @@ export type CreateCommunityInput = {
   description: string;
   visibility: CommunityVisibility;
   friendIds: string[];
-  adminFriendIds: string[];
 };
 
 export type CreatePostInput = {
@@ -112,7 +110,7 @@ export type CreatePostInput = {
   onUploadProgress?: (
     percentage: number,
     loadedBytes: number,
-    totalBytes: number
+    totalBytes: number,
   ) => void;
   onUploadComplete?: () => void;
   pollOptions?: string[];
@@ -120,21 +118,11 @@ export type CreatePostInput = {
   pollEndsAt?: string;
 };
 
-export type CommunitySentFriendRequest = {
-  id: string;
-  addresseeId: string;
-  name: string;
-  handle: string;
-  role: string;
-  avatarUrl: string | null;
-  createdAt: string;
-};
-
 type Page<T> = { items: T[]; nextCursor: string | null };
 
 async function readError(
   response: Response,
-  fallbackMessage: string
+  fallbackMessage: string,
 ): Promise<Error> {
   const payload = await response
     .clone()
@@ -143,20 +131,20 @@ async function readError(
   const message = Array.isArray(payload?.message)
     ? payload.message.join(", ")
     : typeof payload?.message === "string"
-    ? payload.message
-    : fallbackMessage;
+      ? payload.message
+      : fallbackMessage;
   return new Error(message);
 }
 // T: O(m) and S: O(m), where m is the error message length
 
 export async function listCommunities(
   scope: "joined" | "discover",
-  search = ""
+  search = "",
 ): Promise<CommunityRecord[]> {
   const params = new URLSearchParams({ scope, limit: "50" });
   if (search.trim()) params.set("search", search.trim());
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/communities?${params.toString()}`
+    `${API_BASE_URL}/api/v1/communities?${params.toString()}`,
   );
   if (!response.ok) {
     throw await readError(response, "Could not load communities");
@@ -167,7 +155,7 @@ export async function listCommunities(
 // T: O(c) and S: O(c), where c is the returned communities
 
 export async function listCommunityFeed(
-  communityId?: string
+  communityId?: string,
 ): Promise<CommunityPostRecord[]> {
   const url = communityId
     ? `${API_BASE_URL}/api/v1/communities/${communityId}/posts?limit=50`
@@ -199,14 +187,14 @@ export async function listFriends(): Promise<CommunityFriend[]> {
 // T: O(f) and S: O(f), where f is the returned friends
 
 export async function searchPeople(
-  search: string
+  search: string,
 ): Promise<CommunityPersonSearchResult[]> {
   const params = new URLSearchParams({
     search: search.trim(),
     limit: "20",
   });
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/friends/search?${params.toString()}`
+    `${API_BASE_URL}/api/v1/friends/search?${params.toString()}`,
   );
   if (!response.ok) {
     throw await readError(response, "Could not search for people");
@@ -216,7 +204,9 @@ export async function searchPeople(
 // T: O(r) and S: O(r), where r is the returned results
 
 export async function listFriendRequests(): Promise<CommunityFriendRequest[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/friends/requests`);
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/friends/requests`,
+  );
   if (!response.ok) {
     throw await readError(response, "Could not load friend requests");
   }
@@ -234,7 +224,7 @@ export async function getCurrentCommunityProfile(): Promise<CommunityCurrentProf
 // T: O(1) network request and S: O(1)
 
 export async function createCommunity(
-  input: CreateCommunityInput
+  input: CreateCommunityInput,
 ): Promise<CommunityRecord> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/communities`, {
     method: "POST",
@@ -245,7 +235,6 @@ export async function createCommunity(
       visibility: input.visibility,
       joinPolicy: input.visibility === "private" ? "invite_only" : "open",
       friendIds: input.friendIds,
-      adminFriendIds: input.adminFriendIds,
     }),
   });
   if (!response.ok)
@@ -254,42 +243,17 @@ export async function createCommunity(
 }
 // T: O(f) and S: O(f), where f is the invited friends
 
-export async function deleteCommunity(communityId: string): Promise<void> {
-  const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/communities/${communityId}`,
-    { method: "DELETE" }
-  );
-  if (!response.ok) {
-    throw await readError(response, "Could not delete community");
-  }
-}
-// T: O(1) and S: O(1)
-
-export async function removeCommunityMember(
-  communityId: string,
-  userId: string
-): Promise<void> {
-  const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/communities/${communityId}/members/${userId}`,
-    { method: "DELETE" }
-  );
-  if (!response.ok) {
-    throw await readError(response, "Could not remove member");
-  }
-}
-// T: O(1) and S: O(1)
-
 export async function joinCommunity(communityId: string): Promise<void> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/communities/${communityId}/join`,
-    { method: "POST" }
+    { method: "POST" },
   );
   if (!response.ok) throw await readError(response, "Could not join community");
 }
 // T: O(1) and S: O(1)
 
 export async function createInviteLink(
-  communityId: string
+  communityId: string,
 ): Promise<string | null> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/communities/${communityId}/invites`,
@@ -301,14 +265,12 @@ export async function createInviteLink(
         maxUses: 100,
         expiresInMinutes: 10080,
       }),
-    }
+    },
   );
   if (!response.ok) throw await readError(response, "Could not create invite");
   const payload = (await response.json()) as { secret?: string };
   return payload.secret
-    ? `${window.location.origin}/community?invite=${encodeURIComponent(
-        payload.secret
-      )}`
+    ? `${window.location.origin}/community?invite=${encodeURIComponent(payload.secret)}`
     : null;
 }
 // T: O(s) and S: O(s), where s is the invite secret length
@@ -320,7 +282,7 @@ export async function acceptCommunityInvite(token: string): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
-    }
+    },
   );
   if (!response.ok) {
     throw await readError(response, "Could not accept community invitation");
@@ -334,8 +296,8 @@ async function uploadMedia(
   onProgress?: (
     percentage: number,
     loadedBytes: number,
-    totalBytes: number
-  ) => void
+    totalBytes: number,
+  ) => void,
 ): Promise<string> {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const acceptedExtensions =
@@ -347,7 +309,7 @@ async function uploadMedia(
     throw new Error(
       resourceType === "video"
         ? "Choose a valid MP4, MOV, M4V, or WebM video"
-        : "Choose a valid image file"
+        : "Choose a valid image file",
     );
   }
   const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
@@ -355,7 +317,7 @@ async function uploadMedia(
     throw new Error(
       `${resourceType === "video" ? "Video" : "Image"} must be smaller than ${
         maxBytes / 1_000_000
-      } MB`
+      } MB`,
     );
   }
   const signatureResponse = await apiFetch(
@@ -364,7 +326,7 @@ async function uploadMedia(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ resourceType }),
-    }
+    },
   );
   if (!signatureResponse.ok) {
     throw await readError(signatureResponse, "Could not prepare media upload");
@@ -384,9 +346,7 @@ async function uploadMedia(
   form.append("folder", signature.folder);
   form.append("type", signature.type);
   form.append("signature", signature.signature);
-  const uploadUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(
-    signature.cloudName
-  )}/${resourceType}/upload`;
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/${resourceType}/upload`;
 
   return new Promise<string>((resolve, reject) => {
     const request = new XMLHttpRequest();
@@ -397,7 +357,7 @@ async function uploadMedia(
       onProgress?.(
         Math.min(100, Math.floor((event.loaded / event.total) * 100)),
         event.loaded,
-        event.total
+        event.total,
       );
     };
     request.onload = () => {
@@ -415,8 +375,8 @@ async function uploadMedia(
         reject(
           new Error(
             payload?.error?.message ||
-              `${resourceType === "video" ? "Video" : "Image"} upload failed`
-          )
+              `${resourceType === "video" ? "Video" : "Image"} upload failed`,
+          ),
         );
         return;
       }
@@ -430,24 +390,20 @@ async function uploadMedia(
     request.onerror = () =>
       reject(
         new Error(
-          `${
-            resourceType === "video" ? "Video" : "Image"
-          } upload could not complete. Check your connection and try again.`
-        )
+          `${resourceType === "video" ? "Video" : "Image"} upload could not complete. Check your connection and try again.`,
+        ),
       );
     request.ontimeout = () =>
       reject(
         new Error(
-          `${
-            resourceType === "video" ? "Video" : "Image"
-          } upload timed out. Please try again.`
-        )
+          `${resourceType === "video" ? "Video" : "Image"} upload timed out. Please try again.`,
+        ),
       );
     request.onabort = () =>
       reject(
         new Error(
-          `${resourceType === "video" ? "Video" : "Image"} upload was cancelled`
-        )
+          `${resourceType === "video" ? "Video" : "Image"} upload was cancelled`,
+        ),
       );
     request.send(form);
   });
@@ -455,14 +411,14 @@ async function uploadMedia(
 // T: O(b) and S: O(b), where b is the uploaded file size
 
 export async function createPost(
-  input: CreatePostInput
+  input: CreatePostInput,
 ): Promise<CommunityPostRecord> {
   let providerAssetId: string | null = null;
   if ((input.mode === "image" || input.mode === "video") && input.file) {
     providerAssetId = await uploadMedia(
       input.file,
       input.mode,
-      input.onUploadProgress
+      input.onUploadProgress,
     );
     input.onUploadComplete?.();
   }
@@ -492,7 +448,7 @@ export async function createPost(
               }
             : undefined,
       }),
-    }
+    },
   );
   if (!response.ok) throw await readError(response, "Could not create post");
   return response.json() as Promise<CommunityPostRecord>;
@@ -501,7 +457,7 @@ export async function createPost(
 
 export async function updatePost(
   postId: string,
-  body: string
+  body: string,
 ): Promise<CommunityPostRecord> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/posts/${postId}`, {
     method: "PATCH",
@@ -523,7 +479,7 @@ export async function deletePost(postId: string): Promise<void> {
 
 export async function votePost(
   postId: string,
-  value: 0 | 1
+  value: 0 | 1,
 ): Promise<{ upvotes: number; downvotes: number }> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/posts/${postId}/vote`,
@@ -531,7 +487,7 @@ export async function votePost(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ value }),
-    }
+    },
   );
   if (!response.ok) throw await readError(response, "Could not update like");
   return response.json() as Promise<{ upvotes: number; downvotes: number }>;
@@ -552,7 +508,7 @@ export async function sendFriendRequest(userId: string): Promise<void> {
 
 export async function resolveFriendRequest(
   requestId: string,
-  status: "accepted" | "declined"
+  status: "accepted" | "declined",
 ): Promise<void> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/friends/requests/${requestId}`,
@@ -560,7 +516,7 @@ export async function resolveFriendRequest(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-    }
+    },
   );
   if (!response.ok) {
     throw await readError(response, "Could not update friend request");
@@ -571,7 +527,7 @@ export async function resolveFriendRequest(
 export async function removeFriend(friendId: string): Promise<void> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/friends/${friendId}`,
-    { method: "DELETE" }
+    { method: "DELETE" },
   );
   if (!response.ok) {
     throw await readError(response, "Could not unfollow this friend");
@@ -581,7 +537,7 @@ export async function removeFriend(friendId: string): Promise<void> {
 
 export async function createComment(
   postId: string,
-  body: string
+  body: string,
 ): Promise<void> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/posts/${postId}/comments`,
@@ -589,17 +545,17 @@ export async function createComment(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body }),
-    }
+    },
   );
   if (!response.ok) throw await readError(response, "Could not add reply");
 }
 // T: O(c) and S: O(c), where c is the comment length
 
 export async function listComments(
-  postId: string
+  postId: string,
 ): Promise<CommunityComment[]> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/posts/${postId}/comments?limit=50`
+    `${API_BASE_URL}/api/v1/posts/${postId}/comments?limit=50`,
   );
   if (!response.ok) throw await readError(response, "Could not load replies");
   const page = (await response.json()) as Page<CommunityComment>;
@@ -609,7 +565,7 @@ export async function listComments(
 
 export async function votePoll(
   pollId: string,
-  optionIds: string[]
+  optionIds: string[],
 ): Promise<Array<{ id: string; text: string; voteCount: number }>> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/polls/${pollId}/vote`,
@@ -617,7 +573,7 @@ export async function votePoll(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ optionIds }),
-    }
+    },
   );
   if (!response.ok) throw await readError(response, "Could not submit vote");
   return response.json() as Promise<
@@ -625,26 +581,3 @@ export async function votePoll(
   >;
 }
 // T: O(o) and S: O(o), where o is the returned poll options
-export async function cancelFriendRequest(userId: string): Promise<void> {
-  const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/friends/requests/by-user/${userId}`,
-    { method: "DELETE" }
-  );
-  if (!response.ok) {
-    throw await readError(response, "Could not cancel friend request");
-  }
-}
-// T: O(1) and S: O(1)
-
-export async function listSentFriendRequests(): Promise<
-  CommunitySentFriendRequest[]
-> {
-  const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/friends/requests/sent`
-  );
-  if (!response.ok) {
-    throw await readError(response, "Could not load sent friend requests");
-  }
-  return response.json() as Promise<CommunitySentFriendRequest[]>;
-}
-// T: O(r) and S: O(r), where r is the returned requests

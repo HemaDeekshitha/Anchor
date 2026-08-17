@@ -281,12 +281,7 @@ export class CommunityController {
     return this.communityService.listFriendRequests(this.userId(request));
   }
   // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
-  @Get('friends/requests/sent')
-  @DistributedRateLimit(120, 60)
-  listSentFriendRequests(@Req() request: Request) {
-    return this.communityService.listSentFriendRequests(this.userId(request));
-  }
-  // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
+
   @Post('friends/requests')
   @DistributedRateLimit(20, 60)
   sendFriendRequest(
@@ -312,51 +307,16 @@ export class CommunityController {
   }
   // T: O(log F) and S: O(1)
 
-  @Delete('friends/requests/by-user/:userId')
-  @DistributedRateLimit(20, 60)
-  cancelFriendRequest(
-    @Req() request: Request,
-    @Param('userId') userId: string,
-  ) {
-    return this.communityService.cancelFriendRequest(
-      this.userId(request),
-      userId,
-    );
-  }
-  // T: O(log F) and S: O(1), where F is friendships
-
   @Delete('friends/:friendId')
   @DistributedRateLimit(20, 60)
-  removeFriend(@Req() request: Request, @Param('friendId') friendId: string) {
-    return this.communityService.removeFriend(this.userId(request), friendId);
+  removeFriend(
+    @Req() request: Request,
+    @Param('friendId') friendId: string,
+  ) {
+    return this.communityService.removeFriend(
+      this.userId(request),
+      friendId,
+    );
   }
   // T: O(log F) and S: O(1)
-
-  @Delete('communities/:communityId')
-  @DistributedRateLimit(10, 60)
-  deleteCommunity(
-    @Req() request: Request,
-    @Param('communityId') communityId: string,
-  ) {
-    return this.communityService.deleteCommunity(
-      this.userId(request),
-      communityId,
-    );
-  }
-  // T: O(M) and S: O(1), where M is members deactivated
-
-  @Delete('communities/:communityId/members/:userId')
-  @DistributedRateLimit(20, 60)
-  removeMember(
-    @Req() request: Request,
-    @Param('communityId') communityId: string,
-    @Param('userId') targetUserId: string,
-  ) {
-    return this.communityService.removeMember(
-      this.userId(request),
-      communityId,
-      targetUserId,
-    );
-  }
-  // T: O(log M) and S: O(1)
 }
