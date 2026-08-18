@@ -21,6 +21,7 @@ import {
   Tooltip,
   Alert,
   CircularProgress,
+  LinearProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -59,32 +60,45 @@ import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
+  Comm360Meeting,
+  CommunityMemberRecord,
   CommunityPersonSearchResult,
   CommunityRecord,
   CommunityVisibility,
+  addCommunityMember,
   acceptCommunityInvite,
   createComment,
   createCommunity,
   createInviteLink,
   createPost,
+  deleteCommunity,
+  deleteComment,
   deletePost,
   joinCommunity,
+  listCommunityMembers,
   listComments,
   listCommunities,
   listCommunityFeed,
   listFriendRequests,
   listFriends,
   listGlobalPosts,
+  getComm360Meeting,
   removeFriend,
+  removeCommunityMember,
   sendFriendRequest,
   searchPeople,
   resolveFriendRequest,
   votePoll,
   votePost,
   updatePost,
+  updateCommunity,
+  updateCommunityMemberRole,
+  uploadCommunityMedia,
 } from "@/lib/community-api";
 
 // ── Anchor palette tokens ────────────────────────────────────────────────────
@@ -113,6 +127,7 @@ export type ForumComment = {
   authorAvatar?: string;
   body: string;
   timeAgo: string;
+  canDelete?: boolean;
 };
 
 export type ForumPost = {
@@ -159,9 +174,12 @@ export type ScheduledMeeting = {
   withName: string;
   withAvatar?: string;
   topic: string;
+  description?: string;
   date: string;
   time: string;
   via: string;
+  startAt?: string;
+  joinUrl?: string;
 };
 
 export type Community = {
@@ -174,12 +192,59 @@ export type Community = {
   isActive: boolean;
   visibility: CommunityVisibility;
   joinPolicy: "open" | "approval" | "invite_only";
+  canManage: boolean;
 };
 
 type CommunityPageTab = "posts" | "communities" | "friends";
 type CommunitySectionTab = "current" | "join" | "create";
 type CommunityLayout = "grid" | "list";
 type ComposerMode = "text" | "emoji" | "image" | "video" | "poll";
+const COMMUNITY_LAYOUT_STORAGE_KEY = "anchor.community.layout";
+const COMMUNITY_SECTION_STORAGE_KEY = "anchor.community.section";
+const COMMUNITY_PAGE_TAB_STORAGE_KEY = "anchor.community.pageTab";
+const COMMUNITY_CONVERSATION_STORAGE_KEY =
+  "anchor.community.conversationId";
+const COMM360_URL =
+  process.env.NEXT_PUBLIC_COMM360_URL || "https://comm360.feeltiptop.com/";
+const MESSAGE_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+const COMM360_MEETING_URL_PATTERN =
+  /https?:\/\/comm360\.feeltiptop\.com\/meeting\/([A-Za-z0-9_-]+)/i;
+
+const getComm360RoomId = (message: string) =>
+  message.match(COMM360_MEETING_URL_PATTERN)?.[1] ?? null;
+
+const renderMessageWithLinks = (message: string) =>
+  message.split(MESSAGE_URL_PATTERN).map((part, index) => {
+    if (!/^(https?:\/\/|www\.)/i.test(part)) {
+      return <React.Fragment key={`${index}-${part}`}>{part}</React.Fragment>;
+    }
+
+    const [, url = part, trailingPunctuation = ""] =
+      part.match(/^(.*?)([),.!;:]*)$/) ?? [];
+    const href = url.startsWith("www.") ? `https://${url}` : url;
+
+    return (
+      <React.Fragment key={`${index}-${part}`}>
+        <Box
+          component="a"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{
+            color: C.accentDark,
+            fontWeight: 600,
+            textDecoration: "underline",
+            textUnderlineOffset: "2px",
+            overflowWrap: "anywhere",
+            "&:hover": { color: C.accent },
+          }}
+        >
+          {url}
+        </Box>
+        {trailingPunctuation}
+      </React.Fragment>
+    );
+  });
 
 const COMPOSER_EMOJIS = [
   "😀",
@@ -240,27 +305,6 @@ type Friend = {
   friendshipStatus?: "none" | "pending" | "accepted";
 };
 
-const SAMPLE_MEETINGS: ScheduledMeeting[] = [
-  {
-    id: "1",
-    communityId: "1",
-    withName: "Priya K.",
-    topic: "Mock interview · System Design",
-    date: "Tomorrow",
-    time: "4:00 PM",
-    via: "Comm360",
-  },
-  {
-    id: "2",
-    communityId: "3",
-    withName: "Dev A.",
-    topic: "Doubt session · SQL joins",
-    date: "Fri",
-    time: "11:00 AM",
-    via: "Comm360",
-  },
-];
-
 const formatTimeAgo = (createdAt: string) => {
   const elapsedMinutes = Math.max(
     0,
@@ -288,6 +332,7 @@ const mapCommunity = (
   isActive: community.status === "active",
   visibility: community.visibility,
   joinPolicy: community.joinPolicy,
+  canManage: community.canManage === true,
 });
 // T: O(1) and S: O(1)
 
@@ -360,17 +405,22 @@ const Composer = ({
   const [pollDurationDays, setPollDurationDays] = useState(7);
   const [pollAllowsMultiple, setPollAllowsMultiple] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState("");
+  const [uploadedAssetId, setUploadedAssetId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalUploadBytes, setTotalUploadBytes] = useState(0);
   const [uploadStage, setUploadStage] = useState<
-    "idle" | "uploading" | "processing"
+    "idle" | "uploading" | "uploaded" | "publishing"
   >("idle");
   const [error, setError] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  const mediaUploadAbortRef = useRef<AbortController | null>(null);
+  const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
+  const mediaUploadRequestRef = useRef(0);
   const validPollOptions = pollOptions.filter((option) => option.trim());
   const canSubmit =
     (scope === "global" || Boolean(communityId)) &&
@@ -380,8 +430,32 @@ const Composer = ({
     (mode !== "poll" || validPollOptions.length >= 2) &&
     (mode === "poll" ? Boolean(content.trim()) : true);
 
+  useEffect(() => {
+    if (!file) {
+      setMediaPreviewUrl("");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setMediaPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  const cancelMediaUpload = () => {
+    mediaUploadRequestRef.current += 1;
+    mediaUploadAbortRef.current?.abort();
+    mediaUploadAbortRef.current = null;
+    mediaUploadPromiseRef.current = null;
+    setUploadedAssetId(null);
+  };
+  // T: O(1) and S: O(1)
+
   const handleModeChange = (nextMode: ComposerMode) => {
-    if (nextMode !== mode) setFile(null);
+    if (nextMode !== mode) {
+      cancelMediaUpload();
+      setFile(null);
+      setUploadStage("idle");
+      setUploadProgress(0);
+    }
     setMode(nextMode);
   };
   // T: O(1) and S: O(1)
@@ -407,6 +481,7 @@ const Composer = ({
     resourceType: "image" | "video",
     selectedFile: File | null,
   ) => {
+    cancelMediaUpload();
     const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
     if (selectedFile && selectedFile.size > maxBytes) {
       setError(
@@ -415,11 +490,55 @@ const Composer = ({
         } MB`,
       );
       setFile(null);
+      setUploadStage("idle");
       return;
     }
     setError("");
     setMode(resourceType);
     setFile(selectedFile);
+    setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(selectedFile?.size ?? 0);
+    if (!selectedFile) {
+      setUploadStage("idle");
+      return;
+    }
+
+    const requestId = mediaUploadRequestRef.current;
+    const abortController = new AbortController();
+    mediaUploadAbortRef.current = abortController;
+    setUploadStage("uploading");
+    const uploadPromise = uploadCommunityMedia(
+      selectedFile,
+      resourceType,
+      (percentage, loadedBytes, totalBytes) => {
+        if (mediaUploadRequestRef.current !== requestId) return;
+        setUploadProgress(percentage);
+        setUploadedBytes(loadedBytes);
+        setTotalUploadBytes(totalBytes);
+      },
+      abortController.signal,
+    );
+    mediaUploadPromiseRef.current = uploadPromise;
+    void uploadPromise
+      .then((assetId) => {
+        if (mediaUploadRequestRef.current !== requestId) return;
+        setUploadedAssetId(assetId);
+        setUploadProgress(100);
+        setUploadStage("uploaded");
+      })
+      .catch((caught) => {
+        if (
+          mediaUploadRequestRef.current !== requestId ||
+          (caught instanceof DOMException && caught.name === "AbortError")
+        ) {
+          return;
+        }
+        setUploadStage("idle");
+        setError(
+          caught instanceof Error ? caught.message : "Could not upload media",
+        );
+      });
   };
   // T: O(1) and S: O(1)
 
@@ -440,6 +559,7 @@ const Composer = ({
   // T: O(1) and S: O(1)
 
   const resetComposer = () => {
+    cancelMediaUpload();
     setContent("");
     setPollOptions(["", ""]);
     setPollDurationDays(7);
@@ -518,24 +638,27 @@ const Composer = ({
     }
     setSubmitting(true);
     setUploadProgress(0);
-    setUploadedBytes(0);
+    setUploadedBytes(uploadedAssetId ? file?.size ?? 0 : 0);
     setTotalUploadBytes(file?.size ?? 0);
-    setUploadStage(
-      mode === "image" || mode === "video" ? "uploading" : "idle",
-    );
     setError("");
     try {
+      let providerAssetId = uploadedAssetId;
+      if ((mode === "image" || mode === "video") && !providerAssetId) {
+        const pendingUpload = mediaUploadPromiseRef.current;
+        if (!pendingUpload) {
+          throw new Error(`Choose a ${mode} to upload.`);
+        }
+        setUploadStage("uploading");
+        providerAssetId = await pendingUpload;
+      }
+      if (mode === "image" || mode === "video") {
+        setUploadStage("publishing");
+      }
       const post = await createPost({
         communityId: scope === "community" ? communityId : null,
         body: content,
         mode: mode === "emoji" ? "text" : mode,
-        file,
-        onUploadProgress: (percentage, loadedBytes, totalBytes) => {
-          setUploadProgress(percentage);
-          setUploadedBytes(loadedBytes);
-          setTotalUploadBytes(totalBytes);
-        },
-        onUploadComplete: () => setUploadStage("processing"),
+        providerAssetId,
         pollOptions,
         pollAllowsMultiple,
         pollEndsAt: new Date(
@@ -808,38 +931,100 @@ const Composer = ({
         {(mode === "image" || mode === "video") && (
           <Box
             sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 2,
               mt: 1.5,
               px: 1.5,
-              py: 1,
+              py: 1.25,
               borderRadius: 2,
               bgcolor: "#fff",
               border: `1px solid ${C.divider}`,
             }}
           >
-            <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
-              {file
-                ? file.name
-                : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
-                    mode === "video" ? " · max 50 MB" : ""
-                  }`}
-            </Typography>
-            <Button
-              size="small"
-              variant="text"
-              disabled={submitting}
-              onClick={() => handleMediaPicker(mode)}
+            {mediaPreviewUrl && (
+              <Box
+                component={mode === "image" ? "img" : "video"}
+                src={mediaPreviewUrl}
+                controls={mode === "video"}
+                muted={mode === "video"}
+                playsInline={mode === "video"}
+                sx={{
+                  display: "block",
+                  width: "100%",
+                  maxHeight: 360,
+                  objectFit: "contain",
+                  borderRadius: 1.5,
+                  bgcolor: mode === "video" ? "#111" : C.surface,
+                  mb: 1,
+                }}
+              />
+            )}
+            <Box
               sx={{
-                color: C.accentDark,
-                textTransform: "none",
-                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 2,
               }}
             >
-              {file ? "Change" : "Browse"}
-            </Button>
+              <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
+                {file
+                  ? file.name
+                  : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
+                      mode === "video" ? " · max 50 MB" : ""
+                    }`}
+              </Typography>
+              <Button
+                size="small"
+                variant="text"
+                disabled={submitting}
+                onClick={() =>
+                  file && uploadStage === "idle"
+                    ? handleMediaSelected(mode, file)
+                    : handleMediaPicker(mode)
+                }
+                sx={{
+                  color: C.accentDark,
+                  textTransform: "none",
+                  fontWeight: 700,
+                }}
+              >
+                {file && uploadStage === "idle"
+                  ? "Retry"
+                  : file
+                    ? "Change"
+                    : "Browse"}
+              </Button>
+            </Box>
+
+            {file && uploadStage !== "idle" && (
+              <Box role="status" aria-live="polite" sx={{ mt: 0.75 }}>
+                <LinearProgress
+                  variant={
+                    uploadStage === "publishing" ? "indeterminate" : "determinate"
+                  }
+                  value={uploadProgress}
+                  sx={{
+                    height: 5,
+                    borderRadius: 999,
+                    bgcolor: C.accentFaint,
+                    "& .MuiLinearProgress-bar": {
+                      borderRadius: 999,
+                      bgcolor: uploadStage === "uploaded" ? C.green : C.accent,
+                    },
+                  }}
+                />
+                <Typography sx={{ mt: 0.5, color: C.textSub, fontSize: "0.75rem" }}>
+                  {uploadStage === "uploaded"
+                    ? "Ready to post"
+                    : uploadStage === "publishing"
+                      ? "Publishing your post…"
+                      : `Uploading · ${uploadProgress}%${
+                          totalUploadBytes > 0
+                            ? ` (${formatUploadBytes(uploadedBytes)} of ${formatUploadBytes(totalUploadBytes)})`
+                            : ""
+                        }`}
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
 
@@ -883,23 +1068,6 @@ const Composer = ({
         {error && (
           <Alert severity="error" sx={{ mt: 1.25, py: 0 }}>
             {error}
-          </Alert>
-        )}
-
-        {submitting && (mode === "image" || mode === "video") && (
-          <Alert
-            severity="info"
-            role="status"
-            aria-live="polite"
-            sx={{ mt: 1.25, py: 0 }}
-          >
-            {uploadStage === "processing"
-              ? `${mode === "video" ? "Video" : "Image"} uploaded · Preparing your post…`
-              : `Uploading your ${mode} · ${uploadProgress}%${
-                  totalUploadBytes > 0
-                    ? ` (${formatUploadBytes(uploadedBytes)} of ${formatUploadBytes(totalUploadBytes)})`
-                    : ""
-                }`}
           </Alert>
         )}
 
@@ -1018,11 +1186,16 @@ const PostCard = ({
   communityName,
   onUpdated,
   onDeleted,
+  onMeetingDiscovered,
 }: {
   post: ForumPost;
   communityName?: string;
   onUpdated: (postId: string, body: string) => void;
   onDeleted: (postId: string) => void;
+  onMeetingDiscovered?: (
+    meeting: Comm360Meeting,
+    communityId: string,
+  ) => void;
 }) => {
   const [comments, setComments] = useState<ForumComment[]>(
     post.initialComments ?? [],
@@ -1031,6 +1204,11 @@ const PostCard = ({
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState("");
+  const [commentCount, setCommentCount] = useState(post.replyCount ?? 0);
+  const [deletingComment, setDeletingComment] =
+    useState<ForumComment | null>(null);
+  const [commentDeletePending, setCommentDeletePending] = useState(false);
+  const [commentDeleteError, setCommentDeleteError] = useState("");
   const [poll, setPoll] = useState(post.poll);
   const [votingOptionId, setVotingOptionId] = useState("");
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<string[]>(
@@ -1071,6 +1249,22 @@ const PostCard = ({
   );
 
   useEffect(() => {
+    const roomId = getComm360RoomId(displayBody);
+    if (!roomId || !post.communityId) return;
+    let cancelled = false;
+    void getComm360Meeting(roomId)
+      .then((meeting) => {
+        if (cancelled) return;
+        onMeetingDiscovered?.(meeting, post.communityId!);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [displayBody, onMeetingDiscovered, post.communityId]);
+  // T: O(b) and S: O(1), where b is the post body length
+
+  useEffect(() => {
     if (pollVoteInFlightRef.current) return;
     pollRef.current = post.poll;
     confirmedPollRef.current = post.poll;
@@ -1103,16 +1297,18 @@ const PostCard = ({
     setReplying(true);
     setReplyError("");
     try {
-      await createComment(post.id, trimmed);
+      const created = await createComment(post.id, trimmed);
       setComments((prev) => [
         ...prev,
         {
-          id: `local-${Date.now()}`,
+          id: created.id,
           authorName: "You",
           body: trimmed,
           timeAgo: "Just now",
+          canDelete: true,
         },
       ]);
+      setCommentCount((current) => current + 1);
       setReplyText("");
     } catch (caught) {
       setReplyError(
@@ -1120,6 +1316,27 @@ const PostCard = ({
       );
     } finally {
       setReplying(false);
+    }
+  };
+  // T: O(c) and S: O(c), where c is the number of displayed comments
+
+  const handleDeleteComment = async () => {
+    if (!deletingComment || commentDeletePending) return;
+    setCommentDeletePending(true);
+    setCommentDeleteError("");
+    try {
+      await deleteComment(post.id, deletingComment.id);
+      setComments((current) =>
+        current.filter((comment) => comment.id !== deletingComment.id),
+      );
+      setCommentCount((current) => Math.max(0, current - 1));
+      setDeletingComment(null);
+    } catch (caught) {
+      setCommentDeleteError(
+        caught instanceof Error ? caught.message : "Could not delete comment",
+      );
+    } finally {
+      setCommentDeletePending(false);
     }
   };
   // T: O(c) and S: O(c), where c is the number of displayed comments
@@ -1245,8 +1462,10 @@ const PostCard = ({
           authorName: comment.author?.name ?? "Anchor member",
           body: comment.body,
           timeAgo: formatTimeAgo(comment.createdAt),
+          canDelete: comment.canDelete,
         })),
       );
+      setCommentCount(Math.max(post.replyCount ?? 0, records.length));
       setCommentsLoaded(true);
     } catch (caught) {
       setReplyError(
@@ -1415,6 +1634,10 @@ const PostCard = ({
   return (
     <Card
       sx={{
+        width: "100%",
+        maxWidth: 680,
+        mx: "auto",
+        boxSizing: "border-box",
         p: 3,
         borderRadius: 3,
         background: C.cardBg,
@@ -1584,9 +1807,16 @@ const PostCard = ({
         </Typography>
       )}
       <Typography
-        sx={{ fontSize: "0.9rem", color: C.textSub, lineHeight: 1.6, mb: 2.5 }}
+        sx={{
+          fontSize: "0.9rem",
+          color: C.textSub,
+          lineHeight: 1.6,
+          mb: 2.5,
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
+        }}
       >
-        {displayBody}
+        {renderMessageWithLinks(displayBody)}
       </Typography>
 
       {post.status === "processing" && (
@@ -1623,7 +1853,9 @@ const PostCard = ({
             sx={{
               display: "block",
               width: "100%",
-              maxHeight: 560,
+              maxWidth: 560,
+              maxHeight: 380,
+              mx: "auto",
               objectFit: "contain",
               borderRadius: 2,
               bgcolor: C.surface,
@@ -1639,7 +1871,9 @@ const PostCard = ({
             sx={{
               display: "block",
               width: "100%",
-              maxHeight: 560,
+              maxWidth: 560,
+              maxHeight: 380,
+              mx: "auto",
               borderRadius: 2,
               bgcolor: "#111",
               mb: 2,
@@ -1818,10 +2052,7 @@ const PostCard = ({
             <Typography
               sx={{ fontSize: "0.82rem", fontWeight: showComments ? 600 : 400 }}
             >
-              {Math.max(post.replyCount ?? 0, comments.length)}{" "}
-              {Math.max(post.replyCount ?? 0, comments.length) === 1
-                ? "comment"
-                : "comments"}
+              {commentCount} {commentCount === 1 ? "comment" : "comments"}
             </Typography>
           </Box>
           <Tooltip title="Share with a friend">
@@ -1873,11 +2104,9 @@ const PostCard = ({
                   <Box
                     sx={{
                       flex: 1,
-                      bgcolor: C.surface,
-                      border: `1px solid ${C.divider}`,
-                      borderRadius: 2,
-                      px: 1.5,
-                      py: 1,
+                      minWidth: 0,
+                      pb: 1.25,
+                      borderBottom: `1px solid ${C.divider}`,
                     }}
                   >
                     <Box
@@ -1897,11 +2126,36 @@ const PostCard = ({
                       >
                         {comment.authorName}
                       </Typography>
-                      <Typography
-                        sx={{ fontSize: "0.7rem", color: C.textMuted }}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={0.25}
                       >
-                        {comment.timeAgo}
-                      </Typography>
+                        <Typography
+                          sx={{ fontSize: "0.7rem", color: C.textMuted }}
+                        >
+                          {comment.timeAgo}
+                        </Typography>
+                        {comment.canDelete && (
+                          <Tooltip title="Delete comment">
+                            <IconButton
+                              size="small"
+                              aria-label={`Delete comment by ${comment.authorName}`}
+                              onClick={() => {
+                                setCommentDeleteError("");
+                                setDeletingComment(comment);
+                              }}
+                              sx={{
+                                p: 0.35,
+                                color: C.textMuted,
+                                "&:hover": { color: C.red },
+                              }}
+                            >
+                              <DeleteOutlineRoundedIcon sx={{ fontSize: 15 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
                     </Box>
                     <Typography
                       sx={{
@@ -1943,15 +2197,17 @@ const PostCard = ({
               placeholder="Write a reply..."
               sx={{
                 flex: 1,
-                px: 1.5,
-                py: 1,
-                borderRadius: 2,
-                bgcolor: C.surface,
-                border: `1px solid ${C.divider}`,
+                px: 0.25,
+                py: 0.9,
+                bgcolor: "transparent",
+                border: 0,
+                borderBottom: `1px solid ${C.divider}`,
                 fontSize: "0.85rem",
                 color: C.textPrimary,
                 fontFamily: "inherit",
                 outline: "none",
+                transition: "border-color 160ms ease",
+                "&:focus": { borderBottomColor: C.accent },
               }}
             />
             <Box
@@ -2074,6 +2330,46 @@ const PostCard = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={Boolean(deletingComment)}
+        onClose={() => !commentDeletePending && setDeletingComment(null)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ color: C.textPrimary, fontWeight: 700 }}>
+          Delete comment?
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
+            This comment will be permanently removed.
+          </Typography>
+          {commentDeleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {commentDeleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setDeletingComment(null)}
+            disabled={commentDeletePending}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => void handleDeleteComment()}
+            disabled={commentDeletePending}
+            sx={{ textTransform: "none", boxShadow: "none" }}
+          >
+            {commentDeletePending ? "Deleting…" : "Delete comment"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };
@@ -2090,13 +2386,28 @@ const ScheduleMeetings = ({
   activeCommunityName?: string;
 }) => {
   const isAllView = activeCommunityId === ALL_ID;
-  const scopedMeetings = meetings.filter(
-    (m) => m.communityId === activeCommunityId,
-  );
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const scopedMeetings = meetings
+    .filter((meeting) => meeting.communityId === activeCommunityId)
+    .sort((left, right) => {
+      const leftStart = left.startAt
+        ? new Date(left.startAt).getTime()
+        : Number.POSITIVE_INFINITY;
+      const rightStart = right.startAt
+        ? new Date(right.startAt).getTime()
+        : Number.POSITIVE_INFINITY;
+      return leftStart - rightStart;
+    });
 
   return (
     <Card
       sx={{
+        width: "100%",
+        boxSizing: "border-box",
         p: 3,
         borderRadius: 3,
         background: C.cardBg,
@@ -2114,41 +2425,24 @@ const ScheduleMeetings = ({
           fontFamily: "'Playfair Display', serif",
         }}
       >
-        Schedule a Discussion
+        {isAllView ? "Schedule a Discussion" : "Scheduled Discussions"}
       </Typography>
 
       {isAllView ? (
         <>
           <Typography sx={{ fontSize: "0.82rem", color: C.textSub, mb: 2 }}>
-            Scheduling is scoped to a single community&apos;s members. Switch to
-            one of your joined communities to book a session.
+            Schedule the meeting in Comm360, then{" "}
+            <Box component="span" sx={{ color: "#111", fontWeight: 700 }}>
+              paste the meeting link into the appropriate community group.
+            </Box>{" "}
+            Anchor will add the details and show the Join option at the
+            scheduled time.
           </Typography>
           <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 1,
-              py: 1.2,
-              borderRadius: 2,
-              border: `1px dashed ${C.divider}`,
-              color: C.textMuted,
-              fontSize: "0.85rem",
-              fontWeight: 600,
-            }}
-          >
-            <CalendarMonthRoundedIcon sx={{ fontSize: 18 }} />
-            Select a community to schedule
-          </Box>
-        </>
-      ) : (
-        <>
-          <Typography sx={{ fontSize: "0.82rem", color: C.textSub, mb: 2.5 }}>
-            Book time with a member of {activeCommunityName ?? "this community"}{" "}
-            — a doubt, a mock interview, or general prep.
-          </Typography>
-
-          <Box
+            component="a"
+            href={COMM360_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             sx={{
               display: "flex",
               alignItems: "center",
@@ -2158,31 +2452,20 @@ const ScheduleMeetings = ({
               borderRadius: 2,
               background: C.accentGrad,
               color: "#fff",
-              fontSize: "0.88rem",
+              fontSize: "0.85rem",
               fontWeight: 600,
+              textDecoration: "none",
               cursor: "pointer",
-              mb: 2.5,
               "&:hover": { opacity: 0.92 },
             }}
           >
             <CalendarMonthRoundedIcon sx={{ fontSize: 18 }} />
-            Schedule via Comm360
+            Open Comm360 to schedule
           </Box>
-
-          <Typography
-            sx={{
-              fontSize: "0.75rem",
-              color: C.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: 0.4,
-              fontWeight: 600,
-              mb: 1.5,
-            }}
-          >
-            Upcoming
-          </Typography>
-
-          <Stack spacing={0}>
+        </>
+      ) : (
+        <>
+          <Stack spacing={1.25} sx={{ mt: 1.75 }}>
             {scopedMeetings.length === 0 ? (
               <Typography
                 sx={{
@@ -2192,96 +2475,155 @@ const ScheduleMeetings = ({
                   py: 2,
                 }}
               >
-                No meetings scheduled yet
+                No meetings scheduled for {activeCommunityName ?? "this community"}
               </Typography>
             ) : (
-              scopedMeetings.map((meeting, idx) => (
-                <React.Fragment key={meeting.id}>
+              scopedMeetings.map((meeting) => {
+                const startsAt = meeting.startAt
+                  ? new Date(meeting.startAt).getTime()
+                  : Number.NaN;
+                const canJoin =
+                  Boolean(meeting.joinUrl) &&
+                  Number.isFinite(startsAt) &&
+                  currentTime >= startsAt &&
+                  currentTime <= startsAt + 2 * 60 * 60_000;
+                const hasEnded =
+                  Number.isFinite(startsAt) &&
+                  currentTime > startsAt + 2 * 60 * 60_000;
+                return (
                   <Box
+                    key={meeting.id}
                     sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.3,
-                      py: 1.4,
+                      p: 1.5,
+                      border: `1px solid ${C.divider}`,
+                      borderRadius: 2.25,
+                      bgcolor: C.accentFaint,
                     }}
                   >
-                    <Avatar
-                      src={meeting.withAvatar}
-                      sx={{
-                        width: 34,
-                        height: 34,
-                        bgcolor: C.accentFaint,
-                        color: C.accentDark,
-                        fontSize: "0.78rem",
-                      }}
-                    >
-                      {meeting.withName.charAt(0)}
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        sx={{
-                          fontSize: "0.85rem",
-                          fontWeight: 600,
-                          color: C.textPrimary,
-                        }}
-                      >
-                        {meeting.withName}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          fontSize: "0.75rem",
-                          color: C.textMuted,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {meeting.topic}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+                    <Stack direction="row" spacing={1} alignItems="flex-start">
                       <Box
                         sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.4,
-                          color: C.textSub,
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          display: "grid",
+                          placeItems: "center",
+                          flexShrink: 0,
+                          bgcolor: "#fff",
+                          color: C.accentDark,
                         }}
                       >
-                        <AccessTimeRoundedIcon sx={{ fontSize: 13 }} />
-                        <Typography sx={{ fontSize: "0.75rem" }}>
-                          {meeting.date}, {meeting.time}
-                        </Typography>
+                        <CalendarMonthRoundedIcon sx={{ fontSize: 17 }} />
                       </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.4,
-                          justifyContent: "flex-end",
-                          mt: 0.3,
-                        }}
-                      >
-                        <VideocamRoundedIcon
-                          sx={{ fontSize: 13, color: C.accent }}
-                        />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography
                           sx={{
-                            fontSize: "0.72rem",
-                            color: C.accent,
-                            fontWeight: 600,
+                            fontSize: "0.88rem",
+                            fontWeight: 700,
+                            color: C.textPrimary,
+                            lineHeight: 1.3,
                           }}
                         >
-                          {meeting.via}
+                          {meeting.topic}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            mt: 0.35,
+                            fontSize: "0.74rem",
+                            color: C.textSub,
+                          }}
+                        >
+                          Hosted by {meeting.withName}
                         </Typography>
                       </Box>
-                    </Box>
+                    </Stack>
+
+                    {meeting.description && (
+                      <Typography
+                        sx={{
+                          mt: 1.1,
+                          fontSize: "0.76rem",
+                          color: C.textSub,
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        {meeting.description}
+                      </Typography>
+                    )}
+
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      spacing={1}
+                      sx={{ mt: 1.25 }}
+                    >
+                      <Box>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <AccessTimeRoundedIcon
+                            sx={{ fontSize: 14, color: C.accentDark }}
+                          />
+                          <Typography
+                            sx={{ fontSize: "0.75rem", color: C.textPrimary }}
+                          >
+                            {meeting.date}
+                          </Typography>
+                        </Stack>
+                        <Typography
+                          sx={{
+                            ml: 2.25,
+                            mt: 0.15,
+                            fontSize: "0.74rem",
+                            color: C.textSub,
+                          }}
+                        >
+                          {meeting.time} · {meeting.via}
+                        </Typography>
+                      </Box>
+
+                      {canJoin && meeting.joinUrl ? (
+                        <Button
+                          component="a"
+                          href={meeting.joinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="small"
+                          startIcon={<VideocamRoundedIcon />}
+                          sx={{
+                            minWidth: 0,
+                            px: 1.15,
+                            py: 0.5,
+                            flexShrink: 0,
+                            bgcolor: C.accent,
+                            color: "#fff",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            textTransform: "none",
+                            "&:hover": { bgcolor: C.accentDark },
+                          }}
+                        >
+                          Join
+                        </Button>
+                      ) : (
+                        <Typography
+                          sx={{
+                            maxWidth: 88,
+                            flexShrink: 0,
+                            textAlign: "right",
+                            fontSize: "0.66rem",
+                            lineHeight: 1.3,
+                            color: C.textMuted,
+                          }}
+                        >
+                          {hasEnded
+                            ? "Discussion ended"
+                            : "Join opens at the scheduled time"}
+                        </Typography>
+                      )}
+                    </Stack>
                   </Box>
-                  {idx < scopedMeetings.length - 1 && (
-                    <Divider sx={{ borderColor: C.divider }} />
-                  )}
-                </React.Fragment>
-              ))
+                );
+              })
             )}
           </Stack>
         </>
@@ -2355,6 +2697,10 @@ const CommunitiesView = ({
   onJoin,
   onCreate,
   onOpen,
+  onSchedule,
+  onUpdate,
+  onDelete,
+  onMembersChanged,
 }: {
   communities: Community[];
   friends: Friend[];
@@ -2364,9 +2710,43 @@ const CommunitiesView = ({
     input: CreateCommunityFormInput,
   ) => Promise<{ community: Community; inviteLink: string | null }>;
   onOpen: (communityId: string) => void;
+  onSchedule: (community: Community) => void;
+  onUpdate: (
+    communityId: string,
+    input: Partial<{
+      name: string;
+      description: string;
+      visibility: CommunityVisibility;
+      joinPolicy: "open" | "invite_only";
+    }>,
+  ) => Promise<void>;
+  onDelete: (communityId: string) => Promise<void>;
+  onMembersChanged: () => Promise<void>;
 }) => {
   const [section, setSection] = useState<CommunitySectionTab>("current");
   const [layout, setLayout] = useState<CommunityLayout>("grid");
+  useEffect(() => {
+    try {
+      const savedLayout = window.localStorage.getItem(
+        COMMUNITY_LAYOUT_STORAGE_KEY,
+      );
+      if (savedLayout === "list" || savedLayout === "grid") {
+        setLayout(savedLayout);
+      }
+      const savedSection = window.localStorage.getItem(
+        COMMUNITY_SECTION_STORAGE_KEY,
+      );
+      if (
+        savedSection === "current" ||
+        savedSection === "join" ||
+        savedSection === "create"
+      ) {
+        setSection(savedSection);
+      }
+    } catch {
+      // Use the default layout when storage is blocked.
+    }
+  }, []);
   const [scheduleCommunityId, setScheduleCommunityId] =
     useState<string>(ALL_ID);
   const [search, setSearch] = useState("");
@@ -2377,11 +2757,47 @@ const CommunitiesView = ({
   const [shareLink, setShareLink] = useState(true);
   const [visibility, setVisibility] = useState<CommunityVisibility>("public");
   const [createdMessage, setCreatedMessage] = useState("");
+  const [createdInviteLink, setCreatedInviteLink] = useState("");
+  const [createdLinkFeedback, setCreatedLinkFeedback] = useState("");
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState("");
+  const [showAllCommunities, setShowAllCommunities] = useState(false);
+  const [manageAnchor, setManageAnchor] = useState<HTMLElement | null>(null);
+  const [managedCommunity, setManagedCommunity] = useState<Community | null>(
+    null,
+  );
+  const [editingCommunity, setEditingCommunity] = useState<Community | null>(
+    null,
+  );
+  const [updateConfirmationOpen, setUpdateConfirmationOpen] = useState(false);
+  const [deletingCommunity, setDeletingCommunity] = useState<Community | null>(
+    null,
+  );
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editVisibility, setEditVisibility] =
+    useState<CommunityVisibility>("public");
+  const [managementPending, setManagementPending] = useState(false);
+  const [managementError, setManagementError] = useState("");
+  const [membersCommunity, setMembersCommunity] = useState<Community | null>(
+    null,
+  );
+  const [communityMembers, setCommunityMembers] = useState<
+    CommunityMemberRecord[]
+  >([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [memberActionUserId, setMemberActionUserId] = useState("");
+  const [membersError, setMembersError] = useState("");
+  const [selectedMemberFriendId, setSelectedMemberFriendId] = useState("");
+  const [removingMember, setRemovingMember] =
+    useState<CommunityMemberRecord | null>(null);
+  const [memberRemovalError, setMemberRemovalError] = useState("");
 
   const joinedCommunities = communities.filter((community) => community.joined);
+  const visibleJoinedCommunities = showAllCommunities
+    ? joinedCommunities
+    : joinedCommunities.slice(0, 5);
   const scheduleCommunity = joinedCommunities.find(
     (community) => community.id === scheduleCommunityId,
   );
@@ -2392,13 +2808,62 @@ const CommunitiesView = ({
       .toLowerCase()
       .includes(normalizedSearch);
   });
+  const communityEditChanges: Partial<{
+    name: string;
+    description: string;
+    visibility: CommunityVisibility;
+    joinPolicy: "open" | "invite_only";
+  }> = {};
+  if (editingCommunity) {
+    const normalizedEditName = editName.trim();
+    const normalizedEditDescription = editDescription.trim();
+    if (normalizedEditName !== editingCommunity.name) {
+      communityEditChanges.name = normalizedEditName;
+    }
+    if (normalizedEditDescription !== editingCommunity.description) {
+      communityEditChanges.description = normalizedEditDescription;
+    }
+    if (editVisibility !== editingCommunity.visibility) {
+      communityEditChanges.visibility = editVisibility;
+      communityEditChanges.joinPolicy =
+        editVisibility === "private" ? "invite_only" : "open";
+    }
+  }
+  const hasCommunityEditChanges =
+    Object.keys(communityEditChanges).length > 0;
+  const hasValidEditedName =
+    communityEditChanges.name === undefined ||
+    communityEditChanges.name.length >= 3;
+  const communityMemberIds = new Set(
+    communityMembers.map((member) => member.userId),
+  );
+  const addableFriends = friends.filter(
+    (friend) => friend.isFriend && !communityMemberIds.has(friend.id),
+  );
 
   const handleSectionChange = (
     _event: React.SyntheticEvent,
     value: CommunitySectionTab,
   ) => {
     setSection(value);
+    try {
+      window.localStorage.setItem(COMMUNITY_SECTION_STORAGE_KEY, value);
+    } catch {
+      // The selected section remains active for this visit.
+    }
     setCreatedMessage("");
+    setCreatedInviteLink("");
+    setCreatedLinkFeedback("");
+  };
+  // T: O(1) and S: O(1)
+
+  const handleLayoutChange = (nextLayout: CommunityLayout) => {
+    setLayout(nextLayout);
+    try {
+      window.localStorage.setItem(COMMUNITY_LAYOUT_STORAGE_KEY, nextLayout);
+    } catch {
+      // The preference remains active for this visit when storage is blocked.
+    }
   };
   // T: O(1) and S: O(1)
 
@@ -2417,6 +2882,8 @@ const CommunitiesView = ({
     setCreating(true);
     setFormError("");
     setCreatedMessage("");
+    setCreatedInviteLink("");
+    setCreatedLinkFeedback("");
     try {
       const result = await onCreate({
         name: normalizedTitle,
@@ -2426,11 +2893,8 @@ const CommunitiesView = ({
         firstPost: communityPost.trim(),
         createShareLink: shareLink,
       });
-      setCreatedMessage(
-        result.inviteLink
-          ? `${normalizedTitle} was created. Invite link: ${result.inviteLink}`
-          : `${normalizedTitle} was created.`,
-      );
+      setCreatedMessage(`${normalizedTitle} was created.`);
+      setCreatedInviteLink(result.inviteLink ?? "");
       setTitle("");
       setDescription("");
       setCommunityPost("");
@@ -2446,6 +2910,38 @@ const CommunitiesView = ({
   };
   // T: O(t + f) and S: O(t + f), where t is text length and f is selected friends
 
+  const handleCopyCreatedInvite = async () => {
+    if (!createdInviteLink) return;
+    try {
+      await navigator.clipboard.writeText(createdInviteLink);
+      setCreatedLinkFeedback("Invite link copied.");
+    } catch {
+      setCreatedLinkFeedback("Could not copy the invite link.");
+    }
+  };
+  // T: O(l) and S: O(l), where l is the invite-link length
+
+  const handleShareCreatedInvite = async () => {
+    if (!createdInviteLink) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Join my Anchor community",
+          text: "Join my community on Anchor.",
+          url: createdInviteLink,
+        });
+        setCreatedLinkFeedback("Invite shared.");
+      } else {
+        await navigator.clipboard.writeText(createdInviteLink);
+        setCreatedLinkFeedback("Invite link copied for sharing.");
+      }
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") return;
+      setCreatedLinkFeedback("Could not share the invite link.");
+    }
+  };
+  // T: O(l) and S: O(l), where l is the invite-link length
+
   const handleJoin = async (communityId: string) => {
     if (joiningId) return;
     setJoiningId(communityId);
@@ -2458,6 +2954,204 @@ const CommunitiesView = ({
       );
     } finally {
       setJoiningId("");
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleManageMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    community: Community,
+  ) => {
+    event.stopPropagation();
+    setManageAnchor(event.currentTarget);
+    setManagedCommunity(community);
+  };
+  // T: O(1) and S: O(1)
+
+  const handleManageMenuClose = () => {
+    setManageAnchor(null);
+    setManagedCommunity(null);
+  };
+  // T: O(1) and S: O(1)
+
+  const handleStartEdit = () => {
+    if (!managedCommunity) return;
+    setEditingCommunity(managedCommunity);
+    setEditName(managedCommunity.name);
+    setEditDescription(managedCommunity.description);
+    setEditVisibility(managedCommunity.visibility);
+    setManagementError("");
+    setUpdateConfirmationOpen(false);
+    handleManageMenuClose();
+  };
+  // T: O(1) and S: O(1)
+
+  const handleScheduleDiscussion = () => {
+    if (!managedCommunity) return;
+    const community = managedCommunity;
+    handleManageMenuClose();
+    onSchedule(community);
+  };
+  // T: O(1) and S: O(1)
+
+  const handleRequestCommunityUpdate = () => {
+    if (!hasCommunityEditChanges || !hasValidEditedName) return;
+    setManagementError("");
+    setUpdateConfirmationOpen(true);
+  };
+  // T: O(1) and S: O(1)
+
+  const handleSaveCommunity = async () => {
+    if (!editingCommunity || managementPending) return;
+    if (!hasCommunityEditChanges) {
+      setManagementError("Make at least one change before saving");
+      return;
+    }
+    if (!hasValidEditedName) {
+      setManagementError("Community name must be at least 3 characters");
+      return;
+    }
+    setManagementPending(true);
+    setManagementError("");
+    try {
+      await onUpdate(editingCommunity.id, communityEditChanges);
+      setUpdateConfirmationOpen(false);
+      setEditingCommunity(null);
+    } catch (caught) {
+      setManagementError(
+        caught instanceof Error ? caught.message : "Could not update community",
+      );
+    } finally {
+      setManagementPending(false);
+    }
+  };
+  // T: O(n + d) and S: O(n + d), where n and d are form lengths
+
+  const handleStartDelete = () => {
+    if (!managedCommunity) return;
+    setDeletingCommunity(managedCommunity);
+    setManagementError("");
+    handleManageMenuClose();
+  };
+  // T: O(1) and S: O(1)
+
+  const loadManagedMembers = async (communityId: string) => {
+    setMembersLoading(true);
+    setMembersError("");
+    try {
+      setCommunityMembers(await listCommunityMembers(communityId));
+    } catch (caught) {
+      setMembersError(
+        caught instanceof Error ? caught.message : "Could not load members",
+      );
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+  // T: O(m) and S: O(m), where m is returned members
+
+  const handleOpenMemberManagement = () => {
+    if (!managedCommunity) return;
+    const community = managedCommunity;
+    setMembersCommunity(community);
+    setCommunityMembers([]);
+    setSelectedMemberFriendId("");
+    setMembersError("");
+    handleManageMenuClose();
+    void loadManagedMembers(community.id);
+  };
+  // T: O(1) and S: O(1)
+
+  const handleAddManagedMember = async () => {
+    if (!membersCommunity || !selectedMemberFriendId || memberActionUserId)
+      return;
+    setMemberActionUserId(selectedMemberFriendId);
+    setMembersError("");
+    try {
+      await addCommunityMember(
+        membersCommunity.id,
+        selectedMemberFriendId,
+      );
+      setSelectedMemberFriendId("");
+      await Promise.all([
+        loadManagedMembers(membersCommunity.id),
+        onMembersChanged(),
+      ]);
+    } catch (caught) {
+      setMembersError(
+        caught instanceof Error ? caught.message : "Could not add member",
+      );
+    } finally {
+      setMemberActionUserId("");
+    }
+  };
+  // T: O(m) and S: O(m), where m is returned members
+
+  const handleMemberRoleChange = async (member: CommunityMemberRecord) => {
+    if (!membersCommunity || member.isCurrentUser || memberActionUserId) return;
+    setMemberActionUserId(member.userId);
+    setMembersError("");
+    try {
+      await updateCommunityMemberRole(
+        membersCommunity.id,
+        member.userId,
+        member.role === "owner" ? "member" : "owner",
+      );
+      await Promise.all([
+        loadManagedMembers(membersCommunity.id),
+        onMembersChanged(),
+      ]);
+    } catch (caught) {
+      setMembersError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not update member role",
+      );
+    } finally {
+      setMemberActionUserId("");
+    }
+  };
+  // T: O(m) and S: O(m), where m is returned members
+
+  const handleConfirmRemoveMember = async () => {
+    if (!membersCommunity || !removingMember || memberActionUserId) return;
+    const member = removingMember;
+    setMemberActionUserId(member.userId);
+    setMembersError("");
+    setMemberRemovalError("");
+    try {
+      await removeCommunityMember(membersCommunity.id, member.userId);
+      setRemovingMember(null);
+      await Promise.all([
+        loadManagedMembers(membersCommunity.id),
+        onMembersChanged(),
+      ]);
+    } catch (caught) {
+      setMemberRemovalError(
+        caught instanceof Error ? caught.message : "Could not remove member",
+      );
+    } finally {
+      setMemberActionUserId("");
+    }
+  };
+  // T: O(m) and S: O(m), where m is returned members
+
+  const handleConfirmDelete = async () => {
+    if (!deletingCommunity || managementPending) return;
+    setManagementPending(true);
+    setManagementError("");
+    try {
+      await onDelete(deletingCommunity.id);
+      if (scheduleCommunityId === deletingCommunity.id) {
+        setScheduleCommunityId(ALL_ID);
+      }
+      setDeletingCommunity(null);
+    } catch (caught) {
+      setManagementError(
+        caught instanceof Error ? caught.message : "Could not delete community",
+      );
+    } finally {
+      setManagementPending(false);
     }
   };
   // T: O(1) and S: O(1)
@@ -2518,8 +3212,13 @@ const CommunitiesView = ({
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 360px" },
-                gap: 3,
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  md: "minmax(0, 1fr) 320px",
+                  xl: "minmax(0, 1fr) 360px",
+                },
+                columnGap: { xs: 3, md: 4 },
+                rowGap: 3,
                 alignItems: "start",
               }}
             >
@@ -2561,7 +3260,7 @@ const CommunitiesView = ({
                     <Tooltip title="Grid view">
                       <IconButton
                         aria-label="Grid view"
-                        onClick={() => setLayout("grid")}
+                        onClick={() => handleLayoutChange("grid")}
                         size="small"
                         sx={{
                           color:
@@ -2579,7 +3278,7 @@ const CommunitiesView = ({
                     <Tooltip title="List view">
                       <IconButton
                         aria-label="List view"
-                        onClick={() => setLayout("list")}
+                        onClick={() => handleLayoutChange("list")}
                         size="small"
                         sx={{
                           color:
@@ -2602,19 +3301,32 @@ const CommunitiesView = ({
                     display: "grid",
                     gridTemplateColumns:
                       layout === "grid"
-                        ? { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" }
+                        ? { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }
                         : "1fr",
-                    gap: layout === "grid" ? 1.5 : 0,
+                    gap: layout === "grid" ? 2 : 0,
                   }}
                 >
-                  {joinedCommunities.map((community) => {
+                  {visibleJoinedCommunities.map((community) => {
                     const isSelected = community.id === scheduleCommunityId;
                     return (
                       <Box
                         key={community.id}
-                        onClick={() => setScheduleCommunityId(community.id)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open ${community.name}`}
+                        onClick={() => {
+                          setScheduleCommunityId(community.id);
+                          onOpen(community.id);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          setScheduleCommunityId(community.id);
+                          onOpen(community.id);
+                        }}
                         sx={{
                           width: "100%",
+                          boxSizing: "border-box",
                           display: "flex",
                           alignItems: "center",
                           gap: 1.3,
@@ -2636,8 +3348,19 @@ const CommunitiesView = ({
                           font: "inherit",
                           textAlign: "left",
                           cursor: "pointer",
-                          transition: "background 0.15s ease",
-                          "&:hover": { bgcolor: C.accentHover },
+                          transition:
+                            "background 0.15s ease, box-shadow 0.15s ease",
+                          "&:hover": {
+                            bgcolor: C.accentHover,
+                            boxShadow:
+                              layout === "grid"
+                                ? `inset 0 0 0 1px ${C.accent}`
+                                : "none",
+                          },
+                          "&:focus-visible": {
+                            outline: `2px solid ${C.accent}`,
+                            outlineOffset: 2,
+                          },
                         }}
                       >
                         <Box
@@ -2701,24 +3424,67 @@ const CommunitiesView = ({
                             </Typography>
                           </Box>
                         </Box>
-                        <Button
-                          size="small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onOpen(community.id);
-                          }}
-                          sx={{
-                            color: C.accentDark,
-                            textTransform: "none",
-                            flexShrink: 0,
-                          }}
-                        >
-                          Open
-                        </Button>
+                        {community.canManage && (
+                          <Tooltip title="Community options">
+                            <IconButton
+                              size="small"
+                              aria-label={`Manage ${community.name}`}
+                              onKeyDown={(event) => event.stopPropagation()}
+                              onClick={(event) =>
+                                handleManageMenuOpen(event, community)
+                              }
+                              sx={{
+                                color: C.textSub,
+                                flexShrink: 0,
+                              }}
+                            >
+                              <MoreHorizRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     );
                   })}
                 </Box>
+
+                {joinedCommunities.length > 5 && (
+                  <Box
+                    component="button"
+                    type="button"
+                    onClick={() => setShowAllCommunities((current) => !current)}
+                    aria-expanded={showAllCommunities}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 0.5,
+                      mx: "auto",
+                      mt: 1.5,
+                      p: 0.5,
+                      border: 0,
+                      bgcolor: "transparent",
+                      color: C.accentDark,
+                      cursor: "pointer",
+                      font: "inherit",
+                      "&:hover": { color: C.textPrimary },
+                    }}
+                  >
+                    <KeyboardArrowDownRoundedIcon
+                      sx={{
+                        fontSize: 20,
+                        transform: showAllCommunities
+                          ? "rotate(180deg)"
+                          : "rotate(0deg)",
+                        transition: "transform 160ms ease",
+                      }}
+                    />
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
+                      {showAllCommunities
+                        ? "Show fewer community groups"
+                        : "Open all community groups"}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               <ScheduleMeetings
@@ -2967,16 +3733,36 @@ const CommunitiesView = ({
                 </Button>
                 {formError && <Alert severity="error">{formError}</Alert>}
                 {createdMessage && (
-                  <Typography
-                    role="status"
-                    sx={{
-                      color: C.green,
-                      fontWeight: 600,
-                      fontSize: "0.84rem",
-                    }}
-                  >
-                    {createdMessage}
-                  </Typography>
+                  <Alert severity="success" role="status">
+                    <Typography sx={{ fontWeight: 700, fontSize: "0.84rem" }}>
+                      {createdMessage}
+                    </Typography>
+                    {createdInviteLink && (
+                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          startIcon={<ContentCopyRoundedIcon />}
+                          onClick={handleCopyCreatedInvite}
+                          sx={{ color: C.green, textTransform: "none" }}
+                        >
+                          Copy invite link
+                        </Button>
+                        <Button
+                          size="small"
+                          startIcon={<ShareOutlinedIcon />}
+                          onClick={handleShareCreatedInvite}
+                          sx={{ color: C.green, textTransform: "none" }}
+                        >
+                          Share
+                        </Button>
+                      </Stack>
+                    )}
+                    {createdLinkFeedback && (
+                      <Typography sx={{ mt: 0.5, fontSize: "0.74rem" }}>
+                        {createdLinkFeedback}
+                      </Typography>
+                    )}
+                  </Alert>
                 )}
               </Stack>
 
@@ -3080,6 +3866,363 @@ const CommunitiesView = ({
           )}
         </Box>
       </Card>
+
+      <Menu
+        anchorEl={manageAnchor}
+        open={Boolean(manageAnchor)}
+        onClose={handleManageMenuClose}
+      >
+        <MenuItem onClick={handleScheduleDiscussion} sx={{ gap: 1 }}>
+          <CalendarMonthRoundedIcon fontSize="small" />
+          Schedule a discussion
+        </MenuItem>
+        <MenuItem onClick={handleOpenMemberManagement} sx={{ gap: 1 }}>
+          <GroupsRoundedIcon fontSize="small" />
+          Manage members
+        </MenuItem>
+        <MenuItem onClick={handleStartEdit} sx={{ gap: 1 }}>
+          <EditOutlinedIcon fontSize="small" />
+          Edit community
+        </MenuItem>
+        <MenuItem onClick={handleStartDelete} sx={{ gap: 1, color: C.red }}>
+          <DeleteOutlineRoundedIcon fontSize="small" />
+          Delete community
+        </MenuItem>
+      </Menu>
+
+      <Dialog
+        open={Boolean(editingCommunity)}
+        onClose={() => {
+          if (!managementPending && !updateConfirmationOpen) {
+            setEditingCommunity(null);
+          }
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Edit community</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Community name"
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+              inputProps={{ maxLength: 120 }}
+              fullWidth
+            />
+            <TextField
+              label="Description"
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              inputProps={{ maxLength: 600 }}
+              multiline
+              minRows={3}
+              fullWidth
+            />
+            <Box>
+              <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
+                Visibility
+              </Typography>
+              <RadioGroup
+                row
+                value={editVisibility}
+                onChange={(event) =>
+                  setEditVisibility(event.target.value as CommunityVisibility)
+                }
+              >
+                <FormControlLabel
+                  value="public"
+                  control={<Radio size="small" />}
+                  label="Public"
+                />
+                <FormControlLabel
+                  value="private"
+                  control={<Radio size="small" />}
+                  label="Private"
+                />
+              </RadioGroup>
+            </Box>
+            {managementError && (
+              <Alert severity="error">{managementError}</Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setUpdateConfirmationOpen(false);
+              setEditingCommunity(null);
+            }}
+            disabled={managementPending}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleRequestCommunityUpdate}
+            disabled={
+              managementPending ||
+              !hasCommunityEditChanges ||
+              !hasValidEditedName
+            }
+            sx={{
+              bgcolor: C.accent,
+              textTransform: "none",
+              "&:hover": { bgcolor: C.accentDark },
+            }}
+          >
+            {managementPending ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={updateConfirmationOpen}
+        onClose={() => !managementPending && setUpdateConfirmationOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Update community?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub }}>
+            Are you sure you want to apply these changes to
+            {editingCommunity ? ` “${editingCommunity.name}”?` : " this community?"}
+          </Typography>
+          {managementError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {managementError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setUpdateConfirmationOpen(false)}
+            disabled={managementPending}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleSaveCommunity()}
+            disabled={managementPending}
+            sx={{
+              bgcolor: C.accent,
+              textTransform: "none",
+              "&:hover": { bgcolor: C.accentDark },
+            }}
+          >
+            {managementPending ? "Updating…" : "Yes, update"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(membersCommunity)}
+        onClose={() => {
+          if (!memberActionUserId) setMembersCommunity(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Manage members{membersCommunity ? ` · ${membersCommunity.name}` : ""}
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub, mb: 2 }}>
+            {membersCommunity?.visibility === "private"
+              ? "Private communities are available only through an invite link or when an owner adds a member."
+              : "Anyone can join this public community. Owners can still manage its members."}
+          </Typography>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }}>
+            <TextField
+              select
+              size="small"
+              label="Add a friend"
+              value={selectedMemberFriendId}
+              onChange={(event) => setSelectedMemberFriendId(event.target.value)}
+              fullWidth
+              disabled={Boolean(memberActionUserId) || addableFriends.length === 0}
+            >
+              {addableFriends.map((friend) => (
+                <MenuItem key={friend.id} value={friend.id}>
+                  {friend.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              variant="outlined"
+              onClick={() => void handleAddManagedMember()}
+              disabled={!selectedMemberFriendId || Boolean(memberActionUserId)}
+              sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+            >
+              Add member
+            </Button>
+          </Stack>
+
+          {membersError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {membersError}
+            </Alert>
+          )}
+          {membersLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : (
+            <Stack divider={<Divider flexItem />}>
+              {communityMembers.map((member) => (
+                <Stack
+                  key={member.userId}
+                  direction={{ xs: "column", sm: "row" }}
+                  alignItems={{ xs: "flex-start", sm: "center" }}
+                  spacing={1.5}
+                  sx={{ py: 1.5 }}
+                >
+                  <Avatar sx={{ width: 36, height: 36 }}>
+                    {member.name.slice(0, 1).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {member.name}{member.isCurrentUser ? " (you)" : ""}
+                    </Typography>
+                    <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
+                      {member.email}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={member.role === "owner" ? "Owner" : "Member"}
+                    color={member.role === "owner" ? "primary" : "default"}
+                    variant="outlined"
+                  />
+                  {!member.isCurrentUser && (
+                    <>
+                      <Button
+                        size="small"
+                        onClick={() => void handleMemberRoleChange(member)}
+                        disabled={Boolean(memberActionUserId)}
+                        sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                      >
+                        {memberActionUserId === member.userId
+                          ? "Updating…"
+                          : member.role === "owner"
+                            ? "Remove owner"
+                            : "Make owner"}
+                      </Button>
+                      <Tooltip title="Remove member">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              setMemberRemovalError("");
+                              setRemovingMember(member);
+                            }}
+                            disabled={Boolean(memberActionUserId)}
+                            aria-label={`Remove ${member.name}`}
+                          >
+                            <PersonRemoveOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
+                  )}
+                </Stack>
+              ))}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setMembersCommunity(null)}
+            disabled={Boolean(memberActionUserId)}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(removingMember)}
+        onClose={() => !memberActionUserId && setRemovingMember(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Remove member?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub }}>
+            {removingMember
+              ? `Remove ${removingMember.name} from this community?`
+              : "Remove this member from the community?"}
+          </Typography>
+          {memberRemovalError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {memberRemovalError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setRemovingMember(null)}
+            disabled={Boolean(memberActionUserId)}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => void handleConfirmRemoveMember()}
+            disabled={Boolean(memberActionUserId)}
+            sx={{ textTransform: "none" }}
+          >
+            {memberActionUserId ? "Removing…" : "Remove"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deletingCommunity)}
+        onClose={() => !managementPending && setDeletingCommunity(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete community?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub }}>
+            {deletingCommunity
+              ? `“${deletingCommunity.name}” will be removed for every member. This cannot be undone.`
+              : "This community will be removed."}
+          </Typography>
+          {managementError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {managementError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setDeletingCommunity(null)}
+            disabled={managementPending}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => void handleConfirmDelete()}
+            disabled={managementPending}
+            sx={{ textTransform: "none" }}
+          >
+            {managementPending ? "Deleting…" : "Delete community"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 };
@@ -3224,6 +4367,8 @@ const FriendsView = ({
 
       <Box
         sx={{
+          width: "100%",
+          maxWidth: 680,
           bgcolor: "#fff",
           borderBottom: `1px solid ${C.divider}`,
           pb: normalizedSearch ? 1 : 0,
@@ -3549,7 +4694,7 @@ type Props = {
   meetings?: ScheduledMeeting[];
 };
 
-const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
+const CommunityFeed = ({ meetings = [] }: Props) => {
   const [pageTab, setPageTab] = useState<CommunityPageTab>("posts");
   const [activeCommunityId, setActiveCommunityId] = useState<string>(ALL_ID);
   const [communityConversationId, setCommunityConversationId] = useState<
@@ -3565,9 +4710,58 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [communitySharePending, setCommunitySharePending] = useState(false);
+  const [discoveredMeetings, setDiscoveredMeetings] = useState<
+    ScheduledMeeting[]
+  >([]);
+  const [communityCopyTooltip, setCommunityCopyTooltip] =
+    useState("Copy invite link");
+  const [communityShareTooltip, setCommunityShareTooltip] =
+    useState("Share invite link");
   const inviteHandled = useRef(false);
+  const communityInviteLinksRef = useRef<Record<string, string>>({});
   const activePostScopeRef = useRef<string>(ALL_ID);
   const conversationRequestRef = useRef(0);
+  const allMeetings = [...meetings, ...discoveredMeetings].filter(
+    (meeting, index, items) =>
+      items.findIndex((candidate) => candidate.id === meeting.id) === index,
+  );
+
+  const handleMeetingDiscovered = useCallback(
+    (meeting: Comm360Meeting, communityId: string) => {
+      const start = new Date(meeting.startTime);
+      setDiscoveredMeetings((current) => {
+        const mapped: ScheduledMeeting = {
+          id: meeting.id,
+          communityId,
+          withName: meeting.organizerName,
+          topic: meeting.title,
+          description: meeting.description,
+          date: start.toLocaleDateString([], {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          }),
+          time: start.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+          via: "Comm360",
+          startAt: meeting.startTime,
+          joinUrl: meeting.joinUrl,
+        };
+        const existingIndex = current.findIndex(
+          (candidate) => candidate.id === meeting.id,
+        );
+        if (existingIndex < 0) return [...current, mapped];
+        const next = [...current];
+        next[existingIndex] = mapped;
+        return next;
+      });
+    },
+    [],
+  );
+  // T: O(m) and S: O(m), where m is discovered meetings
 
   const refreshPosts = useCallback(async (communityId: string) => {
     activePostScopeRef.current = communityId;
@@ -3626,6 +4820,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     setPageError("");
     try {
       let inviteError = "";
+      let inviteAccepted = false;
       const inviteToken = new URLSearchParams(window.location.search).get(
         "invite",
       );
@@ -3634,7 +4829,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
         try {
           await acceptCommunityInvite(inviteToken);
           window.history.replaceState({}, "", window.location.pathname);
-          setPageTab("communities");
+          inviteAccepted = true;
         } catch (caught) {
           inviteError =
             caught instanceof Error
@@ -3644,6 +4839,17 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
       }
       const saved =
         window.localStorage.getItem("anchor:activeCommunityId") ?? ALL_ID;
+      const savedPageTab = window.localStorage.getItem(
+        COMMUNITY_PAGE_TAB_STORAGE_KEY,
+      );
+      const restoredPageTab: CommunityPageTab = inviteAccepted
+        ? "communities"
+        : savedPageTab === "communities" || savedPageTab === "friends"
+          ? savedPageTab
+          : "posts";
+      const savedConversationId = inviteAccepted
+        ? null
+        : window.localStorage.getItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
       const [mappedCommunities] = await Promise.all([
         refreshCommunities(),
         refreshFriendWorkspace(),
@@ -3654,8 +4860,27 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
           (community) => community.id === saved && community.joined,
         );
       const nextCommunityId = validSaved ? saved : ALL_ID;
-      setActiveCommunityId(nextCommunityId);
-      await refreshPosts(ALL_ID);
+      const restoredConversation =
+        restoredPageTab === "communities" &&
+        savedConversationId &&
+        mappedCommunities.some(
+          (community) =>
+            community.id === savedConversationId && community.joined,
+        )
+          ? savedConversationId
+          : null;
+
+      setPageTab(restoredPageTab);
+      setCommunityConversationId(restoredConversation);
+      setActiveCommunityId(restoredConversation ?? nextCommunityId);
+      if (restoredConversation) {
+        await refreshPosts(restoredConversation);
+      } else if (restoredPageTab === "posts") {
+        await refreshPosts(ALL_ID);
+      } else {
+        activePostScopeRef.current = "community-list";
+        setPosts([]);
+      }
       setHydrated(true);
       if (inviteError) setPageError(inviteError);
     } catch (caught) {
@@ -3678,6 +4903,19 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     if (!hydrated) return;
     window.localStorage.setItem("anchor:activeCommunityId", activeCommunityId);
   }, [activeCommunityId, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(COMMUNITY_PAGE_TAB_STORAGE_KEY, pageTab);
+    if (pageTab === "communities" && communityConversationId) {
+      window.localStorage.setItem(
+        COMMUNITY_CONVERSATION_STORAGE_KEY,
+        communityConversationId,
+      );
+    } else {
+      window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
+    }
+  }, [communityConversationId, hydrated, pageTab]);
 
   const handleJoinCommunity = async (communityId: string) => {
     await joinCommunity(communityId);
@@ -3710,6 +4948,34 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
   };
   // T: O(f + p) and S: O(f + p), where f is invited friends and p is first-post length
 
+  const handleUpdateCommunity = async (
+    communityId: string,
+    input: Partial<{
+      name: string;
+      description: string;
+      visibility: CommunityVisibility;
+      joinPolicy: "open" | "invite_only";
+    }>,
+  ) => {
+    await updateCommunity(communityId, input);
+    await refreshCommunities();
+  };
+  // T: O(c) and S: O(c), where c is returned communities
+
+  const handleDeleteCommunity = async (communityId: string) => {
+    await deleteCommunity(communityId);
+    delete communityInviteLinksRef.current[communityId];
+    if (activeCommunityId === communityId) {
+      setActiveCommunityId(ALL_ID);
+    }
+    if (communityConversationId === communityId) {
+      setCommunityConversationId(null);
+      setPosts([]);
+    }
+    await refreshCommunities();
+  };
+  // T: O(c) and S: O(c), where c is returned communities
+
   const handleOpenCommunity = async (communityId: string) => {
     const requestId = conversationRequestRef.current + 1;
     conversationRequestRef.current = requestId;
@@ -3719,6 +4985,8 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     setCommunityConversationId(communityId);
     setPageTab("communities");
     setPageError("");
+    setCommunityCopyTooltip("Copy invite link");
+    setCommunityShareTooltip("Share invite link");
     try {
       await refreshPosts(communityId);
     } catch (caught) {
@@ -3760,9 +5028,76 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
     activePostScopeRef.current = "community-list";
     setConversationLoading(false);
     setCommunityConversationId(null);
+    setCommunityCopyTooltip("Copy invite link");
+    setCommunityShareTooltip("Share invite link");
     void refreshCommunities();
   };
   // T: O(1) and S: O(1)
+
+  const handleScheduleCommunityDiscussion = (community: Community) => {
+    const scheduleUrl = new URL("meetings", COMM360_URL);
+    scheduleUrl.searchParams.set("source", "anchor");
+    scheduleUrl.searchParams.set("communityId", community.id);
+    scheduleUrl.searchParams.set("communityName", community.name);
+    window.open(scheduleUrl.toString(), "_blank", "noopener,noreferrer");
+  };
+  // T: O(n) and S: O(n), where n is the community name length
+
+  const getCommunityInviteLink = async (communityId: string) => {
+    const existingLink = communityInviteLinksRef.current[communityId];
+    if (existingLink) return existingLink;
+    const inviteLink = await createInviteLink(communityId);
+    if (!inviteLink) throw new Error("Could not create an invite link");
+    communityInviteLinksRef.current[communityId] = inviteLink;
+    return inviteLink;
+  };
+  // T: O(1) expected and S: O(c), where c is communities shared this visit
+
+  const handleCopyCommunityInvite = async (communityId: string) => {
+    if (communitySharePending) return;
+    setCommunitySharePending(true);
+    setCommunityCopyTooltip("Copying invite link…");
+    try {
+      const inviteLink = await getCommunityInviteLink(communityId);
+      await navigator.clipboard.writeText(inviteLink);
+      setCommunityCopyTooltip("Invite link copied");
+    } catch (caught) {
+      setCommunityCopyTooltip(
+        caught instanceof Error ? caught.message : "Could not copy invite link",
+      );
+    } finally {
+      setCommunitySharePending(false);
+    }
+  };
+  // T: O(l) and S: O(l), where l is the invite-link length
+
+  const handleShareCommunityInvite = async (community: Community) => {
+    if (communitySharePending) return;
+    setCommunitySharePending(true);
+    setCommunityShareTooltip("Preparing invite…");
+    try {
+      const inviteLink = await getCommunityInviteLink(community.id);
+      if (navigator.share) {
+        await navigator.share({
+          title: `Join ${community.name} on Anchor`,
+          text: `Join the ${community.name} community on Anchor.`,
+          url: inviteLink,
+        });
+        setCommunityShareTooltip("Invite shared");
+      } else {
+        await navigator.clipboard.writeText(inviteLink);
+        setCommunityShareTooltip("Invite link copied for sharing");
+      }
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") return;
+      setCommunityShareTooltip(
+        caught instanceof Error ? caught.message : "Could not share invite link",
+      );
+    } finally {
+      setCommunitySharePending(false);
+    }
+  };
+  // T: O(l) and S: O(l), where l is the invite-link length
 
   const reconcileCreatedPost = useCallback(
     async (postId: string, target: string): Promise<void> => {
@@ -3945,6 +5280,7 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
                     post={post}
                     onUpdated={handlePostUpdated}
                     onDeleted={handlePostDeleted}
+                    onMeetingDiscovered={handleMeetingDiscovered}
                   />
                 ))
               )}
@@ -3956,9 +5292,20 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
           pageTab === "communities" &&
           communityConversationId &&
           conversationCommunity && (
-            <Box sx={{ width: "100%", maxWidth: 860, mx: "auto" }}>
+            <Box
+              sx={{
+                width: "100%",
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "minmax(0, 1fr)",
+                  lg: "minmax(0, 1fr) minmax(280px, 320px)",
+                },
+                gap: 3,
+                alignItems: "start",
+              }}
+            >
               <Stack spacing={3}>
-                <Box>
+                <Box sx={{ position: "relative" }}>
                   <Button
                     onClick={handleCloseCommunityConversation}
                     sx={{
@@ -3970,19 +5317,107 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
                   >
                     ← Back to communities
                   </Button>
-                  <Typography
+                  <Box sx={{ pr: { xs: 0, sm: 24 } }}>
+                    <Typography
+                      sx={{
+                        color: C.textPrimary,
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: "1.45rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {conversationCommunity.name}
+                    </Typography>
+                    <Typography
+                      sx={{ color: C.textSub, fontSize: "0.84rem" }}
+                    >
+                      Conversation shared only with this community&apos;s
+                      members.
+                    </Typography>
+                  </Box>
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
                     sx={{
-                      color: C.textPrimary,
-                      fontFamily: "'Playfair Display', serif",
-                      fontSize: "1.45rem",
-                      fontWeight: 700,
+                      position: { xs: "static", sm: "absolute" },
+                      top: { sm: 0 },
+                      right: { sm: 0 },
+                      mt: { xs: 1.5, sm: 0 },
+                      justifyContent: { xs: "flex-end", sm: "initial" },
                     }}
                   >
-                    {conversationCommunity.name}
-                  </Typography>
-                  <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
-                    Conversation shared only with this community&apos;s members.
-                  </Typography>
+                    <Tooltip
+                      title={communityCopyTooltip}
+                      placement="top"
+                      arrow
+                    >
+                      <span>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ContentCopyRoundedIcon />}
+                          disabled={communitySharePending}
+                          onClick={() =>
+                            void handleCopyCommunityInvite(
+                              conversationCommunity.id,
+                            )
+                          }
+                          sx={{
+                            bgcolor: C.accentFaint,
+                            borderColor: C.accentBorder,
+                            color: C.accentDark,
+                            fontWeight: 700,
+                            textTransform: "none",
+                            "&:hover": {
+                              bgcolor: "rgba(184,116,68,0.16)",
+                              borderColor: C.accent,
+                            },
+                          }}
+                        >
+                          Copy link
+                        </Button>
+                      </span>
+                    </Tooltip>
+                    <Tooltip
+                      title={communityShareTooltip}
+                      placement="top"
+                      arrow
+                    >
+                      <span>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ShareOutlinedIcon />}
+                          disabled={communitySharePending}
+                          onClick={() =>
+                            void handleShareCommunityInvite(
+                              conversationCommunity,
+                            )
+                          }
+                          sx={{
+                            bgcolor: C.accentFaint,
+                            borderColor: C.accentBorder,
+                            color: C.accentDark,
+                            fontWeight: 700,
+                            textTransform: "none",
+                            "&:hover": {
+                              bgcolor: "rgba(184,116,68,0.16)",
+                              borderColor: C.accent,
+                            },
+                          }}
+                        >
+                          Share
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                </Box>
+                <Box sx={{ display: { xs: "block", lg: "none" } }}>
+                  <ScheduleMeetings
+                    meetings={allMeetings}
+                    activeCommunityId={conversationCommunity.id}
+                    activeCommunityName={conversationCommunity.name}
+                  />
                 </Box>
                 {conversationLoading ? (
                   <Box
@@ -4017,10 +5452,29 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
                       communityName={conversationCommunity.name}
                       onUpdated={handlePostUpdated}
                       onDeleted={handlePostDeleted}
+                      onMeetingDiscovered={handleMeetingDiscovered}
                     />
                   ))
                 )}
               </Stack>
+              <Box
+                sx={{
+                  display: { xs: "none", lg: "block" },
+                  position: "sticky",
+                  top: 24,
+                  maxHeight: "calc(100vh - 48px)",
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                  pr: 0.5,
+                  scrollbarWidth: "thin",
+                }}
+              >
+                <ScheduleMeetings
+                  meetings={allMeetings}
+                  activeCommunityId={conversationCommunity.id}
+                  activeCommunityName={conversationCommunity.name}
+                />
+              </Box>
             </Box>
           )}
 
@@ -4065,10 +5519,16 @@ const CommunityFeed = ({ meetings = SAMPLE_MEETINGS }: Props) => {
           <CommunitiesView
             communities={communities}
             friends={friends}
-            meetings={meetings}
+            meetings={allMeetings}
             onJoin={handleJoinCommunity}
             onCreate={handleCreateCommunity}
             onOpen={handleOpenCommunity}
+            onSchedule={handleScheduleCommunityDiscussion}
+            onUpdate={handleUpdateCommunity}
+            onDelete={handleDeleteCommunity}
+            onMembersChanged={async () => {
+              await refreshCommunities();
+            }}
           />
         )}
 

@@ -24,7 +24,11 @@ export interface PointsBalanceDto {
 
 export interface PointsHistoryEntryDto {
   id: number;
-  type: 'task_earned' | 'converted_to_360' | 'streak_reward';
+  type:
+    | 'task_earned'
+    | 'converted_to_360'
+    | 'streak_reward'
+    | 'pending_overflow_penalty';
   amount: number;
   taskId: number | null;
   createdAt: Date;

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RagTask } from './rag-task.entity';
-import { Repository, In, IsNull, Not } from 'typeorm';
+import { DataSource, Repository, In, IsNull, Not } from 'typeorm';
 import { UserDailyTask } from './rag-daily-user-tasks.entity';
 import { User } from 'src/users/user.entity';
 import { TaskSubmission } from 'src/submissions/submission.entity';
@@ -14,6 +14,7 @@ import { PerformanceService } from './performance.service';
 import { LearningTracksService } from 'src/learning-tracks/learning-tracks.service';
 import { normalizeLeetcodeUrl } from './leetcode-url.util';
 import { OnboardingResponse } from 'src/onboarding/onboarding.entity';
+import { UserPointsLedger } from 'src/points/user-points-ledger.entity';
 
 @Injectable()
 export class RagService {
@@ -23,6 +24,10 @@ export class RagService {
   private readonly generationFailedAt = new Map<string, number>();
   private readonly dailyTaskRequests = new Map<string, Promise<any>>();
   private readonly RETRY_AFTER_MS = 5 * 60 * 1000; // 5 minutes
+  private readonly MAX_PENDING_TASKS = 25;
+  private readonly PENDING_OVERFLOW_PENALTY = 50;
+  private readonly DEFERRED_TASKS_PER_DAY = 4;
+  private readonly MAX_DEFERRED_TASKS_PER_DAY = 5;
 
   constructor(
     @InjectRepository(RagTask)
@@ -40,6 +45,8 @@ export class RagService {
     private readonly taskGenerationService: TaskGenerationService,
     private readonly performanceService: PerformanceService,
     private readonly learningTracksService: LearningTracksService,
+
+    private readonly dataSource: DataSource,
 
     @InjectRepository(OnboardingResponse)
     private readonly onboardingRepo: Repository<OnboardingResponse>,
@@ -119,6 +126,7 @@ export class RagService {
     const existingPlanQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status != :superseded', { superseded: 'superseded' })
       .andWhere('DATE(udt.task_date) = :today', { today });
     // A plan change applies to the next generated set. Today's questions stay
     // stable even when they were created under the previously active track.
@@ -142,12 +150,22 @@ export class RagService {
         return { userName, tasks: tasks.slice(0, limit) };
       }
 
-      // Repair a previously persisted undersized plan without repeating its tasks.
-      carriedPlan = canonicalPlan;
-      mix = await this.performanceService.getDifficultyMix(
-        userId,
-        Math.max(3, limit - canonicalPlan.length),
-      );
+      // An undersized persisted plan cannot be safely completed by asking the
+      // generator for only the numerical remainder: role blueprints still
+      // require all mandatory lanes (four for software roles). Retire the
+      // incomplete set and regenerate a complete plan. The old rows remain in
+      // history as superseded and their titles remain in user_seen_tasks, so
+      // the repaired plan cannot repeat them.
+      await this.userDailyRepo
+        .createQueryBuilder()
+        .update(UserDailyTask)
+        .set({ status: 'superseded' })
+        .where('user_id = :userId', { userId })
+        .andWhere('DATE(task_date) = :today', { today })
+        .andWhere('status != :superseded', { superseded: 'superseded' })
+        .execute();
+      carriedPlan = [];
+      mix = await this.performanceService.getDifficultyMix(userId, 4);
       limit = mix.total;
     }
 
@@ -164,6 +182,7 @@ export class RagService {
         .createQueryBuilder('udt')
         .where('udt.user_id = :userId', { userId })
         .andWhere('udt.track_id = :trackId', { trackId: currentTrack.id })
+        .andWhere('udt.status != :superseded', { superseded: 'superseded' })
         .getCount();
       const remaining = Math.max(0, questionTarget - generatedSoFar);
       if (remaining === 0) {
@@ -247,6 +266,7 @@ export class RagService {
     const raceCheckQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status != :superseded', { superseded: 'superseded' })
       .andWhere('DATE(udt.task_date) = :today', { today });
     // Do not scope this check to the current track: a user may have changed
     // plans while today's already-generated set still belongs to the old one.
@@ -387,6 +407,13 @@ export class RagService {
     const weekStartDate = getWeekStartInTimezone(timezone);
     const currentTrack = await this.learningTracksService.getCurrent(userId);
 
+    await this.enforcePendingTaskLimit(
+      userId,
+      today,
+      weekStartDate,
+      currentTrack?.id ?? null,
+    );
+
     const pendingQuery = this.userDailyRepo
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
@@ -421,6 +448,126 @@ export class RagService {
     return pending;
   }
 
+  private async enforcePendingTaskLimit(
+    userId: string,
+    today: string,
+    weekStartDate: string,
+    trackId: string | null,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const overdueQuery = manager
+        .getRepository(UserDailyTask)
+        .createQueryBuilder('udt')
+        .setLock('pessimistic_write')
+        .where('udt.user_id = :userId', { userId })
+        .andWhere('udt.status = :status', { status: 'pending' })
+        .andWhere('DATE(udt.task_date) < :today', { today });
+
+      if (trackId) {
+        overdueQuery.andWhere('udt.track_id = :trackId', { trackId });
+      } else {
+        overdueQuery.andWhere('DATE(udt.task_date) >= :weekStart', {
+          weekStart: weekStartDate,
+        });
+      }
+
+      const overdueTasks = await overdueQuery
+        .orderBy('udt.task_date', 'ASC')
+        .addOrderBy('udt.id', 'ASC')
+        .getMany();
+
+      if (overdueTasks.length <= this.MAX_PENDING_TASKS) return;
+
+      const tomorrow = this.addDaysToDate(today, 1);
+      const futureRows = await manager
+        .getRepository(UserDailyTask)
+        .createQueryBuilder('udt')
+        .select('DATE(udt.task_date)', 'taskDate')
+        .addSelect('COUNT(*)', 'taskCount')
+        .where('udt.user_id = :userId', { userId })
+        .andWhere('udt.status = :status', { status: 'pending' })
+        .andWhere('DATE(udt.task_date) >= :tomorrow', { tomorrow })
+        .groupBy('DATE(udt.task_date)')
+        .getRawMany<{ taskDate: string | Date; taskCount: string }>();
+
+      const scheduledPerDay = new Map<string, number>();
+      for (const row of futureRows) {
+        const taskDate =
+          row.taskDate instanceof Date
+            ? row.taskDate.toISOString().slice(0, 10)
+            : String(row.taskDate).slice(0, 10);
+        scheduledPerDay.set(taskDate, Number(row.taskCount));
+      }
+
+      let dayOffset = 1;
+      const deferredTasksByDate = new Map<string, UserDailyTask[]>();
+      for (const task of overdueTasks) {
+        let deferredDate = this.addDaysToDate(today, dayOffset);
+        while (
+          (scheduledPerDay.get(deferredDate) ?? 0) >=
+          this.DEFERRED_TASKS_PER_DAY
+        ) {
+          dayOffset += 1;
+          deferredDate = this.addDaysToDate(today, dayOffset);
+        }
+        task.task_date = deferredDate;
+        scheduledPerDay.set(
+          deferredDate,
+          (scheduledPerDay.get(deferredDate) ?? 0) + 1,
+        );
+        deferredTasksByDate.set(deferredDate, [
+          ...(deferredTasksByDate.get(deferredDate) ?? []),
+          task,
+        ]);
+      }
+
+      // Keep every restored plan at four or five questions. If the final
+      // bucket has fewer than four, distribute those questions into the
+      // earlier four-question days instead of creating an undersized plan.
+      for (const [sourceDate, sourceTasks] of deferredTasksByDate) {
+        const sourceCount = scheduledPerDay.get(sourceDate) ?? 0;
+        if (sourceCount === 0 || sourceCount >= this.DEFERRED_TASKS_PER_DAY) {
+          continue;
+        }
+        for (const task of sourceTasks) {
+          const recipientDate = [...scheduledPerDay.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .find(
+              ([candidateDate, count]) =>
+                candidateDate !== sourceDate &&
+                count < this.MAX_DEFERRED_TASKS_PER_DAY,
+            )?.[0];
+          if (!recipientDate) break;
+          task.task_date = recipientDate;
+          scheduledPerDay.set(
+            sourceDate,
+            (scheduledPerDay.get(sourceDate) ?? 1) - 1,
+          );
+          scheduledPerDay.set(
+            recipientDate,
+            (scheduledPerDay.get(recipientDate) ?? 0) + 1,
+          );
+        }
+      }
+
+      await manager.getRepository(UserDailyTask).save(overdueTasks);
+      await manager.getRepository(UserPointsLedger).save({
+        user_id: userId,
+        task_id: null,
+        amount: -this.PENDING_OVERFLOW_PENALTY,
+        type: 'pending_overflow_penalty',
+      });
+    });
+  }
+  // T: O(p + f log f) and S: O(p + f), where p is overdue and f is future days
+
+  private addDaysToDate(date: string, days: number): string {
+    const value = new Date(`${date}T00:00:00.000Z`);
+    value.setUTCDate(value.getUTCDate() + days);
+    return value.toISOString().slice(0, 10);
+  }
+  // T: O(1) and S: O(1)
+
   async clearTasksForDate(userId: string, date: string) {
     const result = await this.userDailyRepo
       .createQueryBuilder()
@@ -443,6 +590,7 @@ export class RagService {
       .createQueryBuilder('udt')
       .innerJoin(RagTask, 'task', 'task.id = udt.task_id')
       .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status != :superseded', { superseded: 'superseded' })
       .select([
         'udt.id as "dailyId"',
         'udt.task_id as "taskId"',

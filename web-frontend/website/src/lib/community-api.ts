@@ -1,6 +1,211 @@
 import { apiFetch } from "./auth-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const VIDEO_CHUNK_SIZE = 6_000_000;
+const VIDEO_CHUNK_RETRY_DELAYS_MS = [500, 1_500, 3_000] as const;
+
+type UploadProgressHandler = (
+  percentage: number,
+  loadedBytes: number,
+  totalBytes: number,
+) => void;
+
+type CloudinaryUploadPayload = {
+  public_id?: string;
+  done?: boolean;
+  error?: { message?: string };
+};
+
+class RetryableUploadError extends Error {}
+
+const abortError = () =>
+  new DOMException("Media upload was cancelled", "AbortError");
+
+const waitForUploadRetry = (delayMs: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    const handleAbort = () => {
+      window.clearTimeout(timer);
+      reject(abortError());
+    };
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, delayMs);
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+
+const parseCloudinaryResponse = (request: XMLHttpRequest) => {
+  try {
+    return JSON.parse(request.responseText) as CloudinaryUploadPayload;
+  } catch {
+    return null;
+  }
+};
+
+const uploadVideoChunk = (
+  uploadUrl: string,
+  signature: {
+    timestamp: number;
+    folder: string;
+    type: string;
+    apiKey: string;
+    signature: string;
+  },
+  file: File,
+  uploadId: string,
+  start: number,
+  endExclusive: number,
+  onProgress?: UploadProgressHandler,
+  signal?: AbortSignal,
+) =>
+  new Promise<CloudinaryUploadPayload>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    const handleAbort = () => request.abort();
+    const cleanup = () => signal?.removeEventListener("abort", handleAbort);
+    const chunk = file.slice(start, endExclusive, file.type);
+    const form = new FormData();
+    form.append("file", chunk, file.name);
+    form.append("api_key", signature.apiKey);
+    form.append("timestamp", String(signature.timestamp));
+    form.append("folder", signature.folder);
+    form.append("type", signature.type);
+    form.append("signature", signature.signature);
+
+    request.open("POST", uploadUrl);
+    request.timeout = 2 * 60 * 1_000;
+    request.setRequestHeader("X-Unique-Upload-Id", uploadId);
+    request.setRequestHeader(
+      "Content-Range",
+      `bytes ${start}-${endExclusive - 1}/${file.size}`,
+    );
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const loadedBytes = Math.min(file.size, start + event.loaded);
+      onProgress?.(
+        Math.min(100, Math.floor((loadedBytes / file.size) * 100)),
+        loadedBytes,
+        file.size,
+      );
+    };
+    request.onload = () => {
+      cleanup();
+      const payload = parseCloudinaryResponse(request);
+      if (request.status >= 200 && request.status < 300) {
+        resolve(payload ?? {});
+        return;
+      }
+      const message = payload?.error?.message || "Video upload failed";
+      if (
+        request.status === 408 ||
+        request.status === 420 ||
+        request.status === 429 ||
+        request.status >= 500
+      ) {
+        reject(new RetryableUploadError(message));
+        return;
+      }
+      reject(new Error(message));
+    };
+    request.onerror = () => {
+      cleanup();
+      reject(new RetryableUploadError("Video upload connection was interrupted"));
+    };
+    request.ontimeout = () => {
+      cleanup();
+      reject(new RetryableUploadError("Video upload timed out"));
+    };
+    request.onabort = () => {
+      cleanup();
+      reject(abortError());
+    };
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+    request.send(form);
+  });
+
+const uploadVideoInChunks = async (
+  uploadUrl: string,
+  signature: {
+    timestamp: number;
+    folder: string;
+    type: string;
+    apiKey: string;
+    signature: string;
+  },
+  file: File,
+  onProgress?: UploadProgressHandler,
+  signal?: AbortSignal,
+) => {
+  const uploadId =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  let providerAssetId = "";
+
+  for (let start = 0; start < file.size; start += VIDEO_CHUNK_SIZE) {
+    const endExclusive = Math.min(file.size, start + VIDEO_CHUNK_SIZE);
+    let payload: CloudinaryUploadPayload | null = null;
+
+    for (
+      let attempt = 0;
+      attempt <= VIDEO_CHUNK_RETRY_DELAYS_MS.length;
+      attempt += 1
+    ) {
+      try {
+        payload = await uploadVideoChunk(
+          uploadUrl,
+          signature,
+          file,
+          uploadId,
+          start,
+          endExclusive,
+          onProgress,
+          signal,
+        );
+        break;
+      } catch (caught) {
+        if (caught instanceof DOMException && caught.name === "AbortError") {
+          throw caught;
+        }
+        if (
+          !(caught instanceof RetryableUploadError) ||
+          attempt === VIDEO_CHUNK_RETRY_DELAYS_MS.length
+        ) {
+          throw caught;
+        }
+        onProgress?.(
+          Math.floor((start / file.size) * 100),
+          start,
+          file.size,
+        );
+        await waitForUploadRetry(
+          VIDEO_CHUNK_RETRY_DELAYS_MS[attempt],
+          signal,
+        );
+      }
+    }
+
+    if (!payload) throw new Error("Video upload could not complete");
+    if (payload.public_id) providerAssetId = payload.public_id;
+    onProgress?.(
+      Math.min(100, Math.floor((endExclusive / file.size) * 100)),
+      endExclusive,
+      file.size,
+    );
+  }
+
+  if (!providerAssetId) {
+    throw new Error("Media storage returned no asset ID");
+  }
+  onProgress?.(100, file.size, file.size);
+  return providerAssetId;
+};
 
 export type CommunityVisibility = "public" | "private";
 
@@ -15,6 +220,16 @@ export type CommunityRecord = {
   postCount: number;
   status: "active" | "archived" | "deleted";
   createdAt: string;
+  canManage?: boolean;
+};
+
+export type CommunityMemberRecord = {
+  userId: string;
+  name: string;
+  email: string;
+  role: "owner" | "admin" | "moderator" | "member";
+  joinedAt: string;
+  isCurrentUser: boolean;
 };
 
 export type CommunityMedia = {
@@ -93,6 +308,17 @@ export type CommunityComment = {
   body: string;
   createdAt: string;
   author: { id: string; name: string; email: string } | null;
+  canDelete: boolean;
+};
+
+export type Comm360Meeting = {
+  id: string;
+  roomId: string;
+  title: string;
+  description: string;
+  startTime: string;
+  organizerName: string;
+  joinUrl: string;
 };
 
 export type CreateCommunityInput = {
@@ -107,6 +333,7 @@ export type CreatePostInput = {
   body: string;
   mode: "text" | "image" | "video" | "poll";
   file?: File | null;
+  providerAssetId?: string | null;
   onUploadProgress?: (
     percentage: number,
     loadedBytes: number,
@@ -243,6 +470,105 @@ export async function createCommunity(
 }
 // T: O(f) and S: O(f), where f is the invited friends
 
+export async function updateCommunity(
+  communityId: string,
+  input: Partial<{
+    name: string;
+    description: string;
+    visibility: CommunityVisibility;
+    joinPolicy: "open" | "invite_only";
+  }>,
+): Promise<CommunityRecord> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not update community");
+  }
+  return response.json() as Promise<CommunityRecord>;
+}
+// T: O(1) network request and S: O(1)
+
+export async function listCommunityMembers(
+  communityId: string,
+): Promise<CommunityMemberRecord[]> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/members`,
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not load community members");
+  }
+  return response.json() as Promise<CommunityMemberRecord[]>;
+}
+// T: O(m) and S: O(m), where m is returned members
+
+export async function addCommunityMember(
+  communityId: string,
+  userId: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/members`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not add community member");
+  }
+}
+// T: O(1) network request and S: O(1)
+
+export async function updateCommunityMemberRole(
+  communityId: string,
+  memberUserId: string,
+  role: "owner" | "member",
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/members/${memberUserId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not update member role");
+  }
+}
+// T: O(1) network request and S: O(1)
+
+export async function removeCommunityMember(
+  communityId: string,
+  memberUserId: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/members/${memberUserId}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not remove community member");
+  }
+}
+// T: O(1) network request and S: O(1)
+
+export async function deleteCommunity(communityId: string): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not delete community");
+  }
+}
+// T: O(1) network request and S: O(1)
+
 export async function joinCommunity(communityId: string): Promise<void> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/communities/${communityId}/join`,
@@ -290,7 +616,7 @@ export async function acceptCommunityInvite(token: string): Promise<void> {
 }
 // T: O(t) and S: O(t), where t is the invite token length
 
-async function uploadMedia(
+export async function uploadCommunityMedia(
   file: File,
   resourceType: "image" | "video",
   onProgress?: (
@@ -298,6 +624,7 @@ async function uploadMedia(
     loadedBytes: number,
     totalBytes: number,
   ) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const acceptedExtensions =
@@ -348,8 +675,20 @@ async function uploadMedia(
   form.append("signature", signature.signature);
   const uploadUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/${resourceType}/upload`;
 
+  if (resourceType === "video") {
+    return uploadVideoInChunks(
+      uploadUrl,
+      signature,
+      file,
+      onProgress,
+      signal,
+    );
+  }
+
   return new Promise<string>((resolve, reject) => {
     const request = new XMLHttpRequest();
+    const cleanup = () => signal?.removeEventListener("abort", handleAbort);
+    const handleAbort = () => request.abort();
     request.open("POST", uploadUrl);
     request.timeout = 5 * 60 * 1_000;
     request.upload.onprogress = (event) => {
@@ -361,6 +700,7 @@ async function uploadMedia(
       );
     };
     request.onload = () => {
+      cleanup();
       const payload = (() => {
         try {
           return JSON.parse(request.responseText) as {
@@ -374,8 +714,7 @@ async function uploadMedia(
       if (request.status < 200 || request.status >= 300) {
         reject(
           new Error(
-            payload?.error?.message ||
-              `${resourceType === "video" ? "Video" : "Image"} upload failed`,
+            payload?.error?.message || "Image upload failed",
           ),
         );
         return;
@@ -387,24 +726,29 @@ async function uploadMedia(
       onProgress?.(100, file.size, file.size);
       resolve(payload.public_id);
     };
-    request.onerror = () =>
+    request.onerror = () => {
+      cleanup();
       reject(
         new Error(
-          `${resourceType === "video" ? "Video" : "Image"} upload could not complete. Check your connection and try again.`,
+          "Image upload could not complete. Check your connection and try again.",
         ),
       );
-    request.ontimeout = () =>
+    };
+    request.ontimeout = () => {
+      cleanup();
       reject(
-        new Error(
-          `${resourceType === "video" ? "Video" : "Image"} upload timed out. Please try again.`,
-        ),
+        new Error("Image upload timed out. Please try again."),
       );
-    request.onabort = () =>
-      reject(
-        new Error(
-          `${resourceType === "video" ? "Video" : "Image"} upload was cancelled`,
-        ),
-      );
+    };
+    request.onabort = () => {
+      cleanup();
+      reject(new DOMException("Media upload was cancelled", "AbortError"));
+    };
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
     request.send(form);
   });
 }
@@ -413,9 +757,13 @@ async function uploadMedia(
 export async function createPost(
   input: CreatePostInput,
 ): Promise<CommunityPostRecord> {
-  let providerAssetId: string | null = null;
-  if ((input.mode === "image" || input.mode === "video") && input.file) {
-    providerAssetId = await uploadMedia(
+  let providerAssetId = input.providerAssetId ?? null;
+  if (
+    !providerAssetId &&
+    (input.mode === "image" || input.mode === "video") &&
+    input.file
+  ) {
+    providerAssetId = await uploadCommunityMedia(
       input.file,
       input.mode,
       input.onUploadProgress,
@@ -538,7 +886,7 @@ export async function removeFriend(friendId: string): Promise<void> {
 export async function createComment(
   postId: string,
   body: string,
-): Promise<void> {
+): Promise<{ id: string; createdAt: string }> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/v1/posts/${postId}/comments`,
     {
@@ -548,6 +896,7 @@ export async function createComment(
     },
   );
   if (!response.ok) throw await readError(response, "Could not add reply");
+  return response.json() as Promise<{ id: string; createdAt: string }>;
 }
 // T: O(c) and S: O(c), where c is the comment length
 
@@ -562,6 +911,31 @@ export async function listComments(
   return page.items;
 }
 // T: O(c) and S: O(c), where c is the returned comments
+
+export async function deleteComment(
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/posts/${postId}/comments/${commentId}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) throw await readError(response, "Could not delete comment");
+}
+// T: O(1) network request and S: O(1)
+
+export async function getComm360Meeting(
+  roomId: string,
+): Promise<Comm360Meeting> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/comm360/meetings/${encodeURIComponent(roomId)}`,
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not load Comm360 meeting");
+  }
+  return response.json() as Promise<Comm360Meeting>;
+}
+// T: O(1) network request and S: O(1)
 
 export async function votePoll(
   pollId: string,

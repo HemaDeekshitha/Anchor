@@ -13,7 +13,8 @@ import { RagTask } from '../rag/rag-task.entity';
 export type PointsEntryType =
   | 'task_earned'
   | 'converted_to_360'
-  | 'streak_reward';
+  | 'streak_reward'
+  | 'pending_overflow_penalty';
 
 /**
  * Ledger-style table that records every point transaction for a user.
@@ -25,6 +26,7 @@ export type PointsEntryType =
  * Entry types:
  *  - task_earned      → +25  (one task completed & approved)
  *  - converted_to_360 → -100 (redeemed for 1 "360 Point")
+ *  - pending_overflow_penalty → -50 (more than 25 overdue questions)
  */
 @Entity('user_points_ledger')
 @Index(['user_id', 'task_id']) // fast duplicate-earn check
@@ -57,14 +59,20 @@ export class UserPointsLedger {
   /**
    * Signed integer:
    *  +25  for task_earned
-   *  -500 for converted_to_360
+   *  -100 for converted_to_360
+   *  -50  for pending_overflow_penalty
    */
   @Column({ type: 'int' })
   amount: number;
 
   @Column({
     type: 'enum',
-    enum: ['task_earned', 'converted_to_360', 'streak_reward'],
+    enum: [
+      'task_earned',
+      'converted_to_360',
+      'streak_reward',
+      'pending_overflow_penalty',
+    ],
   })
   type: PointsEntryType;
 

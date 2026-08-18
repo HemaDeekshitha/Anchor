@@ -10,9 +10,8 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Divider,
 } from "@mui/material";
-import { Zap, Trophy, Flame, CheckCircle, Clock, Lock, ChevronDown, ChevronUp, Star } from "lucide-react";
+import { Zap, Trophy, Flame, CheckCircle, Lock, Star } from "lucide-react";
 import { api, PointsSummary, PointsEntry } from "@/lib/api";
 import { FONT } from "@/lib/typography";
 import { SPACE } from "@/lib/spacing";
@@ -123,10 +122,6 @@ function computeStats(history: PointsEntry[], points360: number): UserStats {
   }
 
   return { totalTasks, totalApEarned, currentStreak, bestStreak, points360 };
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -251,7 +246,6 @@ export default function RewardsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
-  const [activityOpen, setActivityOpen] = useState(false);
 
   const fetchPoints = useCallback(async () => {
     try {
@@ -486,152 +480,6 @@ export default function RewardsPage() {
               <BadgeCard key={badge.id} badge={badge} stats={stats} />
             ))}
           </Box>
-        </CardContent>
-      </Card>
-
-      {/* ── Recent Activity ── */}
-      <Card sx={{ boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: "1px solid #e8ddd0", background: "#ffffff", borderRadius: 3 }}>
-        <CardContent sx={{ padding: { xs: 2,  md: 2.5, lg:3 }, pb: activityOpen ? undefined : "16px !important" }}>
-          <Box
-            onClick={() => setActivityOpen((v) => !v)}
-            sx={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              cursor: "pointer", userSelect: "none",
-              mb: activityOpen ? 2 : 0,
-            }}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
-              Recent Activity
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {history.length > 0 && (
-                <Chip
-                  label={`${history.length} entries`}
-                  size="small"
-                  sx={{ fontSize: "clamp(10px,0.8vw,12px)", height: 20, bgcolor: "#f5ede0", color: "#8c6a50", border: "1px solid #e8ddd0" }}
-                />
-              )}
-              {activityOpen
-                ? <ChevronUp size={18} color="#8c6a50" />
-                : <ChevronDown size={18} color="#8c6a50" />}
-            </Box>
-          </Box>
-
-          {activityOpen && history.length === 0 && (
-            <Box sx={{ textAlign: "center", py: 5 }}>
-              <Typography sx={{ fontSize: "2.5rem", mb: 1 }}>⚡</Typography>
-              <Typography variant="body2" sx={{ color: "#8c6a50" }}>No activity yet.</Typography>
-              <Typography variant="caption" sx={{ color: "#b8a090" }}>
-                Complete tasks to earn Anchor Points!
-              </Typography>
-            </Box>
-          )}
-
-          {activityOpen && history.length > 0 && (() => {
-            const earned = history.filter((e) => e.type === "task_earned").slice(0, 20);
-            const redeemed = history.filter((e) => e.type === "converted_to_360").slice(0, 20);
-
-            const EntryRow = ({ entry }: { entry: PointsEntry }) => (
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-                  <Box sx={{
-                    width: "clamp(30px,2vw,40px)", height: "clamp(30px,2vw,40px)", borderRadius: "50%",
-                    bgcolor: entry.type === "task_earned" ? "#f5ede0" : "#ede8e0",
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  }}>
-                    {entry.type === "task_earned"
-                      ? <Zap size={14} color="#b87444" fill="#b87444" />
-                      : <Trophy size={14} color="#8c6a50" />}
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 600, display: "block", color: "#2c1a0a", lineHeight: 1.3 }}>
-                      {entry.type === "task_earned" ? "Task completed" : "Redeemed"}
-                    </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
-                      <Clock size={10} color="#b8a090" />
-                      <Typography variant="caption" sx={{ color: "#b8a090", fontSize: "clamp(10px,0.8vw,12px)" }}>
-                        {formatDate(entry.createdAt)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-                <Chip
-                  label={`${entry.amount > 0 ? "+" : ""}${entry.amount} AP`}
-                  size="small"
-                  sx={{
-                    fontWeight: 700, fontSize: FONT.sm, height: 22,
-                    bgcolor: entry.amount > 0 ? "#f5ede0" : "#fef2f2",
-                    color: entry.amount > 0 ? "#b87444" : "#a0622e",
-                    border: `1px solid ${entry.amount > 0 ? "#e8ddd0" : "#fca5a5"}`,
-                  }}
-                />
-              </Box>
-            );
-
-            const Column = ({
-              title, icon, entries, 
-              emptyMsg, accentColor, bgColor,
-            }: {
-              title: string;
-              icon: React.ReactNode;
-              entries: PointsEntry[];
-              emptyMsg: string;
-              accentColor: string;
-              bgColor: string;
-            }) => (
-              <Box sx={{ flex: 1, minWidth: 0, border: "1px solid #e8ddd0", borderRadius: 2, overflow: "hidden" }}>
-                <Box sx={{
-                  display: "flex", alignItems: "center", gap: 0.75,
-                  px: {xs:1.5, md:2} ,py: {xs:1, md: 1.25}, bgcolor: bgColor, borderBottom: "1px solid #e8ddd0",
-                }}>
-                  {icon}
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: accentColor }}>
-                    {title}
-                  </Typography>
-                  <Chip
-                    label={entries.length}
-                    size="small"
-                    sx={{ ml: "auto", height: 18, fontSize: "clamp(10px,0.8vw,12px)", bgcolor: "rgba(44,26,10,0.06)", color: accentColor, fontWeight: 700 }}
-                  />
-                </Box>
-                {entries.length === 0 ? (
-                  <Box sx={{ py: 3, textAlign: "center" }}>
-                    <Typography variant="caption" sx={{ color: "#b8a090" }}>{emptyMsg}</Typography>
-                  </Box>
-                ) : (
-                  <Box sx={{ px:{ xs: 1.5, md: 2,}, maxHeight: 260, overflowY: "auto" }}>
-                    {entries.map((entry, i) => (
-                      <Box key={entry.id}>
-                        <EntryRow entry={entry} />
-                        {i < entries.length - 1 && <Divider sx={{ opacity: 0.4, borderColor: "#e8ddd0" }} />}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </Box>
-            );
-
-            return (
-              <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
-                <Column
-                  title="Anchor Points Earned"
-                  icon={<Zap size={13} color="#b87444" fill="#b87444" />}
-                  entries={earned}
-                  emptyMsg="No points earned yet"
-                  accentColor="#b87444"
-                  bgColor="#fdfaf7"
-                />
-                <Column
-                  title="360 Points Redeemed"
-                  icon={<Trophy size={13} color="#8c6a50" />}
-                  entries={redeemed}
-                  emptyMsg="No redemptions yet"
-                  accentColor="#8c6a50"
-                  bgColor="#fdfaf7"
-                />
-              </Box>
-            );
-          })()}
         </CardContent>
       </Card>
 

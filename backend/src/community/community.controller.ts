@@ -14,6 +14,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { CommunityService } from './community.service';
 import {
+  AddCommunityMemberDto,
   AcceptInviteDto,
   CreateCommentDto,
   CreateCommunityDto,
@@ -24,6 +25,8 @@ import {
   ResolveFriendRequestDto,
   SearchPeopleQueryDto,
   SendFriendRequestDto,
+  UpdateCommunityDto,
+  UpdateCommunityMemberDto,
   UpdatePostDto,
   VotePollDto,
   VotePostDto,
@@ -62,6 +65,94 @@ export class CommunityController {
   }
   // T: O(l log C) and S: O(l), where l is page size
 
+  @Patch('communities/:communityId')
+  @DistributedRateLimit(20, 60)
+  updateCommunity(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+    @Body() dto: UpdateCommunityDto,
+  ) {
+    return this.communityService.updateCommunity(
+      this.userId(request),
+      communityId,
+      dto,
+    );
+  }
+  // T: O(log C) and S: O(1)
+
+  @Delete('communities/:communityId')
+  @DistributedRateLimit(10, 60)
+  deleteCommunity(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+  ) {
+    return this.communityService.deleteCommunity(
+      this.userId(request),
+      communityId,
+    );
+  }
+  // T: O(log C) and S: O(1)
+
+  @Post('communities/:communityId/members')
+  @DistributedRateLimit(20, 60)
+  addCommunityMember(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+    @Body() dto: AddCommunityMemberDto,
+  ) {
+    return this.communityService.addCommunityMember(
+      this.userId(request),
+      communityId,
+      dto.userId,
+    );
+  }
+  // T: O(log F + log M) and S: O(1)
+
+  @Get('communities/:communityId/members')
+  @DistributedRateLimit(60, 60)
+  listCommunityMembers(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+  ) {
+    return this.communityService.listCommunityMembers(
+      this.userId(request),
+      communityId,
+    );
+  }
+  // T: O(m log M) and S: O(m)
+
+  @Patch('communities/:communityId/members/:memberUserId')
+  @DistributedRateLimit(20, 60)
+  updateCommunityMember(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+    @Param('memberUserId') memberUserId: string,
+    @Body() dto: UpdateCommunityMemberDto,
+  ) {
+    return this.communityService.updateCommunityMemberRole(
+      this.userId(request),
+      communityId,
+      memberUserId,
+      dto.role,
+    );
+  }
+  // T: O(log M) and S: O(1)
+
+  @Delete('communities/:communityId/members/:memberUserId')
+  @DistributedRateLimit(20, 60)
+  removeCommunityMember(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+    @Param('memberUserId') memberUserId: string,
+  ) {
+    return this.communityService.removeCommunityMember(
+      this.userId(request),
+      communityId,
+      memberUserId,
+    );
+  }
+  // T: O(log M) and S: O(1)
+
   @Get('communities/:communityId')
   @DistributedRateLimit(120, 60)
   getCommunity(
@@ -74,6 +165,13 @@ export class CommunityController {
     );
   }
   // T: O(log C + log M) and S: O(1)
+
+  @Get('comm360/meetings/:roomId')
+  @DistributedRateLimit(60, 60)
+  getComm360Meeting(@Param('roomId') roomId: string) {
+    return this.communityService.getComm360Meeting(roomId);
+  }
+  // T: O(1) network request and S: O(1)
 
   @Post('communities/:communityId/join')
   @DistributedRateLimit(20, 60)
@@ -232,6 +330,21 @@ export class CommunityController {
     );
   }
   // T: O(l) and S: O(l), where l is the page size
+
+  @Delete('posts/:postId/comments/:commentId')
+  @DistributedRateLimit(60, 60)
+  deleteComment(
+    @Req() request: Request,
+    @Param('postId') postId: string,
+    @Param('commentId') commentId: string,
+  ) {
+    return this.communityService.deleteComment(
+      this.userId(request),
+      postId,
+      commentId,
+    );
+  }
+  // T: O(log C) and S: O(1)
 
   @Post('polls/:pollId/vote')
   @DistributedRateLimit(60, 60)
