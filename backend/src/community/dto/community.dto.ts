@@ -44,6 +44,36 @@ export class CreateCommunityDto {
   friendIds?: string[];
 }
 
+export class UpdateCommunityDto {
+  @IsOptional()
+  @IsString()
+  @Length(3, 120)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(600)
+  description?: string;
+
+  @IsOptional()
+  @IsIn(['public', 'private'])
+  visibility?: CommunityVisibility;
+
+  @IsOptional()
+  @IsIn(['open', 'approval', 'invite_only'])
+  joinPolicy?: CommunityJoinPolicy;
+}
+
+export class UpdateCommunityMemberDto {
+  @IsIn(['owner', 'member'])
+  role: 'owner' | 'member';
+}
+
+export class AddCommunityMemberDto {
+  @IsUUID()
+  userId: string;
+}
+
 export class ListQueryDto {
   @IsOptional()
   @IsIn(['joined', 'discover'])

@@ -198,45 +198,54 @@ const Dashboard = () => {
           </Box>
         ) : (
           <>
-            {/* ── HERO HEADER ── */}
-            <Box sx={{
-            mb: SPACE.md, px: { xs: 2, md:2.5, },py: { xs: 2, md: 2.5, }, borderRadius: SIZE.radius,
-              background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
-              border: "1px solid #e8ddd0",
-              boxShadow: "0 10px 30px rgba(44,26,10,0.06)",
-            }}>
-              <Box sx={{ display: "flex", flexDirection:{xs:"column", md:"row"},justifyContent:{ xs: "flex-start",md:"space-between",},alignItems:{xs:"stretch",md:"center"},  gap: {xs: 2,md: 3} }}>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1, minWidth: 0,  }}>
-                  <Typography sx={{
-                     fontSize: "clamp(1.25rem, 2vw, 2rem)", fontWeight: 800, color: "#2c1a0a",
-                    whiteSpace: "normal", overflowWrap: "anywhere",
-                    lineHeight: 1.15,
-                    fontFamily: "'Playfair Display', serif",
-                  }}>
-                    Hello,{" "}
-                    <Box component="span" sx={{ color: "#2c1a0a", fontWeight: 900 }}>
-                      {userName ? userName.split(" ").slice(-2).join(" "): "there"}
-                    </Box>{" "}👋
-                  </Typography>
-                  <Typography sx={{ fontSize: FONT.md, color: "#8c6a50", lineHeight: 1.6 }}>
-                    {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • "Keep pushing!"
-                  </Typography>
-                </Box>
-
-              </Box>
+            <Box
+              sx={{
+                mb: SPACE.md,
+                pb: SPACE.md,
+                borderBottom: "1px solid #e8ddd0",
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: "clamp(1.25rem, 2vw, 2rem)",
+                  fontWeight: 800,
+                  color: "#2c1a0a",
+                  lineHeight: 1.15,
+                  fontFamily: "'Playfair Display', serif",
+                }}
+              >
+                Hello,{" "}
+                <Box component="span" sx={{ fontWeight: 900 }}>
+                  {userName ? userName.split(" ").slice(-2).join(" ") : "there"}
+                </Box>{" "}
+                👋
+              </Typography>
+              <Typography
+                sx={{ mt: 0.5, fontSize: FONT.md, color: "#8c6a50", lineHeight: 1.6 }}
+              >
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}{" "}
+                • &quot;Keep pushing!&quot;
+              </Typography>
             </Box>
 
             {/* ── STATS CARDS ── */}
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: {xs:2,md:3}, mb: 2, alignItems: "stretch" }}>
+            <Box sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr auto 1fr" },
+              gap: { xs: 2, md: 3 },
+              mb: 2,
+              pb: { xs: 2, md: 3 },
+              borderBottom: "1px solid #e8ddd0",
+              alignItems: "stretch",
+            }}>
 
               {/* Daily Progress */}
               <CardContent sx={{
                 padding: {xs:1.75,md:2}, display: "flex", flexDirection: "column", gap: "clamp(10px,1vw,16px)",
-                background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
-                border: "1px solid #e8ddd0",
-                boxShadow: "0 12px 30px rgba(44,26,10,0.08)",
-                borderRadius: SIZE.radius,
-                "&:hover": { transform: "translateY(-4px)", boxShadow: "0 18px 40px rgba(44,26,10,0.12)" },
               }}>
                 <Typography sx={{ fontSize: FONT.sm, fontWeight: 700, color: "#b87444", letterSpacing: ".08em" }}>
                   DAILY PROGRESS
@@ -274,15 +283,22 @@ const Dashboard = () => {
                 </Box>
               </CardContent>
 
+              <Divider
+                orientation="vertical"
+                flexItem
+                sx={{ display: { xs: "none", md: "block" }, borderColor: "#e8ddd0" }}
+              />
+              <Divider
+                sx={{ display: { xs: "block", md: "none" }, borderColor: "#e8ddd0" }}
+              />
+
               {/* Pending Tasks */}
-              <Card sx={{
-                borderRadius: SIZE.radius,
+              <Card elevation={0} sx={{
                 cursor: pendingTasks.length > 0 ? "pointer" : "default",
-                background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
-                border: "1px solid #e8ddd0",
-                boxShadow: "0 12px 30px rgba(44,26,10,0.08)",
-                transition: "all .2s ease",
-                "&:hover": { transform: "translateY(-4px)", boxShadow: "0 18px 40px rgba(44,26,10,0.12)" },
+                bgcolor: "transparent",
+                boxShadow: "none",
+                border: 0,
+                borderRadius: 0,
               }}
                 onClick={() => { if (pendingTasks.length > 0) setOpenPendingModal(true); }}
               >
@@ -321,14 +337,9 @@ const Dashboard = () => {
               <section>
                 <Box sx={{
                   px: { xs: 2, md: 3}, py: { xs: 2, md: 2.5 },
-                  borderRadius: 4,
-                  background: "linear-gradient(145deg, rgba(253,250,247,.92), rgba(245,237,224,.68))",
-                  border: "1px solid #e4d5c3",
-                  boxShadow: "0 16px 42px rgba(76,48,27,0.07)",
-                }}>
+                  }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mb:2, flexWrap: "wrap", gap: 2 }}>
                   <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                    <Box sx={{ width: 4, height: 52, borderRadius: 99, bgcolor: "#b87444", mt: 0.2 }} />
                     <Box>
                     <Typography sx={{ fontSize: { xs: "1.7rem", sm: "2rem", md: "2.4rem" }, fontWeight: 800, color: "#2c1a0a", letterSpacing: "-0.025em", fontFamily: "'Playfair Display', serif", lineHeight: 1.15 }}>
                       Today&apos;s Smart Plan

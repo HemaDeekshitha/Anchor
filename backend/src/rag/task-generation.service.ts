@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { OpenAI } from 'openai';
@@ -150,6 +150,56 @@ const LEETCODE_FALLBACKS: Record<
       url: 'https://leetcode.com/problems/merge-two-sorted-lists/',
       topic: 'linked lists',
     },
+    {
+      title: 'Solve Contains Duplicate and explain the set-based trade-off.',
+      url: 'https://leetcode.com/problems/contains-duplicate/',
+      topic: 'arrays and sets',
+    },
+    {
+      title: 'Solve Valid Anagram and compare counting with sorting.',
+      url: 'https://leetcode.com/problems/valid-anagram/',
+      topic: 'strings and counting',
+    },
+    {
+      title: 'Solve Maximum Subarray and explain the running-state invariant.',
+      url: 'https://leetcode.com/problems/maximum-subarray/',
+      topic: 'dynamic programming',
+    },
+    {
+      title: 'Solve Climbing Stairs and derive the recurrence relation.',
+      url: 'https://leetcode.com/problems/climbing-stairs/',
+      topic: 'dynamic programming',
+    },
+    {
+      title: 'Solve Invert Binary Tree and compare recursive and iterative traversal.',
+      url: 'https://leetcode.com/problems/invert-binary-tree/',
+      topic: 'binary trees',
+    },
+    {
+      title: 'Solve Maximum Depth of Binary Tree and explain the traversal state.',
+      url: 'https://leetcode.com/problems/maximum-depth-of-binary-tree/',
+      topic: 'binary trees',
+    },
+    {
+      title: 'Solve Linked List Cycle and explain the fast-and-slow pointer proof.',
+      url: 'https://leetcode.com/problems/linked-list-cycle/',
+      topic: 'linked lists and two pointers',
+    },
+    {
+      title: 'Solve Majority Element and explain the Boyer-Moore invariant.',
+      url: 'https://leetcode.com/problems/majority-element/',
+      topic: 'arrays and voting',
+    },
+    {
+      title: 'Solve Flood Fill and compare breadth-first with depth-first traversal.',
+      url: 'https://leetcode.com/problems/flood-fill/',
+      topic: 'graphs and matrices',
+    },
+    {
+      title: 'Solve Palindrome Linked List and discuss the constant-space approach.',
+      url: 'https://leetcode.com/problems/palindrome-linked-list/',
+      topic: 'linked lists',
+    },
   ],
   medium: [
     {
@@ -182,6 +232,46 @@ const LEETCODE_FALLBACKS: Record<
       url: 'https://leetcode.com/problems/merge-intervals/',
       topic: 'intervals and sorting',
     },
+    {
+      title: 'Solve Product of Array Except Self and explain the prefix-suffix invariant.',
+      url: 'https://leetcode.com/problems/product-of-array-except-self/',
+      topic: 'arrays and prefix products',
+    },
+    {
+      title: 'Solve Top K Frequent Elements and compare heap and bucket approaches.',
+      url: 'https://leetcode.com/problems/top-k-frequent-elements/',
+      topic: 'heaps and buckets',
+    },
+    {
+      title: 'Solve Clone Graph and explain how the visited map preserves identity.',
+      url: 'https://leetcode.com/problems/clone-graph/',
+      topic: 'graphs',
+    },
+    {
+      title: 'Solve Kth Smallest Element in a BST and explain the ordering property.',
+      url: 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/',
+      topic: 'binary search trees',
+    },
+    {
+      title: 'Solve Daily Temperatures and explain the monotonic-stack invariant.',
+      url: 'https://leetcode.com/problems/daily-temperatures/',
+      topic: 'monotonic stacks',
+    },
+    {
+      title: 'Solve Rotting Oranges and explain multi-source breadth-first search.',
+      url: 'https://leetcode.com/problems/rotting-oranges/',
+      topic: 'breadth-first search',
+    },
+    {
+      title: 'Solve Search in Rotated Sorted Array and derive the binary-search cases.',
+      url: 'https://leetcode.com/problems/search-in-rotated-sorted-array/',
+      topic: 'binary search',
+    },
+    {
+      title: 'Solve Coin Change and justify the dynamic-programming state.',
+      url: 'https://leetcode.com/problems/coin-change/',
+      topic: 'dynamic programming',
+    },
   ],
   hard: [
     {
@@ -213,6 +303,46 @@ const LEETCODE_FALLBACKS: Record<
         'Solve Median of Two Sorted Arrays and explain the partition invariant.',
       url: 'https://leetcode.com/problems/median-of-two-sorted-arrays/',
       topic: 'binary search and partitioning',
+    },
+    {
+      title: 'Solve Largest Rectangle in Histogram and explain the monotonic stack.',
+      url: 'https://leetcode.com/problems/largest-rectangle-in-histogram/',
+      topic: 'monotonic stacks',
+    },
+    {
+      title: 'Solve Serialize and Deserialize Binary Tree and define the encoding invariant.',
+      url: 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/',
+      topic: 'trees and serialization',
+    },
+    {
+      title: 'Solve Binary Tree Maximum Path Sum and explain the returned subtree state.',
+      url: 'https://leetcode.com/problems/binary-tree-maximum-path-sum/',
+      topic: 'trees and dynamic programming',
+    },
+    {
+      title: 'Solve Sliding Window Maximum and explain the monotonic deque invariant.',
+      url: 'https://leetcode.com/problems/sliding-window-maximum/',
+      topic: 'queues and sliding windows',
+    },
+    {
+      title: 'Solve Edit Distance and derive the two-dimensional recurrence.',
+      url: 'https://leetcode.com/problems/edit-distance/',
+      topic: 'dynamic programming',
+    },
+    {
+      title: 'Solve N-Queens and explain the pruning state used by backtracking.',
+      url: 'https://leetcode.com/problems/n-queens/',
+      topic: 'backtracking',
+    },
+    {
+      title: 'Solve Alien Dictionary and explain how ordering constraints form a graph.',
+      url: 'https://leetcode.com/problems/alien-dictionary/',
+      topic: 'graphs and topological sorting',
+    },
+    {
+      title: 'Solve Regular Expression Matching and define the dynamic-programming state.',
+      url: 'https://leetcode.com/problems/regular-expression-matching/',
+      topic: 'dynamic programming and strings',
     },
   ],
 };
@@ -402,7 +532,8 @@ export class TaskGenerationService {
     const seenRows = await this.userSeenTaskRepo.find({
       where: { user_id: userId },
     });
-    const seenKeys = new Set(seenRows.map((r) => r.title_key));
+    const previouslySeenKeys = new Set(seenRows.map((r) => r.title_key));
+    const seenKeys = new Set(previouslySeenKeys);
     const seenTitles = seenRows.map((r) => r.title_key);
     const softwareRole = this.isSoftwareRole(role);
     const roleBlueprint = getRoleBlueprint(role);
@@ -655,6 +786,7 @@ export class TaskGenerationService {
       softwareRole,
       seenLeetcodeUrls,
       [...requiredDailyCategories],
+      previouslySeenKeys,
     );
 
     const toSave = fresh.map((t) =>
@@ -679,23 +811,37 @@ export class TaskGenerationService {
       }),
     );
 
-    const saved = await this.ragTaskRepo.save(toSave);
+    const titleKeys = fresh.map((task) => this.normaliseTitle(task.title));
+    const saved = await this.ragTaskRepo.manager.transaction(async (manager) => {
+      // Serialize task generation per user across backend instances. Without
+      // this lock, two requests could both pass the seen check and persist the
+      // same title under different task IDs.
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `task-generation:${userId}`,
+      ]);
 
-    const seenEntries = saved.map((task) =>
-      this.userSeenTaskRepo.create({
-        user_id: userId,
-        task_id: task.id,
-        title_key: this.normaliseTitle(task.title),
-      }),
-    );
+      const conflicts = await manager.getRepository(UserSeenTask).find({
+        where: { user_id: userId, title_key: In(titleKeys) },
+        select: ['title_key'],
+      });
+      if (conflicts.length > 0) {
+        throw new Error(
+          `Refusing to persist previously seen task(s): ${conflicts
+            .map((row) => row.title_key)
+            .join(', ')}`,
+        );
+      }
 
-    await this.userSeenTaskRepo
-      .createQueryBuilder()
-      .insert()
-      .into(UserSeenTask)
-      .values(seenEntries)
-      .orIgnore()
-      .execute();
+      const persisted = await manager.getRepository(RagTask).save(toSave);
+      await manager.getRepository(UserSeenTask).insert(
+        persisted.map((task) => ({
+          user_id: userId,
+          task_id: task.id,
+          title_key: this.normaliseTitle(task.title),
+        })),
+      );
+      return persisted;
+    });
 
     this.logger.log(
       `Saved ${saved.length} tasks for user ${userId} (mix: easy=${mix.easy} med=${mix.medium} hard=${mix.hard})`,
@@ -722,7 +868,17 @@ export class TaskGenerationService {
     softwareRole: boolean,
     seenLeetcodeUrls: Set<string>,
     requiredCategories: string[],
+    previouslySeenKeys: Set<string>,
   ): void {
+    const titleKeys = tasks.map((task) => this.normaliseTitle(task.title));
+    if (
+      new Set(titleKeys).size !== titleKeys.length ||
+      titleKeys.some((titleKey) => previouslySeenKeys.has(titleKey))
+    ) {
+      throw new Error(
+        'Daily Smart Plan contains a duplicate or previously seen question',
+      );
+    }
     const categories = tasks.map((task) =>
       this.normaliseCategory(task.category),
     );
@@ -760,6 +916,17 @@ export class TaskGenerationService {
         mix.total < requiredCategories.length ||
         requiredCategories.some((category) => !categories.includes(category))
       ) {
+        this.logger.error(
+          `Invalid software plan details: ${JSON.stringify({
+            categories,
+            requiredCategories,
+            leetcodeCount: leetcodeUrls.length,
+            leetcodeCategory: leetcodeTasks[0]?.category ?? null,
+            leetcodeDifficulty: leetcodeTasks[0]?.difficulty ?? null,
+            requiredLeetcodeDifficulty: this.leetcodeDifficulty(mix),
+            titles: tasks.map((task) => task.title),
+          })}`,
+        );
         throw new Error(
           'Software-role plans require LeetCode, system design, behavioral, and resume deep-dive lanes',
         );
@@ -808,14 +975,8 @@ export class TaskGenerationService {
         (candidate) =>
           !seenUrls.has(candidate.url) &&
           !seenTitles.has(this.normaliseTitle(candidate.title)),
-      ) ?? candidates[seenUrls.size % candidates.length];
+      ) ?? null;
     if (!problem) return null;
-
-    if (seenUrls.has(problem.url)) {
-      this.logger.warn(
-        `Reusing a curated ${difficulty} LeetCode fallback because every offline option has already been seen.`,
-      );
-    }
 
     return {
       title: problem.title,
@@ -1007,7 +1168,6 @@ export class TaskGenerationService {
       preference: Diff[],
       description: string,
       sourceResumePoint: string | null = null,
-      allowPreviouslySeen = false,
     ) => {
       if (output.length >= needed) return;
       const categoryKey = this.normaliseCategory(category);
@@ -1016,7 +1176,7 @@ export class TaskGenerationService {
       if (
         !difficulty ||
         usedCategories.has(categoryKey) ||
-        (!allowPreviouslySeen && seenKeys.has(titleKey))
+        seenKeys.has(titleKey)
       ) {
         return;
       }
@@ -1041,37 +1201,47 @@ export class TaskGenerationService {
     };
 
     if (!usedCategories.has(this.normaliseCategory('System Design'))) {
-      const unseenTitle = SYSTEM_DESIGN_FALLBACKS.find(
+      const contextualSystemDesign = skills.slice(0, 8).flatMap((skill) => [
+        `Design a production service centered on ${skill}. Which requirements and scale assumptions would you clarify, how would you define its APIs and data model, and how would you handle bottlenecks, failures, and observability?`,
+        `A system using ${skill} is missing its reliability target. How would you establish the failure model, redesign the critical path, choose consistency and recovery guarantees, and validate the result under load?`,
+      ]);
+      const unseenTitle = [
+        ...SYSTEM_DESIGN_FALLBACKS,
+        ...contextualSystemDesign,
+      ].find(
         (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
       );
-      const title = unseenTitle ?? SYSTEM_DESIGN_FALLBACKS[0];
-      if (title) {
+      if (unseenTitle) {
         addTask(
           'System Design',
-          title,
+          unseenTitle,
           'system design delivery framework and trade-offs',
           ['hard', 'medium', 'easy'],
           'A strong answer should clarify requirements and constraints first, estimate scale where relevant, define APIs and data models, explain the high-level design, identify bottlenecks, and defend trade-offs.',
           null,
-          !unseenTitle,
         );
       }
     }
 
     if (!usedCategories.has(this.normaliseCategory('Behavioral'))) {
-      const unseenTitle = BEHAVIORAL_FALLBACKS.find(
+      const contextualBehavioral = skills.slice(0, 8).flatMap((skill) => [
+        `Tell me about a time your work involving ${skill} did not go as planned. How did you identify the problem, communicate it, take ownership, and change your approach afterward?`,
+        `Tell me about a difficult trade-off you made while working with ${skill}. Which evidence and stakeholders shaped the decision, what did you personally own, and what was the measurable outcome?`,
+      ]);
+      const unseenTitle = [
+        ...BEHAVIORAL_FALLBACKS,
+        ...contextualBehavioral,
+      ].find(
         (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
       );
-      const title = unseenTitle ?? BEHAVIORAL_FALLBACKS[0];
-      if (title) {
+      if (unseenTitle) {
         addTask(
           'Behavioral',
-          title,
+          unseenTitle,
           'behavioral evidence using STAR',
           ['easy', 'medium', 'hard'],
           'Use a specific STAR example. Make personal ownership, decisions, communication, measurable outcome, and learning explicit.',
           null,
-          !unseenTitle,
         );
       }
     }
@@ -1080,56 +1250,58 @@ export class TaskGenerationService {
       !usedCategories.has(this.normaliseCategory('Resume & Project Deep-Dive'))
     ) {
       const evidencePoints = this.resumeEvidencePoints(profile);
-      const resumeCandidates = evidencePoints.flatMap((point) => [
-        `Your resume states, "${point}". What was the baseline, what did you personally change, how was the result measured, and what trade-offs did you make?`,
-        `Regarding "${point}", what did you personally own, what was the hardest failure mode, and what evidence proved the solution worked?`,
-      ]);
-      if (resumeCandidates.length === 0 && skills.length > 0) {
-        resumeCandidates.push(
-          `Choose the project on your resume that best demonstrates ${skills[0]}. What did you personally build, why did you choose that approach, how did you validate it, and what would you redesign now?`,
-        );
-      }
-      if (resumeCandidates.length === 0) {
-        const role =
-          profile?.dedicatedRole?.trim() ||
-          profile?.preferredRole?.[0]?.trim() ||
-          'your target role';
-        resumeCandidates.push(
-          `Which project best demonstrates your readiness for ${role}? Walk through the problem, your personal ownership, the implementation choices, the measurable result, and what you would improve now?`,
-        );
-      }
+      const resumeCandidates = evidencePoints.flatMap((point) =>
+        this.resumeQuestionCandidates(point),
+      );
+      const role =
+        profile?.dedicatedRole?.trim() ||
+        profile?.preferredRole?.[0]?.trim() ||
+        'your target role';
+      resumeCandidates.push(
+        ...this.experienceFallbackCandidates(role, skills),
+      );
       const unseenTitle = resumeCandidates.find(
         (candidate) =>
           candidate.length <= 260 &&
           !seenKeys.has(this.normaliseTitle(candidate)),
       );
-      const title =
-        unseenTitle ??
-        resumeCandidates.find((candidate) => candidate.length <= 260);
-      if (title) {
+      if (unseenTitle) {
         const sourceResumePoint =
-          evidencePoints.find((point) => title.includes(point)) ?? null;
+          evidencePoints.find((point) => unseenTitle.includes(point)) ?? null;
         addTask(
           'Resume & Project Deep-Dive',
-          title,
+          unseenTitle,
           sourceResumePoint ?? skills[0] ?? 'resume project',
           ['medium', 'hard', 'easy'],
           'A strong answer must defend the stated resume evidence with a baseline, personal contribution, technical choices, alternatives considered, measurement method, result, and lessons learned.',
           sourceResumePoint,
-          !unseenTitle,
         );
       }
     }
 
-    for (const candidate of SOFTWARE_CORE_FALLBACKS) {
-      if (output.length >= needed) break;
-      addTask(
-        candidate.category,
-        candidate.title,
-        candidate.anchor,
-        ['medium', 'easy', 'hard'],
-        'A strong answer should form a concrete diagnosis or design, compare realistic alternatives, identify failure modes, and state how the decision would be validated in production.',
-      );
+    const mandatorySoftwareCategories = [
+      'System Design',
+      'Behavioral',
+      'Resume & Project Deep-Dive',
+    ].map((category) => this.normaliseCategory(category));
+    const hasEveryMandatorySoftwareCategory = mandatorySoftwareCategories.every(
+      (category) => usedCategories.has(category),
+    );
+
+    // Supplemental engineering topics are valid only after every mandatory
+    // interview lane is present. They must never silently replace a missing
+    // behavioral, system-design, or experience question.
+    if (hasEveryMandatorySoftwareCategory) {
+      for (const candidate of SOFTWARE_CORE_FALLBACKS) {
+        if (output.length >= needed) break;
+        addTask(
+          candidate.category,
+          candidate.title,
+          candidate.anchor,
+          ['medium', 'easy', 'hard'],
+          'A strong answer should form a concrete diagnosis or design, compare realistic alternatives, identify failure modes, and state how the decision would be validated in production.',
+        );
+      }
     }
 
     if (output.length > 0) {
@@ -1165,11 +1337,16 @@ export class TaskGenerationService {
       hard: Math.max(0, mix.hard - accepted.hard),
     };
     const resumePoints = this.resumeEvidencePoints(profile);
+    const competencyAnchors = blueprint.competencies.map((competency) =>
+      blueprint.slug === 'career-interview'
+        ? `${role} ${competency.name.toLowerCase()}`
+        : competency.name,
+    );
     const anchors = [
       ...(curriculum?.focus ?? []),
       ...(profile?.resumeKeywords ?? []),
+      ...competencyAnchors,
       ...skills,
-      ...blueprint.competencies.map((competency) => competency.name),
     ].filter(Boolean);
 
     const nextDifficulty = (preference: Diff[]) =>
@@ -1181,7 +1358,6 @@ export class TaskGenerationService {
       anchor: string,
       preference: Diff[],
       sourceResumePoint: string | null = null,
-      allowPreviouslySeen = false,
     ) => {
       const difficulty = nextDifficulty(preference);
       const categoryKey = this.normaliseCategory(lane.category);
@@ -1189,7 +1365,7 @@ export class TaskGenerationService {
       if (
         !difficulty ||
         title.length > 260 ||
-        (!allowPreviouslySeen && seenKeys.has(titleKey)) ||
+        seenKeys.has(titleKey) ||
         usedCategories.has(categoryKey) ||
         output.length >= needed
       ) {
@@ -1234,16 +1410,12 @@ export class TaskGenerationService {
           : ['medium', 'easy', 'hard'];
 
       if (isResumeLane) {
-        const candidates = resumePoints.flatMap((point) => [
-          `Your resume states, "${point}". What was the problem, what did you personally own, which methods or tools did you choose, how did you validate the result, and what would you improve now?`,
-          `Regarding "${point}", which assumptions and alternatives did you consider, what evidence supported your decision, and how did you measure the outcome?`,
-        ]);
-        if (candidates.length === 0) {
-          const skill = skills[0] ?? anchors[0] ?? role;
-          candidates.push(
-            `Which experience best demonstrates your ability with ${skill}? Walk through the context, your personal responsibility, the decisions you made, the evidence of success, and what you learned?`,
-          );
-        }
+        const candidates = resumePoints.flatMap((point) =>
+          this.resumeQuestionCandidates(point),
+        );
+        candidates.push(
+          ...this.experienceFallbackCandidates(role, anchors),
+        );
         const title = candidates.find(
           (candidate) =>
             candidate.length <= 260 &&
@@ -1290,9 +1462,9 @@ export class TaskGenerationService {
       if (title) addTask(lane, title, anchor, preference);
     }
 
-    // Exhausted title history must not remove a mandatory interview lane. As a
-    // last-resort outage path, reuse a strong prompt for only the missing
-    // category; a repeated question is safer than returning no plan at all.
+    // Try a role-specific outage fallback for each missing lane. addTask still
+    // enforces the same seen-title rule, so an exhausted pool can never turn
+    // into a repeated question.
     for (const [laneIndex, lane] of dailyLanes.entries()) {
       if (output.length >= needed) break;
       const categoryKey = this.normaliseCategory(lane.category);
@@ -1302,8 +1474,10 @@ export class TaskGenerationService {
         blueprint.competencies[laneIndex % blueprint.competencies.length]
           ?.name ??
         role;
-      const title = `For a realistic ${role} interview case involving ${anchor}, how would you clarify the constraints, apply the relevant principles, compare alternatives, manage the main risks, and validate the result?`;
-      addTask(lane, title, anchor, ['medium', 'easy', 'hard'], null, true);
+      const title = this.professionalCaseCandidates(role, anchor).find(
+        (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
+      );
+      if (title) addTask(lane, title, anchor, ['medium', 'easy', 'hard']);
     }
 
     // Some profession blueprints intentionally define only three mandatory
@@ -1328,8 +1502,10 @@ export class TaskGenerationService {
         objective:
           'apply a core competency to a realistic scenario and validate the recommendation with evidence.',
       };
-      const title = `In a realistic ${role} situation involving ${anchor}, how would you clarify the goal, analyze the available evidence, compare alternatives, manage the main risks, and measure whether your recommendation succeeded?`;
-      addTask(lane, title, anchor, ['medium', 'easy', 'hard']);
+      const title = this.professionalCaseCandidates(role, anchor).find(
+        (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
+      );
+      if (title) addTask(lane, title, anchor, ['medium', 'easy', 'hard']);
     }
 
     if (output.length > 0) {
@@ -1358,6 +1534,54 @@ export class TaskGenerationService {
       ...points.filter((point) => evidencePattern.test(point)),
       ...points.filter((point) => !evidencePattern.test(point)),
     ].slice(0, 8);
+  }
+
+  private resumeQuestionCandidates(point: string): string[] {
+    return [
+      `Your resume states, "${point}". What was the baseline, what did you personally change, how was the result measured, and what trade-offs did you make?`,
+      `Regarding "${point}", what did you personally own, what was the hardest failure mode, and what evidence proved the solution worked?`,
+      `For "${point}", walk through the architecture or process before and after your work. Which alternatives did you reject, and why?`,
+      `Using "${point}" as the example, how did you test or validate the work, which edge cases mattered, and what evidence gave you confidence to release or recommend it?`,
+      `When delivering "${point}", which reliability, security, performance, or operational risk was most important, and how did you reduce and monitor that risk?`,
+      `For "${point}", describe a setback or incorrect assumption. How did you detect it, recover, communicate the impact, and prevent the same problem from recurring?`,
+      `Regarding "${point}", how did you divide ownership with teammates or stakeholders, resolve disagreement, and ensure your personal contribution was effective?`,
+      `If you rebuilt the work described by "${point}" today, what would you redesign for scale, maintainability, cost, or user impact, and how would you prove the redesign is better?`,
+    ];
+  }
+
+  private experienceFallbackCandidates(
+    role: string,
+    rawAnchors: string[],
+  ): string[] {
+    const anchors = [
+      ...new Set(
+        [...rawAnchors, role]
+          .map((anchor) => anchor?.replace(/\s+/g, ' ').trim())
+          .filter((anchor): anchor is string => Boolean(anchor)),
+      ),
+    ].slice(0, 12);
+
+    return anchors.flatMap((anchor) => [
+      `Which experience best demonstrates your ability with ${anchor}? Explain the context, your personal responsibility, the decisions you made, the evidence of success, and what you learned.`,
+      `Choose a project where ${anchor} was central to the outcome. What did you personally own, which alternatives did you consider, and how did you measure whether your approach worked?`,
+      `Tell me about the hardest failure or setback you encountered while using ${anchor}. How did you diagnose it, what did you change, and what evidence showed the recovery was successful?`,
+      `Walk through a project involving ${anchor} from its original requirements to delivery. Which assumptions changed, how did you adapt, and what measurable result did your work produce?`,
+      `Describe a decision involving ${anchor} that required a meaningful trade-off. What options did you compare, what did you personally recommend, and how did the result affect users or the business?`,
+      `Select an experience with ${anchor} that you would redesign today. What was your original reasoning, what did production or stakeholder feedback reveal, and what would you do differently?`,
+      `Give an example of how you validated work involving ${anchor}. Which risks and edge cases mattered, what evidence did you collect, and how did that evidence influence the final decision?`,
+      `Tell me about a time you had to explain or defend work involving ${anchor} to another stakeholder. How did you communicate the reasoning, address concerns, and reach a measurable outcome?`,
+    ]);
+  }
+
+  private professionalCaseCandidates(role: string, anchor: string): string[] {
+    return [
+      `For a realistic ${role} case involving ${anchor}, how would you clarify the constraints, apply the relevant principles, compare alternatives, manage the main risks, and validate the result?`,
+      `A ${role} decision involving ${anchor} must be made with incomplete and conflicting evidence. How would you investigate, document assumptions, choose a course of action, and define success?`,
+      `In a high-stakes ${role} scenario involving ${anchor}, which failure modes and stakeholders would you examine first, how would you prioritize them, and how would you defend your recommendation?`,
+      `A previous ${role} approach involving ${anchor} produced an unexpected result. How would you diagnose the cause, decide what to change, and verify that the corrective action works?`,
+      `You must improve a ${role} process involving ${anchor} under tight time and resource constraints. How would you establish a baseline, compare options, manage risk, and measure the outcome?`,
+      `Two credible experts disagree about a ${role} problem involving ${anchor}. How would you evaluate their evidence, surface the trade-offs, reach a decision, and communicate it to affected stakeholders?`,
+    ];
   }
 
   private taskSources(task: GeneratedTaskDto): string[] {

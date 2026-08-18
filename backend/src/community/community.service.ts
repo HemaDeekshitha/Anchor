@@ -19,6 +19,7 @@ import {
   ListQueryDto,
   ResolveFriendRequestDto,
   SendFriendRequestDto,
+  UpdateCommunityDto,
   UpdatePostDto,
   VotePollDto,
   VotePostDto,
@@ -171,6 +172,29 @@ export class CommunityService {
   }
   // T: O(log M) and S: O(1), where M is the number of memberships
 
+  private async addCommunityManagementAccess(
+    userId: string,
+    communities: Community[],
+  ): Promise<Array<Community & { canManage: boolean }>> {
+    if (communities.length === 0) return [];
+    const ownerMemberships = await this.memberRepository.find({
+      where: {
+        userId,
+        communityId: In(communities.map((community) => community.id)),
+        status: 'active',
+        role: 'owner',
+      },
+    });
+    const ownedIds = new Set(
+      ownerMemberships.map((membership) => membership.communityId),
+    );
+    return communities.map((community) => ({
+      ...community,
+      canManage: ownedIds.has(community.id),
+    }));
+  }
+  // T: O(c + o) and S: O(c + o), where c is communities and o is owner memberships
+
   private async requirePostAccess(
     userId: string,
     post: CommunityPost,
@@ -300,7 +324,12 @@ export class CommunityService {
       items: Community[];
       nextCursor: string | null;
     }>(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      return {
+        ...cached,
+        items: await this.addCommunityManagementAccess(userId, cached.items),
+      };
+    }
 
     const builder = this.communityRepository
       .createQueryBuilder('community')
@@ -340,7 +369,7 @@ export class CommunityService {
     const hasMore = rows.length > query.limit;
     const items = hasMore ? rows.slice(0, query.limit) : rows;
     const result = {
-      items,
+      items: await this.addCommunityManagementAccess(userId, items),
       nextCursor:
         hasMore && items.length
           ? this.encodeCursor(items[items.length - 1])
@@ -350,6 +379,235 @@ export class CommunityService {
     return result;
   }
   // T: O(l log C) and S: O(l), where l is page size and C is communities
+
+  async updateCommunity(
+    userId: string,
+    communityId: string,
+    dto: UpdateCommunityDto,
+  ): Promise<Community> {
+    const community = await this.communityRepository.findOneBy({
+      id: communityId,
+      status: 'active',
+    });
+    if (!community) throw new NotFoundException('Community not found');
+    await this.requireMembership(userId, communityId, ['owner']);
+    if (
+      dto.name === undefined &&
+      dto.description === undefined &&
+      dto.visibility === undefined &&
+      dto.joinPolicy === undefined
+    ) {
+      throw new BadRequestException('No community changes were provided');
+    }
+
+    if (dto.name !== undefined) community.name = dto.name.trim();
+    if (dto.description !== undefined) {
+      community.description = dto.description.trim();
+    }
+    if (dto.visibility !== undefined) community.visibility = dto.visibility;
+    if (dto.joinPolicy !== undefined) community.joinPolicy = dto.joinPolicy;
+    if (
+      community.visibility === 'private' &&
+      community.joinPolicy === 'open'
+    ) {
+      throw new BadRequestException('Private communities cannot be open');
+    }
+
+    const saved = await this.communityRepository.save(community);
+    await Promise.all([
+      this.cache.deleteByPrefix('community:list:discover:'),
+      this.cache.deleteByPrefix('community:list:joined:'),
+    ]);
+    return saved;
+  }
+  // T: O(log C) and S: O(1)
+
+  async deleteCommunity(
+    userId: string,
+    communityId: string,
+  ): Promise<{ deleted: true }> {
+    const community = await this.communityRepository.findOneBy({
+      id: communityId,
+      status: 'active',
+    });
+    if (!community) throw new NotFoundException('Community not found');
+    await this.requireMembership(userId, communityId, ['owner']);
+
+    community.status = 'deleted';
+    community.deletedAt = new Date();
+    await this.communityRepository.save(community);
+    await Promise.all([
+      this.cache.deleteByPrefix('community:list:'),
+      this.cache.deleteByPrefix(`community:posts:${communityId}:`),
+      this.cache.deleteByPrefix('community:feed:'),
+    ]);
+    return { deleted: true };
+  }
+  // T: O(log C) and S: O(1)
+
+  async listCommunityMembers(
+    userId: string,
+    communityId: string,
+  ): Promise<
+    Array<{
+      userId: string;
+      name: string;
+      email: string;
+      role: CommunityMember['role'];
+      joinedAt: Date;
+      isCurrentUser: boolean;
+    }>
+  > {
+    await this.requireMembership(userId, communityId, ['owner']);
+    const memberships = await this.memberRepository.find({
+      where: { communityId, status: 'active' },
+      order: { joinedAt: 'ASC' },
+    });
+    const users = await this.userRepository.find({
+      where: { id: In(memberships.map((membership) => membership.userId)) },
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    return memberships.map((membership) => {
+      const memberUser = usersById.get(membership.userId);
+      return {
+        userId: membership.userId,
+        name: memberUser?.name ?? 'Anchor member',
+        email: memberUser?.email ?? '',
+        role: membership.role,
+        joinedAt: membership.joinedAt,
+        isCurrentUser: membership.userId === userId,
+      };
+    });
+  }
+  // T: O(m) and S: O(m), where m is active members
+
+  async addCommunityMember(
+    userId: string,
+    communityId: string,
+    memberUserId: string,
+  ): Promise<{ userId: string; role: CommunityMember['role'] }> {
+    await this.requireMembership(userId, communityId, ['owner']);
+    if (memberUserId === userId) {
+      throw new BadRequestException('You are already a community member');
+    }
+    await this.requireFriendship(userId, memberUserId);
+    const membership = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(CommunityMember);
+      const existing = await repository.findOne({
+        where: { communityId, userId: memberUserId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (existing?.status === 'active') {
+        throw new ConflictException('This user is already a community member');
+      }
+      const saved = await repository.save(
+        repository.create({
+          ...existing,
+          communityId,
+          userId: memberUserId,
+          role: existing?.role ?? 'member',
+          status: 'active',
+          joinedAt: new Date(),
+        }),
+      );
+      await manager.increment(
+        Community,
+        { id: communityId, status: 'active' },
+        'memberCount',
+        1,
+      );
+      return saved;
+    });
+    await Promise.all([
+      this.cache.deleteByPrefix('community:list:'),
+      this.cache.deleteByPrefix(`community:posts:${communityId}:`),
+      this.cache.deleteByPrefix('community:feed:'),
+    ]);
+    return { userId: membership.userId, role: membership.role };
+  }
+  // T: O(log F + log M) and S: O(1)
+
+  async updateCommunityMemberRole(
+    userId: string,
+    communityId: string,
+    memberUserId: string,
+    role: 'owner' | 'member',
+  ): Promise<{ userId: string; role: 'owner' | 'member' }> {
+    await this.requireMembership(userId, communityId, ['owner']);
+    const membership = await this.memberRepository.findOneBy({
+      communityId,
+      userId: memberUserId,
+      status: 'active',
+    });
+    if (!membership) throw new NotFoundException('Community member not found');
+    if (membership.role === role) return { userId: memberUserId, role };
+    if (membership.role === 'owner' && role === 'member') {
+      const ownerCount = await this.memberRepository.countBy({
+        communityId,
+        status: 'active',
+        role: 'owner',
+      });
+      if (ownerCount <= 1) {
+        throw new BadRequestException(
+          'A community must always have at least one owner',
+        );
+      }
+    }
+    membership.role = role;
+    await this.memberRepository.save(membership);
+    await this.cache.deleteByPrefix('community:list:');
+    return { userId: memberUserId, role };
+  }
+  // T: O(log M) and S: O(1)
+
+  async removeCommunityMember(
+    userId: string,
+    communityId: string,
+    memberUserId: string,
+  ): Promise<{ removed: true }> {
+    await this.requireMembership(userId, communityId, ['owner']);
+    if (memberUserId === userId) {
+      throw new BadRequestException(
+        'Owners cannot remove themselves from member management',
+      );
+    }
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(CommunityMember);
+      const membership = await repository.findOne({
+        where: { communityId, userId: memberUserId, status: 'active' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!membership) {
+        throw new NotFoundException('Community member not found');
+      }
+      if (membership.role === 'owner') {
+        const ownerCount = await repository.countBy({
+          communityId,
+          status: 'active',
+          role: 'owner',
+        });
+        if (ownerCount <= 1) {
+          throw new BadRequestException(
+            'A community must always have at least one owner',
+          );
+        }
+      }
+      await repository.remove(membership);
+      await manager.decrement(
+        Community,
+        { id: communityId, status: 'active' },
+        'memberCount',
+        1,
+      );
+    });
+    await Promise.all([
+      this.cache.deleteByPrefix('community:list:'),
+      this.cache.deleteByPrefix(`community:posts:${communityId}:`),
+      this.cache.deleteByPrefix('community:feed:'),
+    ]);
+    return { removed: true };
+  }
+  // T: O(log M) and S: O(1)
 
   async getCommunity(userId: string, communityId: string): Promise<Community> {
     const community = await this.communityRepository.findOneBy({
@@ -364,6 +622,73 @@ export class CommunityService {
   }
   // T: O(log C + log M) and S: O(1)
 
+  async getComm360Meeting(roomId: string): Promise<{
+    id: string;
+    roomId: string;
+    title: string;
+    description: string;
+    startTime: string;
+    organizerName: string;
+    joinUrl: string;
+  }> {
+    if (!/^[A-Za-z0-9_-]{6,80}$/.test(roomId)) {
+      throw new BadRequestException('Invalid Comm360 meeting link');
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const baseUrl =
+        process.env.COMM360_PUBLIC_URL ?? 'https://comm360.feeltiptop.com';
+      const response = await fetch(
+        `${baseUrl.replace(/\/$/, '')}/api/meetings/${encodeURIComponent(roomId)}/info`,
+        { signal: controller.signal },
+      );
+      if (response.status === 404) {
+        throw new NotFoundException('Comm360 meeting not found');
+      }
+      if (!response.ok) {
+        throw new BadRequestException('Could not load Comm360 meeting');
+      }
+      const payload = (await response.json()) as {
+        meeting?: {
+          _id?: string;
+          title?: string;
+          description?: string;
+          startTime?: string;
+          roomId?: string;
+          organizer?: { fullName?: string; username?: string };
+        };
+      };
+      const meeting = payload.meeting;
+      if (!meeting?.startTime || !meeting.roomId) {
+        throw new NotFoundException('Comm360 meeting details are unavailable');
+      }
+      return {
+        id: meeting._id ?? meeting.roomId,
+        roomId: meeting.roomId,
+        title: meeting.title?.trim() || 'Community discussion',
+        description: meeting.description?.trim() || '',
+        startTime: meeting.startTime,
+        organizerName:
+          meeting.organizer?.fullName?.trim() ||
+          meeting.organizer?.username?.trim() ||
+          'Comm360 host',
+        joinUrl: `https://comm360.feeltiptop.com/meeting/${encodeURIComponent(meeting.roomId)}?type=direct`,
+      };
+    } catch (caught) {
+      if (
+        caught instanceof BadRequestException ||
+        caught instanceof NotFoundException
+      ) {
+        throw caught;
+      }
+      throw new BadRequestException('Could not load Comm360 meeting');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  // T: O(1) network request and S: O(1)
+
   async joinCommunity(
     userId: string,
     communityId: string,
@@ -377,12 +702,9 @@ export class CommunityService {
       if (community.visibility === 'private') {
         throw new ForbiddenException('An invitation is required');
       }
-      if (community.joinPolicy === 'invite_only') {
-        throw new ForbiddenException('An invitation is required');
-      }
       const repository = manager.getRepository(CommunityMember);
       let membership = await repository.findOneBy({ communityId, userId });
-      const nextStatus = community.joinPolicy === 'open' ? 'active' : 'pending';
+      const nextStatus = 'active';
       const wasActive = membership?.status === 'active';
       membership = repository.create({
         ...membership,
@@ -581,15 +903,17 @@ export class CommunityService {
         'Poll questions cannot exceed 150 characters',
       );
     }
-    const mediaJobs: Array<{
-      mediaId: string;
-      postId: string;
-      userId: string;
-      providerAssetId: string;
-      resourceType: 'image' | 'video';
-    }> = [];
+    const verifiedMedia = await Promise.all(
+      (dto.media ?? []).map(async (media) => ({
+        reference: media,
+        asset: await this.mediaService.verifyAsset(
+          userId,
+          media.providerAssetId,
+          media.resourceType,
+        ),
+      })),
+    );
     const result = await this.dataSource.transaction(async (manager) => {
-      const isProcessing = Boolean(dto.media?.length);
       const post = await manager.save(
         manager.create(CommunityPost, {
           communityId,
@@ -597,31 +921,27 @@ export class CommunityService {
           kind: dto.kind,
           title: dto.title?.trim() || null,
           body: dto.body?.trim() || null,
-          status: isProcessing ? 'processing' : 'published',
+          status: 'published',
         }),
       );
-      if (dto.media?.length) {
-        const mediaRows = dto.media.map((media, index) =>
+      if (verifiedMedia.length) {
+        const mediaRows = verifiedMedia.map(({ reference, asset }, index) =>
           manager.create(PostMedia, {
             postId: post.id,
-            providerAssetId: media.providerAssetId,
-            resourceType: media.resourceType,
-            mimeType: 'pending',
-            bytes: '0',
-            status: 'pending',
+            providerAssetId: reference.providerAssetId,
+            resourceType: reference.resourceType,
+            mimeType: String(asset.format ?? reference.resourceType),
+            bytes: String(asset.bytes ?? 0),
+            width: asset.width ?? null,
+            height: asset.height ?? null,
+            durationMs: asset.duration
+              ? Math.round(Number(asset.duration) * 1_000)
+              : null,
+            status: 'ready',
             sortOrder: index,
           }),
         );
-        const savedMedia = await manager.save(mediaRows);
-        savedMedia.forEach((media) =>
-          mediaJobs.push({
-            mediaId: media.id,
-            postId: post.id,
-            userId,
-            providerAssetId: media.providerAssetId,
-            resourceType: media.resourceType,
-          }),
-        );
+        await manager.save(mediaRows);
       }
       if (dto.poll) {
         const poll = await manager.save(
@@ -641,7 +961,7 @@ export class CommunityService {
           ),
         );
       }
-      if (!isProcessing && communityId) {
+      if (communityId) {
         await manager.increment(Community, { id: communityId }, 'postCount', 1);
       }
       const event = await manager.save(
@@ -654,16 +974,10 @@ export class CommunityService {
       );
       return { post, eventId: event.id };
     });
-    const queueOperations = mediaJobs.map((data) =>
-      this.queue.enqueue({ name: 'media.verify', data }),
-    );
-    queueOperations.push(
-      this.queue.enqueue({
-        name: 'outbox.dispatch',
-        data: { eventId: result.eventId },
-      }),
-    );
-    void Promise.all(queueOperations);
+    void this.queue.enqueue({
+      name: 'outbox.dispatch',
+      data: { eventId: result.eventId },
+    });
     await this.invalidatePostCaches(communityId);
     const [createdPost] = await this.hydratePosts([result.post], userId);
     return createdPost;
@@ -1123,6 +1437,7 @@ export class CommunityService {
       items: comments.map((comment) => ({
         ...comment,
         author: authorById.get(comment.authorId) ?? null,
+        canDelete: comment.authorId === userId,
       })),
       nextCursor:
         hasMore && comments.length
@@ -1131,6 +1446,38 @@ export class CommunityService {
     };
   }
   // T: O(l) and S: O(l), where l is the page size
+
+  async deleteComment(
+    userId: string,
+    postId: string,
+    commentId: string,
+  ): Promise<{ deleted: true }> {
+    const post = await this.postRepository.findOneBy({ id: postId });
+    if (!post) throw new NotFoundException('Post not found');
+    await this.requirePostAccess(userId, post);
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(PostComment);
+      const comment = await repository.findOne({
+        where: { id: commentId, postId, status: 'published' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!comment) throw new NotFoundException('Comment not found');
+      if (comment.authorId !== userId) {
+        throw new ForbiddenException('You can only delete your own comments');
+      }
+      comment.status = 'deleted';
+      await repository.save(comment);
+      await manager.decrement(
+        CommunityPost,
+        { id: postId },
+        'commentCount',
+        1,
+      );
+    });
+    await this.invalidatePostCaches(post.communityId);
+    return { deleted: true };
+  }
+  // T: O(log C) and S: O(1), where C is comments
 
   async votePoll(
     userId: string,

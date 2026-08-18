@@ -1,6 +1,6 @@
 # LLM vs RAG Feedback Report
 
-Generated: `2026-08-10T21:12:43.767Z`
+Generated: `2026-08-18T17:31:48.352Z`
 
 Regenerate (from `backend/`, needs `GEMINI_API_KEY` or `GROQ_API_KEY`):
 

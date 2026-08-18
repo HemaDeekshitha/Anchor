@@ -446,7 +446,8 @@ export class AnalyticsService {
 
     const totalTasksQuery = this.userDailyRepo
       .createQueryBuilder('udt')
-      .where('udt.user_id = :userId', { userId });
+      .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status != :superseded', { superseded: 'superseded' });
 
     if (startDate && endDate) {
       totalTasksQuery.andWhere('DATE(udt.task_date) BETWEEN :start AND :end', {

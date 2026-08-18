@@ -23,7 +23,7 @@ export class UserDailyTask {
   task_date: string;
 
   @Column({ default: 'pending' })
-  status: 'pending' | 'completed';
+  status: 'pending' | 'completed' | 'superseded';
 
   @CreateDateColumn()
   created_at: Date;

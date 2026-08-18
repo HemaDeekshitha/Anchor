@@ -62,6 +62,7 @@ interface TaskGenerationInternals {
     softwareRole: boolean,
     seenLeetcodeUrls: Set<string>,
     requiredCategories: string[],
+    previouslySeenKeys: Set<string>,
   ): void;
 }
 
@@ -158,7 +159,7 @@ describe('TaskGenerationService daily interview plan', () => {
     expect(tasks[2].title).toContain('Reduced API latency by 30%');
   });
 
-  it('keeps all software lanes available after curated outage questions were seen', () => {
+  it('never reuses exhausted software fallback questions', () => {
     const profile = {
       dedicatedRole: 'Software Engineer',
       resumeText:
@@ -168,24 +169,26 @@ describe('TaskGenerationService daily interview plan', () => {
     const seenUrls = new Set<string>();
     const seenTitles = new Set<string>();
 
-    for (let index = 0; index < 5; index++) {
+    for (let index = 0; index < 50; index++) {
       const task = internal.buildLeetcodeFallbackTask(
         'hard',
         seenUrls,
         seenTitles,
       );
-      expect(task).not.toBeNull();
+      if (!task) break;
+      expect(seenUrls.has(task.leetcodeUrl!)).toBe(false);
+      expect(seenTitles.has(task.title.toLowerCase().trim())).toBe(false);
       seenUrls.add(task!.leetcodeUrl!);
       seenTitles.add(task!.title.toLowerCase().trim());
     }
+    expect(seenUrls.size).toBeGreaterThan(5);
 
     const repeatedLeetcode = internal.buildLeetcodeFallbackTask(
       'hard',
       seenUrls,
       seenTitles,
     );
-    expect(repeatedLeetcode).not.toBeNull();
-    expect(seenUrls.has(repeatedLeetcode!.leetcodeUrl!)).toBe(true);
+    expect(repeatedLeetcode).toBeNull();
 
     const firstFallback = internal.buildRoleFallbackTasks(
       profile,
@@ -203,35 +206,74 @@ describe('TaskGenerationService daily interview plan', () => {
       ...seenTitles,
       ...firstFallback.map((task) => task.title.toLowerCase().trim()),
     ]);
+    const priorSoftwareTitles = new Set(exhaustedTitles);
     const repairedFallback = internal.buildRoleFallbackTasks(
       profile,
       ['Redis'],
       undefined,
       mix,
       { easy: 0, medium: 0, hard: 1 },
-      exhaustedTitles,
+      new Set(exhaustedTitles),
       1,
       new Set(['dsa']),
       true,
       getRoleBlueprint('Software Engineer').dailyLanes,
     );
-    const repairedPlan = [repeatedLeetcode!, ...repairedFallback];
+    expect(repairedFallback).toHaveLength(3);
+    expect(
+      repairedFallback.every(
+        (task) => !priorSoftwareTitles.has(task.title.toLowerCase().trim()),
+      ),
+    ).toBe(true);
+  });
+  // T: O(n) and S: O(n), where n is the curated fallback pool size
 
-    expect(repairedFallback.map((task) => task.category)).toEqual([
+  it('keeps the mandatory experience lane fresh when no resume is uploaded', () => {
+    const profile = {
+      dedicatedRole: 'Software Engineer',
+      resumeText: null,
+    } as OnboardingResponse;
+    const mix = { easy: 1, medium: 1, hard: 2, total: 4 };
+    const firstPlan = internal.buildRoleFallbackTasks(
+      profile,
+      ['Elasticsearch', 'Node.js'],
+      undefined,
+      mix,
+      { easy: 0, medium: 0, hard: 1 },
+      new Set(),
+      1,
+      new Set(['dsa']),
+      true,
+      getRoleBlueprint('Software Engineer').dailyLanes,
+    );
+    const seenTitles = new Set(
+      firstPlan.map((task) => task.title.toLowerCase().trim()),
+    );
+    const priorTitles = new Set(seenTitles);
+    const nextPlan = internal.buildRoleFallbackTasks(
+      profile,
+      ['Elasticsearch', 'Node.js'],
+      undefined,
+      mix,
+      { easy: 0, medium: 0, hard: 1 },
+      seenTitles,
+      1,
+      new Set(['dsa']),
+      true,
+      getRoleBlueprint('Software Engineer').dailyLanes,
+    );
+
+    expect(nextPlan.map((task) => task.category)).toEqual([
       'System Design',
       'Behavioral',
       'Resume & Project Deep-Dive',
     ]);
-    expect(() =>
-      internal.assertFinalPlanRequirements(repairedPlan, mix, true, seenUrls, [
-        'dsa',
-        'system design',
-        'behavioral',
-        'resume project deep dive',
-      ]),
-    ).not.toThrow();
+    expect(
+      nextPlan.every(
+        (task) => !priorTitles.has(task.title.toLowerCase().trim()),
+      ),
+    ).toBe(true);
   });
-  // T: O(n) and S: O(n), where n is the curated fallback pool size
 
   it('selects an unseen LeetCode problem and rejects an incomplete lane set', () => {
     const leetcode = internal.buildLeetcodeFallbackTask(
@@ -281,6 +323,7 @@ describe('TaskGenerationService daily interview plan', () => {
         true,
         new Set(),
         ['dsa', 'system design', 'behavioral', 'resume project deep dive'],
+        new Set(),
       ),
     ).toThrow('resume deep-dive');
   });
@@ -331,11 +374,12 @@ describe('TaskGenerationService daily interview plan', () => {
         blueprint.dailyLanes.map((lane) =>
           lane.category.toLowerCase().replace(/[^a-z0-9]+/g, ' '),
         ),
+        new Set(),
       ),
     ).not.toThrow();
   });
 
-  it('keeps every mandatory profession lane when fallback titles were seen before', () => {
+  it('never reuses exhausted profession fallback questions', () => {
     const profile = {
       dedicatedRole: 'Mechanical Engineer',
       resumeKeywords: ['fluid mechanics', 'manufacturing', 'SolidWorks'],
@@ -357,13 +401,14 @@ describe('TaskGenerationService daily interview plan', () => {
     const exhaustedTitles = new Set(
       firstPlan.map((task) => task.title.toLowerCase().trim()),
     );
+    const priorProfessionTitles = new Set(exhaustedTitles);
     const repairedPlan = internal.buildRoleFallbackTasks(
       profile,
       ['fluid mechanics', 'manufacturing'],
       undefined,
       mix,
       { easy: 0, medium: 0, hard: 0 },
-      exhaustedTitles,
+      new Set(exhaustedTitles),
       0,
       new Set(),
       false,
@@ -371,9 +416,11 @@ describe('TaskGenerationService daily interview plan', () => {
     );
 
     expect(repairedPlan).toHaveLength(4);
-    expect(repairedPlan.map((task) => task.category).sort()).toEqual(
-      blueprint.dailyLanes.map((lane) => lane.category).sort(),
-    );
+    expect(
+      repairedPlan.every(
+        (task) => !priorProfessionTitles.has(task.title.toLowerCase().trim()),
+      ),
+    ).toBe(true);
     expect(() =>
       internal.assertFinalPlanRequirements(
         repairedPlan,
@@ -383,6 +430,7 @@ describe('TaskGenerationService daily interview plan', () => {
         blueprint.dailyLanes.map((lane) =>
           lane.category.toLowerCase().replace(/[^a-z0-9]+/g, ' '),
         ),
+        priorProfessionTitles,
       ),
     ).not.toThrow();
   });

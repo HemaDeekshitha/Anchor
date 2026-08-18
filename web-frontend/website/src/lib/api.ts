@@ -63,7 +63,11 @@ interface Submission {
 
 export interface PointsEntry {
   id: number;
-  type: 'task_earned' | 'converted_to_360';
+  type:
+    | 'task_earned'
+    | 'converted_to_360'
+    | 'streak_reward'
+    | 'pending_overflow_penalty';
   amount: number;
   taskId: number | null;
   createdAt: string;

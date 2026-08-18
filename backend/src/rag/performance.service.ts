@@ -43,6 +43,7 @@ export class PerformanceService {
     const recentTasks = await this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status != :superseded', { superseded: 'superseded' })
       .andWhere('DATE(udt.task_date) >= :startDate', { startDate })
       .andWhere('DATE(udt.task_date) < :today', { today })
       .getMany();
@@ -165,6 +166,7 @@ export class PerformanceService {
     const tasks = await this.userDailyRepo
       .createQueryBuilder('udt')
       .where('udt.user_id = :userId', { userId })
+      .andWhere('udt.status != :superseded', { superseded: 'superseded' })
       .andWhere('DATE(udt.task_date) = :yDate', { yDate })
       .getMany();
 
