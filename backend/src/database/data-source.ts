@@ -19,12 +19,16 @@ export function databaseOptions(): DataSourceOptions {
       __dirname + '/../community/entities/*{.ts,.js}',
     ],
     migrations: [__dirname + '/migrations/*{.ts,.js}'],
-    synchronize: false,
+    // Bootstrap-only escape hatch for a brand-new empty database. Production
+    // must return this to false immediately after the first successful start.
+    synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     migrationsRun: process.env.DATABASE_MIGRATIONS_RUN === 'true',
     logging: process.env.DATABASE_LOGGING === 'true',
     extra: {
-      max: Number(process.env.DATABASE_POOL_MAX ?? (production ? 20 : 10)),
-      min: Number(process.env.DATABASE_POOL_MIN ?? 2),
+      // Do not keep serverless database compute awake when the app is idle.
+      // Connections are opened on demand and retired after idleTimeoutMillis.
+      max: Number(process.env.DATABASE_POOL_MAX ?? (production ? 10 : 5)),
+      min: Number(process.env.DATABASE_POOL_MIN ?? 0),
       idleTimeoutMillis: Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000),
       connectionTimeoutMillis: Number(
         process.env.DATABASE_CONNECTION_TIMEOUT_MS ?? 5_000,

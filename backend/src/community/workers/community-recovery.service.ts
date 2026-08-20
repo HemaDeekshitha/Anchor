@@ -14,6 +14,10 @@ type RecoverableMedia = {
   resourceType: 'image' | 'video';
 };
 
+const recoveryIntervalMs = Number(
+  process.env.COMMUNITY_RECOVERY_INTERVAL_MS ?? 15 * 60 * 1000,
+);
+
 @Injectable()
 export class CommunityRecoveryService {
   private readonly logger = new Logger(CommunityRecoveryService.name);
@@ -28,7 +32,9 @@ export class CommunityRecoveryService {
   ) {}
   // T: O(1) and S: O(1)
 
-  @Interval(30_000)
+  // This is a recovery sweep, not the primary queue processor. Keeping it
+  // infrequent lets a serverless database suspend between periods of traffic.
+  @Interval(recoveryIntervalMs)
   async recoverPendingJobs(): Promise<void> {
     if (this.recovering) return;
     this.recovering = true;
@@ -68,8 +74,9 @@ export class CommunityRecoveryService {
 
   private async deleteExpiredPollPosts(): Promise<void> {
     const expired = await this.dataSource.transaction(async (manager) => {
-      const rows = (await manager.query(
-        `UPDATE community_posts post
+      const rows: Array<{ id: string; communityId: string | null }> =
+        await manager.query(
+          `UPDATE community_posts post
             SET status = 'deleted', "deletedAt" = now(), "updatedAt" = now()
            FROM polls poll
           WHERE poll."postId" = post.id
@@ -77,7 +84,7 @@ export class CommunityRecoveryService {
             AND poll."endsAt" <= now()
             AND post.status IN ('published', 'processing')
         RETURNING post.id, post."communityId"`,
-      )) as Array<{ id: string; communityId: string | null }>;
+        );
       if (rows.length === 0) return rows;
       await manager.query(
         `UPDATE polls

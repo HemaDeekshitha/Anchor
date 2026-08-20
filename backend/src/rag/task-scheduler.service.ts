@@ -32,6 +32,14 @@ export class TaskSchedulerService {
 
   @Cron('5 0 * * *', { timeZone: 'America/Los_Angeles' }) // 00:05 Pacific Time every day
   async generateDailyPlansForAllUsers() {
+    // AppModule is also bootstrapped by the community worker. Only the API
+    // process should run this cron, and local development must opt in.
+    const enabled =
+      process.env.TASK_SCHEDULER_ENABLED === 'true' ||
+      (process.env.TASK_SCHEDULER_ENABLED === undefined &&
+        process.env.NODE_ENV === 'production');
+    if (!enabled) return;
+
     this.logger.log('⏰ Daily task generation cron started');
 
     const users = await this.userRepo.find({
@@ -58,7 +66,9 @@ export class TaskSchedulerService {
 
     // Retry pass — wait 2 minutes then retry all failed users once
     if (failed.length > 0) {
-      this.logger.warn(`⏳ Retrying ${failed.length} failed users in 2 minutes…`);
+      this.logger.warn(
+        `⏳ Retrying ${failed.length} failed users in 2 minutes…`,
+      );
       await new Promise((r) => setTimeout(r, 120_000));
 
       for (const user of failed) {

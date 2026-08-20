@@ -1,13 +1,16 @@
 x-backend-environment: &backend-environment
   NODE_ENV: production
-  DATABASE_HOST: ${DATABASE_HOST}
-  DATABASE_PORT: ${DATABASE_PORT}
+  # Production uses the private PostgreSQL container below. The database is
+  # never exposed publicly and all API/worker writes go to this service.
+  DATABASE_HOST: postgres
+  DATABASE_PORT: 5432
   DATABASE_USER: ${DATABASE_USER}
   DATABASE_PASSWORD: ${DATABASE_PASSWORD}
   DATABASE_NAME: ${DATABASE_NAME}
-  DATABASE_SSL: ${DATABASE_SSL}
-  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-20}
-  DATABASE_POOL_MIN: ${DATABASE_POOL_MIN:-2}
+  DATABASE_SSL: "false"
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+  DATABASE_POOL_MIN: ${DATABASE_POOL_MIN:-0}
+  DATABASE_SYNCHRONIZE: ${DATABASE_SYNCHRONIZE:-false}
   DATABASE_MIGRATIONS_RUN: ${DATABASE_MIGRATIONS_RUN:-false}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379}
   CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
@@ -35,6 +38,36 @@ x-backend-environment: &backend-environment
   CORS_ORIGINS: ${CORS_ORIGINS:-https://anchorapp.feeltiptop.com}
 
 services:
+  postgres:
+    # Set POSTGRES_IMAGE to the same major version as the Neon source.
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg15}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:?DATABASE_NAME must be set}
+      POSTGRES_USER: ${DATABASE_USER:?DATABASE_USER must be set}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD must be set}
+    volumes:
+      - anchor_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    shm_size: 256mb
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-1g}
+    cpus: ${POSTGRES_CPU_LIMIT:-1.0}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -56,15 +89,25 @@ services:
     environment:
       <<: *backend-environment
       COMMUNITY_WORKER_ENABLED: "false"
+      TASK_SCHEDULER_ENABLED: "true"
     ports:
       - "127.0.0.1:3012:3001"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/health/ready"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:3001/health/ready",
+        ]
       interval: 15s
       timeout: 5s
       retries: 8
       start_period: 25s
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -76,7 +119,20 @@ services:
     environment:
       <<: *backend-environment
       COMMUNITY_WORKER_ENABLED: "true"
+      TASK_SCHEDULER_ENABLED: "false"
     command: ["node", "dist/worker.js"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://backend:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       redis:
         condition: service_healthy
@@ -101,6 +157,18 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
     ports:
       - "127.0.0.1:3013:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   website:
     container_name: anchor-website
@@ -119,6 +187,18 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
     ports:
       - "127.0.0.1:3014:3002"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 volumes:
   anchor_data:
