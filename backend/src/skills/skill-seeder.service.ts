@@ -1,4 +1,5 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import axios from 'axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -8,6 +9,8 @@ import { EmbeddingService } from 'src/ai/embedding.service';
 
 @Injectable()
 export class SkillSeederService implements OnModuleInit {
+  private readonly logger = new Logger(SkillSeederService.name);
+
   constructor(
     @InjectRepository(Skill)
     private skillRepo: Repository<Skill>,
@@ -38,13 +41,34 @@ export class SkillSeederService implements OnModuleInit {
     // Generate embeddings
     for (const skill of dbSkills) {
       if (!skill.embedding) {
-        const embedding = await this.embeddingService.createEmbedding(
-          skill.name,
-        );
+        try {
+          const embedding = await this.embeddingService.createEmbedding(
+            skill.name,
+          );
 
-        skill.embedding = embedding;
+          skill.embedding = embedding;
 
-        await this.skillRepo.save(skill);
+          await this.skillRepo.save(skill);
+        } catch (error) {
+          const status = axios.isAxiosError(error)
+            ? error.response?.status
+            : undefined;
+          const responseData = axios.isAxiosError(error)
+            ? (error.response?.data as
+                | { error?: { message?: unknown } }
+                | undefined)
+            : undefined;
+          const providerMessage =
+            typeof responseData?.error?.message === 'string'
+              ? responseData.error.message
+              : error instanceof Error
+                ? error.message
+                : 'Unknown embedding error';
+          this.logger.warn(
+            `Embedding seeding paused${status ? ` (HTTP ${status})` : ''}: ${String(providerMessage)}`,
+          );
+          break;
+        }
       }
     }
 

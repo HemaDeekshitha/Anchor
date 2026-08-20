@@ -46,7 +46,11 @@ services:
       TASK_PROVIDER: ${TASK_PROVIDER}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3002}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      COMMUNITY_WORKER_ENABLED: "true"
+      # Local development commonly shares the hosted database. Background
+      # polling is opt-in so an idle laptop cannot consume its compute quota.
+      COMMUNITY_WORKER_ENABLED: ${COMMUNITY_WORKER_ENABLED:-false}
+      TASK_SCHEDULER_ENABLED: ${TASK_SCHEDULER_ENABLED:-false}
+      DATABASE_POOL_MIN: ${DATABASE_POOL_MIN:-0}
       DATABASE_MIGRATIONS_RUN: ${DATABASE_MIGRATIONS_RUN:-false}
     ports:
       - "3001:3001"
