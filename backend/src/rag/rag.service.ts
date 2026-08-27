@@ -12,7 +12,11 @@ import {
 import { TaskGenerationService } from './task-generation.service';
 import { PerformanceService } from './performance.service';
 import { LearningTracksService } from 'src/learning-tracks/learning-tracks.service';
-import { normalizeLeetcodeUrl } from './leetcode-url.util';
+import {
+  LEETCODE_CODE_ONLY_DESCRIPTION,
+  leetcodeTaskTitle,
+  normalizeLeetcodeUrl,
+} from './leetcode-url.util';
 import { OnboardingResponse } from 'src/onboarding/onboarding.entity';
 import { UserPointsLedger } from 'src/points/user-points-ledger.entity';
 
@@ -325,8 +329,10 @@ export class RagService {
         ...carriedTasks,
         ...generated.map((t) => ({
           id: t.id,
-          title: t.title,
-          description: t.description ?? null,
+          title: leetcodeTaskTitle(t.leetcodeUrl) ?? t.title,
+          description: normalizeLeetcodeUrl(t.leetcodeUrl)
+            ? LEETCODE_CODE_ONLY_DESCRIPTION
+            : (t.description ?? null),
           category: t.category,
           difficulty: t.difficulty,
           priority: t.priority,
@@ -385,10 +391,13 @@ export class RagService {
 
     return tasks.map((task) => {
       const daily = dailyTasks.find((d) => d.task_id === task.id);
+      const leetcodeUrl = normalizeLeetcodeUrl(task.leetcodeUrl);
       return {
         id: task.id,
-        title: task.title,
-        description: task.description ?? null,
+        title: leetcodeTaskTitle(leetcodeUrl) ?? task.title,
+        description: leetcodeUrl
+          ? LEETCODE_CODE_ONLY_DESCRIPTION
+          : (task.description ?? null),
         category: task.category,
         difficulty: task.difficulty,
         priority: task.priority,
@@ -396,7 +405,7 @@ export class RagService {
         date: daily?.task_date,
         task_date: daily?.task_date,
         is_ai_generated: task.user_id !== null,
-        leetcodeUrl: normalizeLeetcodeUrl(task.leetcodeUrl),
+        leetcodeUrl,
       };
     });
   }

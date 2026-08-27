@@ -27,7 +27,7 @@ constructor(private configService: ConfigService) {
 
   this.providers = [
     // ── OpenRouter free models (tried in order) ──────────────────────
-{ name: 'openrouter/gpt-oss-120b',   baseURL: 'https://openrouter.ai/api/v1', apiKey: openRouterKey, model: 'openai/gpt-oss-120b:free' },
+{ name: 'openrouter/gemma-4-31b',   baseURL: 'https://openrouter.ai/api/v1', apiKey: openRouterKey, model: 'google/gemma-4-31b-it:free' },
   { name: 'openrouter/gpt-oss-20b',    baseURL: 'https://openrouter.ai/api/v1', apiKey: openRouterKey, model: 'openai/gpt-oss-20b:free' },
   { name: 'openrouter/qwen3-235b',     baseURL: 'https://openrouter.ai/api/v1', apiKey: openRouterKey, model: 'qwen/qwen3-235b-a22b:free' },
   { name: 'openrouter/qwen3-8b',       baseURL: 'https://openrouter.ai/api/v1', apiKey: openRouterKey, model: 'qwen/qwen3-8b:free' },
@@ -42,7 +42,7 @@ constructor(private configService: ConfigService) {
   { name: 'openrouter/devstral',       baseURL: 'https://openrouter.ai/api/v1', apiKey: openRouterKey, model: 'mistralai/devstral-small:free' },
 
     // ── Groq fallback ────────────────────────────────────────────────
-    { name: 'groq', baseURL: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: 'llama-3.3-70b-versatile' },
+    { name: 'groq', baseURL: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: 'openai/gpt-oss-120b' },
 
     // ── Gemini last resort ───────────────────────────────────────────
     { name: 'gemini', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: geminiKey, model: 'gemini-2.0-flash' },

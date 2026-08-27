@@ -85,6 +85,7 @@ import {
   listCommunities,
   listCommunityFeed,
   listFriendRequests,
+  listSentFriendRequests,
   listFriends,
   listGlobalPosts,
   getComm360Meeting,
@@ -3510,6 +3511,7 @@ const CommunitiesView = ({
                   ),
                 }}
                 sx={{
+                  maxWidth: { xs: "100%", md: 720 },
                   "& .MuiOutlinedInput-root": {
                     borderRadius: 2.5,
                     bgcolor: C.surface,
@@ -4232,18 +4234,22 @@ const CommunitiesView = ({
 const FriendsView = ({
   friends,
   friendRequests,
+  sentFriendRequests,
   onAddFriend,
   onResolveRequest,
 }: {
   friends: Friend[];
   friendRequests: CommunityFriendRequest[];
+  sentFriendRequests: CommunityFriendRequest[];
   onAddFriend: (friendId: string) => Promise<void>;
   onResolveRequest: (
     requestId: string,
     status: "accepted" | "declined",
   ) => Promise<void>;
 }) => {
-  const [section, setSection] = useState<"friends" | "requests">("friends");
+  const [section, setSection] = useState<
+    "friends" | "requests" | "sent"
+  >("friends");
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [searching, setSearching] = useState(false);
@@ -4368,18 +4374,15 @@ const FriendsView = ({
       <Box
         sx={{
           width: "100%",
-          maxWidth: 680,
-          bgcolor: "#fff",
-          borderBottom: `1px solid ${C.divider}`,
-          pb: normalizedSearch ? 1 : 0,
+          maxWidth: { xs: "100%", md: 720 },
         }}
       >
         <TextField
           fullWidth
-          variant="standard"
+          variant="outlined"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search people by name, handle, or role"
+          placeholder="Search for friends by name, handle, or role"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -4389,16 +4392,12 @@ const FriendsView = ({
           }}
           sx={{
             mb: searchResults.length > 0 ? 1.5 : 0,
-            "& .MuiInput-root": {
-              px: 0.5,
-              py: 1,
-              color: "#111",
-              fontSize: "0.95rem",
-              "&:before": { borderBottomColor: C.divider },
-              "&:hover:not(.Mui-disabled, .Mui-error):before": {
-                borderBottomColor: C.textPrimary,
-              },
-              "&:after": { borderBottomColor: C.accent },
+            "& .MuiOutlinedInput-root": {
+              borderRadius: 2.5,
+              bgcolor: C.surface,
+              "& fieldset": { borderColor: C.divider },
+              "&:hover fieldset": { borderColor: C.textMuted },
+              "&.Mui-focused fieldset": { borderColor: C.accent },
             },
             "& input::placeholder": {
               color: C.textMuted,
@@ -4453,7 +4452,9 @@ const FriendsView = ({
       <Box>
         <Tabs
           value={section}
-          onChange={(_, value: "friends" | "requests") => setSection(value)}
+          onChange={(_, value: "friends" | "requests" | "sent") =>
+            setSection(value)
+          }
           variant="fullWidth"
           sx={{
             mb: 2,
@@ -4473,7 +4474,11 @@ const FriendsView = ({
           />
           <Tab
             value="requests"
-            label={`Friend Requests (${friendRequests.length})`}
+            label={`Received (${friendRequests.length})`}
+          />
+          <Tab
+            value="sent"
+            label={`Sent (${sentFriendRequests.length})`}
           />
         </Tabs>
 
@@ -4513,9 +4518,9 @@ const FriendsView = ({
               ))}
             </Box>
           )
-        ) : friendRequests.length === 0 ? (
+        ) : section === "requests" ? friendRequests.length === 0 ? (
           <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
-            You have no pending friend requests.
+            You have no received friend requests.
           </Typography>
         ) : (
           <Stack divider={<Divider sx={{ borderColor: C.divider }} />}>
@@ -4580,6 +4585,54 @@ const FriendsView = ({
                     Decline
                   </Button>
                 </Stack>
+              </Box>
+            ))}
+          </Stack>
+        ) : sentFriendRequests.length === 0 ? (
+          <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
+            You have not sent any pending friend requests.
+          </Typography>
+        ) : (
+          <Stack divider={<Divider sx={{ borderColor: C.divider }} />}>
+            {sentFriendRequests.map((request) => (
+              <Box
+                key={request.id}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.3,
+                  py: 1.5,
+                }}
+              >
+                <Avatar
+                  src={request.avatarUrl ?? undefined}
+                  alt={request.name}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    bgcolor: C.accentFaint,
+                    color: C.accentDark,
+                  }}
+                >
+                  {request.name.charAt(0)}
+                </Avatar>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ color: C.textPrimary, fontWeight: 700 }}>
+                    {request.name}
+                  </Typography>
+                  <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
+                    {request.handle} · {request.role}
+                  </Typography>
+                </Box>
+                <Chip
+                  label="Request sent"
+                  size="small"
+                  sx={{
+                    bgcolor: C.accentFaint,
+                    color: C.accentDark,
+                    fontWeight: 700,
+                  }}
+                />
               </Box>
             ))}
           </Stack>
@@ -4706,6 +4759,9 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [friendRequests, setFriendRequests] = useState<
     CommunityFriendRequest[]
   >([]);
+  const [sentFriendRequests, setSentFriendRequests] = useState<
+    CommunityFriendRequest[]
+  >([]);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -4796,10 +4852,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   // T: O(c) and S: O(c), where c is returned communities
 
   const refreshFriendWorkspace = useCallback(async () => {
-    const [friendRecords, requestRecords] = await Promise.all([
+    const [friendRecords, requestRecords, sentRequestRecords] =
+      await Promise.all([
       listFriends(),
       listFriendRequests(),
-    ]);
+        listSentFriendRequests(),
+      ]);
     setFriends(
       friendRecords.map((friend) => ({
         id: friend.id,
@@ -4811,7 +4869,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       })),
     );
     setFriendRequests(requestRecords);
-    return { friendRecords, requestRecords };
+    setSentFriendRequests(sentRequestRecords);
+    return { friendRecords, requestRecords, sentRequestRecords };
   }, []);
   // T: O(f + r) and S: O(f + r), where f is friends and r is requests
 
@@ -5163,6 +5222,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
   const handleAddFriend = async (friendId: string): Promise<void> => {
     await sendFriendRequest(friendId);
+    await refreshFriendWorkspace();
   };
   // T: O(1) network request and S: O(1)
 
@@ -5536,6 +5596,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           <FriendsView
             friends={friends}
             friendRequests={friendRequests}
+            sentFriendRequests={sentFriendRequests}
             onAddFriend={handleAddFriend}
             onResolveRequest={handleResolveFriendRequest}
           />

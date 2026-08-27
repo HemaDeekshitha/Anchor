@@ -290,7 +290,8 @@ export type CommunityPersonSearchResult = {
 
 export type CommunityFriendRequest = {
   id: string;
-  requesterId: string;
+  requesterId?: string;
+  addresseeId?: string;
   name: string;
   handle: string;
   role: string;
@@ -436,6 +437,19 @@ export async function listFriendRequests(): Promise<CommunityFriendRequest[]> {
   );
   if (!response.ok) {
     throw await readError(response, "Could not load friend requests");
+  }
+  return response.json() as Promise<CommunityFriendRequest[]>;
+}
+// T: O(r) and S: O(r), where r is the returned requests
+
+export async function listSentFriendRequests(): Promise<
+  CommunityFriendRequest[]
+> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/friends/requests/sent`,
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not load sent friend requests");
   }
   return response.json() as Promise<CommunityFriendRequest[]>;
 }

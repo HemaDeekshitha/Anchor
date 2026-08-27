@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskSubmission } from './submission.entity';
@@ -29,7 +33,7 @@ export class SubmissionService {
 
   /**
    * Main method: Submit a text answer for evaluation
-   * 
+   *
    * Flow:
    * 1. Fetch task details from database
    * 2. Call AI to evaluate the answer
@@ -38,98 +42,110 @@ export class SubmissionService {
    * 5. Return response to user
    */
   async submitText(userId: string, dto: SubmitTextDto) {
-  // Fetch task details
-  const task = await this.ragTaskRepo.findOne({ 
-    where: { id: dto.taskId } 
-  });
+    // Fetch task details
+    const task = await this.ragTaskRepo.findOne({
+      where: { id: dto.taskId },
+    });
 
-  if (!task) {
-    throw new NotFoundException('Task not found');
-  }
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
 
-  // Category-based minimum character validation
-  const selfReportCategories = [
-    'Job Applications',
-    'Networking',
-    'Resume & LinkedIn',
-    'Reflection & Planning',
-    'Projects & Portfolio',
-    'Interview Practice',
-  ];
+    // Category-based minimum character validation
+    const selfReportCategories = [
+      'Job Applications',
+      'Networking',
+      'Resume & LinkedIn',
+      'Reflection & Planning',
+      'Projects & Portfolio',
+      'Interview Practice',
+    ];
 
-  const isLeetcode = !!task.leetcodeUrl || /leetcode/i.test(task.title);
-  const minChars = isLeetcode || selfReportCategories.includes(task.category) ? 10 : 50;
+    // Length is only a basic empty/spam guard. Semantic completeness belongs to
+    // the rubric-aware evaluator; a correct algorithm or professional answer can
+    // legitimately be concise.
+    const minChars = 10;
 
-  if (dto.textContent.trim().length < minChars) {
-    throw new BadRequestException(
-      `Answer must be at least ${minChars} characters long for ${task.category} tasks`
-    );
-  }
+    if (dto.textContent.trim().length < minChars) {
+      throw new BadRequestException(
+        `Answer must be at least ${minChars} characters long for ${task.category} tasks`,
+      );
+    }
 
-  // Rest of your existing code...
-  let aiResult: { score: number; feedback: string; approved: boolean; confidence: number; details: any };
-  
-  if (selfReportCategories.includes(task.category)) {
-    // Auto-approve self-report tasks
-    aiResult = {
-      score: 10,
-      feedback: 'Task marked as complete. Great job!',
-      approved: true,
-      confidence: 1.0,
-      details: { selfReport: true },
+    // Rest of your existing code...
+    let aiResult: {
+      score: number;
+      feedback: string;
+      approved: boolean;
+      confidence: number;
+      details: any;
     };
-  } else {
-    // AI evaluation for learning tasks
-    aiResult = await this.geminiService.evaluateSubmission(task, dto.textContent);
+
+    if (selfReportCategories.includes(task.category)) {
+      // Auto-approve self-report tasks
+      aiResult = {
+        score: 10,
+        feedback: 'Task marked as complete. Great job!',
+        approved: true,
+        confidence: 1.0,
+        details: { selfReport: true },
+      };
+    } else {
+      // AI evaluation for learning tasks
+      aiResult = await this.geminiService.evaluateSubmission(
+        task,
+        dto.textContent,
+      );
+    }
+
+    // Save submission
+    const submission = this.submissionRepo.create({
+      user_id: userId,
+      task_id: dto.taskId,
+      submission_type: 'text',
+      text_content: dto.textContent,
+      ai_result: aiResult,
+      status: aiResult.approved ? 'approved' : 'rejected',
+      submitted_at: new Date(),
+      verified_at: new Date(),
+    });
+
+    await this.submissionRepo.save(submission);
+
+    // Mark task as completed and award Anchor Points if approved
+    let anchorPointsEarned = 0;
+    let trackCompletion: Awaited<
+      ReturnType<LearningTracksService['advanceIfComplete']>
+    > = null;
+    if (aiResult.approved) {
+      await this.markTaskCompleted(userId, dto.taskId, dto.taskDate);
+      // Award 25 Anchor Points — idempotent, safe to call on resubmit too
+      await this.pointsService.awardTaskPoints(userId, dto.taskId);
+      anchorPointsEarned = 25;
+      trackCompletion =
+        await this.learningTracksService.advanceIfComplete(userId);
+    }
+
+    // Fetch updated balance so the frontend can update its UI in one round-trip
+    const { anchorPoints: newAnchorPointsBalance } =
+      await this.pointsService.getBalance(userId);
+
+    return {
+      id: submission.id,
+      taskId: task.id,
+      taskTitle: task.title,
+      category: task.category,
+      status: submission.status,
+      score: aiResult.score,
+      feedback: aiResult.feedback,
+      approved: aiResult.approved,
+      submittedAt: submission.submitted_at,
+      details: aiResult.details,
+      anchorPointsEarned,
+      newAnchorPointsBalance,
+      trackCompletion,
+    };
   }
-
-  // Save submission
-  const submission = this.submissionRepo.create({
-    user_id: userId,
-    task_id: dto.taskId,
-    submission_type: 'text',
-    text_content: dto.textContent,
-    ai_result: aiResult,
-    status: aiResult.approved ? 'approved' : 'rejected',
-    submitted_at: new Date(),
-    verified_at: new Date(),
-  });
-
-  await this.submissionRepo.save(submission);
-
-  // Mark task as completed and award Anchor Points if approved
-  let anchorPointsEarned = 0;
-  let trackCompletion: Awaited<
-    ReturnType<LearningTracksService['advanceIfComplete']>
-  > = null;
-  if (aiResult.approved) {
-    await this.markTaskCompleted(userId, dto.taskId, dto.taskDate);
-    // Award 25 Anchor Points — idempotent, safe to call on resubmit too
-    await this.pointsService.awardTaskPoints(userId, dto.taskId);
-    anchorPointsEarned = 25;
-    trackCompletion = await this.learningTracksService.advanceIfComplete(userId);
-  }
-
-  // Fetch updated balance so the frontend can update its UI in one round-trip
-  const { anchorPoints: newAnchorPointsBalance } =
-    await this.pointsService.getBalance(userId);
-
-  return {
-    id: submission.id,
-    taskId: task.id,
-    taskTitle: task.title,
-    category: task.category,
-    status: submission.status,
-    score: aiResult.score,
-    feedback: aiResult.feedback,
-    approved: aiResult.approved,
-    submittedAt: submission.submitted_at,
-    details: aiResult.details,
-    anchorPointsEarned,
-    newAnchorPointsBalance,
-    trackCompletion,
-  };
-}
 
   /**
    * Mark task as completed in user_daily_tasks table
@@ -184,10 +200,7 @@ export class SubmissionService {
    * Get details of a specific submission
    * Shows full answer + AI evaluation
    */
-  async getSubmissionById(
-    id: number,
-    userId: string,
-  ): Promise<TaskSubmission> {
+  async getSubmissionById(id: number, userId: string): Promise<TaskSubmission> {
     const submission = await this.submissionRepo.findOne({
       where: { id, user_id: userId },
       relations: ['task'],
