@@ -178,8 +178,8 @@ describe('TaskGenerationService daily interview plan', () => {
       if (!task) break;
       expect(seenUrls.has(task.leetcodeUrl!)).toBe(false);
       expect(seenTitles.has(task.title.toLowerCase().trim())).toBe(false);
-      seenUrls.add(task!.leetcodeUrl!);
-      seenTitles.add(task!.title.toLowerCase().trim());
+      seenUrls.add(task.leetcodeUrl!);
+      seenTitles.add(task.title.toLowerCase().trim());
     }
     expect(seenUrls.size).toBeGreaterThan(5);
 
@@ -284,6 +284,11 @@ describe('TaskGenerationService daily interview plan', () => {
     expect(leetcode?.leetcodeUrl).toBe(
       'https://leetcode.com/problems/merge-k-sorted-lists/',
     );
+    expect(leetcode?.title).toBe('Solve Merge K Sorted Lists.');
+    expect(leetcode?.title).not.toMatch(
+      /explain|compare|justify|derive|discuss/i,
+    );
+    expect(leetcode?.description).toContain('Submit only your code solution');
 
     const incompletePlan: TestTask[] = [
       leetcode!,

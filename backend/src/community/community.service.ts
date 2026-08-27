@@ -406,10 +406,7 @@ export class CommunityService {
     }
     if (dto.visibility !== undefined) community.visibility = dto.visibility;
     if (dto.joinPolicy !== undefined) community.joinPolicy = dto.joinPolicy;
-    if (
-      community.visibility === 'private' &&
-      community.joinPolicy === 'open'
-    ) {
+    if (community.visibility === 'private' && community.joinPolicy === 'open') {
       throw new BadRequestException('Private communities cannot be open');
     }
 
@@ -879,10 +876,7 @@ export class CommunityService {
   }
   // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
 
-  async createGlobalPost(
-    userId: string,
-    dto: CreatePostDto,
-  ): Promise<unknown> {
+  async createGlobalPost(userId: string, dto: CreatePostDto): Promise<unknown> {
     return this.createPostRecord(userId, null, dto);
   }
   // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
@@ -1467,12 +1461,7 @@ export class CommunityService {
       }
       comment.status = 'deleted';
       await repository.save(comment);
-      await manager.decrement(
-        CommunityPost,
-        { id: postId },
-        'commentCount',
-        1,
-      );
+      await manager.decrement(CommunityPost, { id: postId }, 'commentCount', 1);
     });
     await this.invalidatePostCaches(post.communityId);
     return { deleted: true };
@@ -1511,12 +1500,12 @@ export class CommunityService {
                 pollId,
                 id: optionIds[0],
               })
-          : await manager
-              .getRepository(PollOption)
-              .createQueryBuilder('option')
-              .where('option."pollId" = :pollId', { pollId })
-              .andWhere('option.id IN (:...optionIds)', { optionIds })
-              .getMany();
+            : await manager
+                .getRepository(PollOption)
+                .createQueryBuilder('option')
+                .where('option."pollId" = :pollId', { pollId })
+                .andWhere('option.id IN (:...optionIds)', { optionIds })
+                .getMany();
       if (validOptions.length !== optionIds.length) {
         throw new BadRequestException('Poll option is invalid');
       }
@@ -1758,6 +1747,64 @@ export class CommunityService {
   }
   // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
 
+  async listSentFriendRequests(userId: string): Promise<
+    Array<{
+      id: string;
+      addresseeId: string;
+      name: string;
+      handle: string;
+      role: string;
+      avatarUrl: string | null;
+      createdAt: Date;
+    }>
+  > {
+    const requests = await this.friendshipRepository
+      .createQueryBuilder('friendship')
+      .innerJoin(User, 'addressee', 'addressee.id = friendship."addresseeId"')
+      .where('friendship."requesterId" = CAST(:userId AS uuid)', { userId })
+      .andWhere('friendship.status = :status', { status: 'pending' })
+      .select('friendship.id', 'id')
+      .addSelect('friendship."addresseeId"', 'addresseeId')
+      .addSelect('friendship."createdAt"', 'createdAt')
+      .addSelect('addressee.name', 'name')
+      .addSelect(`CONCAT('@', SPLIT_PART(addressee.email, '@', 1))`, 'handle')
+      .orderBy('friendship."createdAt"', 'DESC')
+      .limit(50)
+      .getRawMany<{
+        id: string;
+        addresseeId: string;
+        name: string;
+        handle: string;
+        createdAt: Date;
+      }>();
+    const addresseeIds = requests.map((request) => request.addresseeId);
+    const profiles = addresseeIds.length
+      ? await this.onboardingRepository.find({
+          where: { userId: In(addresseeIds) },
+          order: { createdAt: 'DESC' },
+        })
+      : [];
+    const latestProfileByUserId = new Map<string, OnboardingResponse>();
+    for (const profile of profiles) {
+      if (!latestProfileByUserId.has(profile.userId)) {
+        latestProfileByUserId.set(profile.userId, profile);
+      }
+    }
+    return requests.map((request) => {
+      const profile = latestProfileByUserId.get(request.addresseeId);
+      return {
+        ...request,
+        role:
+          profile?.dedicatedRole ??
+          profile?.preferredRole?.[0] ??
+          profile?.currentStatus?.[0] ??
+          'Anchor member',
+        avatarUrl: profile?.profileImageUrl ?? null,
+      };
+    });
+  }
+  // T: O(l log F) and S: O(l), where l is the result limit and F is friendships
+
   async sendFriendRequest(
     userId: string,
     dto: SendFriendRequestDto,
@@ -1788,8 +1835,8 @@ export class CommunityService {
       }),
     );
     await Promise.all([
-      this.cache.deleteByPrefix(`community:people-search:${userId}:`),
-      this.cache.deleteByPrefix(`community:people-search:${dto.userId}:`),
+      this.cache.deleteByPrefix(`community:people-search:v2:${userId}:`),
+      this.cache.deleteByPrefix(`community:people-search:v2:${dto.userId}:`),
       this.cache.deleteByPrefix('community:global-posts:'),
       this.cache.deleteByPrefix('community:posts:'),
       this.cache.deleteByPrefix('community:feed:'),
@@ -1813,10 +1860,10 @@ export class CommunityService {
     const saved = await this.friendshipRepository.save(friendship);
     await Promise.all([
       this.cache.deleteByPrefix(
-        `community:people-search:${friendship.requesterId}:`,
+        `community:people-search:v2:${friendship.requesterId}:`,
       ),
       this.cache.deleteByPrefix(
-        `community:people-search:${friendship.addresseeId}:`,
+        `community:people-search:v2:${friendship.addresseeId}:`,
       ),
       this.cache.deleteByPrefix('community:global-posts:'),
       this.cache.deleteByPrefix('community:posts:'),

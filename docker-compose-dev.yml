@@ -1,4 +1,26 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - anchor_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -20,8 +42,10 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       NODE_ENV: development
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
+      # Containers reach PostgreSQL over the Compose network. The host-side
+      # 127.0.0.1:5433 mapping is only for tools running directly on the Mac.
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
       DATABASE_NAME: ${DATABASE_NAME}
@@ -55,6 +79,8 @@ services:
     ports:
       - "3001:3001"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:

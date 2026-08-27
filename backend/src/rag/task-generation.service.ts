@@ -8,7 +8,11 @@ import { RagTask } from './rag-task.entity';
 import { OnboardingResponse } from '../onboarding/onboarding.entity';
 import { UserSkill } from '../skills/user-skills.entity';
 import { UserSeenTask } from './user-seen-task.entity';
-import { normalizeLeetcodeUrl } from './leetcode-url.util';
+import {
+  LEETCODE_CODE_ONLY_DESCRIPTION,
+  leetcodeTaskTitle,
+  normalizeLeetcodeUrl,
+} from './leetcode-url.util';
 import {
   BlueprintDailyLane,
   getRoleBlueprint,
@@ -171,17 +175,20 @@ const LEETCODE_FALLBACKS: Record<
       topic: 'dynamic programming',
     },
     {
-      title: 'Solve Invert Binary Tree and compare recursive and iterative traversal.',
+      title:
+        'Solve Invert Binary Tree and compare recursive and iterative traversal.',
       url: 'https://leetcode.com/problems/invert-binary-tree/',
       topic: 'binary trees',
     },
     {
-      title: 'Solve Maximum Depth of Binary Tree and explain the traversal state.',
+      title:
+        'Solve Maximum Depth of Binary Tree and explain the traversal state.',
       url: 'https://leetcode.com/problems/maximum-depth-of-binary-tree/',
       topic: 'binary trees',
     },
     {
-      title: 'Solve Linked List Cycle and explain the fast-and-slow pointer proof.',
+      title:
+        'Solve Linked List Cycle and explain the fast-and-slow pointer proof.',
       url: 'https://leetcode.com/problems/linked-list-cycle/',
       topic: 'linked lists and two pointers',
     },
@@ -191,12 +198,14 @@ const LEETCODE_FALLBACKS: Record<
       topic: 'arrays and voting',
     },
     {
-      title: 'Solve Flood Fill and compare breadth-first with depth-first traversal.',
+      title:
+        'Solve Flood Fill and compare breadth-first with depth-first traversal.',
       url: 'https://leetcode.com/problems/flood-fill/',
       topic: 'graphs and matrices',
     },
     {
-      title: 'Solve Palindrome Linked List and discuss the constant-space approach.',
+      title:
+        'Solve Palindrome Linked List and discuss the constant-space approach.',
       url: 'https://leetcode.com/problems/palindrome-linked-list/',
       topic: 'linked lists',
     },
@@ -233,37 +242,44 @@ const LEETCODE_FALLBACKS: Record<
       topic: 'intervals and sorting',
     },
     {
-      title: 'Solve Product of Array Except Self and explain the prefix-suffix invariant.',
+      title:
+        'Solve Product of Array Except Self and explain the prefix-suffix invariant.',
       url: 'https://leetcode.com/problems/product-of-array-except-self/',
       topic: 'arrays and prefix products',
     },
     {
-      title: 'Solve Top K Frequent Elements and compare heap and bucket approaches.',
+      title:
+        'Solve Top K Frequent Elements and compare heap and bucket approaches.',
       url: 'https://leetcode.com/problems/top-k-frequent-elements/',
       topic: 'heaps and buckets',
     },
     {
-      title: 'Solve Clone Graph and explain how the visited map preserves identity.',
+      title:
+        'Solve Clone Graph and explain how the visited map preserves identity.',
       url: 'https://leetcode.com/problems/clone-graph/',
       topic: 'graphs',
     },
     {
-      title: 'Solve Kth Smallest Element in a BST and explain the ordering property.',
+      title:
+        'Solve Kth Smallest Element in a BST and explain the ordering property.',
       url: 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/',
       topic: 'binary search trees',
     },
     {
-      title: 'Solve Daily Temperatures and explain the monotonic-stack invariant.',
+      title:
+        'Solve Daily Temperatures and explain the monotonic-stack invariant.',
       url: 'https://leetcode.com/problems/daily-temperatures/',
       topic: 'monotonic stacks',
     },
     {
-      title: 'Solve Rotting Oranges and explain multi-source breadth-first search.',
+      title:
+        'Solve Rotting Oranges and explain multi-source breadth-first search.',
       url: 'https://leetcode.com/problems/rotting-oranges/',
       topic: 'breadth-first search',
     },
     {
-      title: 'Solve Search in Rotated Sorted Array and derive the binary-search cases.',
+      title:
+        'Solve Search in Rotated Sorted Array and derive the binary-search cases.',
       url: 'https://leetcode.com/problems/search-in-rotated-sorted-array/',
       topic: 'binary search',
     },
@@ -305,22 +321,26 @@ const LEETCODE_FALLBACKS: Record<
       topic: 'binary search and partitioning',
     },
     {
-      title: 'Solve Largest Rectangle in Histogram and explain the monotonic stack.',
+      title:
+        'Solve Largest Rectangle in Histogram and explain the monotonic stack.',
       url: 'https://leetcode.com/problems/largest-rectangle-in-histogram/',
       topic: 'monotonic stacks',
     },
     {
-      title: 'Solve Serialize and Deserialize Binary Tree and define the encoding invariant.',
+      title:
+        'Solve Serialize and Deserialize Binary Tree and define the encoding invariant.',
       url: 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/',
       topic: 'trees and serialization',
     },
     {
-      title: 'Solve Binary Tree Maximum Path Sum and explain the returned subtree state.',
+      title:
+        'Solve Binary Tree Maximum Path Sum and explain the returned subtree state.',
       url: 'https://leetcode.com/problems/binary-tree-maximum-path-sum/',
       topic: 'trees and dynamic programming',
     },
     {
-      title: 'Solve Sliding Window Maximum and explain the monotonic deque invariant.',
+      title:
+        'Solve Sliding Window Maximum and explain the monotonic deque invariant.',
       url: 'https://leetcode.com/problems/sliding-window-maximum/',
       topic: 'queues and sliding windows',
     },
@@ -330,17 +350,20 @@ const LEETCODE_FALLBACKS: Record<
       topic: 'dynamic programming',
     },
     {
-      title: 'Solve N-Queens and explain the pruning state used by backtracking.',
+      title:
+        'Solve N-Queens and explain the pruning state used by backtracking.',
       url: 'https://leetcode.com/problems/n-queens/',
       topic: 'backtracking',
     },
     {
-      title: 'Solve Alien Dictionary and explain how ordering constraints form a graph.',
+      title:
+        'Solve Alien Dictionary and explain how ordering constraints form a graph.',
       url: 'https://leetcode.com/problems/alien-dictionary/',
       topic: 'graphs and topological sorting',
     },
     {
-      title: 'Solve Regular Expression Matching and define the dynamic-programming state.',
+      title:
+        'Solve Regular Expression Matching and define the dynamic-programming state.',
       url: 'https://leetcode.com/problems/regular-expression-matching/',
       topic: 'dynamic programming and strings',
     },
@@ -384,14 +407,14 @@ const TASK_PROVIDERS: TaskProvider[] = [
     type: 'openai-compat',
     baseURL: 'https://api.groq.com/openai/v1',
     apiKeyEnv: 'GROQ_API_KEY',
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
   },
   {
     name: 'openrouter',
     type: 'openai-compat',
     baseURL: 'https://openrouter.ai/api/v1',
     apiKeyEnv: 'OPENROUTER_API_KEY',
-    model: 'openai/gpt-oss-120b:free',
+    model: 'google/gemma-4-31b-it:free',
   },
   {
     name: 'gemini-2.5',
@@ -478,9 +501,20 @@ export class TaskGenerationService {
           this.logger.log(`✅ Used model: ${provider.name}`);
           return text;
         }
-      } catch (err: any) {
-        const status: number = err?.status ?? err?.code ?? 0;
-        const msg: string = err?.message ?? String(err);
+      } catch (err: unknown) {
+        const errorDetails =
+          typeof err === 'object' && err !== null
+            ? (err as {
+                status?: unknown;
+                code?: unknown;
+                message?: unknown;
+              })
+            : null;
+        const status = Number(errorDetails?.status ?? errorDetails?.code ?? 0);
+        const msg =
+          typeof errorDetails?.message === 'string'
+            ? errorDetails.message
+            : String(err);
 
         const isOverload =
           status === 503 || /overloaded|high demand/i.test(msg);
@@ -607,6 +641,12 @@ export class TaskGenerationService {
         const isLeetcode = softwareRole && Boolean(normalizedLeetcodeUrl);
         const task: GeneratedTaskDto = {
           ...rawTask,
+          title: isLeetcode
+            ? leetcodeTaskTitle(normalizedLeetcodeUrl)!
+            : rawTask.title,
+          description: isLeetcode
+            ? LEETCODE_CODE_ONLY_DESCRIPTION
+            : rawTask.description,
           category: softwareRole
             ? isLeetcode
               ? 'DSA'
@@ -812,36 +852,38 @@ export class TaskGenerationService {
     );
 
     const titleKeys = fresh.map((task) => this.normaliseTitle(task.title));
-    const saved = await this.ragTaskRepo.manager.transaction(async (manager) => {
-      // Serialize task generation per user across backend instances. Without
-      // this lock, two requests could both pass the seen check and persist the
-      // same title under different task IDs.
-      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-        `task-generation:${userId}`,
-      ]);
+    const saved = await this.ragTaskRepo.manager.transaction(
+      async (manager) => {
+        // Serialize task generation per user across backend instances. Without
+        // this lock, two requests could both pass the seen check and persist the
+        // same title under different task IDs.
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `task-generation:${userId}`,
+        ]);
 
-      const conflicts = await manager.getRepository(UserSeenTask).find({
-        where: { user_id: userId, title_key: In(titleKeys) },
-        select: ['title_key'],
-      });
-      if (conflicts.length > 0) {
-        throw new Error(
-          `Refusing to persist previously seen task(s): ${conflicts
-            .map((row) => row.title_key)
-            .join(', ')}`,
+        const conflicts = await manager.getRepository(UserSeenTask).find({
+          where: { user_id: userId, title_key: In(titleKeys) },
+          select: ['title_key'],
+        });
+        if (conflicts.length > 0) {
+          throw new Error(
+            `Refusing to persist previously seen task(s): ${conflicts
+              .map((row) => row.title_key)
+              .join(', ')}`,
+          );
+        }
+
+        const persisted = await manager.getRepository(RagTask).save(toSave);
+        await manager.getRepository(UserSeenTask).insert(
+          persisted.map((task) => ({
+            user_id: userId,
+            task_id: task.id,
+            title_key: this.normaliseTitle(task.title),
+          })),
         );
-      }
-
-      const persisted = await manager.getRepository(RagTask).save(toSave);
-      await manager.getRepository(UserSeenTask).insert(
-        persisted.map((task) => ({
-          user_id: userId,
-          task_id: task.id,
-          title_key: this.normaliseTitle(task.title),
-        })),
-      );
-      return persisted;
-    });
+        return persisted;
+      },
+    );
 
     this.logger.log(
       `Saved ${saved.length} tasks for user ${userId} (mix: easy=${mix.easy} med=${mix.medium} hard=${mix.hard})`,
@@ -979,9 +1021,8 @@ export class TaskGenerationService {
     if (!problem) return null;
 
     return {
-      title: problem.title,
-      description:
-        'Solve the problem, explain the chosen data structure and algorithm, analyze time and space complexity, and discuss important edge cases.',
+      title: leetcodeTaskTitle(problem.url)!,
+      description: LEETCODE_CODE_ONLY_DESCRIPTION,
       category: 'DSA',
       difficulty,
       priority: this.difficultyToPriority(difficulty),
@@ -1201,16 +1242,16 @@ export class TaskGenerationService {
     };
 
     if (!usedCategories.has(this.normaliseCategory('System Design'))) {
-      const contextualSystemDesign = skills.slice(0, 8).flatMap((skill) => [
-        `Design a production service centered on ${skill}. Which requirements and scale assumptions would you clarify, how would you define its APIs and data model, and how would you handle bottlenecks, failures, and observability?`,
-        `A system using ${skill} is missing its reliability target. How would you establish the failure model, redesign the critical path, choose consistency and recovery guarantees, and validate the result under load?`,
-      ]);
+      const contextualSystemDesign = skills
+        .slice(0, 8)
+        .flatMap((skill) => [
+          `Design a production service centered on ${skill}. Which requirements and scale assumptions would you clarify, how would you define its APIs and data model, and how would you handle bottlenecks, failures, and observability?`,
+          `A system using ${skill} is missing its reliability target. How would you establish the failure model, redesign the critical path, choose consistency and recovery guarantees, and validate the result under load?`,
+        ]);
       const unseenTitle = [
         ...SYSTEM_DESIGN_FALLBACKS,
         ...contextualSystemDesign,
-      ].find(
-        (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
-      );
+      ].find((candidate) => !seenKeys.has(this.normaliseTitle(candidate)));
       if (unseenTitle) {
         addTask(
           'System Design',
@@ -1224,16 +1265,16 @@ export class TaskGenerationService {
     }
 
     if (!usedCategories.has(this.normaliseCategory('Behavioral'))) {
-      const contextualBehavioral = skills.slice(0, 8).flatMap((skill) => [
-        `Tell me about a time your work involving ${skill} did not go as planned. How did you identify the problem, communicate it, take ownership, and change your approach afterward?`,
-        `Tell me about a difficult trade-off you made while working with ${skill}. Which evidence and stakeholders shaped the decision, what did you personally own, and what was the measurable outcome?`,
-      ]);
+      const contextualBehavioral = skills
+        .slice(0, 8)
+        .flatMap((skill) => [
+          `Tell me about a time your work involving ${skill} did not go as planned. How did you identify the problem, communicate it, take ownership, and change your approach afterward?`,
+          `Tell me about a difficult trade-off you made while working with ${skill}. Which evidence and stakeholders shaped the decision, what did you personally own, and what was the measurable outcome?`,
+        ]);
       const unseenTitle = [
         ...BEHAVIORAL_FALLBACKS,
         ...contextualBehavioral,
-      ].find(
-        (candidate) => !seenKeys.has(this.normaliseTitle(candidate)),
-      );
+      ].find((candidate) => !seenKeys.has(this.normaliseTitle(candidate)));
       if (unseenTitle) {
         addTask(
           'Behavioral',
@@ -1257,9 +1298,7 @@ export class TaskGenerationService {
         profile?.dedicatedRole?.trim() ||
         profile?.preferredRole?.[0]?.trim() ||
         'your target role';
-      resumeCandidates.push(
-        ...this.experienceFallbackCandidates(role, skills),
-      );
+      resumeCandidates.push(...this.experienceFallbackCandidates(role, skills));
       const unseenTitle = resumeCandidates.find(
         (candidate) =>
           candidate.length <= 260 &&
@@ -1413,9 +1452,7 @@ export class TaskGenerationService {
         const candidates = resumePoints.flatMap((point) =>
           this.resumeQuestionCandidates(point),
         );
-        candidates.push(
-          ...this.experienceFallbackCandidates(role, anchors),
-        );
+        candidates.push(...this.experienceFallbackCandidates(role, anchors));
         const title = candidates.find(
           (candidate) =>
             candidate.length <= 260 &&
@@ -1604,10 +1641,12 @@ export class TaskGenerationService {
     skills: string[] = [],
   ): boolean {
     const title = task.title?.trim() ?? '';
+    const description = task.description?.trim() ?? '';
     const isLeetcode =
       task.category === 'DSA' &&
       Boolean(normalizeLeetcodeUrl(task.leetcodeUrl));
     if (title.length < 15 || title.length > 260) return false;
+    if (description.length < 30) return false;
     if (!isLeetcode && !title.endsWith('?')) return false;
     if (
       /^(tell me about yourself|what are your strengths|what are your weaknesses|why should we hire you)\??$/i.test(
@@ -1777,6 +1816,8 @@ Generate these four REQUIRED DAILY INTERVIEW LANES. Their categories must be exa
 - Exactly 1 of the ${mix.total} tasks MUST be a real LeetCode DSA problem.
 - Set its difficulty to "${lcDiff}", category to "DSA".
 - Set leetcodeUrl to the actual LeetCode problem URL: https://leetcode.com/problems/<problem-slug>/
+- The title MUST be only "Solve <exact LeetCode problem name>." Do not ask for an explanation, comparison, justification, derivation, complexity analysis, or discussion.
+- The description MUST say to submit code only in any programming language. Explanations are not required; evaluation will infer correctness, edge cases, and optimality from the code.
 - Choose a classic, well-known problem (e.g. two-sum, valid-parentheses, binary-search, merge-intervals) — do NOT invent a URL.
 - Never reuse a problem listed in LEETCODE PROBLEMS ALREADY ASSIGNED.
 

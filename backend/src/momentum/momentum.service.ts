@@ -370,9 +370,9 @@ export class MomentumService {
       'Interview Practice',
     ];
 
-    const isLeetcode = !!task.leetcodeUrl || /leetcode/i.test(task.title);
-    const minChars =
-      isLeetcode || selfReportCategories.includes(task.category) ? 10 : 50;
+    // Keep this aligned with SubmissionService. Length is only an empty/spam
+    // guard; the evaluator determines semantic completeness from the rubric.
+    const minChars = 10;
 
     if (newAnswer.trim().length < minChars) {
       throw new BadRequestException(

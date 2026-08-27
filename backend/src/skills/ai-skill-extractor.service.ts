@@ -96,13 +96,13 @@ Return ONLY a JSON array, example: ["React", "Azure Blob Storage", "Software Eng
         name: 'groq',
         baseURL: 'https://api.groq.com/openai/v1',
         apiKeyEnv: 'GROQ_API_KEY',
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
       },
       {
         name: 'openrouter',
         baseURL: 'https://openrouter.ai/api/v1',
         apiKeyEnv: 'OPENROUTER_API_KEY',
-        model: 'openai/gpt-oss-120b:free',
+        model: 'google/gemma-4-31b-it:free',
       },
     ];
 
