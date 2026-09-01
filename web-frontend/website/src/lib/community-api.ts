@@ -290,6 +290,7 @@ export type CommunityPersonSearchResult = {
 
 export type CommunityFriendRequest = {
   id: string;
+  direction?: "received" | "sent";
   requesterId?: string;
   addresseeId?: string;
   name: string;
@@ -310,6 +311,9 @@ export type CommunityComment = {
   createdAt: string;
   author: { id: string; name: string; email: string } | null;
   canDelete: boolean;
+  canEdit: boolean;
+  likeCount: number;
+  viewerLiked: boolean;
 };
 
 export type Comm360Meeting = {
@@ -937,6 +941,39 @@ export async function deleteComment(
   if (!response.ok) throw await readError(response, "Could not delete comment");
 }
 // T: O(1) network request and S: O(1)
+
+export async function updateComment(
+  postId: string,
+  commentId: string,
+  body: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/posts/${postId}/comments/${commentId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    },
+  );
+  if (!response.ok) throw await readError(response, "Could not edit comment");
+}
+
+export async function voteComment(
+  postId: string,
+  commentId: string,
+  liked: boolean,
+): Promise<{ likeCount: number; viewerLiked: boolean }> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/posts/${postId}/comments/${commentId}/like`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ liked }),
+    },
+  );
+  if (!response.ok) throw await readError(response, "Could not update comment like");
+  return response.json() as Promise<{ likeCount: number; viewerLiked: boolean }>;
+}
 
 export async function getComm360Meeting(
   roomId: string,

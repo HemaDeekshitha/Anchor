@@ -379,6 +379,23 @@ export class PostComment {
   updatedAt: Date;
 }
 
+@Entity('post_comment_votes')
+@Unique('uq_post_comment_vote_user', ['commentId', 'userId'])
+@Index('idx_post_comment_votes_comment', ['commentId'])
+export class PostCommentVote {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column('uuid')
+  commentId: string;
+
+  @Column('uuid')
+  userId: string;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+}
+
 @Entity('community_outbox_events')
 @Index('idx_outbox_pending', ['processedAt', 'createdAt'])
 export class CommunityOutboxEvent {

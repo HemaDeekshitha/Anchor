@@ -30,13 +30,13 @@ import {
   MenuItem,
   Radio,
   RadioGroup,
+  Badge,
 } from "@mui/material";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
 import PollOutlinedIcon from "@mui/icons-material/PollOutlined";
 import FavoriteBorderRoundedIcon from "@mui/icons-material/FavoriteBorderRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
@@ -62,6 +62,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
@@ -79,6 +80,9 @@ import {
   deleteCommunity,
   deleteComment,
   deletePost,
+  updateComment,
+  voteComment,
+  getCurrentCommunityProfile,
   joinCommunity,
   listCommunityMembers,
   listComments,
@@ -113,10 +117,10 @@ const C = {
   accentGrad: "linear-gradient(to right, #b87444, #a0622e)",
   cardBg: "#ffffff",
   surface: "#fdfaf7",
-  divider: "#e8ddd0",
-  textPrimary: "#2c1a0a",
-  textSub: "#8c6a50",
-  textMuted: "#b8a090",
+  divider: "#e5e7eb",
+  textPrimary: "#111111",
+  textSub: "#242424",
+  textMuted: "#666666",
   green: "#3f7d4f",
   red: "#b9573f",
 } as const;
@@ -129,6 +133,9 @@ export type ForumComment = {
   body: string;
   timeAgo: string;
   canDelete?: boolean;
+  canEdit?: boolean;
+  likeCount: number;
+  viewerLiked: boolean;
 };
 
 export type ForumPost = {
@@ -205,11 +212,41 @@ const COMMUNITY_SECTION_STORAGE_KEY = "anchor.community.section";
 const COMMUNITY_PAGE_TAB_STORAGE_KEY = "anchor.community.pageTab";
 const COMMUNITY_CONVERSATION_STORAGE_KEY =
   "anchor.community.conversationId";
+const COMMUNITY_READ_POSITION_PREFIX = "anchor.community.readPosition";
+const FRIEND_REQUEST_SEEN_STORAGE_KEY =
+  "anchor.community.seenFriendRequestIds";
 const COMM360_URL =
   process.env.NEXT_PUBLIC_COMM360_URL || "https://comm360.feeltiptop.com/";
 const MESSAGE_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
 const COMM360_MEETING_URL_PATTERN =
   /https?:\/\/comm360\.feeltiptop\.com\/meeting\/([A-Za-z0-9_-]+)/i;
+
+const readSeenFriendRequestIds = (): Set<string> => {
+  if (typeof window === "undefined") return new Set<string>();
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(FRIEND_REQUEST_SEEN_STORAGE_KEY) ?? "[]",
+    );
+    return new Set(
+      Array.isArray(stored)
+        ? stored.filter((value): value is string => typeof value === "string")
+        : [],
+    );
+  } catch {
+    return new Set<string>();
+  }
+};
+
+const saveSeenFriendRequestIds = (requestIds: Set<string>): void => {
+  try {
+    window.localStorage.setItem(
+      FRIEND_REQUEST_SEEN_STORAGE_KEY,
+      JSON.stringify([...requestIds].slice(-250)),
+    );
+  } catch {
+    // The in-memory acknowledgement still clears the badge for this session.
+  }
+};
 
 const getComm360RoomId = (message: string) =>
   message.match(COMM360_MEETING_URL_PATTERN)?.[1] ?? null;
@@ -316,6 +353,13 @@ const formatTimeAgo = (createdAt: string) => {
   if (elapsedMinutes < 1_440) return `${Math.floor(elapsedMinutes / 60)}h`;
   return `${Math.floor(elapsedMinutes / 1_440)}d`;
 };
+
+const formatMessageDate = (createdAt: string) =>
+  new Date(createdAt).toLocaleDateString([], {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 // T: O(1) and S: O(1)
 
 const mapCommunity = (
@@ -416,6 +460,7 @@ const Composer = ({
     "idle" | "uploading" | "uploaded" | "publishing"
   >("idle");
   const [error, setError] = useState("");
+  const [mentionMembers, setMentionMembers] = useState<CommunityMemberRecord[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
@@ -423,6 +468,16 @@ const Composer = ({
   const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
   const mediaUploadRequestRef = useRef(0);
   const validPollOptions = pollOptions.filter((option) => option.trim());
+  const mentionQuery =
+    scope === "community" ? content.match(/(?:^|\s)@([^\s@]*)$/)?.[1] : undefined;
+  const mentionSuggestions =
+    mentionQuery === undefined
+      ? []
+      : mentionMembers
+          .filter((member) =>
+            member.name.toLowerCase().includes(mentionQuery.toLowerCase()),
+          )
+          .slice(0, 6);
   const canSubmit =
     (scope === "global" || Boolean(communityId)) &&
     (mode === "image" || mode === "video"
@@ -440,6 +495,22 @@ const Composer = ({
     setMediaPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
+
+  useEffect(() => {
+    if (scope !== "community" || !communityId) {
+      setMentionMembers([]);
+      return;
+    }
+    void listCommunityMembers(communityId)
+      .then(setMentionMembers)
+      .catch(() => setMentionMembers([]));
+  }, [communityId, scope]);
+
+  const insertMention = (member: CommunityMemberRecord) => {
+    setContent((current) =>
+      `${current.replace(/@[^\s@]*$/, "")}@${member.name} `,
+    );
+  };
 
   const cancelMediaUpload = () => {
     mediaUploadRequestRef.current += 1;
@@ -691,9 +762,10 @@ const Composer = ({
       onClick={handleOpen}
       elevation={0}
       sx={{
+        position: "relative",
         width: "100%",
-        maxHeight: open ? 780 : 58,
-        minHeight: open ? 0 : 58,
+        maxHeight: open ? 780 : { xs: 44, sm: 48, md: 58 },
+        minHeight: open ? 0 : { xs: 44, sm: 48, md: 58 },
         p: open ? { xs: 1.5, sm: 1.75 } : 0,
         borderRadius: open ? 4 : 999,
         bgcolor: "#fff",
@@ -711,7 +783,7 @@ const Composer = ({
           display: "flex",
           alignItems: open ? "flex-start" : "center",
           gap: open ? 1.2 : 0.5,
-          minHeight: open ? 0 : 56,
+          minHeight: open ? 0 : { xs: 42, sm: 46, md: 56 },
         }}
       >
         <TextField
@@ -749,12 +821,14 @@ const Composer = ({
             "& .MuiInputBase-root": {
               alignItems: open ? "flex-start" : "center",
               color: "#111",
-              fontSize: open ? "1rem" : "0.95rem",
+              fontSize: open
+                ? { xs: "0.82rem", sm: "1rem" }
+                : { xs: "0.76rem", sm: "0.84rem", md: "0.95rem" },
               lineHeight: 1.55,
               border: open ? "1px solid #242424" : "1px solid transparent",
               borderRadius: open ? 2 : 0,
               bgcolor: "#fff",
-              px: open ? 1.5 : 2,
+              px: open ? 1.5 : { xs: 1.25, sm: 1.5, md: 2 },
               py: open ? 1.1 : 0,
               transition: "font-size 200ms ease",
             },
@@ -772,6 +846,55 @@ const Composer = ({
           }}
         />
 
+        {open && mentionSuggestions.length > 0 && (
+          <Box
+            role="listbox"
+            aria-label="Mention a community member"
+            sx={{
+              position: "absolute",
+              top: 62,
+              left: { xs: 12, sm: 16 },
+              width: { xs: "calc(100% - 56px)", sm: 320 },
+              zIndex: 5,
+              bgcolor: "#fff",
+              border: `1px solid ${C.divider}`,
+              borderRadius: 2,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+              overflow: "hidden",
+            }}
+          >
+            {mentionSuggestions.map((member) => (
+              <Box
+                component="button"
+                type="button"
+                key={member.userId}
+                onClick={(event: React.MouseEvent) => {
+                  event.stopPropagation();
+                  insertMention(member);
+                }}
+                sx={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  p: 1,
+                  border: 0,
+                  bgcolor: "#fff",
+                  color: C.textPrimary,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  "&:hover": { bgcolor: "#f5f5f5" },
+                }}
+              >
+                <Avatar sx={{ width: 28, height: 28, fontSize: "0.72rem" }}>
+                  {member.name.charAt(0)}
+                </Avatar>
+                <span>{member.name}</span>
+              </Box>
+            ))}
+          </Box>
+        )}
+
         {!open && (
           <IconButton
             aria-label="Send post"
@@ -779,10 +902,10 @@ const Composer = ({
             disabled={!canSubmit || submitting}
             size="small"
             sx={{
-              width: 40,
-              height: 40,
-              minWidth: 40,
-              mr: 0.75,
+              width: { xs: 30, sm: 34, md: 40 },
+              height: { xs: 30, sm: 34, md: 40 },
+              minWidth: { xs: 30, sm: 34, md: 40 },
+              mr: { xs: 0.55, sm: 0.7, md: 0.75 },
               flexShrink: 0,
               color: "#fff",
               bgcolor: canSubmit ? C.accent : "#e7e4e1",
@@ -790,7 +913,7 @@ const Composer = ({
               "&.Mui-disabled": { color: "#aaa", bgcolor: "#e7e4e1" },
             }}
           >
-            <SendRoundedIcon sx={{ fontSize: 18 }} />
+            <SendRoundedIcon sx={{ fontSize: { xs: 15, sm: 17, md: 18 } }} />
           </IconButton>
         )}
 
@@ -1185,12 +1308,18 @@ const Composer = ({
 const PostCard = ({
   post,
   communityName,
+  conversationStyle = false,
+  dateLabel,
+  viewerName,
   onUpdated,
   onDeleted,
   onMeetingDiscovered,
 }: {
   post: ForumPost;
   communityName?: string;
+  conversationStyle?: boolean;
+  dateLabel?: string;
+  viewerName: string;
   onUpdated: (postId: string, body: string) => void;
   onDeleted: (postId: string) => void;
   onMeetingDiscovered?: (
@@ -1210,6 +1339,13 @@ const PostCard = ({
     useState<ForumComment | null>(null);
   const [commentDeletePending, setCommentDeletePending] = useState(false);
   const [commentDeleteError, setCommentDeleteError] = useState("");
+  const [commentMenu, setCommentMenu] = useState<{
+    anchor: HTMLElement;
+    comment: ForumComment;
+  } | null>(null);
+  const [editingComment, setEditingComment] = useState<ForumComment | null>(null);
+  const [commentEditBody, setCommentEditBody] = useState("");
+  const [commentEditPending, setCommentEditPending] = useState(false);
   const [poll, setPoll] = useState(post.poll);
   const [votingOptionId, setVotingOptionId] = useState("");
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<string[]>(
@@ -1307,6 +1443,9 @@ const PostCard = ({
           body: trimmed,
           timeAgo: "Just now",
           canDelete: true,
+          canEdit: true,
+          likeCount: 0,
+          viewerLiked: false,
         },
       ]);
       setCommentCount((current) => current + 1);
@@ -1341,6 +1480,57 @@ const PostCard = ({
     }
   };
   // T: O(c) and S: O(c), where c is the number of displayed comments
+
+  const handleEditComment = async () => {
+    const body = commentEditBody.trim();
+    if (!editingComment || !body || commentEditPending) return;
+    setCommentEditPending(true);
+    setCommentDeleteError("");
+    try {
+      await updateComment(post.id, editingComment.id, body);
+      setComments((current) =>
+        current.map((comment) =>
+          comment.id === editingComment.id ? { ...comment, body } : comment,
+        ),
+      );
+      setEditingComment(null);
+    } catch (caught) {
+      setCommentDeleteError(
+        caught instanceof Error ? caught.message : "Could not edit comment",
+      );
+    } finally {
+      setCommentEditPending(false);
+    }
+  };
+
+  const handleCommentLike = async (comment: ForumComment) => {
+    const liked = !comment.viewerLiked;
+    setComments((current) =>
+      current.map((item) =>
+        item.id === comment.id
+          ? {
+              ...item,
+              viewerLiked: liked,
+              likeCount: Math.max(0, item.likeCount + (liked ? 1 : -1)),
+            }
+          : item,
+      ),
+    );
+    try {
+      const result = await voteComment(post.id, comment.id, liked);
+      setComments((current) =>
+        current.map((item) =>
+          item.id === comment.id ? { ...item, ...result } : item,
+        ),
+      );
+    } catch {
+      setComments((current) =>
+        current.map((item) =>
+          item.id === comment.id ? { ...item, viewerLiked: comment.viewerLiked, likeCount: comment.likeCount } : item,
+        ),
+      );
+    }
+  };
 
   const updatePollSelectionOptimistically = (optionIds: string[]): void => {
     const currentPoll = pollRef.current;
@@ -1464,6 +1654,9 @@ const PostCard = ({
           body: comment.body,
           timeAgo: formatTimeAgo(comment.createdAt),
           canDelete: comment.canDelete,
+          canEdit: comment.canEdit,
+          likeCount: comment.likeCount,
+          viewerLiked: comment.viewerLiked,
         })),
       );
       setCommentCount(Math.max(post.replyCount ?? 0, records.length));
@@ -1633,37 +1826,150 @@ const PostCard = ({
   // T: O(1) and S: O(1)
 
   return (
+    <>
+    {dateLabel && (
+      <Divider
+        textAlign="center"
+        sx={{ color: C.textMuted, fontSize: { xs: "0.6rem", sm: "0.75rem" }, my: 1 }}
+      >
+        {dateLabel}
+      </Divider>
+    )}
     <Card
       sx={{
+        position: "relative",
         width: "100%",
-        maxWidth: 680,
+        maxWidth: "none",
         mx: "auto",
         boxSizing: "border-box",
-        p: 3,
-        borderRadius: 3,
+        py: { xs: 1.2, sm: 2 },
         background: C.cardBg,
-        border: `1px solid ${C.divider}`,
-        boxShadow: "0 4px 20px rgba(44,26,10,0.06)",
+        border: showComments ? `1px solid ${C.accentBorder}` : 0,
+        borderBottom: showComments
+          ? `1px solid ${C.accentBorder}`
+          : `1px solid ${C.divider}`,
+        borderRadius: showComments ? 2 : 0,
+        px: showComments ? { xs: 1, sm: 1.5 } : 0,
+        boxShadow: "none",
+        overflow: "visible",
+        transition: "background-color 140ms ease",
+        "&:hover": {
+          bgcolor: "#fafafa",
+        },
+        "& .message-actions": {
+          opacity: { xs: 1, md: 0 },
+          transform: { xs: "none", md: "translateY(4px)" },
+          pointerEvents: { xs: "auto", md: "none" },
+        },
+        "&:hover .message-actions, &:focus-within .message-actions": {
+          opacity: 1,
+          transform: "translateY(0)",
+          pointerEvents: "auto",
+        },
       }}
     >
+      <Stack
+        className="message-actions"
+        direction="row"
+        alignItems="center"
+        spacing={0.25}
+        sx={{
+          position: { xs: "static", md: "absolute" },
+          top: { md: -18 },
+          right: { md: 8 },
+          float: { xs: "right", md: "none" },
+          width: "fit-content",
+          ml: "auto",
+          mb: { xs: 0.5, md: 0 },
+          p: { xs: 0.15, sm: 0.35 },
+          border: `1px solid ${C.divider}`,
+          borderRadius: 2,
+          bgcolor: "#fff",
+          boxShadow: { xs: "none", md: "0 4px 14px rgba(0,0,0,0.10)" },
+          transition: "opacity 140ms ease, transform 140ms ease",
+          zIndex: 2,
+          "& .MuiIconButton-root": {
+            width: { xs: 25, sm: 34 },
+            height: { xs: 25, sm: 34 },
+          },
+          "& .MuiSvgIcon-root": {
+            fontSize: { xs: 16, sm: 24 },
+          },
+        }}
+      >
+        <Tooltip title={liked ? "Unlike" : "Like"}>
+          <IconButton
+            size="small"
+            aria-label={liked ? "Unlike message" : "Like message"}
+            onClick={() => void handleLike()}
+            disabled={likePending}
+            sx={{ color: liked ? C.accentDark : C.textMuted }}
+          >
+            {liked ? <FavoriteRoundedIcon /> : <FavoriteBorderRoundedIcon />}
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Reply">
+          <IconButton
+            size="small"
+            aria-label="Reply to message"
+            onClick={() => void handleToggleComments()}
+            sx={{ color: showComments ? C.accentDark : C.textMuted }}
+          >
+            <ChatBubbleOutlineRoundedIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Share">
+          <IconButton
+            size="small"
+            aria-label="Share message"
+            onClick={() => void handleSharePost()}
+            sx={{ color: C.textMuted }}
+          >
+            <ShareOutlinedIcon />
+          </IconButton>
+        </Tooltip>
+        {friendshipStatus === "none" && (
+          <Tooltip title={`Add ${post.authorName} as a friend`}>
+            <IconButton
+              size="small"
+              aria-label={`Add ${post.authorName} as a friend`}
+              onClick={() => void handleAddFriend()}
+              disabled={friendActionPending}
+              sx={{ color: C.textMuted }}
+            >
+              <PersonAddAltRoundedIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title="More actions">
+          <IconButton
+            size="small"
+            aria-label="More message actions"
+            onClick={(event) => setOwnerMenuAnchor(event.currentTarget)}
+            sx={{ color: C.textMuted }}
+          >
+            <MoreHorizRoundedIcon />
+          </IconButton>
+        </Tooltip>
+      </Stack>
       {/* Author row */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          mb: 2,
+          mb: { xs: 0.55, sm: 0.8 },
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.8, sm: 1.2 } }}>
           <Avatar
             src={post.authorAvatar}
             sx={{
-              width: 38,
-              height: 38,
+              width: { xs: 26, sm: 38 },
+              height: { xs: 26, sm: 38 },
               bgcolor: C.accentFaint,
               color: C.accentDark,
-              fontSize: "0.85rem",
+              fontSize: { xs: "0.6rem", sm: "0.85rem" },
             }}
           >
             {post.authorName.charAt(0)}
@@ -1672,7 +1978,7 @@ const PostCard = ({
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
               <Typography
                 sx={{
-                  fontSize: "0.92rem",
+                  fontSize: { xs: "0.7rem", sm: "0.92rem" },
                   fontWeight: 600,
                   color: C.textPrimary,
                 }}
@@ -1683,55 +1989,18 @@ const PostCard = ({
                 <VerifiedRoundedIcon sx={{ fontSize: 15, color: C.accent }} />
               )}
             </Box>
-            <Typography sx={{ fontSize: "0.78rem", color: C.textMuted }}>
+            <Typography sx={{ fontSize: { xs: "0.6rem", sm: "0.78rem" }, color: C.textMuted }}>
               {post.authorProfession} · {post.timeAgo}
             </Typography>
           </Box>
         </Box>
-        {friendshipStatus === "none" || friendshipStatus === "pending" ? (
-          <Button
-            size="small"
-            onClick={handleAddFriend}
-            disabled={friendActionPending || friendshipStatus !== "none"}
-            startIcon={
-              friendshipStatus === "none" ? <PersonAddAltRoundedIcon /> : null
-            }
-            sx={{
-              color: C.accentDark,
-              textTransform: "none",
-              fontWeight: 700,
-              "&.Mui-disabled": { color: C.textMuted },
-            }}
-          >
-            {friendActionPending
-              ? "Adding…"
-              : friendshipStatus === "none"
-                ? "Add as friend"
-                : "Request sent"}
-          </Button>
-        ) : (
-          <>
-            <Tooltip title="Post options">
-              <IconButton
-                aria-label="Post options"
-                aria-controls={
-                  ownerMenuAnchor ? `post-menu-${post.id}` : undefined
-                }
-                aria-haspopup="menu"
-                aria-expanded={ownerMenuAnchor ? "true" : undefined}
-                onClick={(event) => setOwnerMenuAnchor(event.currentTarget)}
-                sx={{ color: C.textSub }}
-              >
-                <MoreHorizRoundedIcon />
-              </IconButton>
-            </Tooltip>
-            <Menu
-              id={`post-menu-${post.id}`}
-              anchorEl={ownerMenuAnchor}
-              open={Boolean(ownerMenuAnchor)}
-              onClose={() => setOwnerMenuAnchor(null)}
-              MenuListProps={{ "aria-label": "Post options" }}
-            >
+        <Menu
+          id={`post-menu-${post.id}`}
+          anchorEl={ownerMenuAnchor}
+          open={Boolean(ownerMenuAnchor)}
+          onClose={() => setOwnerMenuAnchor(null)}
+          MenuListProps={{ "aria-label": "Message options" }}
+        >
               {friendshipStatus === "self" && (
                 <MenuItem
                   disabled={!editWindowOpen}
@@ -1751,18 +2020,14 @@ const PostCard = ({
                   Delete post
                 </MenuItem>
               )}
-              {friendshipStatus === "accepted" && (
-                <MenuItem onClick={handleMenuShare} sx={{ gap: 1 }}>
-                  <ShareOutlinedIcon fontSize="small" />
-                  Share this post
-                </MenuItem>
-              )}
-              {friendshipStatus === "accepted" && (
-                <MenuItem onClick={handleCopyPostLink} sx={{ gap: 1 }}>
-                  <LinkRoundedIcon fontSize="small" />
-                  Copy post link
-                </MenuItem>
-              )}
+              <MenuItem onClick={handleMenuShare} sx={{ gap: 1 }}>
+                <ShareOutlinedIcon fontSize="small" />
+                Share this message
+              </MenuItem>
+              <MenuItem onClick={handleCopyPostLink} sx={{ gap: 1 }}>
+                <LinkRoundedIcon fontSize="small" />
+                Copy message link
+              </MenuItem>
               {friendshipStatus === "accepted" && (
                 <MenuItem
                   disabled={friendActionPending}
@@ -1773,12 +2038,10 @@ const PostCard = ({
                   Unfollow {post.authorName}
                 </MenuItem>
               )}
-            </Menu>
-          </>
-        )}
+        </Menu>
       </Box>
 
-      {communityName && (
+      {communityName && !conversationStyle && (
         <Chip
           label={communityName}
           size="small"
@@ -1797,7 +2060,7 @@ const PostCard = ({
       {post.title && (
         <Typography
           sx={{
-            fontSize: "1.15rem",
+            fontSize: { xs: "0.84rem", sm: "1.15rem" },
             fontWeight: 700,
             color: C.textPrimary,
             mb: 1,
@@ -1809,10 +2072,10 @@ const PostCard = ({
       )}
       <Typography
         sx={{
-          fontSize: "0.9rem",
-          color: C.textSub,
-          lineHeight: 1.6,
-          mb: 2.5,
+          fontSize: { xs: "0.69rem", sm: "0.86rem", md: "0.9rem" },
+          color: C.textPrimary,
+          lineHeight: { xs: 1.42, sm: 1.6 },
+          mb: post.media?.length || poll ? 1.5 : 0.5,
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
         }}
@@ -1854,9 +2117,9 @@ const PostCard = ({
             sx={{
               display: "block",
               width: "100%",
-              maxWidth: 560,
-              maxHeight: 380,
-              mx: "auto",
+              maxWidth: { xs: "100%", sm: 640 },
+              maxHeight: { xs: 260, sm: 380 },
+              mr: "auto",
               objectFit: "contain",
               borderRadius: 2,
               bgcolor: C.surface,
@@ -1872,9 +2135,9 @@ const PostCard = ({
             sx={{
               display: "block",
               width: "100%",
-              maxWidth: 560,
-              maxHeight: 380,
-              mx: "auto",
+              maxWidth: { xs: "100%", sm: 640 },
+              maxHeight: { xs: 260, sm: 380 },
+              mr: "auto",
               borderRadius: 2,
               bgcolor: "#111",
               mb: 2,
@@ -1986,88 +2249,57 @@ const PostCard = ({
         </Stack>
       )}
 
-      <Divider sx={{ borderColor: C.divider, mb: 1.5 }} />
-
-      {/* Footer stats */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-        }}
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={{ xs: 0.75, sm: 1.25 }}
+        sx={{ mt: 0.75, minHeight: 24 }}
       >
-        <Stack direction="row" spacing={2.5} alignItems="center">
-          <Box
-            component="button"
-            type="button"
-            onClick={handleLike}
-            disabled={likePending}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.4,
-              color: liked ? C.accentDark : C.textMuted,
-              border: 0,
-              bgcolor: "transparent",
-              cursor: "pointer",
-              font: "inherit",
-              p: 0,
-              "&:hover": { color: C.accentDark },
-            }}
-          >
-            {liked ? (
-              <FavoriteRoundedIcon sx={{ fontSize: 17 }} />
-            ) : (
-              <FavoriteBorderRoundedIcon sx={{ fontSize: 17 }} />
-            )}
-            <Typography sx={{ fontSize: "0.82rem", fontWeight: 600 }}>
-              {likeCount} {likeCount === 1 ? "like" : "likes"}
-            </Typography>
-          </Box>
-        </Stack>
-        <Stack direction="row" spacing={2.5} alignItems="center">
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.4,
-              color: C.textMuted,
-            }}
-          >
-            <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
-            <Typography sx={{ fontSize: "0.82rem" }}>{post.views}</Typography>
-          </Box>
-          <Box
-            onClick={handleToggleComments}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.4,
-              color: showComments ? C.accentDark : C.textMuted,
-              cursor: "pointer",
-              "&:hover": { color: C.accentDark },
-            }}
-          >
-            <ChatBubbleOutlineRoundedIcon sx={{ fontSize: 16 }} />
-            <Typography
-              sx={{ fontSize: "0.82rem", fontWeight: showComments ? 600 : 400 }}
-            >
-              {commentCount} {commentCount === 1 ? "comment" : "comments"}
-            </Typography>
-          </Box>
-          <Tooltip title="Share with a friend">
-            <IconButton
-              aria-label="Share post"
-              onClick={handleSharePost}
-              size="small"
-              sx={{ color: C.textMuted, "&:hover": { color: C.accentDark } }}
-            >
-              <ShareOutlinedIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Box>
+        <Button
+          size="small"
+          onClick={() => void handleLike()}
+          disabled={likePending}
+          startIcon={
+            liked ? <FavoriteRoundedIcon /> : <FavoriteBorderRoundedIcon />
+          }
+          sx={{
+            minWidth: 0,
+            px: 0.25,
+            color: liked ? C.accentDark : C.textMuted,
+            fontSize: { xs: "0.62rem", sm: "0.7rem" },
+            textTransform: "none",
+            "& .MuiButton-startIcon": { mr: 0.35 },
+            "& .MuiSvgIcon-root": { fontSize: 15 },
+          }}
+        >
+          {likeCount}
+        </Button>
+        <Button
+          size="small"
+          onClick={() => void handleToggleComments()}
+          startIcon={<ChatBubbleOutlineRoundedIcon />}
+          sx={{
+            minWidth: 0,
+            px: 0.25,
+            color: showComments ? C.accentDark : C.textMuted,
+            fontSize: { xs: "0.62rem", sm: "0.7rem" },
+            textTransform: "none",
+            "& .MuiButton-startIcon": { mr: 0.35 },
+            "& .MuiSvgIcon-root": { fontSize: 15 },
+          }}
+        >
+          {commentCount}
+        </Button>
+        <IconButton
+          size="small"
+          aria-label="Share message"
+          onClick={() => void handleSharePost()}
+          sx={{ p: 0.35, color: C.textMuted }}
+        >
+          <ShareOutlinedIcon sx={{ fontSize: 15 }} />
+        </IconButton>
+      </Stack>
+
       {actionMessage && (
         <Typography sx={{ mt: 1, color: C.textMuted, fontSize: "0.75rem" }}>
           {actionMessage}
@@ -2084,20 +2316,34 @@ const PostCard = ({
               No replies yet — be the first to help.
             </Typography>
           ) : (
-            <Stack spacing={1.5} sx={{ mb: 2 }}>
+            <Stack spacing={1.1} sx={{ mb: 2 }}>
               {comments.map((comment) => (
                 <Box
                   key={comment.id}
-                  sx={{ display: "flex", alignItems: "flex-start", gap: 1.2 }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 1.2,
+                    position: "relative",
+                    pr: { xs: 0, md: 16 },
+                    "& .comment-actions": {
+                      opacity: { xs: 1, md: 0 },
+                      pointerEvents: { xs: "auto", md: "none" },
+                    },
+                    "&:hover .comment-actions, &:focus-within .comment-actions": {
+                      opacity: 1,
+                      pointerEvents: "auto",
+                    },
+                  }}
                 >
                   <Avatar
                     src={comment.authorAvatar}
                     sx={{
-                      width: 30,
-                      height: 30,
+                      width: 26,
+                      height: 26,
                       bgcolor: C.accentFaint,
                       color: C.accentDark,
-                      fontSize: "0.72rem",
+                      fontSize: "0.66rem",
                     }}
                   >
                     {comment.authorName.charAt(0)}
@@ -2106,68 +2352,97 @@ const PostCard = ({
                     sx={{
                       flex: 1,
                       minWidth: 0,
-                      pb: 1.25,
-                      borderBottom: `1px solid ${C.divider}`,
                     }}
                   >
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "space-between",
+                        justifyContent: "flex-start",
+                        gap: 0.75,
                         mb: 0.3,
                       }}
                     >
                       <Typography
                         sx={{
-                          fontSize: "0.82rem",
+                          fontSize: "0.75rem",
                           fontWeight: 600,
                           color: C.textPrimary,
                         }}
                       >
                         {comment.authorName}
                       </Typography>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={0.25}
-                      >
-                        <Typography
-                          sx={{ fontSize: "0.7rem", color: C.textMuted }}
-                        >
-                          {comment.timeAgo}
-                        </Typography>
-                        {comment.canDelete && (
-                          <Tooltip title="Delete comment">
-                            <IconButton
-                              size="small"
-                              aria-label={`Delete comment by ${comment.authorName}`}
-                              onClick={() => {
-                                setCommentDeleteError("");
-                                setDeletingComment(comment);
-                              }}
-                              sx={{
-                                p: 0.35,
-                                color: C.textMuted,
-                                "&:hover": { color: C.red },
-                              }}
-                            >
-                              <DeleteOutlineRoundedIcon sx={{ fontSize: 15 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Stack>
+                      <Typography sx={{ fontSize: "0.64rem", color: C.textMuted }}>
+                        {comment.timeAgo}
+                      </Typography>
                     </Box>
-                    <Typography
+                    <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+                      <Typography
+                        sx={{
+                          fontSize: "0.78rem",
+                          color: C.textPrimary,
+                          lineHeight: 1.4,
+                          flex: "0 1 auto",
+                        }}
+                      >
+                        {comment.body}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Stack
+                    className="comment-actions"
+                    direction="row"
+                    alignItems="center"
+                    spacing={0.25}
+                    sx={{
+                      position: { xs: "static", md: "absolute" },
+                      top: 0,
+                      right: 0,
+                      ml: "auto",
+                      flexShrink: 0,
+                      bgcolor: "#fff",
+                      border: `1px solid ${C.divider}`,
+                      borderRadius: 2,
+                      px: 0.25,
+                      transition: "opacity 140ms ease",
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      onClick={() => void handleCommentLike(comment)}
+                      startIcon={
+                        comment.viewerLiked ? (
+                          <FavoriteRoundedIcon />
+                        ) : (
+                          <FavoriteBorderRoundedIcon />
+                        )
+                      }
                       sx={{
-                        fontSize: "0.85rem",
-                        color: C.textSub,
-                        lineHeight: 1.5,
+                        minWidth: 0,
+                        px: 0.5,
+                        color: comment.viewerLiked ? C.accentDark : C.textMuted,
+                        fontSize: "0.68rem",
+                        textTransform: "none",
                       }}
                     >
-                      {comment.body}
-                    </Typography>
-                  </Box>
+                      {comment.likeCount}
+                    </Button>
+                    {(comment.canEdit || comment.canDelete) && (
+                      <IconButton
+                        size="small"
+                        aria-label={`Comment options for ${comment.authorName}`}
+                        onClick={(event) =>
+                          setCommentMenu({
+                            anchor: event.currentTarget,
+                            comment,
+                          })
+                        }
+                        sx={{ color: C.textMuted }}
+                      >
+                        <MoreHorizRoundedIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    )}
+                  </Stack>
                 </Box>
               ))}
             </Stack>
@@ -2177,14 +2452,14 @@ const PostCard = ({
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Avatar
               sx={{
-                width: 30,
-                height: 30,
+                width: 26,
+                height: 26,
                 bgcolor: C.accentFaint,
                 color: C.accentDark,
-                fontSize: "0.72rem",
+                fontSize: "0.66rem",
               }}
             >
-              M
+              {(viewerName || "You").trim().charAt(0).toUpperCase()}
             </Avatar>
             <Box
               component="input"
@@ -2203,7 +2478,7 @@ const PostCard = ({
                 bgcolor: "transparent",
                 border: 0,
                 borderBottom: `1px solid ${C.divider}`,
-                fontSize: "0.85rem",
+                fontSize: "0.8rem",
                 color: C.textPrimary,
                 fontFamily: "inherit",
                 outline: "none",
@@ -2237,6 +2512,65 @@ const PostCard = ({
           )}
         </Box>
       )}
+
+      <Menu
+        anchorEl={commentMenu?.anchor ?? null}
+        open={Boolean(commentMenu)}
+        onClose={() => setCommentMenu(null)}
+      >
+        {commentMenu?.comment.canEdit && (
+          <MenuItem
+            onClick={() => {
+              setEditingComment(commentMenu.comment);
+              setCommentEditBody(commentMenu.comment.body);
+              setCommentMenu(null);
+            }}
+            sx={{ gap: 1 }}
+          >
+            <EditOutlinedIcon fontSize="small" /> Edit comment
+          </MenuItem>
+        )}
+        {commentMenu?.comment.canDelete && (
+          <MenuItem
+            onClick={() => {
+              setDeletingComment(commentMenu.comment);
+              setCommentMenu(null);
+            }}
+            sx={{ gap: 1, color: C.red }}
+          >
+            <DeleteOutlineRoundedIcon fontSize="small" /> Delete comment
+          </MenuItem>
+        )}
+      </Menu>
+
+      <Dialog
+        open={Boolean(editingComment)}
+        onClose={() => !commentEditPending && setEditingComment(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ color: C.textPrimary, fontWeight: 700 }}>
+          Edit comment
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            value={commentEditBody}
+            onChange={(event) => setCommentEditBody(event.target.value)}
+            inputProps={{ maxLength: 4000 }}
+          />
+          {commentDeleteError && <Alert severity="error" sx={{ mt: 2 }}>{commentDeleteError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingComment(null)} disabled={commentEditPending}>Cancel</Button>
+          <Button onClick={() => void handleEditComment()} disabled={!commentEditBody.trim() || commentEditPending}>
+            {commentEditPending ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={editOpen}
@@ -2372,6 +2706,7 @@ const PostCard = ({
         </DialogActions>
       </Dialog>
     </Card>
+    </>
   );
 };
 // T: O(c + m + o) and S: O(c + o), where c is comments, m is media, and o is poll options
@@ -2381,10 +2716,12 @@ const ScheduleMeetings = ({
   meetings,
   activeCommunityId,
   activeCommunityName,
+  compact = false,
 }: {
   meetings: ScheduledMeeting[];
   activeCommunityId: string;
   activeCommunityName?: string;
+  compact?: boolean;
 }) => {
   const isAllView = activeCommunityId === ALL_ID;
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -2409,7 +2746,7 @@ const ScheduleMeetings = ({
       sx={{
         width: "100%",
         boxSizing: "border-box",
-        p: 3,
+        p: compact ? { xs: 1.25, sm: 2 } : { xs: 1.75, sm: 3 },
         borderRadius: 3,
         background: C.cardBg,
         border: `1px solid ${C.divider}`,
@@ -2419,7 +2756,9 @@ const ScheduleMeetings = ({
     >
       <Typography
         sx={{
-          fontSize: "1.05rem",
+          fontSize: compact
+            ? { xs: "0.78rem", sm: "0.9rem" }
+            : { xs: "0.9rem", sm: "1.05rem" },
           fontWeight: 700,
           color: C.accent,
           mb: 0.5,
@@ -2431,7 +2770,7 @@ const ScheduleMeetings = ({
 
       {isAllView ? (
         <>
-          <Typography sx={{ fontSize: "0.82rem", color: C.textSub, mb: 2 }}>
+          <Typography sx={{ fontSize: { xs: "0.74rem", sm: "0.82rem" }, color: C.textSub, mb: 2 }}>
             Schedule the meeting in Comm360, then{" "}
             <Box component="span" sx={{ color: "#111", fontWeight: 700 }}>
               paste the meeting link into the appropriate community group.
@@ -2466,14 +2805,16 @@ const ScheduleMeetings = ({
         </>
       ) : (
         <>
-          <Stack spacing={1.25} sx={{ mt: 1.75 }}>
+          <Stack spacing={compact ? 0.75 : 1.25} sx={{ mt: compact ? 0.75 : 1.75 }}>
             {scopedMeetings.length === 0 ? (
               <Typography
                 sx={{
                   color: C.textMuted,
-                  fontSize: "0.85rem",
+                  fontSize: compact
+                    ? { xs: "0.66rem", sm: "0.76rem" }
+                    : { xs: "0.74rem", sm: "0.85rem" },
                   textAlign: "center",
-                  py: 2,
+                  py: compact ? 0.75 : 2,
                 }}
               >
                 No meetings scheduled for {activeCommunityName ?? "this community"}
@@ -2637,9 +2978,11 @@ const ScheduleMeetings = ({
 const CommunityNavigation = ({
   value,
   onChange,
+  friendRequestBadge = 0,
 }: {
   value: CommunityPageTab;
   onChange: (value: CommunityPageTab) => void;
+  friendRequestBadge?: number;
 }) => {
   const handleChange = (
     _event: React.SyntheticEvent,
@@ -2681,9 +3024,37 @@ const CommunityNavigation = ({
           },
         }}
       >
-        <Tab value="posts" label="Posts" />
+        <Tab value="posts" label="Feed" />
         <Tab value="communities" label="Communities" />
-        <Tab value="friends" label="Friends" />
+        <Tab
+          value="friends"
+          aria-label={
+            friendRequestBadge > 0
+              ? `Friends, ${friendRequestBadge} new request${friendRequestBadge === 1 ? "" : "s"}`
+              : "Friends"
+          }
+          label={
+            <Badge
+              badgeContent={friendRequestBadge}
+              color="error"
+              max={99}
+              invisible={friendRequestBadge === 0}
+              sx={{
+                "& .MuiBadge-badge": {
+                  minWidth: 18,
+                  height: 18,
+                  px: 0.5,
+                  right: -14,
+                  top: 1,
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                },
+              }}
+            >
+              <Box component="span">Friends</Box>
+            </Badge>
+          }
+        />
       </Tabs>
     </Box>
   );
@@ -4762,22 +5133,36 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [sentFriendRequests, setSentFriendRequests] = useState<
     CommunityFriendRequest[]
   >([]);
+  const [unreadFriendRequestCount, setUnreadFriendRequestCount] = useState(0);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [notificationNotice, setNotificationNotice] = useState("");
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [readTrackingReady, setReadTrackingReady] = useState(false);
+  const [currentProfileName, setCurrentProfileName] = useState("");
+  const [showCommunityChrome, setShowCommunityChrome] = useState(true);
+  const [communityMenuAnchor, setCommunityMenuAnchor] =
+    useState<HTMLElement | null>(null);
   const [communitySharePending, setCommunitySharePending] = useState(false);
   const [discoveredMeetings, setDiscoveredMeetings] = useState<
     ScheduledMeeting[]
   >([]);
-  const [communityCopyTooltip, setCommunityCopyTooltip] =
-    useState("Copy invite link");
-  const [communityShareTooltip, setCommunityShareTooltip] =
-    useState("Share invite link");
   const inviteHandled = useRef(false);
   const communityInviteLinksRef = useRef<Record<string, string>>({});
   const activePostScopeRef = useRef<string>(ALL_ID);
   const conversationRequestRef = useRef(0);
+  const seenPostIdsRef = useRef<Set<string> | null>(null);
+  const knownFriendRequestIdsRef = useRef<Set<string> | null>(null);
+  const acknowledgedFriendRequestIdsRef = useRef<Set<string> | null>(null);
+  const pageRootRef = useRef<HTMLDivElement | null>(null);
+  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const restoredReadScopeRef = useRef("");
+  const lastWindowScrollYRef = useRef(0);
+  const lastMainScrollYRef = useRef(0);
+  const chromeVisibleRef = useRef(true);
   const allMeetings = [...meetings, ...discoveredMeetings].filter(
     (meeting, index, items) =>
       items.findIndex((candidate) => candidate.id === meeting.id) === index,
@@ -4828,6 +5213,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     const mapped = records.map(mapPost);
     if (activePostScopeRef.current === communityId) {
       setPosts(mapped);
+      seenPostIdsRef.current = new Set(records.map((record) => record.id));
     }
     return mapped;
   }, []);
@@ -4854,8 +5240,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const refreshFriendWorkspace = useCallback(async () => {
     const [friendRecords, requestRecords, sentRequestRecords] =
       await Promise.all([
-      listFriends(),
-      listFriendRequests(),
+        listFriends(),
+        listFriendRequests(),
         listSentFriendRequests(),
       ]);
     setFriends(
@@ -4868,11 +5254,35 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         isFriend: true,
       })),
     );
-    setFriendRequests(requestRecords);
-    setSentFriendRequests(sentRequestRecords);
-    return { friendRecords, requestRecords, sentRequestRecords };
+    const receivedRecords = requestRecords.filter(
+      (request) => request.direction !== "sent",
+    );
+    const outgoingRecords = sentRequestRecords.filter(
+      (request) => request.direction !== "received",
+    );
+    setFriendRequests(receivedRecords);
+    setSentFriendRequests(outgoingRecords);
+    return {
+      friendRecords,
+      requestRecords: receivedRecords,
+      sentRequestRecords: outgoingRecords,
+    };
   }, []);
   // T: O(f + r) and S: O(f + r), where f is friends and r is requests
+
+  const acknowledgeFriendRequests = useCallback(
+    (requests: CommunityFriendRequest[]) => {
+      const acknowledged =
+        acknowledgedFriendRequestIdsRef.current ??
+        readSeenFriendRequestIds();
+      for (const request of requests) acknowledged.add(request.id);
+      acknowledgedFriendRequestIdsRef.current = acknowledged;
+      saveSeenFriendRequestIds(acknowledged);
+      setUnreadFriendRequestCount(0);
+    },
+    [],
+  );
+  // T: O(r) and S: O(r), where r is received friend requests
 
   const loadCommunityPage = useCallback(async () => {
     setLoading(true);
@@ -4901,14 +5311,23 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       const savedPageTab = window.localStorage.getItem(
         COMMUNITY_PAGE_TAB_STORAGE_KEY,
       );
+      const pageSearchParams = new URLSearchParams(window.location.search);
+      const requestedPageTab = pageSearchParams.get("tab");
       const restoredPageTab: CommunityPageTab = inviteAccepted
         ? "communities"
-        : savedPageTab === "communities" || savedPageTab === "friends"
-          ? savedPageTab
-          : "posts";
+        : requestedPageTab === "feed" || requestedPageTab === "posts"
+          ? "posts"
+          : requestedPageTab === "communities"
+            ? "communities"
+            : requestedPageTab === "friends"
+              ? "friends"
+              : savedPageTab === "communities" || savedPageTab === "friends"
+                ? savedPageTab
+                : "posts";
       const savedConversationId = inviteAccepted
         ? null
-        : window.localStorage.getItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
+        : pageSearchParams.get("community") ??
+          window.localStorage.getItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
       const [mappedCommunities] = await Promise.all([
         refreshCommunities(),
         refreshFriendWorkspace(),
@@ -4957,6 +5376,255 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   useEffect(() => {
     void loadCommunityPage();
   }, [loadCommunityPage]);
+
+  useEffect(() => {
+    const setChromeVisible = (visible: boolean) => {
+      if (chromeVisibleRef.current === visible) return;
+      chromeVisibleRef.current = visible;
+      setShowCommunityChrome(visible);
+    };
+
+    const handleScrollPosition = (
+      nextScrollY: number,
+      previousScrollY: number,
+    ) => {
+      if (nextScrollY < 24) {
+        setChromeVisible(true);
+        return;
+      }
+      const movement = nextScrollY - previousScrollY;
+      if (movement > 2) {
+        setChromeVisible(false);
+      } else if (movement < -2) {
+        setChromeVisible(true);
+      }
+    };
+
+    const mainScroller = pageRootRef.current?.closest("main");
+    const handleWindowScroll = () => {
+      const nextScrollY = window.scrollY;
+      handleScrollPosition(nextScrollY, lastWindowScrollYRef.current);
+      lastWindowScrollYRef.current = nextScrollY;
+    };
+    const handleMainScroll = () => {
+      const nextScrollY = mainScroller?.scrollTop ?? 0;
+      handleScrollPosition(nextScrollY, lastMainScrollYRef.current);
+      lastMainScrollYRef.current = nextScrollY;
+    };
+
+    lastWindowScrollYRef.current = window.scrollY;
+    lastMainScrollYRef.current = mainScroller?.scrollTop ?? 0;
+    window.addEventListener("scroll", handleWindowScroll, { passive: true });
+    mainScroller?.addEventListener("scroll", handleMainScroll, {
+      passive: true,
+    });
+    return () => {
+      window.removeEventListener("scroll", handleWindowScroll);
+      mainScroller?.removeEventListener("scroll", handleMainScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    const mainScroller = pageRootRef.current?.closest("main");
+    const currentScrollY = Math.max(
+      window.scrollY,
+      mainScroller?.scrollTop ?? 0,
+    );
+    const visible = currentScrollY < 48;
+    lastWindowScrollYRef.current = window.scrollY;
+    lastMainScrollYRef.current = mainScroller?.scrollTop ?? 0;
+    chromeVisibleRef.current = visible;
+    setShowCommunityChrome(visible);
+  }, [communityConversationId, pageTab]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("anchor:community-chrome", {
+        detail: { visible: showCommunityChrome },
+      }),
+    );
+  }, [showCommunityChrome]);
+
+  useEffect(
+    () => () => {
+      window.dispatchEvent(
+        new CustomEvent("anchor:community-chrome", {
+          detail: { visible: true },
+        }),
+      );
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    setNotificationPermission(Notification.permission);
+    void navigator.serviceWorker?.register("/community-sw.js").catch(() => undefined);
+    void getCurrentCommunityProfile()
+      .then((profile) => setCurrentProfileName(profile.name))
+      .catch(() => undefined);
+  }, []);
+
+  const enableNotifications = async () => {
+    if (!("Notification" in window)) {
+      setNotificationNotice("Notifications are not supported by this browser.");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setNotificationPermission("denied");
+      setNotificationNotice(
+        "Notifications are off. Allow them in your browser or phone settings.",
+      );
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      setNotificationNotice(
+        permission === "denied"
+          ? "Notifications are off. Allow them in your browser or phone settings."
+          : "",
+      );
+    } catch {
+      setNotificationNotice(
+        "Notifications could not be enabled in this browser session.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (!hydrated) return;
+    let stopped = false;
+    const sync = async () => {
+      const target = activePostScopeRef.current;
+      if (target === "community-list") return;
+      try {
+        const records = target === ALL_ID
+          ? await listGlobalPosts()
+          : await listCommunityFeed(target);
+        if (stopped) return;
+        const known = seenPostIdsRef.current;
+        if (known) {
+          const incoming = records.filter((record) => !known.has(record.id));
+          if (activePostScopeRef.current === target) {
+            setPosts(records.map(mapPost));
+          }
+          if (Notification.permission === "granted") {
+            for (const record of incoming.slice(0, 3)) {
+              if (record.author?.friendshipStatus === "self") continue;
+              const body = record.body?.trim() || "Shared a new community post";
+              const mentioned = currentProfileName &&
+                body.toLowerCase().includes(`@${currentProfileName.toLowerCase()}`);
+              const registration = await navigator.serviceWorker?.ready;
+              await registration?.showNotification(
+                mentioned ? `${record.author?.name ?? "A member"} mentioned you` : "New community message",
+                {
+                  body: `${record.author?.name ?? "Anchor member"}: ${body}`.slice(0, 180),
+                  icon: "/assets/logo.png",
+                  badge: "/assets/logo.png",
+                  tag: `community-post-${record.id}`,
+                  data: {
+                    url:
+                      target === ALL_ID
+                        ? "/community?tab=feed"
+                        : "/community?tab=communities",
+                  },
+                },
+              );
+            }
+          }
+        }
+        seenPostIdsRef.current = new Set(records.map((record) => record.id));
+      } catch {
+        // Keep the current view intact during temporary background-sync failures.
+      }
+    };
+    void sync();
+    const timer = window.setInterval(() => void sync(), 2_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void sync();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [currentProfileName, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    let stopped = false;
+
+    const syncFriendRequests = async () => {
+      try {
+        const { requestRecords } = await refreshFriendWorkspace();
+        if (stopped) return;
+
+        const requestIds = new Set(
+          requestRecords.map((request) => request.id),
+        );
+        const acknowledged =
+          acknowledgedFriendRequestIdsRef.current ??
+          readSeenFriendRequestIds();
+        acknowledgedFriendRequestIdsRef.current = acknowledged;
+
+        if (pageTab === "friends") {
+          for (const requestId of requestIds) acknowledged.add(requestId);
+          saveSeenFriendRequestIds(acknowledged);
+          setUnreadFriendRequestCount(0);
+        } else {
+          setUnreadFriendRequestCount(
+            requestRecords.filter((request) => !acknowledged.has(request.id))
+              .length,
+          );
+        }
+
+        const known = knownFriendRequestIdsRef.current;
+        const incoming = known
+          ? requestRecords.filter((request) => !known.has(request.id))
+          : requestRecords.filter((request) => !acknowledged.has(request.id));
+        knownFriendRequestIdsRef.current = requestIds;
+
+        if (
+          pageTab !== "friends" &&
+          incoming.length > 0 &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          const registration = await navigator.serviceWorker?.ready;
+          for (const request of incoming.slice(0, 3)) {
+            await registration?.showNotification("New friend request", {
+              body: `${request.name} sent you a friend request.`,
+              icon: "/assets/logo.png",
+              badge: "/assets/logo.png",
+              tag: `friend-request-${request.id}`,
+              data: { url: "/community?tab=friends" },
+            });
+          }
+        }
+      } catch {
+        // Keep the current friend lists intact during brief sync failures.
+      }
+    };
+
+    void syncFriendRequests();
+    const timer = window.setInterval(
+      () => void syncFriendRequests(),
+      2_000,
+    );
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void syncFriendRequests();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [hydrated, pageTab, refreshFriendWorkspace]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -5035,6 +5703,25 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   };
   // T: O(c) and S: O(c), where c is returned communities
 
+  const replaceCommunityUrl = (
+    tab: CommunityPageTab,
+    conversationId?: string | null,
+  ) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set(
+      "tab",
+      tab === "posts" ? "feed" : tab,
+    );
+    if (tab === "communities" && conversationId) {
+      url.searchParams.set("community", conversationId);
+    } else {
+      url.searchParams.delete("community");
+    }
+    url.searchParams.delete("invite");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  };
+  // T: O(q) and S: O(q), where q is the number of URL query parameters
+
   const handleOpenCommunity = async (communityId: string) => {
     const requestId = conversationRequestRef.current + 1;
     conversationRequestRef.current = requestId;
@@ -5043,9 +5730,16 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     setActiveCommunityId(communityId);
     setCommunityConversationId(communityId);
     setPageTab("communities");
+    window.localStorage.setItem(
+      COMMUNITY_CONVERSATION_STORAGE_KEY,
+      communityId,
+    );
+    window.localStorage.setItem(
+      COMMUNITY_PAGE_TAB_STORAGE_KEY,
+      "communities",
+    );
+    replaceCommunityUrl("communities", communityId);
     setPageError("");
-    setCommunityCopyTooltip("Copy invite link");
-    setCommunityShareTooltip("Share invite link");
     try {
       await refreshPosts(communityId);
     } catch (caught) {
@@ -5063,7 +5757,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   // T: O(p) and S: O(p), where p is the returned community posts
 
   const handlePageTabChange = (nextTab: CommunityPageTab) => {
+    if (nextTab === "friends") {
+      acknowledgeFriendRequests(friendRequests);
+    }
     setPageTab(nextTab);
+    window.localStorage.setItem(COMMUNITY_PAGE_TAB_STORAGE_KEY, nextTab);
+    replaceCommunityUrl(nextTab);
     setPageError("");
     setConversationLoading(false);
     conversationRequestRef.current += 1;
@@ -5075,9 +5774,10 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         );
       });
     }
-    if (nextTab === "communities") {
+    if (nextTab === "communities" || nextTab === "friends") {
       activePostScopeRef.current = "community-list";
       setCommunityConversationId(null);
+      setPosts([]);
     }
   };
   // T: O(1) and S: O(1)
@@ -5087,8 +5787,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     activePostScopeRef.current = "community-list";
     setConversationLoading(false);
     setCommunityConversationId(null);
-    setCommunityCopyTooltip("Copy invite link");
-    setCommunityShareTooltip("Share invite link");
+    window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
+    replaceCommunityUrl("communities");
     void refreshCommunities();
   };
   // T: O(1) and S: O(1)
@@ -5115,13 +5815,11 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const handleCopyCommunityInvite = async (communityId: string) => {
     if (communitySharePending) return;
     setCommunitySharePending(true);
-    setCommunityCopyTooltip("Copying invite link…");
     try {
       const inviteLink = await getCommunityInviteLink(communityId);
       await navigator.clipboard.writeText(inviteLink);
-      setCommunityCopyTooltip("Invite link copied");
     } catch (caught) {
-      setCommunityCopyTooltip(
+      setPageError(
         caught instanceof Error ? caught.message : "Could not copy invite link",
       );
     } finally {
@@ -5133,7 +5831,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const handleShareCommunityInvite = async (community: Community) => {
     if (communitySharePending) return;
     setCommunitySharePending(true);
-    setCommunityShareTooltip("Preparing invite…");
     try {
       const inviteLink = await getCommunityInviteLink(community.id);
       if (navigator.share) {
@@ -5142,14 +5839,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           text: `Join the ${community.name} community on Anchor.`,
           url: inviteLink,
         });
-        setCommunityShareTooltip("Invite shared");
       } else {
         await navigator.clipboard.writeText(inviteLink);
-        setCommunityShareTooltip("Invite link copied for sharing");
       }
     } catch (caught) {
       if (caught instanceof DOMException && caught.name === "AbortError") return;
-      setCommunityShareTooltip(
+      setPageError(
         caught instanceof Error ? caught.message : "Could not share invite link",
       );
     } finally {
@@ -5195,7 +5890,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       setPosts((current) =>
         current.some((item) => item.id === optimisticPost.id)
           ? current
-          : [optimisticPost, ...current],
+          : [...current, optimisticPost],
       );
     }
 
@@ -5238,14 +5933,148 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const conversationCommunity = communities.find(
     (community) => community.id === communityConversationId,
   );
-  const visiblePosts = posts;
+  const visiblePosts = [...posts].sort(
+    (left, right) =>
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+  );
+  const currentReadScope =
+    pageTab === "posts"
+      ? "feed"
+      : communityConversationId
+        ? `community:${communityConversationId}`
+        : "";
+  const latestVisiblePostId = visiblePosts.at(-1)?.id;
+
+  useEffect(() => {
+    restoredReadScopeRef.current = "";
+    setReadTrackingReady(false);
+    setShowJumpToLatest(false);
+  }, [currentReadScope]);
+
+  useEffect(() => {
+    if (
+      !currentReadScope ||
+      loading ||
+      conversationLoading ||
+      visiblePosts.length === 0 ||
+      restoredReadScopeRef.current === currentReadScope
+    ) {
+      return;
+    }
+
+    let secondFrame = 0;
+    let readyTimer = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const items = Array.from(
+          messageListRef.current?.querySelectorAll<HTMLElement>(
+            "[data-community-post-id]",
+          ) ?? [],
+        );
+        if (items.length === 0) return;
+        const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
+        const savedPostId = window.localStorage.getItem(storageKey);
+        const savedIndex = items.findIndex(
+          (item) => item.dataset.communityPostId === savedPostId,
+        );
+        const target =
+          savedIndex >= 0
+            ? items[Math.min(savedIndex + 1, items.length - 1)]
+            : items.at(-1);
+        target?.scrollIntoView({ block: "center" });
+        if (!savedPostId && target?.dataset.communityPostId) {
+          window.localStorage.setItem(
+            storageKey,
+            target.dataset.communityPostId,
+          );
+        }
+        restoredReadScopeRef.current = currentReadScope;
+        readyTimer = window.setTimeout(() => setReadTrackingReady(true), 350);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+      window.clearTimeout(readyTimer);
+    };
+  }, [
+    conversationLoading,
+    currentReadScope,
+    loading,
+    visiblePosts.length,
+  ]);
+
+  useEffect(() => {
+    if (!currentReadScope || !readTrackingReady || visiblePosts.length === 0) {
+      return;
+    }
+    const items = Array.from(
+      messageListRef.current?.querySelectorAll<HTMLElement>(
+        "[data-community-post-id]",
+      ) ?? [],
+    );
+    if (items.length === 0) return;
+    const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              left.boundingClientRect.top - right.boundingClientRect.top,
+          );
+        const lastVisible = visibleEntries.at(-1)?.target as
+          | HTMLElement
+          | undefined;
+        if (lastVisible?.dataset.communityPostId) {
+          window.localStorage.setItem(
+            storageKey,
+            lastVisible.dataset.communityPostId,
+          );
+        }
+        const latestEntry = entries.find(
+          (entry) =>
+            (entry.target as HTMLElement).dataset.communityPostId ===
+            latestVisiblePostId,
+        );
+        if (latestEntry) {
+          setShowJumpToLatest(!latestEntry.isIntersecting);
+        }
+      },
+      { threshold: 0.45 },
+    );
+    items.forEach((item) => observer.observe(item));
+    return () => observer.disconnect();
+  }, [
+    currentReadScope,
+    latestVisiblePostId,
+    readTrackingReady,
+    visiblePosts.length,
+  ]);
+
+  const handleJumpToLatest = () => {
+    const latest = Array.from(
+      messageListRef.current?.querySelectorAll<HTMLElement>(
+        "[data-community-post-id]",
+      ) ?? [],
+    ).at(-1);
+    latest?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (latest?.dataset.communityPostId && currentReadScope) {
+      window.localStorage.setItem(
+        `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`,
+        latest.dataset.communityPostId,
+      );
+    }
+  };
+  // T: O(p) and S: O(p), where p is the number of rendered posts
 
   return (
     <Box
+      ref={pageRootRef}
       sx={{
         bgcolor: "#fff",
         minHeight: "100vh",
-        p: { xs: 2, md: 4 },
+        p: { xs: 0, sm: 2, md: 4 },
         "& .MuiInputLabel-root.Mui-focused": {
           color: C.accentDark,
         },
@@ -5265,19 +6094,63 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     >
       <Box
         sx={{
+          position: "fixed",
+          top: 0,
+          left: { xs: 72, md: "var(--anchor-sidebar-width, 84px)" },
+          right: 0,
+          zIndex: 1150,
           bgcolor: "#fff",
-          mx: { xs: -2, md: -4 },
-          mt: { xs: -2, md: -4 },
-          px: { xs: 2, md: 4 },
-          pt: { xs: 2, md: 4 },
+          px: { xs: 1, sm: 3, md: 4 },
+          pt: { xs: 0.5, md: 1 },
+          transform: showCommunityChrome ? "translateY(0)" : "translateY(-110%)",
+          transition: "transform 180ms ease",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
-          <CommunityNavigation value={pageTab} onChange={handlePageTabChange} />
+        <Box sx={{ width: "100%" }}>
+          <CommunityNavigation
+            value={pageTab}
+            onChange={handlePageTabChange}
+            friendRequestBadge={unreadFriendRequestCount}
+          />
         </Box>
       </Box>
+      <Box sx={{ height: { xs: 48, md: 56 } }} />
 
-      <Stack spacing={3} sx={{ maxWidth: 1200, mx: "auto", mt: 3 }}>
+      {notificationPermission === "default" && (
+        <Box
+          sx={{
+            width: "100%",
+            mt: 1,
+            display: "flex",
+            justifyContent: "flex-end",
+          }}
+        >
+          <Button
+            size="small"
+            startIcon={<NotificationsNoneRoundedIcon />}
+            onClick={() => void enableNotifications()}
+            sx={{ color: C.textPrimary, textTransform: "none", fontWeight: 600 }}
+          >
+            Enable notifications
+          </Button>
+        </Box>
+      )}
+
+      {notificationNotice && (
+        <Typography
+          role="status"
+          sx={{
+            mt: 1,
+            color: C.textMuted,
+            fontSize: { xs: "0.7rem", sm: "0.78rem" },
+            textAlign: "right",
+          }}
+        >
+          {notificationNotice}
+        </Typography>
+      )}
+
+      <Stack spacing={3} sx={{ width: "100%", mt: 3 }}>
         {pageError && (
           <Alert
             severity="error"
@@ -5300,8 +6173,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           <Box
             sx={{
               width: "100%",
-              maxWidth: 860,
-              mx: "auto",
             }}
           >
             <Stack spacing={3}>
@@ -5313,9 +6184,15 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                   gap: 2,
                 }}
               >
-                <Typography sx={{ color: C.textSub, fontSize: "0.84rem" }}>
-                  Share what you&apos;re learning, building, or curious about.
-                  Ask a question or join the conversation.
+                <Typography
+                  sx={{
+                    color: C.textPrimary,
+                    fontSize: { xs: "0.82rem", sm: "0.95rem", md: "1.05rem" },
+                    fontWeight: 700,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  You are all caught up!
                 </Typography>
               </Box>
 
@@ -5334,15 +6211,19 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                   </Typography>
                 </Card>
               ) : (
-                visiblePosts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onUpdated={handlePostUpdated}
-                    onDeleted={handlePostDeleted}
-                    onMeetingDiscovered={handleMeetingDiscovered}
-                  />
-                ))
+                <Stack ref={messageListRef} spacing={0} sx={{ width: "100%" }}>
+                {visiblePosts.map((post) => (
+                  <Box key={post.id} data-community-post-id={post.id}>
+                    <PostCard
+                      post={post}
+                      viewerName={currentProfileName}
+                      onUpdated={handlePostUpdated}
+                      onDeleted={handlePostDeleted}
+                      onMeetingDiscovered={handleMeetingDiscovered}
+                    />
+                  </Box>
+                ))}
+                </Stack>
               )}
             </Stack>
           </Box>
@@ -5355,130 +6236,154 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             <Box
               sx={{
                 width: "100%",
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "minmax(0, 1fr)",
-                  lg: "minmax(0, 1fr) minmax(280px, 320px)",
-                },
-                gap: 3,
-                alignItems: "start",
+                position: "relative",
               }}
             >
-              <Stack spacing={3}>
-                <Box sx={{ position: "relative" }}>
+              <Stack spacing={3} sx={{ width: "100%" }}>
+                <Box
+                  sx={{
+                    position: "fixed",
+                    top: { xs: 48, md: 56 },
+                    left: { xs: 16, md: "calc(var(--anchor-sidebar-width, 84px) + 72px)" },
+                    right: { xs: 16, md: 40 },
+                    zIndex: 1140,
+                    bgcolor: "rgba(255,255,255,0.96)",
+                    backdropFilter: "blur(10px)",
+                    px: { xs: 1, md: 0 },
+                    pt: { xs: 2, md: 2.25 },
+                    pb: 1,
+                    opacity: showCommunityChrome ? 1 : 0,
+                    visibility: showCommunityChrome ? "visible" : "hidden",
+                    transform: showCommunityChrome ? "translateY(0)" : "translateY(-12px)",
+                    pointerEvents: showCommunityChrome ? "auto" : "none",
+                    transition:
+                      "opacity 150ms ease, transform 150ms ease, visibility 150ms ease",
+                  }}
+                >
                   <Button
                     onClick={handleCloseCommunityConversation}
                     sx={{
                       color: C.accentDark,
+                      bgcolor: C.accentFaint,
+                      border: `1px solid ${C.accentBorder}`,
+                      borderRadius: 2,
                       textTransform: "none",
-                      px: 0,
-                      mb: 1,
+                      px: 1.25,
+                      py: 0.45,
+                      mb: 1.15,
+                      fontWeight: 700,
+                      boxShadow: "0 2px 8px rgba(86, 51, 24, 0.06)",
+                      "&:hover": {
+                        bgcolor: "#f3e6da",
+                        boxShadow: "0 3px 10px rgba(86, 51, 24, 0.09)",
+                      },
                     }}
                   >
                     ← Back to communities
                   </Button>
-                  <Box sx={{ pr: { xs: 0, sm: 24 } }}>
+                  <Box sx={{ pr: { xs: 5, sm: 24, lg: 40 } }}>
                     <Typography
                       sx={{
                         color: C.textPrimary,
                         fontFamily: "'Playfair Display', serif",
-                        fontSize: "1.45rem",
+                        fontSize: { xs: "1.1rem", sm: "1.45rem" },
                         fontWeight: 700,
                       }}
                     >
                       {conversationCommunity.name}
                     </Typography>
                     <Typography
-                      sx={{ color: C.textSub, fontSize: "0.84rem" }}
+                      sx={{ color: C.textSub, fontSize: { xs: "0.74rem", sm: "0.84rem" } }}
                     >
                       Conversation shared only with this community&apos;s
                       members.
                     </Typography>
                   </Box>
-                  <Stack
-                    direction="row"
-                    spacing={0.75}
+                  <IconButton
+                    aria-label="Community actions"
+                    onClick={(event) =>
+                      setCommunityMenuAnchor(event.currentTarget)
+                    }
                     sx={{
-                      position: { xs: "static", sm: "absolute" },
-                      top: { sm: 0 },
-                      right: { sm: 0 },
-                      mt: { xs: 1.5, sm: 0 },
-                      justifyContent: { xs: "flex-end", sm: "initial" },
+                      position: "absolute",
+                      top: { xs: 13, lg: 52 },
+                      right: { xs: 0, lg: 292 },
+                      width: { xs: 34, lg: 42 },
+                      height: { xs: 34, lg: 42 },
+                      color: C.textMuted,
+                      bgcolor: "transparent",
+                      border: 0,
+                      "&:hover": {
+                        bgcolor: "transparent",
+                        color: C.textPrimary,
+                      },
                     }}
                   >
-                    <Tooltip
-                      title={communityCopyTooltip}
-                      placement="top"
-                      arrow
+                    <MoreHorizRoundedIcon sx={{ fontSize: { xs: 22, lg: 28 } }} />
+                  </IconButton>
+                  <Menu
+                    anchorEl={communityMenuAnchor}
+                    open={Boolean(communityMenuAnchor)}
+                    onClose={() => setCommunityMenuAnchor(null)}
+                  >
+                    <MenuItem
+                      disabled={communitySharePending}
+                      onClick={() => {
+                        setCommunityMenuAnchor(null);
+                        void handleCopyCommunityInvite(
+                          conversationCommunity.id,
+                        );
+                      }}
+                      sx={{ gap: 1 }}
                     >
-                      <span>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<ContentCopyRoundedIcon />}
-                          disabled={communitySharePending}
-                          onClick={() =>
-                            void handleCopyCommunityInvite(
-                              conversationCommunity.id,
-                            )
-                          }
-                          sx={{
-                            bgcolor: C.accentFaint,
-                            borderColor: C.accentBorder,
-                            color: C.accentDark,
-                            fontWeight: 700,
-                            textTransform: "none",
-                            "&:hover": {
-                              bgcolor: "rgba(184,116,68,0.16)",
-                              borderColor: C.accent,
-                            },
-                          }}
-                        >
-                          Copy link
-                        </Button>
-                      </span>
-                    </Tooltip>
-                    <Tooltip
-                      title={communityShareTooltip}
-                      placement="top"
-                      arrow
+                      <ContentCopyRoundedIcon fontSize="small" />
+                      Copy invite link
+                    </MenuItem>
+                    <MenuItem
+                      disabled={communitySharePending}
+                      onClick={() => {
+                        setCommunityMenuAnchor(null);
+                        void handleShareCommunityInvite(conversationCommunity);
+                      }}
+                      sx={{ gap: 1 }}
                     >
-                      <span>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<ShareOutlinedIcon />}
-                          disabled={communitySharePending}
-                          onClick={() =>
-                            void handleShareCommunityInvite(
-                              conversationCommunity,
-                            )
-                          }
-                          sx={{
-                            bgcolor: C.accentFaint,
-                            borderColor: C.accentBorder,
-                            color: C.accentDark,
-                            fontWeight: 700,
-                            textTransform: "none",
-                            "&:hover": {
-                              bgcolor: "rgba(184,116,68,0.16)",
-                              borderColor: C.accent,
-                            },
-                          }}
-                        >
-                          Share
-                        </Button>
-                      </span>
-                    </Tooltip>
-                  </Stack>
+                      <ShareOutlinedIcon fontSize="small" />
+                      Share invite
+                    </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                        setCommunityMenuAnchor(null);
+                        handleScheduleCommunityDiscussion(
+                          conversationCommunity,
+                        );
+                      }}
+                      sx={{ gap: 1 }}
+                    >
+                      <CalendarMonthRoundedIcon fontSize="small" />
+                      Schedule discussion
+                    </MenuItem>
+                  </Menu>
                 </Box>
-                <Box sx={{ display: { xs: "block", lg: "none" } }}>
+                <Box sx={{ height: { xs: 100, md: 82 } }} />
+                <Box
+                  sx={{
+                    display: { xs: "block", lg: "none" },
+                    position: "absolute",
+                    top: 142,
+                    left: 0,
+                    right: 0,
+                  }}
+                >
                   <ScheduleMeetings
                     meetings={allMeetings}
                     activeCommunityId={conversationCommunity.id}
                     activeCommunityName={conversationCommunity.name}
+                    compact
                   />
                 </Box>
+                <Box
+                  sx={{ display: { xs: "block", lg: "none" }, height: 95 }}
+                />
                 {conversationLoading ? (
                   <Box
                     sx={{
@@ -5505,38 +6410,91 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     </Typography>
                   </Card>
                 ) : (
-                  visiblePosts.map((post) => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      communityName={conversationCommunity.name}
-                      onUpdated={handlePostUpdated}
-                      onDeleted={handlePostDeleted}
-                      onMeetingDiscovered={handleMeetingDiscovered}
-                    />
-                  ))
+                  <Stack ref={messageListRef} spacing={0} sx={{ width: "100%" }}>
+                  {visiblePosts.map((post, index) => {
+                    const currentDate = new Date(post.createdAt).toDateString();
+                    const previousDate = index > 0
+                      ? new Date(visiblePosts[index - 1].createdAt).toDateString()
+                      : null;
+                    return (
+                    <Box key={post.id} data-community-post-id={post.id}>
+                      <PostCard
+                        post={post}
+                        viewerName={currentProfileName}
+                        communityName={conversationCommunity.name}
+                        conversationStyle
+                        dateLabel={currentDate !== previousDate ? formatMessageDate(post.createdAt) : undefined}
+                        onUpdated={handlePostUpdated}
+                        onDeleted={handlePostDeleted}
+                        onMeetingDiscovered={handleMeetingDiscovered}
+                      />
+                    </Box>
+                    );
+                  })}
+                  </Stack>
                 )}
               </Stack>
               <Box
                 sx={{
                   display: { xs: "none", lg: "block" },
-                  position: "sticky",
-                  top: 24,
+                  position: "fixed",
+                  top: 88,
+                  right: 40,
+                  width: 280,
+                  zIndex: 1140,
                   maxHeight: "calc(100vh - 48px)",
                   overflowY: "auto",
                   overscrollBehavior: "contain",
                   pr: 0.5,
                   scrollbarWidth: "thin",
+                  opacity: showCommunityChrome ? 1 : 0,
+                  visibility: showCommunityChrome ? "visible" : "hidden",
+                  transform: showCommunityChrome
+                    ? "translateY(0)"
+                    : "translateY(-12px)",
+                  pointerEvents: showCommunityChrome ? "auto" : "none",
+                  transition:
+                    "opacity 150ms ease, transform 150ms ease, visibility 150ms ease",
                 }}
               >
                 <ScheduleMeetings
                   meetings={allMeetings}
                   activeCommunityId={conversationCommunity.id}
                   activeCommunityName={conversationCommunity.name}
+                  compact
                 />
               </Box>
             </Box>
           )}
+
+        {showJumpToLatest && currentReadScope && (
+          <Tooltip title="Jump to latest message">
+            <IconButton
+              aria-label="Jump to latest message"
+              onClick={handleJumpToLatest}
+              sx={{
+                position: "fixed",
+                left: "50%",
+                bottom: { xs: 78, md: 92 },
+                zIndex: 1110,
+                width: { xs: 34, md: 38 },
+                height: { xs: 34, md: 38 },
+                color: C.textMuted,
+                bgcolor: "rgba(255,255,255,0.68)",
+                border: `1px solid ${C.divider}`,
+                boxShadow: "none",
+                backdropFilter: "blur(6px)",
+                transform: "translateX(-50%)",
+                "&:hover": {
+                  color: C.textPrimary,
+                  bgcolor: "rgba(255,255,255,0.84)",
+                },
+              }}
+            >
+              <KeyboardArrowDownRoundedIcon />
+            </IconButton>
+          </Tooltip>
+        )}
 
         {!loading &&
           (pageTab === "posts" ||
@@ -5561,7 +6519,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
               <Box
                 sx={{
                   width: "100%",
-                  maxWidth: 860,
+                  maxWidth: { md: 1100 },
                   mx: "auto",
                   pointerEvents: "auto",
                 }}

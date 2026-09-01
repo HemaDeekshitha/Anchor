@@ -27,7 +27,9 @@ import {
   SendFriendRequestDto,
   UpdateCommunityDto,
   UpdateCommunityMemberDto,
+  UpdateCommentDto,
   UpdatePostDto,
+  VoteCommentDto,
   VotePollDto,
   VotePostDto,
 } from './dto/community.dto';
@@ -345,6 +347,38 @@ export class CommunityController {
     );
   }
   // T: O(log C) and S: O(1)
+
+  @Patch('posts/:postId/comments/:commentId')
+  @DistributedRateLimit(60, 60)
+  updateComment(
+    @Req() request: Request,
+    @Param('postId') postId: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateCommentDto,
+  ) {
+    return this.communityService.updateComment(
+      this.userId(request),
+      postId,
+      commentId,
+      dto,
+    );
+  }
+
+  @Post('posts/:postId/comments/:commentId/like')
+  @DistributedRateLimit(120, 60)
+  voteComment(
+    @Req() request: Request,
+    @Param('postId') postId: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: VoteCommentDto,
+  ) {
+    return this.communityService.voteComment(
+      this.userId(request),
+      postId,
+      commentId,
+      dto.liked,
+    );
+  }
 
   @Post('polls/:pollId/vote')
   @DistributedRateLimit(60, 60)

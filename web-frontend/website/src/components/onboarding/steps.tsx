@@ -312,6 +312,7 @@ export default function Steps() {
   const [roles, setRoles] = useState<OnboardingRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeError, setResumeError] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string>("");
@@ -392,7 +393,7 @@ export default function Steps() {
 
   const submitHandler = (): Promise<void> => {
     if (!resumeFile && !resumeText.trim()) {
-      alert("Please upload a resume or paste resume text");
+      setResumeError("Please upload a resume or paste resume text.");
       return Promise.resolve();
     }
     const formData = new FormData();
@@ -412,11 +413,24 @@ export default function Steps() {
       method: "POST",
       body: formData,
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Submission failed");
+      .then(async (res) => {
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as
+            | { message?: string | string[] }
+            | null;
+          const message = Array.isArray(payload?.message)
+            ? payload.message.join(" ")
+            : payload?.message;
+          throw new Error(message || "Submission failed");
+        }
       })
       .catch((err) => {
         console.error(err);
+        setResumeError(
+          err instanceof Error
+            ? err.message
+            : "Please upload a valid resume.",
+        );
       });
   };
 
@@ -1069,17 +1083,34 @@ export default function Steps() {
                                     m: 0,
                                   }}
                                 >
-                                  PDF, DOCX up to 10MB
+                                  PDF or DOCX resume, up to 10MB
                                 </Typography>
                               </Box>
                             )}
                             <input
                               type="file"
                               hidden
-                              accept=".pdf,.doc,.docx"
+                              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) setResumeFile(file);
+                                if (file) {
+                                  const extension = file.name
+                                    .split(".")
+                                    .pop()
+                                    ?.toLowerCase();
+                                  if (
+                                    !["pdf", "docx"].includes(extension ?? "") ||
+                                    file.size > 10_000_000
+                                  ) {
+                                    setResumeFile(null);
+                                    setResumeError(
+                                      "Please upload only a PDF or DOCX resume smaller than 10 MB.",
+                                    );
+                                  } else {
+                                    setResumeFile(file);
+                                    setResumeError("");
+                                  }
+                                }
                                 // Allow selecting the same file again after removal.
                                 e.currentTarget.value = "";
                               }}
@@ -1087,6 +1118,15 @@ export default function Steps() {
                           </Box>
                         </Box>
                       </Box>
+
+                      {resumeError && (
+                        <Typography
+                          role="alert"
+                          sx={{ color: "#b42318", fontSize: "0.82rem" }}
+                        >
+                          {resumeError}
+                        </Typography>
+                      )}
 
                       {/* Paste text */}
                       <Box

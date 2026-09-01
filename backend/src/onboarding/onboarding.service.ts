@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import pdf from 'pdf-parse';
+import * as mammoth from 'mammoth';
 import { ONBOARDING_STEPS } from './onboarding.data';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OnboardingResponse } from './onboarding.entity';
@@ -31,6 +33,45 @@ export class OnboardingService {
       steps: ONBOARDING_STEPS,
     };
   }
+
+  private looksLikeResume(text: string): boolean {
+    const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (normalized.length < 80) return false;
+    const signals = [
+      /\b(experience|employment|work history)\b/,
+      /\b(education|university|college|degree)\b/,
+      /\b(skills|technologies|tools)\b/,
+      /\b(projects?|certifications?|achievements?)\b/,
+      /\b(summary|objective|profile)\b/,
+      /[\w.+-]+@[\w.-]+\.[a-z]{2,}/,
+      /\b(20\d{2}|19\d{2})\b/,
+    ];
+    return signals.filter((signal) => signal.test(normalized)).length >= 2;
+  }
+
+  private async readResumeFile(file: Express.Multer.File): Promise<string> {
+    const extension = file.originalname.split('.').pop()?.toLowerCase();
+    if (file.size > 10_000_000) {
+      throw new BadRequestException('Resume must be smaller than 10 MB');
+    }
+    try {
+      if (extension === 'pdf' && file.mimetype === 'application/pdf') {
+        return (await pdf(file.buffer)).text;
+      }
+      if (
+        extension === 'docx' &&
+        file.mimetype ===
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ) {
+        return (await mammoth.extractRawText({ buffer: file.buffer })).value;
+      }
+    } catch {
+      throw new BadRequestException(
+        'We could not read this file. Please upload a valid PDF or DOCX resume.',
+      );
+    }
+    throw new BadRequestException('Please upload only a PDF or DOCX resume');
+  }
   async saveAnswers(
     userId: string,
     file: Express.Multer.File | undefined,
@@ -43,6 +84,15 @@ export class OnboardingService {
     let resumeUrl: string | undefined;
     let resumeName: string | undefined;
     let profilePhotoUrl: string | undefined;
+
+    const extractedResumeText = file
+      ? await this.readResumeFile(file)
+      : (resumeText?.trim() ?? '');
+    if (!this.looksLikeResume(extractedResumeText)) {
+      throw new BadRequestException(
+        'This file does not appear to be a resume. Please upload a resume with sections such as experience, education, skills, or projects.',
+      );
+    }
 
     if (file) {
       resumeUrl = await this.cloudinary.uploadFile(file);
@@ -69,7 +119,7 @@ export class OnboardingService {
       areasOfInterest: parsed['areas-interest'] || null,
       employmentType: parsed['employment-type'] || null,
 
-      resumeText: resumeText ?? null,
+      resumeText: extractedResumeText,
       resumeName,
       resumeUrl,
       profileImageUrl: profilePhotoUrl,
@@ -83,7 +133,8 @@ export class OnboardingService {
       onboardingCompleted: true,
     });
 
-    const planAnswer = (parsed['learning-plan']?.[0] as string | undefined) ?? '';
+    const planAnswer =
+      (parsed['learning-plan']?.[0] as string | undefined) ?? '';
     const durationMatch = planAnswer.match(/^[136]/);
     if (durationMatch) {
       await this.learningTracksService.create(userId, {
