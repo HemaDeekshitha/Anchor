@@ -213,6 +213,17 @@ export class CreateCommentDto {
   parentCommentId?: string;
 }
 
+export class UpdateCommentDto {
+  @IsString()
+  @Length(1, 4000)
+  body: string;
+}
+
+export class VoteCommentDto {
+  @IsBoolean()
+  liked: boolean;
+}
+
 export class VotePollDto {
   @IsArray()
   @ArrayMaxSize(10)

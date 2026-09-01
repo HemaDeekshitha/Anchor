@@ -69,8 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       icon: <BriefcaseBusiness size={isMobile ? 22 : 26} />,
     },
     {
-      href: "/community",
-      label: "Community",
+      href: "/community?tab=communities",
+      label: "Communities",
       icon: <Users size={isMobile ? 22 : 26} />,
     },
   ];
@@ -339,6 +339,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       ModalProps={{ keepMounted: true }}
       sx={{
         width: isMobile ? expandedDrawerWidth : drawerWidth,
+        display: { xs: isSidebarOpen ? "block" : "none", md: "block" },
         flexShrink: 0,
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
         "& .MuiDrawer-paper": {

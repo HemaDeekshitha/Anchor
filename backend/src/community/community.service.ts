@@ -20,6 +20,7 @@ import {
   ResolveFriendRequestDto,
   SendFriendRequestDto,
   UpdateCommunityDto,
+  UpdateCommentDto,
   UpdatePostDto,
   VotePollDto,
   VotePostDto,
@@ -35,6 +36,7 @@ import {
   PollOption,
   PollVote,
   PostComment,
+  PostCommentVote,
   PostMedia,
   PostVote,
 } from './entities/community.entities';
@@ -72,6 +74,8 @@ export class CommunityService {
     private readonly postVoteRepository: Repository<PostVote>,
     @InjectRepository(PostComment)
     private readonly commentRepository: Repository<PostComment>,
+    @InjectRepository(PostCommentVote)
+    private readonly commentVoteRepository: Repository<PostCommentVote>,
     @InjectRepository(Friendship)
     private readonly friendshipRepository: Repository<Friendship>,
     @InjectRepository(User)
@@ -1092,7 +1096,9 @@ export class CommunityService {
           }),
         ])
       : [[], []];
-    const authorById = new Map(authors.map((author) => [author.id, author]));
+    const authorById = new Map(
+      authors.map((author) => [author.id, author] as const),
+    );
     const profileByUserId = new Map(
       profiles.map((profile) => [profile.userId, profile]),
     );
@@ -1407,12 +1413,12 @@ export class CommunityService {
       .createQueryBuilder('comment')
       .where('comment."postId" = :postId', { postId })
       .andWhere('comment.status = :status', { status: 'published' })
-      .orderBy('comment.createdAt', 'DESC')
-      .addOrderBy('comment.id', 'DESC')
+      .orderBy('comment.createdAt', 'ASC')
+      .addOrderBy('comment.id', 'ASC')
       .take(query.limit + 1);
     if (cursor) {
       builder.andWhere(
-        '(comment."createdAt", comment.id) < (:createdAt, :id)',
+        '(comment."createdAt", comment.id) > (:createdAt, :id)',
         cursor,
       );
     }
@@ -1420,18 +1426,49 @@ export class CommunityService {
     const hasMore = rows.length > query.limit;
     const comments = hasMore ? rows.slice(0, query.limit) : rows;
     const authorIds = [...new Set(comments.map((comment) => comment.authorId))];
-    const authors = authorIds.length
-      ? await this.userRepository.find({
-          select: { id: true, name: true, email: true },
-          where: { id: In(authorIds) },
-        })
-      : [];
-    const authorById = new Map(authors.map((author) => [author.id, author]));
+    const [authors, voteCounts, viewerVotes] = await Promise.all([
+      authorIds.length
+        ? this.userRepository.find({
+            select: { id: true, name: true, email: true },
+            where: { id: In(authorIds) },
+          })
+        : [],
+      comments.length
+        ? this.commentVoteRepository
+            .createQueryBuilder('vote')
+            .select('vote."commentId"', 'commentId')
+            .addSelect('COUNT(*)', 'count')
+            .where('vote."commentId" IN (:...commentIds)', {
+              commentIds: comments.map((comment) => comment.id),
+            })
+            .groupBy('vote."commentId"')
+            .getRawMany<{ commentId: string; count: string }>()
+        : [],
+      comments.length
+        ? this.commentVoteRepository.find({
+            select: { commentId: true },
+            where: {
+              commentId: In(comments.map((comment) => comment.id)),
+              userId,
+            },
+          })
+        : [],
+    ]);
+    const authorById = new Map(
+      authors.map((author) => [author.id, author] as const),
+    );
+    const voteCountByComment = new Map(
+      voteCounts.map((vote) => [vote.commentId, Number(vote.count)] as const),
+    );
+    const viewerVoteIds = new Set(viewerVotes.map((vote) => vote.commentId));
     return {
       items: comments.map((comment) => ({
         ...comment,
         author: authorById.get(comment.authorId) ?? null,
         canDelete: comment.authorId === userId,
+        canEdit: comment.authorId === userId,
+        likeCount: voteCountByComment.get(comment.id) ?? 0,
+        viewerLiked: viewerVoteIds.has(comment.id),
       })),
       nextCursor:
         hasMore && comments.length
@@ -1467,6 +1504,57 @@ export class CommunityService {
     return { deleted: true };
   }
   // T: O(log C) and S: O(1), where C is comments
+
+  async updateComment(
+    userId: string,
+    postId: string,
+    commentId: string,
+    dto: UpdateCommentDto,
+  ): Promise<PostComment> {
+    const post = await this.postRepository.findOneBy({ id: postId });
+    if (!post) throw new NotFoundException('Post not found');
+    await this.requirePostAccess(userId, post);
+    const comment = await this.commentRepository.findOneBy({
+      id: commentId,
+      postId,
+      status: 'published',
+    });
+    if (!comment) throw new NotFoundException('Comment not found');
+    if (comment.authorId !== userId) {
+      throw new ForbiddenException('You can only edit your own comments');
+    }
+    comment.body = dto.body.trim();
+    return this.commentRepository.save(comment);
+  }
+
+  async voteComment(
+    userId: string,
+    postId: string,
+    commentId: string,
+    liked: boolean,
+  ): Promise<{ likeCount: number; viewerLiked: boolean }> {
+    const post = await this.postRepository.findOneBy({ id: postId });
+    if (!post) throw new NotFoundException('Post not found');
+    await this.requirePostAccess(userId, post);
+    const comment = await this.commentRepository.findOneBy({
+      id: commentId,
+      postId,
+      status: 'published',
+    });
+    if (!comment) throw new NotFoundException('Comment not found');
+    if (liked) {
+      await this.commentVoteRepository.upsert(
+        { commentId, userId },
+        { conflictPaths: ['commentId', 'userId'] },
+      );
+    } else {
+      await this.commentVoteRepository.delete({ commentId, userId });
+    }
+    return {
+      likeCount: await this.commentVoteRepository.countBy({ commentId }),
+      viewerLiked: liked,
+    };
+  }
 
   async votePoll(
     userId: string,
@@ -1692,6 +1780,7 @@ export class CommunityService {
   async listFriendRequests(userId: string): Promise<
     Array<{
       id: string;
+      direction: 'received';
       requesterId: string;
       name: string;
       handle: string;
@@ -1736,6 +1825,7 @@ export class CommunityService {
       const profile = latestProfileByUserId.get(request.requesterId);
       return {
         ...request,
+        direction: 'received' as const,
         role:
           profile?.dedicatedRole ??
           profile?.preferredRole?.[0] ??
@@ -1750,6 +1840,7 @@ export class CommunityService {
   async listSentFriendRequests(userId: string): Promise<
     Array<{
       id: string;
+      direction: 'sent';
       addresseeId: string;
       name: string;
       handle: string;
@@ -1794,6 +1885,7 @@ export class CommunityService {
       const profile = latestProfileByUserId.get(request.addresseeId);
       return {
         ...request,
+        direction: 'sent' as const,
         role:
           profile?.dedicatedRole ??
           profile?.preferredRole?.[0] ??

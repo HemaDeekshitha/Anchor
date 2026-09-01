@@ -17,6 +17,7 @@ import {
   PollOption,
   PollVote,
   PostComment,
+  PostCommentVote,
   PostMedia,
   PostVote,
 } from './entities/community.entities';
@@ -67,6 +68,7 @@ function redisConnection(urlValue: string): {
       PollVote,
       PostVote,
       PostComment,
+      PostCommentVote,
       CommunityOutboxEvent,
     ]),
     BullModule.forRootAsync({
