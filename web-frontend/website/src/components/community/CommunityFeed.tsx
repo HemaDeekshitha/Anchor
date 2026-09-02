@@ -5778,10 +5778,13 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         ? null
         : pageSearchParams.get("community") ??
           window.localStorage.getItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
-      const [mappedCommunities] = await Promise.all([
-        refreshCommunities(),
-        refreshFriendWorkspace(),
-      ]);
+      // Keep the Community and Feed views independent from the Friends API.
+      // A transient friends-query failure must not hide communities or posts
+      // behind the page-level error state.
+      const mappedCommunities = await refreshCommunities();
+      if (restoredPageTab === "friends") {
+        await refreshFriendWorkspace();
+      }
       const validSaved =
         saved === ALL_ID ||
         mappedCommunities.some(
@@ -6228,6 +6231,13 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       activePostScopeRef.current = "community-list";
       setCommunityConversationId(null);
       setPosts([]);
+    }
+    if (nextTab === "friends") {
+      void refreshFriendWorkspace().catch((caught) => {
+        setPageError(
+          caught instanceof Error ? caught.message : "Could not load friends",
+        );
+      });
     }
   };
   // T: O(1) and S: O(1)
