@@ -61,6 +61,9 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
+import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import {
@@ -162,6 +165,13 @@ export type ForumPost = {
   views: string;
   replyCount?: number;
   initialComments?: ForumComment[];
+  replyTo?: {
+    id: string;
+    authorName: string;
+    authorAvatar?: string;
+    body: string;
+    kind: "text" | "media" | "poll";
+  } | null;
   media?: Array<{ id: string; type: "image" | "video"; url: string }>;
   poll?: {
     id: string;
@@ -405,6 +415,21 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
   views: post.viewCount,
   replyCount: post.commentCount,
   initialComments: [],
+  replyTo: post.replyTo
+    ? {
+        id: post.replyTo.id,
+        authorName: post.replyTo.author?.name ?? "Anchor member",
+        authorAvatar: post.replyTo.author?.avatarUrl ?? undefined,
+        body:
+          post.replyTo.body?.trim() ||
+          (post.replyTo.kind === "media"
+            ? "Shared a photo or video"
+            : post.replyTo.kind === "poll"
+              ? "Shared a poll"
+              : "Message"),
+        kind: post.replyTo.kind,
+      }
+    : null,
   media: (post.media ?? []).map((item) => ({
     id: item.id,
     type: item.resourceType,
@@ -438,10 +463,14 @@ const Composer = ({
   scope,
   communityId,
   onCreated,
+  replyTo,
+  onCancelReply,
 }: {
   scope: "global" | "community";
   communityId?: string;
   onCreated: (post: CommunityPostRecord) => Promise<void>;
+  replyTo?: ForumPost | null;
+  onCancelReply?: () => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ComposerMode>("text");
@@ -463,6 +492,7 @@ const Composer = ({
   const [mentionMembers, setMentionMembers] = useState<CommunityMemberRecord[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const mediaUploadAbortRef = useRef<AbortController | null>(null);
   const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
@@ -505,6 +535,12 @@ const Composer = ({
       .then(setMentionMembers)
       .catch(() => setMentionMembers([]));
   }, [communityId, scope]);
+
+  useEffect(() => {
+    if (!replyTo) return;
+    setOpen(true);
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
+  }, [replyTo]);
 
   const insertMention = (member: CommunityMemberRecord) => {
     setContent((current) =>
@@ -627,6 +663,7 @@ const Composer = ({
   const handleOpen = () => {
     setError("");
     setOpen(true);
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
   };
   // T: O(1) and S: O(1)
 
@@ -728,6 +765,7 @@ const Composer = ({
       }
       const post = await createPost({
         communityId: scope === "community" ? communityId : null,
+        replyToPostId: replyTo?.id,
         body: content,
         mode: mode === "emoji" ? "text" : mode,
         providerAssetId,
@@ -739,6 +777,7 @@ const Composer = ({
       });
       resetComposer();
       setOpen(false);
+      onCancelReply?.();
       void onCreated(post);
     } catch (caught) {
       setError(
@@ -764,8 +803,8 @@ const Composer = ({
       sx={{
         position: "relative",
         width: "100%",
-        maxHeight: open ? 780 : { xs: 44, sm: 48, md: 58 },
-        minHeight: open ? 0 : { xs: 44, sm: 48, md: 58 },
+        maxHeight: open ? 780 : { xs: 52, sm: 48, md: 58 },
+        minHeight: open ? 0 : { xs: 52, sm: 48, md: 58 },
         p: open ? { xs: 1.5, sm: 1.75 } : 0,
         borderRadius: open ? 4 : 999,
         bgcolor: "#fff",
@@ -778,15 +817,60 @@ const Composer = ({
           "max-height 320ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease",
       }}
     >
+      {open && replyTo && (
+        <Box
+          onClick={(event) => event.stopPropagation()}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            mb: 1,
+            px: 1.1,
+            py: 0.8,
+            borderRadius: 2,
+            bgcolor: "#f5f5f5",
+            borderLeft: `3px solid ${C.accent}`,
+          }}
+        >
+          <Avatar
+            src={replyTo.authorAvatar}
+            sx={{ width: 28, height: 28, fontSize: "0.72rem" }}
+          >
+            {replyTo.authorName.charAt(0)}
+          </Avatar>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
+              Replying to {replyTo.authorName}
+            </Typography>
+            <Typography
+              noWrap
+              sx={{ color: C.textMuted, fontSize: "0.72rem" }}
+            >
+              {replyTo.body || "Shared a message"}
+            </Typography>
+          </Box>
+          <IconButton
+            aria-label="Cancel reply"
+            size="small"
+            onClick={(event) => {
+              event.stopPropagation();
+              onCancelReply?.();
+            }}
+          >
+            <CloseRoundedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Box>
+      )}
       <Box
         sx={{
           display: "flex",
           alignItems: open ? "flex-start" : "center",
           gap: open ? 1.2 : 0.5,
-          minHeight: open ? 0 : { xs: 42, sm: 46, md: 56 },
+          minHeight: open ? 0 : { xs: 50, sm: 46, md: 56 },
         }}
       >
         <TextField
+          inputRef={composerInputRef}
           fullWidth
           multiline
           minRows={open ? 4 : 1}
@@ -811,7 +895,7 @@ const Composer = ({
               ? mode === "poll"
                 ? "What is the question?"
                 : "What do you want to share?"
-              : "Start a post"
+              : "Start a message or post"
           }
           variant="standard"
           InputProps={{ disableUnderline: true }}
@@ -823,7 +907,7 @@ const Composer = ({
               color: "#111",
               fontSize: open
                 ? { xs: "0.82rem", sm: "1rem" }
-                : { xs: "0.76rem", sm: "0.84rem", md: "0.95rem" },
+                : { xs: "0.86rem", sm: "0.84rem", md: "0.95rem" },
               lineHeight: 1.55,
               border: open ? "1px solid #242424" : "1px solid transparent",
               borderRadius: open ? 2 : 0,
@@ -897,7 +981,7 @@ const Composer = ({
 
         {!open && (
           <IconButton
-            aria-label="Send post"
+            aria-label="Send message or post"
             onClick={handleCompactShare}
             disabled={!canSubmit || submitting}
             size="small"
@@ -1276,7 +1360,7 @@ const Composer = ({
             {submitting ? (
               <CircularProgress size={20} sx={{ color: "#fff" }} />
             ) : (
-              "Post"
+              "Send"
             )}
           </Button>
         </Box>
@@ -1313,6 +1397,7 @@ const PostCard = ({
   viewerName,
   onUpdated,
   onDeleted,
+  onReply,
   onMeetingDiscovered,
 }: {
   post: ForumPost;
@@ -1322,6 +1407,7 @@ const PostCard = ({
   viewerName: string;
   onUpdated: (postId: string, body: string) => void;
   onDeleted: (postId: string) => void;
+  onReply: (post: ForumPost) => void;
   onMeetingDiscovered?: (
     meeting: Comm360Meeting,
     communityId: string,
@@ -1376,6 +1462,17 @@ const PostCard = ({
   const [editBody, setEditBody] = useState(post.body);
   const [postActionPending, setPostActionPending] = useState(false);
   const [postActionError, setPostActionError] = useState("");
+  const [mobileMoreVisible, setMobileMoreVisible] = useState(false);
+  const [mobileSwipeOffset, setMobileSwipeOffset] = useState(0);
+  const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
+  const [imageZoomed, setImageZoomed] = useState(false);
+  const mobileLongPressTimerRef = useRef<number | null>(null);
+  const mobileLongPressTriggeredRef = useRef(false);
+  const mobileTouchMovedRef = useRef(false);
+  const mobileTouchStartXRef = useRef(0);
+  const mobileTouchStartYRef = useRef(0);
+  const mobileSwipeOffsetRef = useRef(0);
+  const lastMobileTapAtRef = useRef(0);
   const [editWindowOpen, setEditWindowOpen] = useState(
     Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000,
   );
@@ -1705,6 +1802,93 @@ const PostCard = ({
   };
   // T: O(1) and S: O(1)
 
+  const clearMobileLongPressTimer = () => {
+    if (mobileLongPressTimerRef.current !== null) {
+      window.clearTimeout(mobileLongPressTimerRef.current);
+      mobileLongPressTimerRef.current = null;
+    }
+  };
+
+  const isInteractiveTouchTarget = (target: EventTarget | null) =>
+    target instanceof Element &&
+    Boolean(target.closest("button, a, input, textarea, select, [role='button']"));
+
+  const isMobileTouchLayout = () =>
+    window.matchMedia("(max-width: 599.95px)").matches;
+
+  const handleMobileTouchStart = (event: React.TouchEvent) => {
+    if (!isMobileTouchLayout() || isInteractiveTouchTarget(event.target)) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    clearMobileLongPressTimer();
+    mobileTouchStartXRef.current = touch.clientX;
+    mobileTouchStartYRef.current = touch.clientY;
+    mobileSwipeOffsetRef.current = 0;
+    setMobileSwipeOffset(0);
+    mobileTouchMovedRef.current = false;
+    mobileLongPressTriggeredRef.current = false;
+    mobileLongPressTimerRef.current = window.setTimeout(() => {
+      mobileLongPressTriggeredRef.current = true;
+      setMobileMoreVisible(true);
+      navigator.vibrate?.(10);
+    }, 520);
+  };
+
+  const handleMobileTouchMove = (event: React.TouchEvent) => {
+    if (!isMobileTouchLayout()) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - mobileTouchStartXRef.current;
+    const deltaY = touch.clientY - mobileTouchStartYRef.current;
+    if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+      mobileTouchMovedRef.current = true;
+      clearMobileLongPressTimer();
+    }
+    if (deltaX < 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      const nextOffset = Math.max(-68, deltaX);
+      mobileSwipeOffsetRef.current = nextOffset;
+      setMobileSwipeOffset(nextOffset);
+    }
+  };
+
+  const handleMobileTouchEnd = (event: React.TouchEvent) => {
+    if (!isMobileTouchLayout()) return;
+    clearMobileLongPressTimer();
+    if (mobileSwipeOffsetRef.current <= -46) {
+      mobileSwipeOffsetRef.current = 0;
+      setMobileSwipeOffset(0);
+      mobileLongPressTriggeredRef.current = false;
+      onReply(post);
+      return;
+    }
+    mobileSwipeOffsetRef.current = 0;
+    setMobileSwipeOffset(0);
+    if (
+      mobileLongPressTriggeredRef.current ||
+      mobileTouchMovedRef.current ||
+      isInteractiveTouchTarget(event.target)
+    ) {
+      mobileLongPressTriggeredRef.current = false;
+      return;
+    }
+    const tappedAt = Date.now();
+    if (tappedAt - lastMobileTapAtRef.current <= 320) {
+      lastMobileTapAtRef.current = 0;
+      if (!liked) void handleLike();
+      return;
+    }
+    lastMobileTapAtRef.current = tappedAt;
+  };
+
+  useEffect(
+    () => () => {
+      if (mobileLongPressTimerRef.current !== null) {
+        window.clearTimeout(mobileLongPressTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const handleSharePost = async () => {
     const url = `${window.location.origin}/community?post=${encodeURIComponent(
       post.id,
@@ -1830,12 +2014,23 @@ const PostCard = ({
     {dateLabel && (
       <Divider
         textAlign="center"
-        sx={{ color: C.textMuted, fontSize: { xs: "0.6rem", sm: "0.75rem" }, my: 1 }}
+        sx={{ color: C.textMuted, fontSize: { xs: "0.7rem", sm: "0.75rem" }, my: 1 }}
       >
         {dateLabel}
       </Divider>
     )}
     <Card
+      onTouchStart={handleMobileTouchStart}
+      onTouchMove={handleMobileTouchMove}
+      onTouchEnd={handleMobileTouchEnd}
+      onTouchCancel={() => {
+        clearMobileLongPressTimer();
+        mobileSwipeOffsetRef.current = 0;
+        setMobileSwipeOffset(0);
+      }}
+      onContextMenu={(event) => {
+        if (isMobileTouchLayout()) event.preventDefault();
+      }}
       sx={{
         position: "relative",
         width: "100%",
@@ -1853,13 +2048,33 @@ const PostCard = ({
         boxShadow: "none",
         overflow: "visible",
         transition: "background-color 140ms ease",
+        transform: { xs: `translateX(${mobileSwipeOffset}px)`, md: "none" },
+        touchAction: "pan-y",
+        transitionProperty: "background-color, transform",
         "&:hover": {
           bgcolor: "#fafafa",
         },
+        "&::after": {
+          content: '"↩"',
+          display: { xs: "grid", md: "none" },
+          placeItems: "center",
+          position: "absolute",
+          top: "50%",
+          right: -44,
+          width: 36,
+          height: 36,
+          mt: -2.25,
+          borderRadius: "50%",
+          color: C.accentDark,
+          bgcolor: C.accentFaint,
+          fontSize: "1.15rem",
+          opacity: mobileSwipeOffset < -12 ? 1 : 0,
+          transition: "opacity 120ms ease",
+        },
         "& .message-actions": {
-          opacity: { xs: 1, md: 0 },
-          transform: { xs: "none", md: "translateY(4px)" },
-          pointerEvents: { xs: "auto", md: "none" },
+          opacity: { md: 0 },
+          transform: { md: "translateY(4px)" },
+          pointerEvents: { md: "none" },
         },
         "&:hover .message-actions, &:focus-within .message-actions": {
           opacity: 1,
@@ -1874,18 +2089,18 @@ const PostCard = ({
         alignItems="center"
         spacing={0.25}
         sx={{
-          position: { xs: "static", md: "absolute" },
+          display: { xs: "none", md: "flex" },
+          position: "absolute",
           top: { md: -18 },
           right: { md: 8 },
-          float: { xs: "right", md: "none" },
           width: "fit-content",
           ml: "auto",
-          mb: { xs: 0.5, md: 0 },
-          p: { xs: 0.15, sm: 0.35 },
+          mb: 0,
+          p: 0.35,
           border: `1px solid ${C.divider}`,
           borderRadius: 2,
           bgcolor: "#fff",
-          boxShadow: { xs: "none", md: "0 4px 14px rgba(0,0,0,0.10)" },
+          boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
           transition: "opacity 140ms ease, transform 140ms ease",
           zIndex: 2,
           "& .MuiIconButton-root": {
@@ -1908,7 +2123,7 @@ const PostCard = ({
             {liked ? <FavoriteRoundedIcon /> : <FavoriteBorderRoundedIcon />}
           </IconButton>
         </Tooltip>
-        <Tooltip title="Reply">
+        <Tooltip title="Comments">
           <IconButton
             size="small"
             aria-label="Reply to message"
@@ -1916,6 +2131,16 @@ const PostCard = ({
             sx={{ color: showComments ? C.accentDark : C.textMuted }}
           >
             <ChatBubbleOutlineRoundedIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Reply">
+          <IconButton
+            size="small"
+            aria-label="Reply to message"
+            onClick={() => onReply(post)}
+            sx={{ color: C.textMuted }}
+          >
+            <ReplyRoundedIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="Share">
@@ -1952,6 +2177,31 @@ const PostCard = ({
           </IconButton>
         </Tooltip>
       </Stack>
+      <IconButton
+        size="small"
+        aria-label="More message actions"
+        onClick={(event) => {
+          setMobileMoreVisible(false);
+          setOwnerMenuAnchor(event.currentTarget);
+        }}
+        sx={{
+          display: {
+            xs: mobileMoreVisible ? "inline-flex" : "none",
+            md: "none",
+          },
+          position: "absolute",
+          top: 6,
+          right: 0,
+          width: 32,
+          height: 32,
+          color: C.textMuted,
+          bgcolor: "rgba(255,255,255,0.94)",
+          zIndex: 3,
+          "&:hover": { bgcolor: "#fff" },
+        }}
+      >
+        <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
+      </IconButton>
       {/* Author row */}
       <Box
         sx={{
@@ -1965,11 +2215,11 @@ const PostCard = ({
           <Avatar
             src={post.authorAvatar}
             sx={{
-              width: { xs: 26, sm: 38 },
-              height: { xs: 26, sm: 38 },
+              width: { xs: 30, sm: 38 },
+              height: { xs: 30, sm: 38 },
               bgcolor: C.accentFaint,
               color: C.accentDark,
-              fontSize: { xs: "0.6rem", sm: "0.85rem" },
+              fontSize: { xs: "0.68rem", sm: "0.85rem" },
             }}
           >
             {post.authorName.charAt(0)}
@@ -1978,7 +2228,7 @@ const PostCard = ({
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
               <Typography
                 sx={{
-                  fontSize: { xs: "0.7rem", sm: "0.92rem" },
+                  fontSize: { xs: "0.82rem", sm: "0.92rem" },
                   fontWeight: 600,
                   color: C.textPrimary,
                 }}
@@ -1989,7 +2239,7 @@ const PostCard = ({
                 <VerifiedRoundedIcon sx={{ fontSize: 15, color: C.accent }} />
               )}
             </Box>
-            <Typography sx={{ fontSize: { xs: "0.6rem", sm: "0.78rem" }, color: C.textMuted }}>
+            <Typography sx={{ fontSize: { xs: "0.7rem", sm: "0.78rem" }, color: C.textMuted }}>
               {post.authorProfession} · {post.timeAgo}
             </Typography>
           </Box>
@@ -1998,7 +2248,10 @@ const PostCard = ({
           id={`post-menu-${post.id}`}
           anchorEl={ownerMenuAnchor}
           open={Boolean(ownerMenuAnchor)}
-          onClose={() => setOwnerMenuAnchor(null)}
+          onClose={() => {
+            setOwnerMenuAnchor(null);
+            setMobileMoreVisible(false);
+          }}
           MenuListProps={{ "aria-label": "Message options" }}
         >
               {friendshipStatus === "self" && (
@@ -2056,11 +2309,42 @@ const PostCard = ({
         />
       )}
 
+      {post.replyTo && (
+        <Box
+          sx={{
+            mb: 1,
+            ml: { xs: 0.5, sm: 1 },
+            pl: { xs: 1.15, sm: 1.4 },
+            py: 0.35,
+            minWidth: 0,
+            borderLeft: `3px solid ${C.divider}`,
+          }}
+        >
+            <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
+              {post.replyTo.authorName}
+            </Typography>
+            <Typography
+              sx={{
+                color: C.textMuted,
+                fontSize: { xs: "0.72rem", sm: "0.76rem" },
+                lineHeight: 1.35,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {post.replyTo.body}
+            </Typography>
+        </Box>
+      )}
+
       {/* Title + body */}
       {post.title && (
         <Typography
           sx={{
-            fontSize: { xs: "0.84rem", sm: "1.15rem" },
+            fontSize: { xs: "0.92rem", sm: "1.15rem" },
             fontWeight: 700,
             color: C.textPrimary,
             mb: 1,
@@ -2072,9 +2356,9 @@ const PostCard = ({
       )}
       <Typography
         sx={{
-          fontSize: { xs: "0.69rem", sm: "0.86rem", md: "0.9rem" },
+          fontSize: { xs: "0.82rem", sm: "0.86rem", md: "0.9rem" },
           color: C.textPrimary,
-          lineHeight: { xs: 1.42, sm: 1.6 },
+          lineHeight: { xs: 1.52, sm: 1.6 },
           mb: post.media?.length || poll ? 1.5 : 0.5,
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
@@ -2111,21 +2395,39 @@ const PostCard = ({
         item.type === "image" ? (
           <Box
             key={item.id}
-            component="img"
-            src={item.url}
-            alt="Community post upload"
+            component="button"
+            type="button"
+            aria-label="Open image in full screen"
+            onClick={() => {
+              setImageZoomed(false);
+              setImageViewerUrl(item.url);
+            }}
             sx={{
               display: "block",
               width: "100%",
               maxWidth: { xs: "100%", sm: 640 },
-              maxHeight: { xs: 260, sm: 380 },
               mr: "auto",
-              objectFit: "contain",
+              p: 0,
+              border: 0,
               borderRadius: 2,
               bgcolor: C.surface,
               mb: 2,
+              overflow: "hidden",
+              cursor: "zoom-in",
             }}
-          />
+          >
+            <Box
+              component="img"
+              src={item.url}
+              alt="Community post upload"
+              sx={{
+                display: "block",
+                width: "100%",
+                maxHeight: { xs: 260, sm: 380 },
+                objectFit: "contain",
+              }}
+            />
+          </Box>
         ) : (
           <Box
             key={item.id}
@@ -2544,6 +2846,70 @@ const PostCard = ({
       </Menu>
 
       <Dialog
+        open={Boolean(imageViewerUrl)}
+        onClose={() => setImageViewerUrl(null)}
+        fullScreen
+        PaperProps={{ sx: { bgcolor: "#111" } }}
+      >
+        <Box
+          sx={{
+            position: "fixed",
+            top: 12,
+            right: 12,
+            zIndex: 2,
+            display: "flex",
+            gap: 0.5,
+          }}
+        >
+          <IconButton
+            component="a"
+            href={imageViewerUrl ?? undefined}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Download image"
+            sx={{ color: "#fff", bgcolor: "rgba(0,0,0,0.48)" }}
+          >
+            <DownloadRoundedIcon />
+          </IconButton>
+          <IconButton
+            aria-label="Close image viewer"
+            onClick={() => setImageViewerUrl(null)}
+            sx={{ color: "#fff", bgcolor: "rgba(0,0,0,0.48)" }}
+          >
+            <CloseRoundedIcon />
+          </IconButton>
+        </Box>
+        <DialogContent
+          onClick={() => setImageZoomed((current) => !current)}
+          sx={{
+            display: "flex",
+            alignItems: imageZoomed ? "flex-start" : "center",
+            justifyContent: imageZoomed ? "flex-start" : "center",
+            p: 2,
+            overflow: "auto",
+            cursor: imageZoomed ? "zoom-out" : "zoom-in",
+          }}
+        >
+          {imageViewerUrl && (
+            <Box
+              component="img"
+              src={imageViewerUrl}
+              alt="Full-size community upload"
+              sx={{
+                display: "block",
+                maxWidth: imageZoomed ? "none" : "100%",
+                maxHeight: imageZoomed ? "none" : "calc(100vh - 32px)",
+                width: imageZoomed ? "auto" : "auto",
+                height: "auto",
+                mx: imageZoomed ? 0 : "auto",
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={Boolean(editingComment)}
         onClose={() => !commentEditPending && setEditingComment(null)}
         fullWidth
@@ -2745,6 +3111,8 @@ const ScheduleMeetings = ({
     <Card
       sx={{
         width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
         boxSizing: "border-box",
         p: compact ? { xs: 1.25, sm: 2 } : { xs: 1.75, sm: 3 },
         borderRadius: 3,
@@ -2752,6 +3120,7 @@ const ScheduleMeetings = ({
         border: `1px solid ${C.divider}`,
         borderTop: `4px solid ${C.accent}`,
         boxShadow: "0 4px 20px rgba(44,26,10,0.07)",
+        overflow: "hidden",
       }}
     >
       <Typography
@@ -2785,15 +3154,22 @@ const ScheduleMeetings = ({
             rel="noopener noreferrer"
             sx={{
               display: "flex",
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+              boxSizing: "border-box",
+              mx: "auto",
               alignItems: "center",
               justifyContent: "center",
               gap: 1,
+              px: { xs: 1, sm: 2 },
               py: 1.2,
               borderRadius: 2,
               background: C.accentGrad,
               color: "#fff",
               fontSize: "0.85rem",
               fontWeight: 600,
+              textAlign: "center",
               textDecoration: "none",
               cursor: "pointer",
               "&:hover": { opacity: 0.92 },
@@ -2997,8 +3373,8 @@ const CommunityNavigation = ({
       component="nav"
       aria-label="Community sections"
       sx={{
-        bgcolor: "#fff",
-        borderBottom: `1px solid ${C.divider}`,
+        bgcolor: "transparent",
+        borderBottom: 0,
       }}
     >
       <Tabs
@@ -3529,7 +3905,7 @@ const CommunitiesView = ({
   // T: O(1) and S: O(1)
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: "100%", minWidth: 0 }}>
       <Box>
         <Typography
           sx={{
@@ -3549,9 +3925,15 @@ const CommunitiesView = ({
 
       <Card
         sx={{
-          borderRadius: 3,
-          border: `1px solid ${C.divider}`,
-          boxShadow: "0 4px 18px rgba(44,26,10,0.05)",
+          width: "100%",
+          minWidth: 0,
+          overflow: "hidden",
+          borderRadius: { xs: 0, sm: 3 },
+          border: { xs: 0, sm: `1px solid ${C.divider}` },
+          boxShadow: {
+            xs: "none",
+            sm: "0 4px 18px rgba(44,26,10,0.05)",
+          },
         }}
       >
         <Tabs
@@ -3560,13 +3942,22 @@ const CommunitiesView = ({
           variant="scrollable"
           scrollButtons={false}
           sx={{
-            px: 1,
+            width: "100%",
+            minWidth: 0,
+            px: { xs: 0, sm: 1 },
             borderBottom: `1px solid ${C.divider}`,
             "& .MuiTabs-indicator": { bgcolor: C.accent },
+            "& .MuiTabs-flexContainer": { width: "100%" },
             "& .MuiTab-root": {
+              flex: { xs: "1 1 0", sm: "0 0 auto" },
+              minWidth: { xs: 0, sm: 90 },
+              maxWidth: { xs: "none", sm: 360 },
+              px: { xs: 0.45, sm: 2 },
               color: C.textMuted,
               textTransform: "none",
               fontWeight: 600,
+              fontSize: { xs: "0.7rem", sm: "0.875rem" },
+              lineHeight: 1.2,
             },
             "& .Mui-selected": { color: `${C.accentDark} !important` },
           }}
@@ -3579,19 +3970,23 @@ const CommunitiesView = ({
           <Tab value="create" label="Create a community" />
         </Tabs>
 
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ width: "100%", minWidth: 0, p: { xs: 0, sm: 2, md: 3 }, pt: { xs: 2, sm: 2 } }}>
           {section === "current" && (
             <Box
               sx={{
                 display: "grid",
                 gridTemplateColumns: {
                   xs: "1fr",
-                  md: "minmax(0, 1fr) 320px",
-                  xl: "minmax(0, 1fr) 360px",
+                  md: "minmax(0, 1fr) minmax(260px, 320px)",
+                  xl: "minmax(0, 1fr) minmax(300px, 360px)",
                 },
-                columnGap: { xs: 3, md: 4 },
-                rowGap: 3,
+                columnGap: { xs: 0, md: 4 },
+                rowGap: { xs: 2, md: 3 },
                 alignItems: "start",
+                minWidth: 0,
+                width: "100%",
+                maxWidth: "100%",
+                overflow: "hidden",
               }}
             >
               <Box>
@@ -3600,7 +3995,7 @@ const CommunitiesView = ({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    gap: 2,
+                    gap: 1,
                     mb: 1.5,
                   }}
                 >
@@ -3673,9 +4068,14 @@ const CommunitiesView = ({
                     display: "grid",
                     gridTemplateColumns:
                       layout === "grid"
-                        ? { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }
+                        ? {
+                            xs: "repeat(2, minmax(0, 1fr))",
+                            sm: "1fr",
+                            lg: "repeat(2, minmax(0, 1fr))",
+                          }
                         : "1fr",
-                    gap: layout === "grid" ? 2 : 0,
+                    gap:
+                      layout === "grid" ? { xs: 1, sm: 2 } : 0,
                   }}
                 >
                   {visibleJoinedCommunities.map((community) => {
@@ -3700,9 +4100,20 @@ const CommunitiesView = ({
                           width: "100%",
                           boxSizing: "border-box",
                           display: "flex",
-                          alignItems: "center",
-                          gap: 1.3,
-                          p: layout === "grid" ? 2 : 1.5,
+                          position: "relative",
+                          flexDirection: {
+                            xs: layout === "grid" ? "column" : "row",
+                            sm: "row",
+                          },
+                          alignItems: {
+                            xs: layout === "grid" ? "flex-start" : "center",
+                            sm: "center",
+                          },
+                          gap: { xs: 1, sm: 1.3 },
+                          p:
+                            layout === "grid"
+                              ? { xs: 1.25, sm: 2 }
+                              : { xs: 1.1, sm: 1.5 },
                           border: 0,
                           borderBottom:
                             layout === "list"
@@ -3737,8 +4148,8 @@ const CommunitiesView = ({
                       >
                         <Box
                           sx={{
-                            width: 40,
-                            height: 40,
+                            width: { xs: 36, sm: 40 },
+                            height: { xs: 36, sm: 40 },
                             borderRadius: "50%",
                             display: "grid",
                             placeItems: "center",
@@ -3749,12 +4160,13 @@ const CommunitiesView = ({
                         >
                           <GroupsRoundedIcon fontSize="small" />
                         </Box>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ flex: 1, minWidth: 0, width: "100%", maxWidth: "100%" }}>
                           <Typography
                             sx={{
                               color: C.textPrimary,
                               fontSize: "0.88rem",
                               fontWeight: 700,
+                              overflowWrap: "anywhere",
                             }}
                           >
                             {community.name}
@@ -3765,7 +4177,17 @@ const CommunitiesView = ({
                               fontSize: "0.74rem",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
+                              whiteSpace: {
+                                xs: layout === "grid" ? "normal" : "nowrap",
+                                sm: "nowrap",
+                              },
+                              overflowWrap: "anywhere",
+                              display: {
+                                xs: layout === "grid" ? "-webkit-box" : "block",
+                                sm: "block",
+                              },
+                              WebkitLineClamp: { xs: 2, sm: "unset" },
+                              WebkitBoxOrient: "vertical",
                             }}
                           >
                             {community.description} · {community.memberCount}
@@ -3805,10 +4227,16 @@ const CommunitiesView = ({
                               onClick={(event) =>
                                 handleManageMenuOpen(event, community)
                               }
-                              sx={{
-                                color: C.textSub,
-                                flexShrink: 0,
-                              }}
+                            sx={{
+                              color: C.textSub,
+                              flexShrink: 0,
+                              position: {
+                                xs: layout === "grid" ? "absolute" : "static",
+                                sm: "static",
+                              },
+                              top: { xs: 6, sm: "auto" },
+                              right: { xs: 4, sm: "auto" },
+                            }}
                             >
                               <MoreHorizRoundedIcon fontSize="small" />
                             </IconButton>
@@ -3898,8 +4326,9 @@ const CommunitiesView = ({
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 1.5,
+                      gap: { xs: 0.8, sm: 1.5 },
                       py: 1.6,
+                      minWidth: 0,
                     }}
                   >
                     <Box
@@ -3950,7 +4379,8 @@ const CommunitiesView = ({
                       disabled={community.joined || Boolean(joiningId)}
                       variant={community.joined ? "text" : "contained"}
                       sx={{
-                        minWidth: 82,
+                        minWidth: { xs: 62, sm: 82 },
+                        px: { xs: 1, sm: 2 },
                         borderRadius: 2,
                         bgcolor: community.joined ? "transparent" : C.accent,
                         color: community.joined ? C.green : "#fff",
@@ -4725,7 +5155,7 @@ const FriendsView = ({
   // T: O(1) and S: O(1)
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ width: "100%", minWidth: 0 }}>
       <Box>
         <Typography
           sx={{
@@ -4745,6 +5175,7 @@ const FriendsView = ({
       <Box
         sx={{
           width: "100%",
+          minWidth: 0,
           maxWidth: { xs: "100%", md: 720 },
         }}
       >
@@ -4753,7 +5184,7 @@ const FriendsView = ({
           variant="outlined"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search for friends by name, handle, or role"
+          placeholder="Search friends"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -4762,8 +5193,12 @@ const FriendsView = ({
             ),
           }}
           sx={{
+            width: "100%",
+            minWidth: 0,
             mb: searchResults.length > 0 ? 1.5 : 0,
             "& .MuiOutlinedInput-root": {
+              width: "100%",
+              boxSizing: "border-box",
               borderRadius: 2.5,
               bgcolor: C.surface,
               "& fieldset": { borderColor: C.divider },
@@ -4773,6 +5208,10 @@ const FriendsView = ({
             "& input::placeholder": {
               color: C.textMuted,
               opacity: 1,
+            },
+            "& input": {
+              minWidth: 0,
+              fontSize: { xs: "0.82rem", sm: "1rem" },
             },
           }}
         />
@@ -4831,9 +5270,13 @@ const FriendsView = ({
             mb: 2,
             borderBottom: `1px solid ${C.divider}`,
             "& .MuiTab-root": {
+              minWidth: 0,
+              px: { xs: 0.25, sm: 1.5 },
               color: C.textSub,
               textTransform: "none",
               fontWeight: 700,
+              fontSize: { xs: "0.68rem", sm: "0.875rem" },
+              whiteSpace: "nowrap",
             },
             "& .Mui-selected": { color: `${C.textPrimary} !important` },
             "& .MuiTabs-indicator": { bgcolor: C.accent },
@@ -4874,7 +5317,7 @@ const FriendsView = ({
                 <Card
                   key={friend.id}
                   sx={{
-                    p: 2,
+                    p: { xs: 1.25, sm: 2 },
                     borderRadius: 2.5,
                     border: `1px solid ${C.divider}`,
                     boxShadow: "0 4px 16px rgba(44,26,10,0.04)",
@@ -5126,6 +5569,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   >(null);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [replyingToPost, setReplyingToPost] = useState<ForumPost | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<
     CommunityFriendRequest[]
@@ -5144,6 +5588,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [readTrackingReady, setReadTrackingReady] = useState(false);
   const [currentProfileName, setCurrentProfileName] = useState("");
   const [showCommunityChrome, setShowCommunityChrome] = useState(true);
+  const [communityHeaderHeight, setCommunityHeaderHeight] = useState(62);
   const [communityMenuAnchor, setCommunityMenuAnchor] =
     useState<HTMLElement | null>(null);
   const [communitySharePending, setCommunitySharePending] = useState(false);
@@ -5158,6 +5603,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const knownFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const acknowledgedFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const pageRootRef = useRef<HTMLDivElement | null>(null);
+  const communityHeaderRef = useRef<HTMLDivElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const restoredReadScopeRef = useRef("");
   const lastWindowScrollYRef = useRef(0);
@@ -5167,6 +5613,10 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     (meeting, index, items) =>
       items.findIndex((candidate) => candidate.id === meeting.id) === index,
   );
+
+  useEffect(() => {
+    setReplyingToPost(null);
+  }, [pageTab, communityConversationId]);
 
   const handleMeetingDiscovered = useCallback(
     (meeting: Comm360Meeting, communityId: string) => {
@@ -5250,7 +5700,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         name: friend.name,
         handle: friend.email,
         role: "Anchor member",
-        mutualFriends: 0,
+        mutualFriends: Number(friend.mutualFriends) || 0,
         isFriend: true,
       })),
     );
@@ -5946,6 +6396,17 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const latestVisiblePostId = visiblePosts.at(-1)?.id;
 
   useEffect(() => {
+    const header = communityHeaderRef.current;
+    if (!communityConversationId || !header) return;
+    const updateHeight = () =>
+      setCommunityHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [communityConversationId, conversationCommunity?.id, allMeetings.length]);
+
+  useEffect(() => {
     restoredReadScopeRef.current = "";
     setReadTrackingReady(false);
     setShowJumpToLatest(false);
@@ -6094,14 +6555,24 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     >
       <Box
         sx={{
+          display: {
+            xs: communityConversationId ? "none" : "block",
+            md: "block",
+          },
           position: "fixed",
           top: 0,
-          left: { xs: 72, md: "var(--anchor-sidebar-width, 84px)" },
+          left: { xs: 0, md: "var(--anchor-sidebar-width, 84px)" },
           right: 0,
           zIndex: 1150,
-          bgcolor: "#fff",
-          px: { xs: 1, sm: 3, md: 4 },
-          pt: { xs: 0.5, md: 1 },
+          minHeight: { xs: 70, md: 56 },
+          boxSizing: "border-box",
+          bgcolor: { xs: "rgba(250,250,250,0.98)", md: "#fff" },
+          pl: { xs: 9, sm: 10, md: 4 },
+          pr: { xs: 2, sm: 3, md: 4 },
+          pt: { xs: 1, md: 1 },
+          pb: { xs: 1.25, md: 0 },
+          borderBottom: `1px solid ${C.divider}`,
+          boxShadow: { xs: "0 3px 14px rgba(17,17,17,0.08)", md: "none" },
           transform: showCommunityChrome ? "translateY(0)" : "translateY(-110%)",
           transition: "transform 180ms ease",
         }}
@@ -6114,14 +6585,21 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           />
         </Box>
       </Box>
-      <Box sx={{ height: { xs: 48, md: 56 } }} />
+      <Box
+        sx={{
+          height: { xs: communityConversationId ? 0 : 70, md: 56 },
+        }}
+      />
 
       {notificationPermission === "default" && (
         <Box
           sx={{
             width: "100%",
             mt: 1,
-            display: "flex",
+            display: {
+              xs: communityConversationId ? "none" : "flex",
+              md: "flex",
+            },
             justifyContent: "flex-end",
           }}
         >
@@ -6150,7 +6628,13 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         </Typography>
       )}
 
-      <Stack spacing={3} sx={{ width: "100%", mt: 3 }}>
+      <Stack
+        spacing={{ xs: communityConversationId ? 1.25 : 3, sm: 3 }}
+        sx={{
+          width: "100%",
+          mt: { xs: communityConversationId ? 0 : 3, sm: 3 },
+        }}
+      >
         {pageError && (
           <Alert
             severity="error"
@@ -6217,6 +6701,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     <PostCard
                       post={post}
                       viewerName={currentProfileName}
+                      onReply={setReplyingToPost}
                       onUpdated={handlePostUpdated}
                       onDeleted={handlePostDeleted}
                       onMeetingDiscovered={handleMeetingDiscovered}
@@ -6239,19 +6724,29 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                 position: "relative",
               }}
             >
-              <Stack spacing={3} sx={{ width: "100%" }}>
+              <Stack spacing={{ xs: 1.25, md: 3 }} sx={{ width: "100%" }}>
                 <Box
+                  ref={communityHeaderRef}
                   sx={{
                     position: "fixed",
-                    top: { xs: 48, md: 56 },
-                    left: { xs: 16, md: "calc(var(--anchor-sidebar-width, 84px) + 72px)" },
-                    right: { xs: 16, md: 40 },
+                    top: { xs: 0, md: 56 },
+                    left: { xs: 0, md: "var(--anchor-sidebar-width, 84px)" },
+                    right: 0,
                     zIndex: 1140,
-                    bgcolor: "rgba(255,255,255,0.96)",
+                    minHeight: { xs: 62, md: 72, lg: 0 },
+                    boxSizing: "border-box",
+                    display: { xs: "block", lg: "grid" },
+                    gridTemplateColumns: { lg: "minmax(0, 1fr) 280px" },
+                    columnGap: { lg: 4 },
+                    alignItems: { lg: "start" },
+                    bgcolor: "rgba(250,250,250,0.97)",
                     backdropFilter: "blur(10px)",
-                    px: { xs: 1, md: 0 },
-                    pt: { xs: 2, md: 2.25 },
-                    pb: 1,
+                    pl: { xs: 9, md: 5 },
+                    pr: { xs: 2, md: 5 },
+                    pt: { xs: 1, md: 1.5 },
+                    pb: { xs: 1.5, md: 1.5 },
+                    borderBottom: `1px solid ${C.divider}`,
+                    boxShadow: "0 3px 14px rgba(17,17,17,0.08)",
                     opacity: showCommunityChrome ? 1 : 0,
                     visibility: showCommunityChrome ? "visible" : "hidden",
                     transform: showCommunityChrome ? "translateY(0)" : "translateY(-12px)",
@@ -6260,44 +6755,41 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       "opacity 150ms ease, transform 150ms ease, visibility 150ms ease",
                   }}
                 >
-                  <Button
-                    onClick={handleCloseCommunityConversation}
+                  <Box
                     sx={{
-                      color: C.accentDark,
-                      bgcolor: C.accentFaint,
-                      border: `1px solid ${C.accentBorder}`,
-                      borderRadius: 2,
-                      textTransform: "none",
-                      px: 1.25,
-                      py: 0.45,
-                      mb: 1.15,
-                      fontWeight: 700,
-                      boxShadow: "0 2px 8px rgba(86, 51, 24, 0.06)",
-                      "&:hover": {
-                        bgcolor: "#f3e6da",
-                        boxShadow: "0 3px 10px rgba(86, 51, 24, 0.09)",
-                      },
+                      display: "flex",
+                      alignItems: "center",
+                      pr: { xs: 5, sm: 24, lg: 6 },
                     }}
                   >
-                    ← Back to communities
-                  </Button>
-                  <Box sx={{ pr: { xs: 5, sm: 24, lg: 40 } }}>
-                    <Typography
+                    <IconButton
+                      aria-label="Back to communities"
+                      onClick={handleCloseCommunityConversation}
                       sx={{
-                        color: C.textPrimary,
-                        fontFamily: "'Playfair Display', serif",
-                        fontSize: { xs: "1.1rem", sm: "1.45rem" },
-                        fontWeight: 700,
+                        display: "inline-flex",
+                        width: 34,
+                        height: 34,
+                        ml: -0.75,
+                        mr: 0.25,
+                        mt: 0,
+                        color: C.accentDark,
                       }}
                     >
-                      {conversationCommunity.name}
-                    </Typography>
-                    <Typography
-                      sx={{ color: C.textSub, fontSize: { xs: "0.74rem", sm: "0.84rem" } }}
-                    >
-                      Conversation shared only with this community&apos;s
-                      members.
-                    </Typography>
+                      <ArrowBackRoundedIcon sx={{ fontSize: 22 }} />
+                    </IconButton>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
+                        sx={{
+                          color: C.textPrimary,
+                          fontFamily: "'Playfair Display', serif",
+                          fontSize: { xs: "1.1rem", sm: "1.45rem" },
+                          fontWeight: 700,
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {conversationCommunity.name}
+                      </Typography>
+                    </Box>
                   </Box>
                   <IconButton
                     aria-label="Community actions"
@@ -6306,10 +6798,10 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     }
                     sx={{
                       position: "absolute",
-                      top: { xs: 13, lg: 52 },
-                      right: { xs: 0, lg: 292 },
-                      width: { xs: 34, lg: 42 },
-                      height: { xs: 34, lg: 42 },
+                      top: { xs: 13, md: 18 },
+                      right: { xs: 14, md: 40, lg: 332 },
+                      width: { xs: 34, md: 38 },
+                      height: { xs: 34, md: 38 },
                       color: C.textMuted,
                       bgcolor: "transparent",
                       border: 0,
@@ -6319,7 +6811,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       },
                     }}
                   >
-                    <MoreHorizRoundedIcon sx={{ fontSize: { xs: 22, lg: 28 } }} />
+                    <MoreHorizRoundedIcon sx={{ fontSize: { xs: 22, md: 26 } }} />
                   </IconButton>
                   <Menu
                     anchorEl={communityMenuAnchor}
@@ -6363,15 +6855,33 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       Schedule discussion
                     </MenuItem>
                   </Menu>
+                  <Box
+                    sx={{
+                      display: { xs: "none", lg: "block" },
+                      gridColumn: 2,
+                      gridRow: 1,
+                      width: 280,
+                      maxHeight: 220,
+                      overflowY: "auto",
+                      overscrollBehavior: "contain",
+                      scrollbarWidth: "thin",
+                    }}
+                  >
+                    <ScheduleMeetings
+                      meetings={allMeetings}
+                      activeCommunityId={conversationCommunity.id}
+                      activeCommunityName={conversationCommunity.name}
+                      compact
+                    />
+                  </Box>
                 </Box>
-                <Box sx={{ height: { xs: 100, md: 82 } }} />
+                <Box sx={{ height: `${communityHeaderHeight}px` }} />
                 <Box
                   sx={{
                     display: { xs: "block", lg: "none" },
-                    position: "absolute",
-                    top: 142,
-                    left: 0,
-                    right: 0,
+                    position: "static",
+                    width: "100%",
+                    minWidth: 0,
                   }}
                 >
                   <ScheduleMeetings
@@ -6381,9 +6891,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     compact
                   />
                 </Box>
-                <Box
-                  sx={{ display: { xs: "block", lg: "none" }, height: 95 }}
-                />
                 {conversationLoading ? (
                   <Box
                     sx={{
@@ -6421,6 +6928,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       <PostCard
                         post={post}
                         viewerName={currentProfileName}
+                        onReply={setReplyingToPost}
                         communityName={conversationCommunity.name}
                         conversationStyle
                         dateLabel={currentDate !== previousDate ? formatMessageDate(post.createdAt) : undefined}
@@ -6434,36 +6942,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                   </Stack>
                 )}
               </Stack>
-              <Box
-                sx={{
-                  display: { xs: "none", lg: "block" },
-                  position: "fixed",
-                  top: 88,
-                  right: 40,
-                  width: 280,
-                  zIndex: 1140,
-                  maxHeight: "calc(100vh - 48px)",
-                  overflowY: "auto",
-                  overscrollBehavior: "contain",
-                  pr: 0.5,
-                  scrollbarWidth: "thin",
-                  opacity: showCommunityChrome ? 1 : 0,
-                  visibility: showCommunityChrome ? "visible" : "hidden",
-                  transform: showCommunityChrome
-                    ? "translateY(0)"
-                    : "translateY(-12px)",
-                  pointerEvents: showCommunityChrome ? "auto" : "none",
-                  transition:
-                    "opacity 150ms ease, transform 150ms ease, visibility 150ms ease",
-                }}
-              >
-                <ScheduleMeetings
-                  meetings={allMeetings}
-                  activeCommunityId={conversationCommunity.id}
-                  activeCommunityName={conversationCommunity.name}
-                  compact
-                />
-              </Box>
             </Box>
           )}
 
@@ -6527,6 +7005,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                 <Composer
                   scope={pageTab === "posts" ? "global" : "community"}
                   communityId={communityConversationId ?? undefined}
+                  replyTo={replyingToPost}
+                  onCancelReply={() => setReplyingToPost(null)}
                   onCreated={handlePostCreated}
                 />
               </Box>
