@@ -901,6 +901,17 @@ export class CommunityService {
         'Poll questions cannot exceed 150 characters',
       );
     }
+    if (dto.replyToPostId) {
+      const replyTarget = await this.postRepository.findOne({
+        where: { id: dto.replyToPostId, status: 'published' },
+        select: { id: true, communityId: true },
+      });
+      if (!replyTarget || replyTarget.communityId !== communityId) {
+        throw new BadRequestException(
+          'The message you are replying to is not available in this conversation',
+        );
+      }
+    }
     const verifiedMedia = await Promise.all(
       (dto.media ?? []).map(async (media) => ({
         reference: media,
@@ -916,6 +927,7 @@ export class CommunityService {
         manager.create(CommunityPost, {
           communityId,
           authorId: userId,
+          replyToPostId: dto.replyToPostId ?? null,
           kind: dto.kind,
           title: dto.title?.trim() || null,
           body: dto.body?.trim() || null,
@@ -1058,7 +1070,24 @@ export class CommunityService {
   ): Promise<unknown[]> {
     if (posts.length === 0) return [];
     const postIds = posts.map((post) => post.id);
-    const authorIds = [...new Set(posts.map((post) => post.authorId))];
+    const replyTargetIds = [
+      ...new Set(
+        posts
+          .map((post) => post.replyToPostId)
+          .filter((postId): postId is string => Boolean(postId)),
+      ),
+    ];
+    const replyTargets = replyTargetIds.length
+      ? await this.postRepository.find({
+          where: { id: In(replyTargetIds), status: 'published' },
+        })
+      : [];
+    const authorIds = [
+      ...new Set([
+        ...posts.map((post) => post.authorId),
+        ...replyTargets.map((post) => post.authorId),
+      ]),
+    ];
     const [authors, media, polls, profiles, friendships, viewerVotes] =
       await Promise.all([
         this.userRepository.find({
@@ -1114,6 +1143,9 @@ export class CommunityService {
       viewerVotes.map((vote) => [vote.postId, vote.value]),
     );
     const mediaByPost = new Map<string, PostMedia[]>();
+    const replyTargetById = new Map(
+      replyTargets.map((target) => [target.id, target] as const),
+    );
     const pollByPost = new Map(polls.map((poll) => [poll.postId, poll]));
     const optionsByPoll = new Map<string, PollOption[]>();
     const viewerOptionsByPoll = new Map<string, string[]>();
@@ -1137,6 +1169,15 @@ export class CommunityService {
       const author = authorById.get(post.authorId);
       const profile = profileByUserId.get(post.authorId);
       const friendship = friendshipByAuthorId.get(post.authorId);
+      const replyTarget = post.replyToPostId
+        ? replyTargetById.get(post.replyToPostId)
+        : undefined;
+      const replyAuthor = replyTarget
+        ? authorById.get(replyTarget.authorId)
+        : undefined;
+      const replyAuthorProfile = replyTarget
+        ? profileByUserId.get(replyTarget.authorId)
+        : undefined;
       return {
         ...post,
         author: author
@@ -1159,6 +1200,19 @@ export class CommunityService {
             }
           : null,
         viewerVote: voteByPostId.get(post.id) ?? 0,
+        replyTo:
+          replyTarget && replyAuthor
+            ? {
+                id: replyTarget.id,
+                body: replyTarget.body,
+                kind: replyTarget.kind,
+                author: {
+                  id: replyAuthor.id,
+                  name: replyAuthor.name,
+                  avatarUrl: replyAuthorProfile?.profileImageUrl ?? null,
+                },
+              }
+            : null,
         media: (mediaByPost.get(post.id) ?? []).map((item) => ({
           ...item,
           url: this.mediaService.createDeliveryUrl(
@@ -1632,7 +1686,14 @@ export class CommunityService {
   async listFriends(
     userId: string,
     search?: string,
-  ): Promise<Array<Pick<User, 'id' | 'name' | 'email'>>> {
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      mutualFriends: number;
+    }>
+  > {
     const builder = this.userRepository
       .createQueryBuilder('user')
       .innerJoin(
@@ -1642,7 +1703,49 @@ export class CommunityService {
         { userId },
       )
       .where('friendship.status = :status', { status: 'accepted' })
-      .select(['user.id', 'user.name', 'user.email'])
+      .select('user.id', 'id')
+      .addSelect('user.name', 'name')
+      .addSelect('user.email', 'email')
+      .addSelect(
+        `(
+          SELECT COUNT(DISTINCT CASE
+            WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
+              THEN viewer_friendship."userHighId"
+            ELSE viewer_friendship."userLowId"
+          END)
+          FROM friendships viewer_friendship
+          WHERE viewer_friendship.status = 'accepted'
+            AND (
+              viewer_friendship."userLowId" = CAST(:userId AS uuid)
+              OR viewer_friendship."userHighId" = CAST(:userId AS uuid)
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM friendships friend_friendship
+              WHERE friend_friendship.status = 'accepted'
+                AND (
+                  (
+                    friend_friendship."userLowId" = "user"."id"
+                    AND friend_friendship."userHighId" = CASE
+                      WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
+                        THEN viewer_friendship."userHighId"
+                      ELSE viewer_friendship."userLowId"
+                    END
+                  )
+                  OR
+                  (
+                    friend_friendship."userHighId" = "user"."id"
+                    AND friend_friendship."userLowId" = CASE
+                      WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
+                        THEN viewer_friendship."userHighId"
+                      ELSE viewer_friendship."userLowId"
+                    END
+                  )
+                )
+            )
+        )`,
+        'mutualFriends',
+      )
       .take(50);
     if (search?.trim()) {
       builder.andWhere(
@@ -1650,7 +1753,16 @@ export class CommunityService {
         { search: `%${search.trim().toLowerCase()}%` },
       );
     }
-    return builder.getMany();
+    const rows = await builder.getRawMany<{
+      id: string;
+      name: string;
+      email: string;
+      mutualFriends: string;
+    }>();
+    return rows.map((row) => ({
+      ...row,
+      mutualFriends: Number(row.mutualFriends) || 0,
+    }));
   }
   // T: O(l log F) and S: O(l), where l is result limit and F is friendships
 

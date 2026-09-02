@@ -251,6 +251,7 @@ export type CommunityPostRecord = {
   id: string;
   communityId: string | null;
   authorId: string;
+  replyToPostId: string | null;
   kind: "text" | "media" | "poll";
   title: string | null;
   body: string | null;
@@ -269,6 +270,16 @@ export type CommunityPostRecord = {
     friendshipStatus: "self" | "none" | "pending" | "accepted";
   } | null;
   viewerVote: -1 | 0 | 1;
+  replyTo: {
+    id: string;
+    body: string | null;
+    kind: "text" | "media" | "poll";
+    author: {
+      id: string;
+      name: string;
+      avatarUrl: string | null;
+    };
+  } | null;
   media: CommunityMedia[];
   poll: CommunityPoll | null;
 };
@@ -277,6 +288,7 @@ export type CommunityFriend = {
   id: string;
   name: string;
   email: string;
+  mutualFriends: number;
 };
 
 export type CommunityPersonSearchResult = {
@@ -335,6 +347,7 @@ export type CreateCommunityInput = {
 
 export type CreatePostInput = {
   communityId?: string | null;
+  replyToPostId?: string | null;
   body: string;
   mode: "text" | "image" | "video" | "poll";
   file?: File | null;
@@ -801,6 +814,7 @@ export async function createPost(
       body: JSON.stringify({
         kind:
           input.mode === "poll" ? "poll" : providerAssetId ? "media" : "text",
+        replyToPostId: input.replyToPostId ?? undefined,
         body: input.body.trim() || undefined,
         media: providerAssetId
           ? [{ providerAssetId, resourceType: input.mode }]

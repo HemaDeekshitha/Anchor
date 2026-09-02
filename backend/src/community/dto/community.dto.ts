@@ -168,6 +168,10 @@ export class CreatePostDto {
   kind: CommunityPostKind;
 
   @IsOptional()
+  @IsUUID()
+  replyToPostId?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(180)
   title?: string;

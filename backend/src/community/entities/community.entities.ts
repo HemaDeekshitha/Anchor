@@ -183,6 +183,7 @@ export class CommunityInvite {
 @Entity('community_posts')
 @Index('idx_community_posts_feed', ['communityId', 'status', 'createdAt', 'id'])
 @Index('idx_community_posts_author', ['authorId', 'createdAt'])
+@Index('idx_community_posts_reply_to', ['replyToPostId'])
 export class CommunityPost {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -192,6 +193,9 @@ export class CommunityPost {
 
   @Column('uuid')
   authorId: string;
+
+  @Column('uuid', { nullable: true })
+  replyToPostId: string | null;
 
   @Column({ type: 'varchar', length: 12, default: 'text' })
   kind: CommunityPostKind;
