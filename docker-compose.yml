@@ -11,7 +11,10 @@ x-backend-environment: &backend-environment
   DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
   DATABASE_POOL_MIN: ${DATABASE_POOL_MIN:-0}
   DATABASE_SYNCHRONIZE: ${DATABASE_SYNCHRONIZE:-false}
-  DATABASE_MIGRATIONS_RUN: ${DATABASE_MIGRATIONS_RUN:-false}
+  # Always apply committed, transactional migrations before a production
+  # process begins serving requests. The worker starts only after the API is
+  # healthy, so migrations cannot race between these services.
+  DATABASE_MIGRATIONS_RUN: "true"
   REDIS_URL: ${REDIS_URL:-redis://redis:6379}
   CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
   CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
