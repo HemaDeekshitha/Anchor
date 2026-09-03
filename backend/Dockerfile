@@ -18,7 +18,7 @@ RUN npm ci --omit=dev
 # Copy build output from STEP 1
 COPY --from=build /app/dist ./dist
 USER node
-# Apply every committed migration before accepting production traffic. TypeORM
-# migrations are transactional, and a failure prevents the API from starting
-# against a partially compatible schema.
-CMD ["sh", "-c", "npm run migration:run && exec node dist/main.js"]
+# Start the compiled API directly. Production schema migrations are applied by
+# TypeORM during DataSource initialization when DATABASE_MIGRATIONS_RUN=true.
+# This startup path never invokes npm or changes installed packages.
+CMD ["node", "dist/main.js"]
