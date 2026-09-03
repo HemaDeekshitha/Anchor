@@ -68,10 +68,15 @@ jobs:
               # Compose only applies container_name when the deployed compose
               # file sets it, so the container is either anchor-backend or
               # anchor-backend-1. Resolve it rather than assuming one form.
+              # 150 attempts x 2s = 300s. The container applies pending
+              # migrations before it starts serving, and its healthcheck alone
+              # needs ~145s (25s start_period + 8 retries x 15s) to reach a
+              # verdict, so a shorter wait reports failure before the backend
+              # has had a chance to come up.
               backend_container=""
               backend_health=""
               deployment_ready=0
-              for attempt in $(seq 1 45); do
+              for attempt in $(seq 1 150); do
                 if [ -z "$backend_container" ]; then
                   backend_container=$(docker ps -a --format "{{.Names}}" | grep -E "^anchor-backend(-[0-9]+)?$" | head -n 1)
                 fi
