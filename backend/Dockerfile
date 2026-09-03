@@ -17,6 +17,11 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 # Copy build output from STEP 1
 COPY --from=build /app/dist ./dist
+# Default migrations on in the image itself. data-source.ts only enables them
+# for the exact string "true", so an older deployed compose file that predates
+# this variable would silently skip migrations and leave the API failing its
+# readiness probe. Compose can still override this to "false".
+ENV DATABASE_MIGRATIONS_RUN=true
 USER node
 # Start the compiled API directly. Production schema migrations are applied by
 # TypeORM during DataSource initialization when DATABASE_MIGRATIONS_RUN=true.
