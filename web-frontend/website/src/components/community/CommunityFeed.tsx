@@ -6246,6 +6246,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     conversationRequestRef.current += 1;
     activePostScopeRef.current = "community-list";
     setConversationLoading(false);
+    setPageError("");
     setCommunityConversationId(null);
     window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
     replaceCommunityUrl("communities");
