@@ -18,5 +18,7 @@ RUN npm ci --omit=dev
 # Copy build output from STEP 1
 COPY --from=build /app/dist ./dist
 USER node
-# Start the NestJS app
-CMD ["node","dist/main.js"]
+# Apply every committed migration before accepting production traffic. TypeORM
+# migrations are transactional, and a failure prevents the API from starting
+# against a partially compatible schema.
+CMD ["sh", "-c", "npm run migration:run && exec node dist/main.js"]

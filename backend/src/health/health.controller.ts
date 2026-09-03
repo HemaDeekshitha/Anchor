@@ -15,14 +15,28 @@ export class HealthController {
   @Get('ready')
   async readiness() {
     try {
-      await this.dataSource.query('SELECT 1');
+      const [schema] = (await this.dataSource.query(`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'community_posts'
+            AND column_name = 'replyToPostId'
+        ) AS "communitySchemaReady"
+      `)) as Array<{ communitySchemaReady: boolean }>;
+      if (!schema?.communitySchemaReady) {
+        throw new Error('Community schema migration is incomplete');
+      }
       return {
         status: 'ready',
         database: 'reachable',
+        communitySchema: 'ready',
         timestamp: new Date().toISOString(),
       };
     } catch {
-      throw new ServiceUnavailableException('Database is unavailable');
+      throw new ServiceUnavailableException(
+        'Database or required schema is unavailable',
+      );
     }
   }
   // T: O(1) database round trip and S: O(1)
