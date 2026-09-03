@@ -65,19 +65,35 @@ jobs:
               chmod +x build-app.sh
               ./build-app.sh
 
+              # Compose only applies container_name when the deployed compose
+              # file sets it, so the container is either anchor-backend or
+              # anchor-backend-1. Resolve it rather than assuming one form.
+              backend_container=""
+              backend_health=""
               deployment_ready=0
               for attempt in $(seq 1 45); do
-                backend_health=$(docker inspect --format={{.State.Health.Status}} anchor-backend 2>/dev/null || true)
-                if [ "$backend_health" = "healthy" ]; then
-                  deployment_ready=1
-                  break
+                if [ -z "$backend_container" ]; then
+                  backend_container=$(docker ps -a --format "{{.Names}}" | grep -E "^anchor-backend(-[0-9]+)?$" | head -n 1)
+                fi
+                if [ -n "$backend_container" ]; then
+                  backend_health=$(docker inspect --format "{{.State.Health.Status}}" "$backend_container" 2>/dev/null || true)
+                  if [ "$backend_health" = "healthy" ]; then
+                    deployment_ready=1
+                    break
+                  fi
                 fi
                 sleep 2
               done
 
               if [ "$deployment_ready" -ne 1 ]; then
                 echo "Backend did not become healthy after deployment."
-                docker logs --tail 200 anchor-backend
+                if [ -n "$backend_container" ]; then
+                  echo "Container $backend_container last reported health: ${backend_health:-none}"
+                  docker logs --tail 200 "$backend_container"
+                else
+                  echo "No container matching anchor-backend was found. Current containers:"
+                  docker ps -a --format "{{.Names}}\t{{.Status}}"
+                fi
                 exit 1
               fi
 
