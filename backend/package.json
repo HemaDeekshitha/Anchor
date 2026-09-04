@@ -22,7 +22,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:eval-rag": "jest --testPathPatterns=eval-rag --no-coverage",
-    "report:llm-vs-rag": "jest --testPathPatterns=llm-vs-rag.report --no-coverage --runInBand"
+    "report:llm-vs-rag": "RUN_LIVE_EVAL_REPORT=true jest --testPathPatterns=llm-vs-rag.report --no-coverage --runInBand"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -120,6 +120,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    }
   }
 }
