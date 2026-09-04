@@ -22,7 +22,8 @@ describe('LLM vs RAG feedback report', () => {
   const rag = new EvalRagService();
   const config = {
     get: (key: string) => {
-      if (key === 'GEMINI_API_KEY') return process.env.GEMINI_API_KEY ?? 'test-key';
+      if (key === 'GEMINI_API_KEY')
+        return process.env.GEMINI_API_KEY ?? 'test-key';
       if (key === 'EVAL_PROVIDER')
         return process.env.EVAL_PROVIDER ?? 'gemini-2.5';
       if (key === 'GROQ_API_KEY') return process.env.GROQ_API_KEY;
@@ -32,9 +33,9 @@ describe('LLM vs RAG feedback report', () => {
   } as unknown as ConfigService;
 
   const service = new GeminiService(config, rag);
-  const hasLiveKey = Boolean(
-    process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY,
-  );
+  const hasLiveKey =
+    process.env.RUN_LIVE_EVAL_REPORT === 'true' &&
+    Boolean(process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY);
 
   (hasLiveKey ? it : it.skip)(
     'generates LLM_VS_RAG_FEEDBACK_REPORT.md',
@@ -147,7 +148,7 @@ describe('LLM vs RAG feedback report', () => {
     300_000,
   );
 
-  it('falls back to RAG-only when the LLM provider chain fails', async () => {
+  it('returns a retryable error when the LLM provider chain fails', async () => {
     const failing = new GeminiService(
       {
         get: (key: string) => {
@@ -170,15 +171,19 @@ describe('LLM vs RAG feedback report', () => {
 
     const fixture = EVAL_FIXTURES[0];
     const task = fixtureToTask(fixture.task);
-    const result = await failing.evaluateSubmission(task, fixture.answer);
-
-    expect(result.details.source).toBe('rag-fallback');
-    expect(result.feedback.length).toBeGreaterThan(10);
-    expect(result.score).toBeGreaterThan(0);
+    await expect(
+      failing.evaluateSubmission(task, fixture.answer),
+    ).rejects.toMatchObject({
+      response: {
+        error: 'Evaluation Unavailable',
+        retryable: true,
+      },
+    });
   });
 
   it('uses the hard unavailable stub when LLM and RAG both fail', async () => {
     const emptyRag = {
+      retrieve: () => ({ exemplars: [] }),
       gradeWithoutLlm: () => ({
         score: 0,
         approved: false,
@@ -207,15 +212,14 @@ describe('LLM vs RAG feedback report', () => {
 
     const fixture = EVAL_FIXTURES[0];
     const task = fixtureToTask(fixture.task);
-    const result = await failing.evaluateSubmission(task, fixture.answer);
-
-    expect(result.details.source).toBe('unavailable');
-    expect(result.score).toBe(0);
-    expect(result.approved).toBe(false);
-    expect(result.confidence).toBe(0);
-    expect(result.feedback).toBe(
-      'Unable to evaluate submission. Please try again.',
-    );
+    await expect(
+      failing.evaluateSubmission(task, fixture.answer),
+    ).rejects.toMatchObject({
+      response: {
+        error: 'Evaluation Unavailable',
+        message: 'Unable to evaluate submission. Please try again.',
+        retryable: true,
+      },
+    });
   });
 });
-
