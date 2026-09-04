@@ -25,6 +25,15 @@ export class CommunityCacheService
           connectTimeout: 1_500,
         })
       : null;
+    this.redis?.on('ready', () => {
+      this.available = true;
+    });
+    this.redis?.on('close', () => {
+      this.available = false;
+    });
+    this.redis?.on('error', () => {
+      this.available = false;
+    });
   }
   // T: O(1) and S: O(1)
 
@@ -36,12 +45,6 @@ export class CommunityCacheService
     try {
       await this.redis.connect();
       this.available = true;
-      this.redis.on('ready', () => {
-        this.available = true;
-      });
-      this.redis.on('close', () => {
-        this.available = false;
-      });
     } catch (error) {
       this.available = false;
       this.logger.warn(`Redis unavailable: ${String(error)}`);
@@ -53,6 +56,15 @@ export class CommunityCacheService
     if (this.redis?.status === 'ready') await this.redis.quit();
   }
   // T: O(1) network operation and S: O(1)
+
+  async readiness(): Promise<'reachable' | 'disabled'> {
+    if (!this.redis) return 'disabled';
+    if (!this.available) throw new Error('Redis is not connected');
+    const response = await this.redis.ping();
+    if (response !== 'PONG') throw new Error('Redis ping failed');
+    return 'reachable';
+  }
+  // T: O(1) network round trip and S: O(1)
 
   async getJson<T>(key: string): Promise<T | null> {
     if (!this.redis || !this.available) return null;

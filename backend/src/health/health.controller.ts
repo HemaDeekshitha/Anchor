@@ -1,9 +1,13 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { CommunityCacheService } from '../community/infrastructure/community-cache.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly cache: CommunityCacheService,
+  ) {}
   // T: O(1) and S: O(1)
 
   @Get()
@@ -15,7 +19,8 @@ export class HealthController {
   @Get('ready')
   async readiness() {
     try {
-      const [schema] = (await this.dataSource.query(`
+      const [[schema], redis] = await Promise.all([
+        this.dataSource.query(`
         SELECT EXISTS (
           SELECT 1
           FROM information_schema.columns
@@ -23,13 +28,16 @@ export class HealthController {
             AND table_name = 'community_posts'
             AND column_name = 'replyToPostId'
         ) AS "communitySchemaReady"
-      `)) as Array<{ communitySchemaReady: boolean }>;
+      `) as Promise<Array<{ communitySchemaReady: boolean }>>,
+        this.cache.readiness(),
+      ]);
       if (!schema?.communitySchemaReady) {
         throw new Error('Community schema migration is incomplete');
       }
       return {
         status: 'ready',
         database: 'reachable',
+        redis,
         communitySchema: 'ready',
         timestamp: new Date().toISOString(),
       };

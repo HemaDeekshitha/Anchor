@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -105,6 +106,6 @@ function redisConnection(urlValue: string): {
     DistributedRateLimitGuard,
     ...communityWorkerProviders,
   ],
-  exports: [CommunityService],
+  exports: [CommunityService, CommunityCacheService],
 })
 export class CommunityModule {}

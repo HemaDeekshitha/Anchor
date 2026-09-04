@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 # Install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --no-audit
 
 # Copy source code & build project
 COPY . .
@@ -14,7 +14,7 @@ FROM node:20-alpine
 WORKDIR /app
 # Install only production dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --no-audit
 # Copy build output from STEP 1
 COPY --from=build /app/dist ./dist
 # Default migrations on in the image itself. data-source.ts only enables them

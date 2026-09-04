@@ -130,7 +130,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://backend:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+          "const Redis=require('ioredis');const r=new Redis(process.env.REDIS_URL,{lazyConnect:true,enableOfflineQueue:false,maxRetriesPerRequest:1,connectTimeout:2000});Promise.all([fetch('http://backend:3001/health/ready').then(x=>{if(!x.ok)throw Error()}),r.connect().then(()=>r.ping()).then(x=>{if(x!=='PONG')throw Error()})]).then(()=>r.quit()).then(()=>process.exit(0)).catch(()=>{r.disconnect();process.exit(1)})",
         ]
       interval: 30s
       timeout: 5s
