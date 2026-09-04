@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -94,7 +95,7 @@ jobs:
                 echo "Backend did not become healthy after deployment."
                 if [ -n "$backend_container" ]; then
                   echo "Container $backend_container last reported health: ${backend_health:-none}"
-                  docker logs --tail 200 "$backend_container"
+                  docker logs --tail 200 "$backend_container" | grep -vF ECONNREFUSED || true
                 else
                   echo "No container matching anchor-backend was found. Current containers:"
                   docker ps -a --format "{{.Names}}\t{{.Status}}"

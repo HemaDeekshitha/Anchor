@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 const QUEUE_ENQUEUE_TIMEOUT_MS = 2_000;
@@ -28,10 +28,16 @@ export type CommunityJob =
 export class CommunityQueueService {
   private readonly logger = new Logger(CommunityQueueService.name);
 
-  constructor(@InjectQueue('community') private readonly queue: Queue) {}
+  constructor(
+    @Optional() @InjectQueue('community') private readonly queue?: Queue,
+  ) {}
   // T: O(1) and S: O(1)
 
   async enqueue(job: CommunityJob): Promise<void> {
+    if (!this.queue) {
+      this.logger.warn(`Queue unavailable for ${job.name}: REDIS_URL is not set`);
+      return;
+    }
     let timeout: NodeJS.Timeout | undefined;
     try {
       await Promise.race([
