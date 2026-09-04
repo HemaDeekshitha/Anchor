@@ -28,10 +28,33 @@ import { DistributedRateLimitGuard } from './infrastructure/distributed-rate-lim
 import { CommunityProcessor } from './workers/community.processor';
 import { CommunityRecoveryService } from './workers/community-recovery.service';
 
+const redisUrl = process.env.REDIS_URL?.trim();
+
 const communityWorkerProviders =
-  process.env.COMMUNITY_WORKER_ENABLED === 'false'
-    ? []
-    : [CommunityProcessor, CommunityRecoveryService];
+  redisUrl && process.env.COMMUNITY_WORKER_ENABLED !== 'false'
+    ? [CommunityProcessor, CommunityRecoveryService]
+    : [];
+
+const bullImports = redisUrl
+  ? [
+      BullModule.forRootAsync({
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          connection: redisConnection(
+            config.get<string>('REDIS_URL') ?? redisUrl,
+          ),
+          defaultJobOptions: {
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 1_000 },
+            removeOnComplete: 1_000,
+            removeOnFail: 5_000,
+          },
+        }),
+      }),
+      BullModule.registerQueue({ name: 'community' }),
+    ]
+  : [];
 
 function redisConnection(urlValue: string): {
   host: string;
@@ -71,22 +94,7 @@ function redisConnection(urlValue: string): {
       PostCommentVote,
       CommunityOutboxEvent,
     ]),
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: redisConnection(
-          config.get<string>('REDIS_URL', 'redis://127.0.0.1:6379'),
-        ),
-        defaultJobOptions: {
-          attempts: 5,
-          backoff: { type: 'exponential', delay: 1_000 },
-          removeOnComplete: 1_000,
-          removeOnFail: 5_000,
-        },
-      }),
-    }),
-    BullModule.registerQueue({ name: 'community' }),
+    ...bullImports,
   ],
   controllers: [CommunityController],
   providers: [
