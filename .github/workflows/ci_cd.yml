@@ -8,8 +8,22 @@ on:
 
 jobs:
   validate:
-    name: Validate Before Deploy
+    name: Validate ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: website
+            dir: web-frontend/website
+            lock: web-frontend/website/package-lock.json
+          - name: landing
+            dir: web-frontend/anchor-web
+            lock: web-frontend/anchor-web/package-lock.json
+          - name: backend
+            dir: backend
+            lock: backend/package-lock.json
 
     steps:
       - name: Checkout repository
@@ -20,21 +34,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            web-frontend/website/package-lock.json
-            web-frontend/anchor-web/package-lock.json
+          cache-dependency-path: ${{ matrix.lock }}
 
-      - name: Check website
-        working-directory: web-frontend/website
-        run: bash "${GITHUB_WORKSPACE}/.github/scripts/npm-ci-audit-build.sh"
-
-      - name: Check landing frontend
-        working-directory: web-frontend/anchor-web
-        run: bash "${GITHUB_WORKSPACE}/.github/scripts/npm-ci-audit-build.sh"
-
-      - name: Check backend
-        working-directory: backend
+      - name: Install and build
+        working-directory: ${{ matrix.dir }}
         run: bash "${GITHUB_WORKSPACE}/.github/scripts/npm-ci-audit-build.sh"
 
   deploy:
