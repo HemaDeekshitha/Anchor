@@ -6,6 +6,13 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: anchor-production
+  cancel-in-progress: false
+
 jobs:
   validate:
     name: Validate Before Deploy
@@ -40,6 +47,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     needs: validate
 
     steps:
@@ -50,6 +58,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
+          command_timeout: 30m
           script: |
             echo "Switching to root and executing script..."
             sudo -S bash -c '
