@@ -27,24 +27,15 @@ jobs:
 
       - name: Check website
         working-directory: web-frontend/website
-        run: |
-          npm ci
-          npm audit --omit=dev --audit-level=high
-          npm run build
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/npm-ci-audit-build.sh"
 
       - name: Check landing frontend
         working-directory: web-frontend/anchor-web
-        run: |
-          npm ci
-          npm audit --omit=dev --audit-level=high
-          npm run build
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/npm-ci-audit-build.sh"
 
       - name: Check backend
         working-directory: backend
-        run: |
-          npm ci
-          npm audit --omit=dev --audit-level=high
-          npm run build
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/npm-ci-audit-build.sh"
 
   deploy:
     name: Deploy
