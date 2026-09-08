@@ -5,6 +5,7 @@ import { Box } from "@mui/material";
 import Sidebar from "./Sidebar";
 import SessionManager from "../auth/SessionManager";
 import AppTopBar from "../layout/AppTopBar";
+import CommunityNotificationWatcher from "../community/CommunityNotificationWatcher";
 import { AppChromeProvider } from "@/lib/app-chrome";
 import { ThemeModeProvider } from "@/lib/theme-mode";
 
@@ -47,6 +48,7 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
           }}
         >
           <SessionManager />
+          <CommunityNotificationWatcher />
           <Sidebar
             isSidebarOpen={isSidebarOpen}
             onClose={handleClose}
@@ -57,6 +59,7 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
             sx={{
               flex: 1,
               minWidth: 0,
+              width: "100%",
               height: "100%",
               display: "flex",
               flexDirection: "column",
@@ -79,10 +82,12 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
                 minWidth: 0,
                 minHeight: 0,
                 width: "100%",
+                maxWidth: "100%",
                 boxSizing: "border-box",
+                mx: "auto",
                 px: {
-                  xs: 2,
-                  sm: 3,
+                  xs: 1,
+                  sm: 2,
                   md: 4,
                   lg: 5,
                 },

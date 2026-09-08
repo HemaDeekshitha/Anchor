@@ -12,6 +12,7 @@ import {
   Divider,
   IconButton,
   InputAdornment,
+  LinearProgress,
   Menu,
   MenuItem,
   Paper,
@@ -115,10 +116,14 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
   const { mode, toggleMode } = useThemeMode();
   const { messages } = useAppChrome();
   const searchFieldRef = useRef<HTMLInputElement | null>(null);
+  const searchRequestIdRef = useRef(0);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [remoteSearch, setRemoteSearch] = useState<{
+    query: string;
+    hits: SearchHit[];
+  }>({ query: "", hits: [] });
   const [profile, setProfile] = useState<{
     name: string;
     email: string;
@@ -221,87 +226,107 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
     };
   }, []);
 
+  const trimmedQuery = query.trim();
+
+  const messageHits = useMemo<SearchHit[]>(() => {
+    if (trimmedQuery.length < 2) return [];
+    return messages
+      .filter(
+        (message) =>
+          textMatchesQuery(message.body, trimmedQuery) ||
+          textMatchesQuery(message.authorName, trimmedQuery),
+      )
+      .slice(0, 8)
+      .map((message) => ({
+        kind: "message" as const,
+        communityName: message.communityName,
+        post: {
+          id: message.id,
+          communityId: message.communityId,
+          authorId: "",
+          replyToPostId: null,
+          kind: "text",
+          title: null,
+          body: message.body,
+          status: "published",
+          upvoteCount: 0,
+          downvoteCount: 0,
+          commentCount: 0,
+          viewCount: "0",
+          createdAt: "",
+          author: {
+            id: "",
+            name: message.authorName,
+            email: "",
+            avatarUrl: message.authorAvatar ?? null,
+            profession: "",
+            friendshipStatus: "none",
+          },
+          viewerVote: 0,
+          replyTo: null,
+          media: [],
+          poll: null,
+        },
+      }));
+  }, [messages, trimmedQuery]);
+
   useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setHits([]);
+    if (trimmedQuery.length < 2) {
+      searchRequestIdRef.current += 1;
+      setRemoteSearch({ query: "", hits: [] });
       setSearching(false);
       return;
     }
 
-    setSearching(true);
+    const requestId = ++searchRequestIdRef.current;
     const timer = window.setTimeout(() => {
       void (async () => {
+        setSearching(true);
         try {
-          const pageHits: SearchHit[] = messages
-            .filter(
-              (message) =>
-                textMatchesQuery(message.body, trimmed) ||
-                textMatchesQuery(message.authorName, trimmed),
-            )
-            .slice(0, 8)
-            .map((message) => ({
-              kind: "message" as const,
-              communityName: message.communityName,
-              post: {
-                id: message.id,
-                communityId: message.communityId,
-                authorId: "",
-                replyToPostId: null,
-                kind: "text",
-                title: null,
-                body: message.body,
-                status: "published",
-                upvoteCount: 0,
-                downvoteCount: 0,
-                commentCount: 0,
-                viewCount: "0",
-                createdAt: "",
-                author: {
-                  id: "",
-                  name: message.authorName,
-                  email: "",
-                  avatarUrl: message.authorAvatar ?? null,
-                  profession: "",
-                  friendshipStatus: "none",
-                },
-                viewerVote: 0,
-                replyTo: null,
-                media: [],
-                poll: null,
-              },
-            }));
-
           const [people, joined, discover] = await Promise.all([
-            searchPeople(trimmed).catch(() => []),
-            listCommunities("joined", trimmed).catch(() => []),
-            listCommunities("discover", trimmed).catch(() => []),
+            searchPeople(trimmedQuery).catch(() => []),
+            listCommunities("joined", trimmedQuery).catch(() => []),
+            listCommunities("discover", trimmedQuery).catch(() => []),
           ]);
+          if (requestId !== searchRequestIdRef.current) return;
           const communities = [...joined, ...discover].filter(
             (community, index, all) =>
               all.findIndex((item) => item.id === community.id) === index,
           );
-          setHits([
-            ...pageHits,
-            ...communities.slice(0, 4).map((community) => ({
-              kind: "community" as const,
-              community,
-            })),
-            ...people.slice(0, 4).map((person) => ({
-              kind: "person" as const,
-              person,
-            })),
-          ]);
+          setRemoteSearch({
+            query: trimmedQuery,
+            hits: [
+              ...communities.slice(0, 4).map((community) => ({
+                kind: "community" as const,
+                community,
+              })),
+              ...people.slice(0, 4).map((person) => ({
+                kind: "person" as const,
+                person,
+              })),
+            ],
+          });
         } catch {
-          setHits([]);
+          if (requestId !== searchRequestIdRef.current) return;
+          setRemoteSearch({ query: trimmedQuery, hits: [] });
         } finally {
-          setSearching(false);
+          if (requestId === searchRequestIdRef.current) {
+            setSearching(false);
+          }
         }
       })();
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [messages, query]);
+  }, [trimmedQuery]);
+
+  const hits = useMemo(
+    () => [
+      ...messageHits,
+      ...(remoteSearch.query === trimmedQuery ? remoteSearch.hits : []),
+    ],
+    [messageHits, remoteSearch, trimmedQuery],
+  );
 
   const initials = useMemo(() => {
     const source = profile?.name?.trim() || "A";
@@ -386,7 +411,7 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
       sx={{
         position: "fixed",
         top: 0,
-        left: "var(--anchor-sidebar-width, 0px)",
+        left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
         right: 0,
         zIndex: 1300,
         height: "var(--anchor-topbar-height, 56px)",
@@ -467,6 +492,17 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
               }}
             >
               {searching ? (
+                <LinearProgress
+                  sx={{
+                    height: 2,
+                    bgcolor: "transparent",
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: "var(--anchor-header-muted)",
+                    },
+                  }}
+                />
+              ) : null}
+              {hits.length === 0 && searching ? (
                 <Box sx={{ display: "grid", placeItems: "center", py: 2 }}>
                   <CircularProgress size={20} sx={{ color: "var(--foreground)" }} />
                 </Box>

@@ -20,18 +20,42 @@ export type SearchableMessage = {
 type AppChromeContextValue = {
   messages: SearchableMessage[];
   setMessages: (messages: SearchableMessage[]) => void;
+  viewingScope: string | null;
+  setViewingScope: (scope: string | null) => void;
 };
 
 const AppChromeContext = createContext<AppChromeContextValue | null>(null);
 
 export function AppChromeProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessagesState] = useState<SearchableMessage[]>([]);
+  const [viewingScope, setViewingScopeState] = useState<string | null>(null);
   const setMessages = useCallback((next: SearchableMessage[]) => {
-    setMessagesState(next);
+    setMessagesState((current) => {
+      if (
+        current.length === next.length &&
+        current.every((item, index) => {
+          const candidate = next[index];
+          return (
+            item.id === candidate?.id &&
+            item.body === candidate?.body &&
+            item.authorName === candidate?.authorName &&
+            item.authorAvatar === candidate?.authorAvatar &&
+            item.communityId === candidate?.communityId &&
+            item.communityName === candidate?.communityName
+          );
+        })
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, []);
+  const setViewingScope = useCallback((scope: string | null) => {
+    setViewingScopeState((current) => (current === scope ? current : scope));
   }, []);
   const value = useMemo(
-    () => ({ messages, setMessages }),
-    [messages, setMessages],
+    () => ({ messages, setMessages, viewingScope, setViewingScope }),
+    [messages, setMessages, viewingScope, setViewingScope],
   );
   return (
     <AppChromeContext.Provider value={value}>
@@ -52,6 +76,7 @@ export const OPEN_POST_EVENT = "anchor:open-post";
 export const INBOX_CHANGED_EVENT = "anchor:inbox-changed";
 const DISMISSED_POSTS_KEY = "anchor.inbox.dismissedPostIds";
 const SEEN_REQUESTS_KEY = "anchor.community.seenFriendRequestIds";
+const NOTIFIED_POSTS_KEY = "anchor.community.notifiedPostIds";
 
 export type OpenPostDetail = {
   postId: string;
@@ -72,10 +97,10 @@ const readIdSet = (key: string) => {
   }
 };
 
-const writeIdSet = (key: string, ids: Set<string>) => {
+const writeIdSet = (key: string, ids: Set<string>, notifyInbox = true) => {
   try {
-    window.localStorage.setItem(key, JSON.stringify([...ids].slice(-400)));
-    window.dispatchEvent(new Event(INBOX_CHANGED_EVENT));
+    window.localStorage.setItem(key, JSON.stringify([...ids].slice(-500)));
+    if (notifyInbox) window.dispatchEvent(new Event(INBOX_CHANGED_EVENT));
   } catch {
     // Keep the in-memory inbox when storage is blocked.
   }
@@ -83,6 +108,11 @@ const writeIdSet = (key: string, ids: Set<string>) => {
 
 export const readDismissedPostIds = () => readIdSet(DISMISSED_POSTS_KEY);
 export const readSeenFriendRequestIds = () => readIdSet(SEEN_REQUESTS_KEY);
+export const readNotifiedPostIds = () => readIdSet(NOTIFIED_POSTS_KEY);
+
+export const saveNotifiedPostIds = (ids: Set<string>) => {
+  writeIdSet(NOTIFIED_POSTS_KEY, ids, false);
+};
 
 export const dismissInboxPosts = (postIds: string[]) => {
   const next = readDismissedPostIds();
