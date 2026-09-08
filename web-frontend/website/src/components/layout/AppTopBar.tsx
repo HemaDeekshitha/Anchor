@@ -525,7 +525,7 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
                   ) : (
                     <MenuItem
                       key={`person-${hit.person.id}`}
-                      onClick={openFriends}
+                      onClick={() => openFriends()}
                       sx={{ gap: 1.25, py: 1.1 }}
                     >
                       <Avatar src={hit.person.avatarUrl ?? undefined} sx={{ width: 28, height: 28 }}>
