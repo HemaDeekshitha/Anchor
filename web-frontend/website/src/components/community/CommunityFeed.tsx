@@ -6364,58 +6364,60 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   };
   // T: O(c) and S: O(c), where c is returned communities
 
-  const replaceCommunityUrl = (
-    tab: CommunityPageTab,
-    conversationId?: string | null,
-  ) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set(
-      "tab",
-      tab === "posts" ? "feed" : tab,
-    );
-    if (tab === "communities" && conversationId) {
-      url.searchParams.set("community", conversationId);
-    } else {
-      url.searchParams.delete("community");
-    }
-    url.searchParams.delete("invite");
-    url.searchParams.delete("post");
-    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
-  };
+  const replaceCommunityUrl = useCallback(
+    (tab: CommunityPageTab, conversationId?: string | null) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tab === "posts" ? "feed" : tab);
+      if (tab === "communities" && conversationId) {
+        url.searchParams.set("community", conversationId);
+      } else {
+        url.searchParams.delete("community");
+      }
+      url.searchParams.delete("invite");
+      url.searchParams.delete("post");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+    },
+    [],
+  );
   // T: O(q) and S: O(q), where q is the number of URL query parameters
 
-  const handleOpenCommunity = async (communityId: string) => {
-    const requestId = conversationRequestRef.current + 1;
-    conversationRequestRef.current = requestId;
-    setConversationLoading(true);
-    setPosts([]);
-    setActiveCommunityId(communityId);
-    setCommunityConversationId(communityId);
-    setPageTab("communities");
-    window.localStorage.setItem(
-      COMMUNITY_CONVERSATION_STORAGE_KEY,
-      communityId,
-    );
-    window.localStorage.setItem(
-      COMMUNITY_PAGE_TAB_STORAGE_KEY,
-      "communities",
-    );
-    replaceCommunityUrl("communities", communityId);
-    setPageError("");
-    try {
-      await refreshPosts(communityId);
-    } catch (caught) {
-      if (conversationRequestRef.current === requestId) {
-        setPageError(
-          caught instanceof Error ? caught.message : "Could not open community",
-        );
+  const handleOpenCommunity = useCallback(
+    async (communityId: string) => {
+      const requestId = conversationRequestRef.current + 1;
+      conversationRequestRef.current = requestId;
+      setConversationLoading(true);
+      setPosts([]);
+      setActiveCommunityId(communityId);
+      setCommunityConversationId(communityId);
+      setPageTab("communities");
+      window.localStorage.setItem(
+        COMMUNITY_CONVERSATION_STORAGE_KEY,
+        communityId,
+      );
+      window.localStorage.setItem(
+        COMMUNITY_PAGE_TAB_STORAGE_KEY,
+        "communities",
+      );
+      replaceCommunityUrl("communities", communityId);
+      setPageError("");
+      try {
+        await refreshPosts(communityId);
+      } catch (caught) {
+        if (conversationRequestRef.current === requestId) {
+          setPageError(
+            caught instanceof Error
+              ? caught.message
+              : "Could not open community",
+          );
+        }
+      } finally {
+        if (conversationRequestRef.current === requestId) {
+          setConversationLoading(false);
+        }
       }
-    } finally {
-      if (conversationRequestRef.current === requestId) {
-        setConversationLoading(false);
-      }
-    }
-  };
+    },
+    [refreshPosts, replaceCommunityUrl],
+  );
   // T: O(p) and S: O(p), where p is the returned community posts
 
   const handlePageTabChange = (nextTab: CommunityPageTab) => {
@@ -6795,6 +6797,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       window.cancelAnimationFrame(secondFrame);
       window.clearTimeout(readyTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore read position once the thread is painted
   }, [
     conversationLoading,
     currentReadScope,
@@ -6815,6 +6818,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       scroller?.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync caught-up state from the visible thread
   }, [
     currentReadScope,
     latestVisiblePostId,

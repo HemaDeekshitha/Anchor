@@ -24,8 +24,9 @@ export interface SubmissionResult {
     hasAction?: boolean;
     hasResult?: boolean;
     isSpecific?: boolean;
+    selfReport?: boolean;
     wordCount?: number;
-    [key: string]: any;
+    passingScore?: number;
   };
   /** Anchor Points awarded for this submission (25 if approved, 0 if rejected) */
   anchorPointsEarned: number;
@@ -47,7 +48,7 @@ export interface SubmissionResult {
   } | null;
 }
 
-interface Submission {
+export interface MySubmission {
   id: number;
   taskId: number;
   taskTitle: string;
@@ -57,6 +58,27 @@ interface Submission {
   feedback: string;
   approved: boolean;
   submittedAt: string;
+}
+
+/** Full task_submissions row returned by GET /submissions/:id */
+export interface TaskSubmissionRecord {
+  id: number;
+  user_id: string;
+  task_id: number;
+  task?: { title?: string };
+  submission_type: 'text' | 'screenshot';
+  text_content: string;
+  ai_result: {
+    score: number;
+    feedback: string;
+    approved: boolean;
+    confidence?: number;
+    details?: SubmissionResult['details'];
+  };
+  status: 'pending' | 'approved' | 'rejected';
+  submitted_at: string;
+  verified_at?: string | null;
+  taskTitle?: string;
 }
 
 // ── Points ────────────────────────────────────────────────────────────────────
@@ -102,7 +124,7 @@ export const api = {
   },
 
   // Get user's submission history
-  getMySubmissions: async (): Promise<Submission[]> => {
+  getMySubmissions: async (): Promise<MySubmission[]> => {
     const response = await apiFetch(`${API_BASE_URL}/submissions/me`, {
       method: 'GET',
     });
@@ -112,7 +134,7 @@ export const api = {
   },
 
   // Get specific submission details
-  getSubmission: async (id: number): Promise<any> => {
+  getSubmission: async (id: number): Promise<TaskSubmissionRecord> => {
     const response = await apiFetch(`${API_BASE_URL}/submissions/${id}`, {
       method: 'GET',
     });

@@ -64,8 +64,12 @@ export default function AnchorPointsCard({
             }
           : null
       );
-    } catch (err: any) {
-      setConvertError(err.message || "Conversion failed. Please try again.");
+    } catch (err: unknown) {
+      setConvertError(
+        err instanceof Error
+          ? err.message
+          : "Conversion failed. Please try again.",
+      );
     } finally {
       setIsConverting(false);
     }

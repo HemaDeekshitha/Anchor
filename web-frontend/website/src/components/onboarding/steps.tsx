@@ -1199,7 +1199,7 @@ export default function Steps() {
                           />
                         ))}
                       </Box>
-                      {(activeRole as any).isInterest && (
+                      {activeRole.isInterest && (
                         <InputBase
                           placeholder="Other (type to add…)"
                           value={customInterest[activeRole.id] || ""}

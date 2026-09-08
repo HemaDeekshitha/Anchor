@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -11,22 +11,24 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import LeetcodeProfileSidebar from "./LeetcodeProfileSidebar";
+import LeetcodeProfileSidebar, { type UserProfile } from "./LeetcodeProfileSidebar";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
-import MomentumGraphCard from "./ProfileGraphCard";
-import RecentSubmissions from "./RecentSubmission";
+import MomentumGraphCard, { type MomentumPoint } from "./ProfileGraphCard";
+import RecentSubmissions, { type Submission as RecentSubmissionItem } from "./RecentSubmission";
 import EditProfileModal, { EditableProfile } from "./EditProfile";
 import { apiFetch, requireOk } from "@/lib/auth-client";
 import { C } from "@/lib/ui-colors";
 import ProfilePasswordDialog from "./ProfilePasswordDialog";
 
 export default function Profile() {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [, setOpenResumeText] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activity, setActivity] = useState<any>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [activity, setActivity] = useState<{ data?: MomentumPoint[] } | null>(
+    null,
+  );
+  const [submissions, setSubmissions] = useState<RecentSubmissionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = React.useState("this_week");
   const [emailOtp, setEmailOtp] = useState("");
@@ -43,11 +45,7 @@ export default function Profile() {
   } | null>(null);
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [period]);
-
-  async function loadDashboardData() {
+  const loadDashboardData = useCallback(async () => {
     try {
       const [profileRes, activityRes, submissionsRes] = await Promise.all([
         apiFetch(`${API}/momentum/profile`),
@@ -67,7 +65,11 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [API, period]);
+
+  useEffect(() => {
+    void loadDashboardData();
+  }, [loadDashboardData]);
 
   async function handleProfileSave(
     updated: EditableProfile,
@@ -257,7 +259,7 @@ export default function Profile() {
           }}
         >
           <LeetcodeProfileSidebar
-            profile={profile}
+            profile={profile ?? {}}
             setOpenResumeText={setOpenResumeText}
             onEditClick={() => {
               setProfileSaveError("");

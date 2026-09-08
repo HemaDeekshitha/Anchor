@@ -18,21 +18,24 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type ProfileSkill = { name: string; category: string };
 
+export type UserProfile = {
+  name?: string;
+  email?: string;
+  location?: string;
+  primaryFocus?: string[];
+  avatarUrl?: string | null;
+  resumeName?: string | null;
+  resumeUrl?: string | null;
+  resumeText?: string | null;
+  preferredRoles?: string[];
+  status?: string[];
+  intrests?: string[];
+  employmentType?: string[];
+  skills?: ProfileSkill[];
+};
+
 type ProfileSectionProps = {
-  profile: {
-    name?: string;
-    email?: string;
-    primaryFocus?: string[];
-    avatarUrl?: string | null;
-    resumeName?: string | null;
-    resumeUrl?: string | null;
-    resumeText?: string | null;
-    preferredRoles?: string[];
-    status?: string[];
-    intrests?: string[];
-    employmentType?: string[];
-    skills?: ProfileSkill[];
-  };
+  profile: UserProfile;
   weeklyRecap?: string;
   setOpenResumeText: React.Dispatch<React.SetStateAction<boolean>>;
   onEditClick: () => void;
@@ -354,7 +357,7 @@ export default function LeetcodeProfileSidebar({
             Location
           </Typography>
           <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.textPrimary ,textAlign: "right",wordBreak: "break-word",overflowWrap: "anywhere",maxWidth: "70%", }}>
-            {(profile as any)?.location || "Not specified"}
+            {profile?.location || "Not specified"}
           </Typography>
         </Box>
       </Stack>
@@ -439,7 +442,7 @@ export default function LeetcodeProfileSidebar({
           ))
         ) : (
           <Typography fontSize="clamp(14px, 1vw, 17px)" sx={{ color: C.accent }}>
-            Choose areas you're curious about to guide your learning path.
+            Choose areas you&apos;re curious about to guide your learning path.
           </Typography>
         )}
       </Box>

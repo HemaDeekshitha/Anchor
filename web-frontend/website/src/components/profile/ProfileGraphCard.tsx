@@ -50,7 +50,11 @@ const EMPTY_STATE_MESSAGES: Record<string, { title: string; sub: string }> = {
   },
 };
 
-function GlowActiveDot(props: any) {
+function GlowActiveDot(props: {
+  cx?: number;
+  cy?: number;
+  stroke?: string;
+}) {
   const { cx, cy, stroke = C.accent } = props;
   return (
     <g>
@@ -68,7 +72,24 @@ function GlowActiveDot(props: any) {
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+export type MomentumPoint = {
+  tasks?: number;
+  applications?: number;
+  easy?: number;
+  medium?: number;
+  streak?: number;
+  [key: string]: number | string | undefined;
+};
+
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  label?: string;
+  payload?: Array<{ payload?: MomentumPoint }>;
+}) => {
   if (!active || !payload?.length) return null;
   const data = payload[0]?.payload;
   if (!data) return null;
@@ -291,7 +312,7 @@ export default function MomentumGraphCard({
   period,
   setPeriod,
 }: {
-  data: any[];
+  data: MomentumPoint[];
   period: string;
   setPeriod: (p: string) => void;
 }) {

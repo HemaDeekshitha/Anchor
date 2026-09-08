@@ -5,7 +5,7 @@ import styles from "./dashboard.module.css";
 import LayoutWithSidebar from "../SideBar/LayoutWithSidebar";
 import SubmissionModal from "./SubmissionModal";
 import PreviousSubmissionModal from "./PreviousSubmissionModal";
-import { api } from "@/lib/api";
+import { api, type MySubmission, type TaskSubmissionRecord } from "@/lib/api";
 import { apiFetch, requireOk } from "@/lib/auth-client";
 import { FONT } from "@/lib/typography";
 import { SPACE } from "@/lib/spacing";
@@ -64,6 +64,20 @@ function getLeetcodeUrl(task: Task): string | null {
   return normalizeLeetcodeUrl(task.leetcodeUrl);
 }
 
+type PendingTaskRow = {
+  id: number | string;
+  taskId?: number | string;
+  taskid?: number | string;
+  status?: Task["status"];
+  title?: string;
+  date?: string;
+  is_ai_generated?: boolean;
+  category?: string;
+  priority?: Task["priority"];
+  difficulty?: Task["difficulty"];
+  leetcodeUrl?: string | null;
+};
+
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [smartPlan, setSmartPlan] = useState<Task[]>([]);
@@ -72,8 +86,9 @@ const Dashboard = () => {
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
   const [previousSubmissionModalOpen, setPreviousSubmissionModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [selectedSubmission, setSelectedSubmission] =
+    useState<TaskSubmissionRecord | null>(null);
+  const [submissions, setSubmissions] = useState<MySubmission[]>([]);
   const [userName, setUserName] = useState("");
   const [skippedReason, setSkippedReason] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -102,7 +117,8 @@ const Dashboard = () => {
       setSkippedReason(data.smartPlan?.skippedReason ?? null);
 
       if (data.pendingTasks) {
-        const normalizedPendingTasks: Task[] = data.pendingTasks.map((task: any) => ({
+        const normalizedPendingTasks: Task[] = data.pendingTasks.map(
+          (task: PendingTaskRow) => ({
           ...task,
           id: Number(task.id),
           taskId: Number(task.taskId ?? task.taskid ?? task.id),
@@ -144,7 +160,9 @@ const Dashboard = () => {
     const taskForSubmission = { ...task, id: submissionTaskId };
     if (task.status === "completed") {
       try {
-        const taskSubmission = submissions.find((s: any) => s.taskId === submissionTaskId);
+        const taskSubmission = submissions.find(
+          (s) => s.taskId === submissionTaskId,
+        );
         if (taskSubmission) {
           const fullSubmission = await api.getSubmission(taskSubmission.id);
           setSelectedSubmission(fullSubmission);

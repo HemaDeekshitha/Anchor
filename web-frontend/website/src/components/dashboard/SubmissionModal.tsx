@@ -57,8 +57,8 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
     try {
       const response = await api.submitAnswer({ taskId: task.id, taskDate: task.date, textContent: answer });
       setResult(response);
-    } catch (err: any) {
-      setError(err.message || "Failed to submit answer");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to submit answer");
     } finally {
       setIsSubmitting(false);
     }

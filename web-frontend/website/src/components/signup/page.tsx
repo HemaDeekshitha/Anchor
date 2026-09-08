@@ -1,8 +1,7 @@
 "use client";
 import { FONT } from "@/lib/typography";
 import { SPACE } from "@/lib/spacing";
-import { SIZE } from "@/lib/sizes";
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import {
   Box,
@@ -72,9 +71,10 @@ export default function SignupPage() {
     isStrongPassword(form.password) &&
     form.password === form.confirmPassword;
 
-  const handleChange = (field: string) => (e: { target: { value: any } }) => {
-    setForm({ ...form, [field]: e.target.value });
-  };
+  const handleChange =
+    (field: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) => {
+      setForm({ ...form, [field]: e.target.value });
+    };
 
   const handleBlur = (field: string) => () => {
     setTouched({ ...touched, [field]: true });
@@ -111,8 +111,8 @@ export default function SignupPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
       setAwaitingOtp(true);
-    } catch (err: any) {
-      setApiError(err.message);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -129,7 +129,11 @@ export default function SignupPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Verification failed");
       router.push("/steps");
-    } catch (err: any) { setApiError(err.message); } finally { setLoading(false); }
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resendOtp = async () => {

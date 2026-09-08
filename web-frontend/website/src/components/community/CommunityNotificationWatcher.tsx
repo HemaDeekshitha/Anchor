@@ -25,6 +25,18 @@ const previewText = (post: CommunityPostRecord) =>
       ? "Shared a poll"
       : "New message");
 
+/** Fields browsers accept that some TypeScript DOM libs omit from NotificationOptions. */
+type CommunityNotificationOptions = NotificationOptions & {
+  renotify?: boolean;
+  vibrate?: number[];
+};
+
+const showCommunityNotification = (
+  registration: ServiceWorkerRegistration,
+  title: string,
+  options: CommunityNotificationOptions,
+) => registration.showNotification(title, options);
+
 export default function CommunityNotificationWatcher() {
   const { viewingScope } = useAppChrome();
   const viewingScopeRef = useRef(viewingScope);
@@ -123,7 +135,7 @@ export default function CommunityNotificationWatcher() {
           if (!latest) continue;
           const extra =
             posts.length > 1 ? ` (+${posts.length - 1} more)` : "";
-          await registration.showNotification(community.name, {
+          await showCommunityNotification(registration, community.name, {
             body: `${latest.author?.name ?? "Anchor member"}: ${previewText(latest)}${extra}`.slice(
               0,
               180,
