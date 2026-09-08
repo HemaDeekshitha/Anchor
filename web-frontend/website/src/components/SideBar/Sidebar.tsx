@@ -328,27 +328,36 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      <Drawer
-        variant="permanent"
-        open
+      <Box
         sx={{
           display: { xs: "none", md: "block" },
           width: drawerWidth,
           flexShrink: 0,
-          transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            borderRight: "1px solid var(--anchor-sidebar-border)",
-            bgcolor: "var(--anchor-sidebar-bg)",
-            boxShadow: "none",
-            overflowX: "hidden",
-            transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-          },
+          overflow: "hidden",
+          alignSelf: "stretch",
         }}
       >
-        {renderContent(desktopExpanded, true)}
-      </Drawer>
+        <Drawer
+          variant="permanent"
+          open
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              boxSizing: "border-box",
+              borderRight: "1px solid var(--anchor-sidebar-border)",
+              bgcolor: "var(--anchor-sidebar-bg)",
+              boxShadow: "none",
+              overflowX: "hidden",
+              transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+            },
+          }}
+        >
+          {renderContent(desktopExpanded, true)}
+        </Drawer>
+      </Box>
       <Drawer
         variant="temporary"
         open={isSidebarOpen}
@@ -359,6 +368,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         }}
         sx={{
           display: { xs: "block", md: "none" },
+          width: 0,
+          minWidth: 0,
+          flexBasis: 0,
+          overflow: "visible",
           "& .MuiDrawer-paper": {
             width: expandedDrawerWidth,
             boxSizing: "border-box",

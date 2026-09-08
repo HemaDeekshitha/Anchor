@@ -39,7 +39,6 @@ import FavoriteBorderRoundedIcon from "@mui/icons-material/FavoriteBorderRounded
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
-import ShortcutRoundedIcon from "@mui/icons-material/ShortcutRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
@@ -131,7 +130,7 @@ const C = {
   red: "#b9573f",
 } as const;
 
-const COMMUNITY_GUTTER = { xs: 2, sm: 3, md: 4, lg: 5 } as const;
+const COMMUNITY_GUTTER = { xs: 1, sm: 2, md: 4, lg: 5 } as const;
 const communityColumnSx = {
   width: "100%",
   maxWidth: "none",
@@ -516,6 +515,22 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
     : null,
 });
 // T: O(m + o) and S: O(m + o), where m is media and o is poll options
+
+const sameFeedPosts = (current: ForumPost[], next: ForumPost[]) =>
+  current.length === next.length &&
+  current.every((post, index) => {
+    const candidate = next[index];
+    return (
+      post.id === candidate?.id &&
+      post.body === candidate.body &&
+      post.status === candidate.status &&
+      post.replyCount === candidate.replyCount &&
+      post.upvotes === candidate.upvotes &&
+      post.viewerVote === candidate.viewerVote &&
+      post.poll?.status === candidate.poll?.status
+    );
+  });
+// T: O(p) and S: O(1), where p is the number of posts
 
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
@@ -985,7 +1000,10 @@ const Composer = ({
               bgcolor: "transparent",
               px: open ? 1.5 : { xs: 1.25, sm: 1.5, md: 2 },
               py: open ? 1.1 : 0,
-              transition: "font-size 200ms ease",
+            },
+            "& .MuiInputBase-input": {
+              fontSize: "16px",
+              fontFamily: "Inter, sans-serif",
             },
             "& .MuiInputBase-root.Mui-focused": {
               borderColor: C.textPrimary,
@@ -2240,7 +2258,7 @@ const PostCard = ({
             onClick={() => void handleSharePost()}
             sx={{ color: C.textMuted }}
           >
-            <ShortcutRoundedIcon />
+            <ReplyRoundedIcon sx={{ transform: "scaleX(-1)" }} />
           </IconButton>
         </Tooltip>
         {friendshipStatus === "none" && (
@@ -2301,12 +2319,19 @@ const PostCard = ({
           mb: { xs: 0.55, sm: 0.8 },
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.8, sm: 1 } }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: { xs: 1, sm: 1.15 },
+          }}
+        >
           <Avatar
             src={post.authorAvatar}
             sx={{
-              width: { xs: 22, sm: 24 },
-              height: { xs: 22, sm: 24 },
+              width: { xs: 36, sm: 40 },
+              height: { xs: 36, sm: 40 },
+              flexShrink: 0,
               bgcolor: C.accentFaint,
               color: C.accentDark,
               fontSize: "0.95rem",
@@ -2314,14 +2339,22 @@ const PostCard = ({
           >
             {post.authorName.charAt(0)}
           </Avatar>
-          <Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+          <Box sx={{ minWidth: 0, pt: "1px" }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.4,
+                minHeight: { xs: "1.2rem", sm: "1.25rem" },
+              }}
+            >
               <Typography
                 sx={{
                   fontSize: "0.95rem",
-                  fontWeight: 600,
-                  lineHeight: 1.5,
+                  fontWeight: 700,
+                  lineHeight: 1.25,
                   color: C.textPrimary,
+                  fontFamily: "Inter, sans-serif",
                 }}
               >
                 {post.authorName}
@@ -2332,10 +2365,12 @@ const PostCard = ({
             </Box>
             <Typography
               sx={{
-                fontSize: "0.95rem",
-                fontWeight: 600,
-                lineHeight: 1.5,
+                mt: 0.15,
+                fontSize: "0.72rem",
+                fontWeight: 400,
+                lineHeight: 1.35,
                 color: C.textMuted,
+                fontFamily: "Inter, sans-serif",
               }}
             >
               {post.authorProfession} · {post.timeAgo}
@@ -2471,8 +2506,10 @@ const PostCard = ({
       <Typography
         sx={{
           fontSize: "0.95rem",
+          fontWeight: 400,
           color: C.textPrimary,
           lineHeight: 1.5,
+          fontFamily: "Inter, sans-serif",
           mb: post.media?.length || poll ? 1.5 : 0.5,
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
@@ -2722,7 +2759,7 @@ const PostCard = ({
           <Divider sx={{ borderColor: C.divider, mb: 1.5 }} />
 
           {comments.length === 0 ? (
-            <Typography sx={{ fontSize: "0.85rem", color: C.textMuted, mb: 2 }}>
+            <Typography sx={{ fontSize: "0.88rem", color: C.textMuted, mb: 2 }}>
               No replies yet — be the first to help.
             </Typography>
           ) : (
@@ -2775,24 +2812,27 @@ const PostCard = ({
                     >
                       <Typography
                         sx={{
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
+                          fontSize: "0.82rem",
+                          fontWeight: 700,
                           color: C.textPrimary,
+                          fontFamily: "Inter, sans-serif",
                         }}
                       >
                         {comment.authorName}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.64rem", color: C.textMuted }}>
+                      <Typography sx={{ fontSize: "0.7rem", color: C.textMuted }}>
                         {comment.timeAgo}
                       </Typography>
                     </Box>
                     <Box sx={{ display: "flex", alignItems: "flex-start" }}>
                       <Typography
                         sx={{
-                          fontSize: "0.78rem",
+                          fontSize: "0.86rem",
+                          fontWeight: 400,
                           color: C.textPrimary,
-                          lineHeight: 1.4,
+                          lineHeight: 1.45,
                           flex: "0 1 auto",
+                          fontFamily: "Inter, sans-serif",
                         }}
                       >
                         {comment.body}
@@ -2888,9 +2928,10 @@ const PostCard = ({
                 bgcolor: "transparent",
                 border: 0,
                 borderBottom: `1px solid ${C.divider}`,
-                fontSize: "0.8rem",
+                fontSize: "16px",
+                fontWeight: 400,
                 color: C.textPrimary,
-                fontFamily: "inherit",
+                fontFamily: "Inter, sans-serif",
                 outline: "none",
                 transition: "border-color 160ms ease",
                 "&:focus": { borderBottomColor: C.accent },
@@ -4073,29 +4114,28 @@ const CommunitiesView = ({
         <Tabs
           value={section}
           onChange={handleSectionChange}
-          variant="scrollable"
-          scrollButtons={false}
+          variant="fullWidth"
           sx={{
             width: "100%",
             maxWidth: "100%",
             minWidth: 0,
             boxSizing: "border-box",
-            px: { xs: 0, sm: 1 },
+            px: 0,
             overflow: "hidden",
             borderBottom: `1px solid ${C.divider}`,
-            "& .MuiTabs-scroller": { overflow: "hidden !important" },
+            "& .MuiTabs-flexContainer": { width: "100%" },
             "& .MuiTabs-indicator": { bgcolor: C.accent },
-            "& .MuiTabs-flexContainer": { width: "100%", maxWidth: "100%" },
             "& .MuiTab-root": {
-              flex: { xs: "1 1 0", sm: "0 0 auto" },
-              minWidth: { xs: 0, sm: 90 },
-              maxWidth: { xs: "none", sm: 360 },
-              px: { xs: 0.45, sm: 2 },
+              flex: 1,
+              minWidth: 0,
+              maxWidth: "none",
+              px: { xs: 0.75, sm: 1.5 },
               color: C.textMuted,
               textTransform: "none",
               fontWeight: 600,
-              fontSize: { xs: "0.7rem", sm: "0.875rem" },
-              lineHeight: 1.2,
+              fontSize: { xs: "0.72rem", sm: "0.875rem" },
+              lineHeight: 1.25,
+              whiteSpace: "normal",
             },
             "& .Mui-selected": { color: `${C.accentDark} !important` },
           }}
@@ -4108,7 +4148,7 @@ const CommunitiesView = ({
           <Tab value="create" label="Create a community" />
         </Tabs>
 
-        <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", p: { xs: 1.5, sm: 2, md: 2.5 }, pt: { xs: 2, sm: 2 }, overflow: "hidden" }}>
+        <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", p: { xs: 1, sm: 2, md: 2.5 }, pt: { xs: 1.5, sm: 2 }, overflow: "hidden" }}>
           {section === "current" && (
             <Box
               sx={{
@@ -4260,22 +4300,20 @@ const CommunitiesView = ({
                             sx={{
                               color: C.textMuted,
                               fontSize: "0.74rem",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: {
-                                xs: layout === "grid" ? "normal" : "nowrap",
-                                sm: "nowrap",
-                              },
+                              lineHeight: 1.35,
                               overflowWrap: "anywhere",
-                              display: {
-                                xs: layout === "grid" ? "-webkit-box" : "block",
-                                sm: "block",
-                              },
-                              WebkitLineClamp: { xs: 2, sm: "unset" },
-                              WebkitBoxOrient: "vertical",
                             }}
                           >
-                            {community.description} · {community.memberCount}
+                            {community.description || "A new Anchor community"}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              color: C.textMuted,
+                              fontSize: "0.7rem",
+                              mt: 0.2,
+                            }}
+                          >
+                            {community.memberCount}
                           </Typography>
                           <Box
                             sx={{
@@ -4382,7 +4420,8 @@ const CommunitiesView = ({
               <Box
                 sx={{
                   display: "flex",
-                  alignItems: "center",
+                  flexDirection: { xs: "column", sm: "row" },
+                  alignItems: { xs: "stretch", sm: "center" },
                   gap: 1,
                   mb: 2,
                   minWidth: 0,
@@ -4392,7 +4431,7 @@ const CommunitiesView = ({
                   fullWidth
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search communities by name or topic"
+                  placeholder="Search communities"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -4408,12 +4447,18 @@ const CommunitiesView = ({
                       bgcolor: C.surface,
                       "& fieldset": { borderColor: C.divider },
                     },
+                    "& input::placeholder": {
+                      overflow: "visible",
+                      opacity: 1,
+                    },
                   }}
                 />
-                <CommunityLayoutToggle
-                  layout={layout}
-                  onChange={handleLayoutChange}
-                />
+                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  <CommunityLayoutToggle
+                    layout={layout}
+                    onChange={handleLayoutChange}
+                  />
+                </Box>
               </Box>
 
               <Box
@@ -4439,7 +4484,10 @@ const CommunitiesView = ({
                     sx={{
                       display: "flex",
                       flexDirection: layout === "grid" ? "column" : "row",
-                      alignItems: layout === "grid" ? "flex-start" : "center",
+                      alignItems:
+                        layout === "grid"
+                          ? "flex-start"
+                          : { xs: "flex-start", sm: "center" },
                       gap: { xs: 0.8, sm: 1.5 },
                       p: layout === "grid" ? { xs: 1.25, sm: 1.5 } : { xs: 1.1, sm: 1.5 },
                       py: layout === "list" ? 1.6 : undefined,
@@ -4485,15 +4533,20 @@ const CommunitiesView = ({
                         sx={{
                           color: C.textMuted,
                           fontSize: "0.78rem",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: layout === "grid" ? "normal" : "nowrap",
-                          display: layout === "grid" ? "-webkit-box" : "block",
-                          WebkitLineClamp: layout === "grid" ? 2 : undefined,
-                          WebkitBoxOrient: "vertical",
+                          lineHeight: 1.35,
+                          overflowWrap: "anywhere",
                         }}
                       >
-                        {community.description} · {community.memberCount}
+                        {community.description || "A new Anchor community"}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: C.textMuted,
+                          fontSize: "0.72rem",
+                          mt: 0.2,
+                        }}
+                      >
+                        {community.memberCount}
                       </Typography>
                       <Typography
                         sx={{
@@ -5364,7 +5417,7 @@ const FriendsView = ({
             },
             "& input": {
               minWidth: 0,
-              fontSize: { xs: "0.82rem", sm: "1rem" },
+              fontSize: "16px",
             },
           }}
         />
@@ -5721,7 +5774,7 @@ type Props = {
 };
 
 const CommunityFeed = ({ meetings = [] }: Props) => {
-  const { setMessages } = useAppChrome();
+  const { setMessages, setViewingScope } = useAppChrome();
   const [pageTab, setPageTab] = useState<CommunityPageTab>("posts");
   const [activeCommunityId, setActiveCommunityId] = useState<string>(ALL_ID);
   const [communityConversationId, setCommunityConversationId] = useState<
@@ -5772,6 +5825,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const restoredReadScopeRef = useRef("");
   const jumpingToLatestRef = useRef(false);
   const caughtUpThisVisitRef = useRef(false);
+  const userReadingHistoryRef = useRef(false);
+  const scrolledToQueryPostRef = useRef("");
   const lastWindowScrollYRef = useRef(0);
   const lastMainScrollYRef = useRef(0);
   const chromeVisibleRef = useRef(true);
@@ -5783,6 +5838,17 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   useEffect(() => {
     setReplyingToPost(null);
   }, [pageTab, communityConversationId]);
+
+  useEffect(() => {
+    if (pageTab === "posts") {
+      setViewingScope("feed");
+    } else if (communityConversationId) {
+      setViewingScope(`community:${communityConversationId}`);
+    } else {
+      setViewingScope(null);
+    }
+    return () => setViewingScope(null);
+  }, [communityConversationId, pageTab, setViewingScope]);
 
   const handleMeetingDiscovered = useCallback(
     (meeting: Comm360Meeting, communityId: string) => {
@@ -6123,35 +6189,11 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           : await listCommunityFeed(target);
         if (stopped) return;
         const known = seenPostIdsRef.current;
-        if (known) {
-          const incoming = records.filter((record) => !known.has(record.id));
-          if (activePostScopeRef.current === target) {
-            setPosts(records.map(mapPost));
-          }
-          if (Notification.permission === "granted") {
-            for (const record of incoming.slice(0, 3)) {
-              if (record.author?.friendshipStatus === "self") continue;
-              const body = record.body?.trim() || "Shared a new community post";
-              const mentioned = currentProfileName &&
-                body.toLowerCase().includes(`@${currentProfileName.toLowerCase()}`);
-              const registration = await navigator.serviceWorker?.ready;
-              await registration?.showNotification(
-                mentioned ? `${record.author?.name ?? "A member"} mentioned you` : "New community message",
-                {
-                  body: `${record.author?.name ?? "Anchor member"}: ${body}`.slice(0, 180),
-                  icon: "/assets/logo.png",
-                  badge: "/assets/logo.png",
-                  tag: `community-post-${record.id}`,
-                  data: {
-                    url:
-                      target === ALL_ID
-                        ? "/community?tab=feed"
-                        : "/community?tab=communities",
-                  },
-                },
-              );
-            }
-          }
+        if (known && activePostScopeRef.current === target) {
+          const mapped = records.map(mapPost);
+          setPosts((current) =>
+            sameFeedPosts(current, mapped) ? current : mapped,
+          );
         }
         seenPostIdsRef.current = new Set(records.map((record) => record.id));
       } catch {
@@ -6169,7 +6211,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [currentProfileName, hydrated]);
+  }, [hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -6337,6 +6379,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       url.searchParams.delete("community");
     }
     url.searchParams.delete("invite");
+    url.searchParams.delete("post");
     window.history.replaceState({}, "", `${url.pathname}${url.search}`);
   };
   // T: O(q) and S: O(q), where q is the number of URL query parameters
@@ -6585,16 +6628,27 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         body: [post.title, post.body].filter(Boolean).join(" "),
       })),
     );
-    return () => setMessages([]);
   }, [communities, conversationCommunity?.name, posts, setMessages]);
+
+  useEffect(() => {
+    return () => setMessages([]);
+  }, [setMessages]);
 
   useEffect(() => {
     const postId = new URLSearchParams(window.location.search).get("post");
     if (!postId || posts.length === 0) return;
+    if (scrolledToQueryPostRef.current === `${pageTab}:${postId}`) return;
+    if (!posts.some((post) => post.id === postId)) return;
+    scrolledToQueryPostRef.current = `${pageTab}:${postId}`;
     const timer = window.setTimeout(() => {
       document
         .querySelector(`[data-community-post-id="${postId}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("post")) {
+        url.searchParams.delete("post");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+      }
     }, 280);
     return () => window.clearTimeout(timer);
   }, [communityConversationId, pageTab, posts]);
@@ -6677,7 +6731,10 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     const behind = Math.max(0, items.length - 1 - lastVisibleIndex);
     setShowJumpToLatest(behind > 0);
     if (behind === 0) {
+      userReadingHistoryRef.current = false;
       markVisitCaughtUp(items);
+    } else {
+      userReadingHistoryRef.current = true;
     }
     return behind;
   };
@@ -6686,6 +6743,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   useEffect(() => {
     restoredReadScopeRef.current = "";
     caughtUpThisVisitRef.current = false;
+    userReadingHistoryRef.current = false;
     setReadTrackingReady(false);
     setShowJumpToLatest(false);
     setMissedBehindCount(0);
@@ -6714,7 +6772,9 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           (item) => item.dataset.communityPostId === savedPostId,
         );
         const caughtUp = savedIndex < 0 || savedIndex >= items.length - 1;
-        if (caughtUp) {
+        if (userReadingHistoryRef.current) {
+          setShowJumpToLatest(true);
+        } else if (caughtUp) {
           items.at(-1)?.scrollIntoView({ block: "end" });
           setShowJumpToLatest(false);
           markVisitCaughtUp(items);
@@ -6766,6 +6826,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     const items = messageItems();
     const latest = items.at(-1);
     jumpingToLatestRef.current = true;
+    userReadingHistoryRef.current = false;
     setShowJumpToLatest(false);
     markVisitCaughtUp(items);
     latest?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -6809,7 +6870,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           },
           position: "fixed",
           top: "var(--anchor-topbar-height, 56px)",
-          left: "var(--anchor-sidebar-width, 0px)",
+          left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
           right: 0,
           zIndex: 1150,
           minHeight: { xs: 70, md: 56 },
@@ -6940,7 +7001,11 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                   </Typography>
                 </Card>
               ) : (
-                <Stack ref={messageListRef} spacing={0} sx={{ width: "100%" }}>
+                <Stack
+                  ref={messageListRef}
+                  spacing={0}
+                  sx={{ width: "100%", overflowAnchor: "none" }}
+                >
                 {visiblePosts.map((post) => (
                   <Box key={post.id} data-community-post-id={post.id}>
                     <PostCard
@@ -6978,7 +7043,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       xs: "var(--anchor-topbar-height, 56px)",
                       md: "calc(var(--anchor-topbar-height, 56px) + 56px)",
                     },
-                    left: "var(--anchor-sidebar-width, 0px)",
+                    left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
                     right: 0,
                     zIndex: 1140,
                     minHeight: { xs: 62, md: 72 },
@@ -7178,7 +7243,11 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     </Typography>
                   </Card>
                 ) : (
-                  <Stack ref={messageListRef} spacing={0} sx={{ width: "100%" }}>
+                  <Stack
+                  ref={messageListRef}
+                  spacing={0}
+                  sx={{ width: "100%", overflowAnchor: "none" }}
+                >
                   {visiblePosts.map((post, index) => {
                     const currentDate = new Date(post.createdAt).toDateString();
                     const previousDate = index > 0
@@ -7213,7 +7282,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             <Box
               sx={{
                 position: "fixed",
-                left: "var(--anchor-sidebar-width, 0px)",
+                left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
                 right: 0,
                 bottom: { xs: 14, md: 18 },
                 zIndex: 1100,
@@ -7223,6 +7292,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                 alignItems: "stretch",
                 gap: 1,
                 px: COMMUNITY_GUTTER,
+                boxSizing: "border-box",
+                width: "auto",
                 pointerEvents: "none",
                 transition: "left 220ms cubic-bezier(0.4, 0, 0.2, 1)",
               }}

@@ -1468,56 +1468,50 @@ export class CommunityService {
       .where('comment."postId" = :postId', { postId })
       .andWhere('comment.status = :status', { status: 'published' })
       .orderBy('comment.createdAt', 'ASC')
-      .addOrderBy('comment.id', 'ASC')
-      .take(query.limit + 1);
+      .addOrderBy('comment.id', 'ASC');
     if (cursor) {
       builder.andWhere(
         '(comment."createdAt", comment.id) > (:createdAt, :id)',
         cursor,
       );
     }
-    const rows = await builder.getMany();
-    const hasMore = rows.length > query.limit;
-    const comments = hasMore ? rows.slice(0, query.limit) : rows;
+    const limit = query.limit ?? 20;
+    const rows = await builder.take(limit + 1).getMany();
+    const hasMore = rows.length > limit;
+    const comments = hasMore ? rows.slice(0, limit) : rows;
     const authorIds = [...new Set(comments.map((comment) => comment.authorId))];
-    const [authors, voteCounts, viewerVotes] = await Promise.all([
+    const commentIds = comments.map((comment) => comment.id);
+    const [authors, votes] = await Promise.all([
       authorIds.length
         ? this.userRepository.find({
             select: { id: true, name: true, email: true },
             where: { id: In(authorIds) },
           })
-        : [],
-      comments.length
-        ? this.commentVoteRepository
-            .createQueryBuilder('vote')
-            .select('vote."commentId"', 'commentId')
-            .addSelect('COUNT(*)', 'count')
-            .where('vote."commentId" IN (:...commentIds)', {
-              commentIds: comments.map((comment) => comment.id),
-            })
-            .groupBy('vote."commentId"')
-            .getRawMany<{ commentId: string; count: string }>()
-        : [],
-      comments.length
-        ? this.commentVoteRepository.find({
-            select: { commentId: true },
-            where: {
-              commentId: In(comments.map((comment) => comment.id)),
-              userId,
-            },
-          })
-        : [],
+        : Promise.resolve([]),
+      this.loadCommentVotes(commentIds),
     ]);
     const authorById = new Map(
       authors.map((author) => [author.id, author] as const),
     );
-    const voteCountByComment = new Map(
-      voteCounts.map((vote) => [vote.commentId, Number(vote.count)] as const),
-    );
-    const viewerVoteIds = new Set(viewerVotes.map((vote) => vote.commentId));
+    const voteCountByComment = new Map<string, number>();
+    const viewerVoteIds = new Set<string>();
+    for (const vote of votes) {
+      voteCountByComment.set(
+        vote.commentId,
+        (voteCountByComment.get(vote.commentId) ?? 0) + 1,
+      );
+      if (vote.userId === userId) viewerVoteIds.add(vote.commentId);
+    }
     return {
       items: comments.map((comment) => ({
-        ...comment,
+        id: comment.id,
+        postId: comment.postId,
+        authorId: comment.authorId,
+        parentCommentId: comment.parentCommentId,
+        body: comment.body,
+        status: comment.status,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
         author: authorById.get(comment.authorId) ?? null,
         canDelete: comment.authorId === userId,
         canEdit: comment.authorId === userId,
@@ -1531,6 +1525,20 @@ export class CommunityService {
     };
   }
   // T: O(l) and S: O(l), where l is the page size
+
+  private async loadCommentVotes(
+    commentIds: string[],
+  ): Promise<PostCommentVote[]> {
+    if (commentIds.length === 0) return [];
+    try {
+      return await this.commentVoteRepository.find({
+        where: { commentId: In(commentIds) },
+      });
+    } catch {
+      return [];
+    }
+  }
+  // T: O(v) and S: O(v), where v is votes on the listed comments
 
   async deleteComment(
     userId: string,
