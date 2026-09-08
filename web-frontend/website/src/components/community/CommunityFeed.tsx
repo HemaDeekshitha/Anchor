@@ -131,13 +131,11 @@ const C = {
   red: "#b9573f",
 } as const;
 
-const COMMUNITY_COLUMN_MAX = 860;
 const COMMUNITY_GUTTER = { xs: 2, sm: 3, md: 4, lg: 5 } as const;
 const communityColumnSx = {
-  width: "min(100%, 860px)",
-  maxWidth: COMMUNITY_COLUMN_MAX,
-  mx: "auto",
-  alignSelf: "center",
+  width: "100%",
+  maxWidth: "none",
+  alignSelf: "stretch",
 } as const;
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -6883,7 +6881,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         sx={{
           width: "100%",
           mt: { xs: communityConversationId ? 0 : 3, sm: 3 },
-          alignItems: "center",
+          alignItems: "stretch",
         }}
       >
         {pageError && (
@@ -7222,7 +7220,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-end",
-                alignItems: "center",
+                alignItems: "stretch",
                 gap: 1,
                 px: COMMUNITY_GUTTER,
                 pointerEvents: "none",
@@ -7238,6 +7236,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     invisible={missedBehindCount < 1}
                     sx={{
                       pointerEvents: "auto",
+                      alignSelf: "center",
                       "& .MuiBadge-badge": {
                         fontSize: "0.65rem",
                         fontWeight: 700,
@@ -7272,7 +7271,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
               <Box
                 sx={{
                   ...communityColumnSx,
-                  width: "min(100%, 860px)",
+                  width: "100%",
                   pointerEvents: "auto",
                 }}
               >
