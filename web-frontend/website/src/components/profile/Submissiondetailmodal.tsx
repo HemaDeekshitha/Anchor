@@ -159,6 +159,8 @@ export default function SubmissionDetailModal({
         (submission.score != null ? submission.score >= 6 : null)
     );
     setLiveUpdatedAt(submission.updatedAt ?? null);
+    // Fields are reset when the open submission changes, not on every object identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submission?.id]);
 
   // ── Early return after hooks ──
@@ -210,8 +212,8 @@ export default function SubmissionDetailModal({
         answer: editedAnswer,
         updatedAt: new Date().toISOString(),
       });
-    } catch (err: any) {
-      setSaveError(err.message ?? "Something went wrong.");
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsSaving(false);
     }

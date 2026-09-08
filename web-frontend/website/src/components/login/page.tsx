@@ -114,8 +114,8 @@ export default function LoginPage() {
       }
 
       router.push("/dashboard");
-    } catch (err: any) {
-      setApiError(err.message);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }
@@ -218,7 +218,7 @@ export default function LoginPage() {
             <Stack spacing={{ xs:2, md:3, xl:4 }}>
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
                 <Typography variant="h5" fontWeight={600}>Login</Typography>
-                <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>It's nice to see you again</Typography>
+                <Typography sx={{ fontSize: 14, color: "#8c6a50" }}>It&apos;s nice to see you again</Typography>
               </Box>
 
               <Stack spacing={1}>
@@ -329,7 +329,7 @@ export default function LoginPage() {
               </Button>
 
               <Typography textAlign="center">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <Link
                   href="/signup"
                   sx={{ color: "#b87444", fontWeight: 600, textDecoration: "none", "&:hover": { textDecoration: "underline", color: "#a0622e" } }}

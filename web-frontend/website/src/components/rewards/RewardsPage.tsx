@@ -14,8 +14,6 @@ import {
 import { Zap, Trophy, Flame, CheckCircle, Lock, Star } from "lucide-react";
 import { api, PointsSummary, PointsEntry } from "@/lib/api";
 import { FONT } from "@/lib/typography";
-import { SPACE } from "@/lib/spacing";
-import { SIZE } from "@/lib/sizes";
 import { C } from "@/lib/ui-colors";
 
 // ── Badge definitions ────────────────────────────────────────────────────────

@@ -13,10 +13,12 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 
+import { TaskSubmissionRecord } from "@/lib/api";
+
 interface PreviousSubmissionModalProps {
   open: boolean;
   onClose: () => void;
-  submission: any;
+  submission: TaskSubmissionRecord | null;
 }
 
 export default function PreviousSubmissionModal({
