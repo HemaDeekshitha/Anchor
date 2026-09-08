@@ -22,25 +22,7 @@ import {
   CartesianGrid,
   Area,
 } from "recharts";
-
-// ── Anchor palette tokens ────────────────────────────────────────────────────
-const C = {
-  accent: "#b87444",
-  accentDark: "#a0622e",
-  accentTeal: "#2E9B8F",
-  accentBg: "rgba(184,116,68,0.06)",
-  accentBorder: "rgba(184,116,68,0.15)",
-  accentFaint: "rgba(184,116,68,0.10)",
-  accentHover: "rgba(184,116,68,0.06)",
-  accentSelected: "rgba(184,116,68,0.12)",
-  accentGrad: "linear-gradient(to right, #b87444, #a0622e)",
-  cardBg: "#ffffff",
-  surface: "#fdfaf7",
-  divider: "#e8ddd0",
-  textPrimary: "#2c1a0a",
-  textSub: "#8c6a50",
-  textMuted: "#b8a090",
-} as const;
+import { C } from "@/lib/ui-colors";
 
 const PERIODS = [
   { label: "This Week", value: "this_week", title: "Weekly Progress" },
@@ -98,7 +80,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         maxWidth: 260,
         p: 2,
         borderRadius: 3,
-        background: "#fff",
+        background: C.cardBg,
         border: `1px solid ${C.accentBorder}`,
         boxShadow: "0 8px 28px rgba(44,26,10,0.10)",
       }}
@@ -395,7 +377,7 @@ export default function MomentumGraphCard({
               mt: 1,
               minWidth: 180,
               borderRadius: 2.5,
-              background: "#fff",
+              background: C.cardBg,
               border: `1px solid ${C.accentBorder}`,
               boxShadow: "0 8px 28px rgba(44,26,10,0.10)",
               overflow: "hidden",

@@ -1,0 +1,54 @@
+:root {
+  --background: #ffffff;
+  --foreground: #111111;
+  --anchor-topbar-height: 56px;
+  --anchor-header-bg: #ffffff;
+  --anchor-header-border: #ececec;
+  --anchor-header-text: #111111;
+  --anchor-header-muted: #6f6f6f;
+  --anchor-header-accent: #b87444;
+  --anchor-search-bg: #ffffff;
+  --anchor-sidebar-bg: #ffffff;
+  --anchor-sidebar-border: #d4b898;
+  --anchor-surface: #ffffff;
+  --anchor-surface-muted: #f7f7f7;
+  --anchor-divider: #e5e7eb;
+  --anchor-text-sub: #242424;
+  --anchor-muted: #666666;
+  --anchor-font-serif: "Playfair Display", Georgia, serif;
+}
+
+html,
+body,
+button,
+a,
+input,
+textarea,
+select,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+[data-theme="dark"] {
+  --background: #0e1217;
+  --foreground: #f4f7fb;
+  --anchor-header-bg: #0e1217;
+  --anchor-header-border: #2a3340;
+  --anchor-header-text: #f4f7fb;
+  --anchor-header-muted: #9aa3ad;
+  --anchor-header-accent: #d4a574;
+  --anchor-search-bg: #1a222c;
+  --anchor-sidebar-bg: #0b0f14;
+  --anchor-sidebar-border: #2a3340;
+  --anchor-surface: #151b22;
+  --anchor-surface-muted: #1a222c;
+  --anchor-divider: #2a3340;
+  --anchor-text-sub: #d5dbe3;
+  --anchor-muted: #9aa3ad;
+}

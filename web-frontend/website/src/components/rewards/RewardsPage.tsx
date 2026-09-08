@@ -16,6 +16,7 @@ import { api, PointsSummary, PointsEntry } from "@/lib/api";
 import { FONT } from "@/lib/typography";
 import { SPACE } from "@/lib/spacing";
 import { SIZE } from "@/lib/sizes";
+import { C } from "@/lib/ui-colors";
 
 // ── Badge definitions ────────────────────────────────────────────────────────
 
@@ -155,7 +156,7 @@ function StatCard({
             {label}
           </Typography>
         </Box>
-        <Typography variant="h5" sx={{ fontSize: { xs: "2rem", md: "2.3rem" }, fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
+        <Typography variant="h5" sx={{ fontSize: { xs: "2rem", md: "1.9rem" }, fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
           {value}
         </Typography>
         {sub && (
@@ -181,8 +182,8 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
 
   return (
     <Card sx={{
-      border: unlocked ? "1.5px solid #b87444" : "1px solid #e8ddd0",
-      bgcolor: unlocked ? "#fdfaf7" : "#fdfaf7",
+      border: unlocked ? `1.5px solid ${C.accent}` : `1px solid ${C.divider}`,
+      bgcolor: C.cardBg,
       boxShadow: unlocked ? "0 4px 16px rgba(184,116,68,0.18)" : "none",
       transition: "all 0.25s ease",
       "&:hover": {
@@ -193,17 +194,17 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
       <CardContent sx={{ textAlign: "center", padding: 2, pb: "20px !important" }}>
         <Box sx={{
           width: 50, height: 50, borderRadius: "50%",
-          bgcolor: unlocked ? "#f5ede0" : "#f5ede0",
+          bgcolor: C.surface,
           display: "flex", alignItems: "center", justifyContent: "center",
           mx: "auto", mb: 0.8, fontSize: "1.3rem",
         }}>
           {unlocked ? badge.emoji : <Lock size={20} color="#b8a090" />}
         </Box>
 
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: unlocked ? "#b87444" : "#8c6a50", mb: 0.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: unlocked ? C.accent : C.textMuted, mb: 0.5 }}>
           {badge.title}
         </Typography>
-        <Typography variant="caption" sx={{ display: "block", mb: 0.8, lineHeight: 1.4, color: "#8c6a50" }}>
+        <Typography variant="caption" sx={{ display: "block", mb: 0.8, lineHeight: 1.4, color: C.textMuted }}>
           {badge.desc}
         </Typography>
 
@@ -213,7 +214,7 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
             size="small"
             icon={<CheckCircle size={11} />}
             sx={{
-              bgcolor: "#f5ede0", color: "#b87444", fontWeight: 700,
+              bgcolor: C.surface, color: C.accent, fontWeight: 700,
               fontSize: "clamp(10px,0.8vw,12px)", height: 22,
               "& .MuiChip-icon": { color: "#b87444", ml: "5px" },
             }}
@@ -225,11 +226,11 @@ function BadgeCard({ badge, stats }: { badge: BadgeDef; stats: UserStats }) {
               value={pct}
               sx={{
                 height: 5, borderRadius: 3,
-                bgcolor: "#e8ddd0", mb: 0.5,
+                bgcolor: C.divider, mb: 0.5,
                 "& .MuiLinearProgress-bar": { borderRadius: 3, bgcolor: "#b87444" },
               }}
             />
-            <Typography variant="caption" sx={{ color: "#8c6a50", fontSize: "clamp(10px,0.8vw,12px)" }}>
+            <Typography variant="caption" sx={{ color: C.textMuted, fontSize: "clamp(10px,0.8vw,12px)" }}>
               {value} / {max}
             </Typography>
           </Box>
@@ -328,7 +329,7 @@ export default function RewardsPage() {
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 0.75 }}>
               <Trophy size={26} color="#f5ede0" fill="#f5ede0" />
-              <Typography sx={{ fontSize: { xs: "2rem", md: "2.4rem" }, fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
+              <Typography sx={{ fontSize: { xs: "2rem", md: "2rem" }, fontWeight: 800, color: "#fff", fontFamily: "'Playfair Display', serif" }}>
                 Rewards
               </Typography>
             </Box>
@@ -398,22 +399,22 @@ export default function RewardsPage() {
       {/* ── Progress to 360 ── */}
       <Card sx={{
         mb: 2,
-        border: canConvert ? "1.5px solid #b87444" : "1px solid #e8ddd0",
+        border: canConvert ? `1.5px solid ${C.accent}` : `1px solid ${C.divider}`,
         boxShadow: canConvert ? "0 0 0 3px rgba(184,116,68,0.15)" : "0 1px 4px rgba(44,26,10,0.06)",
-        background: "#ffffff",
+        background: C.cardBg,
         borderRadius: 3,
       }}>
         <CardContent sx={{ padding: { xs: 2,sm: 2.5, md: 3,lg: 3.5,xl:4 }, pb: "20px !important" }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.25, flexWrap: "wrap", gap: 1 }}>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2c1a0a", lineHeight: 1.3, fontFamily: "'Playfair Display', serif" }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.textPrimary, lineHeight: 1.3, fontFamily: "'Playfair Display', serif" }}>
                 Progress to next 360 Point
               </Typography>
-              <Typography variant="caption" sx={{ color: "#8c6a50" }}>
+              <Typography variant="caption" sx={{ color: C.textMuted }}>
                 100 AP = 1 × 360 Point
               </Typography>
             </Box>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: canConvert ? "#b87444" : "#8c6a50" }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: canConvert ? C.accent : C.textMuted }}>
               {canConvert ? "Ready! 🎉" : `${anchorPoints} / ${conversionThreshold} AP`}
             </Typography>
           </Box>
@@ -422,7 +423,7 @@ export default function RewardsPage() {
             value={progressPercent}
             sx={{
               height: 8, borderRadius: 3,
-              bgcolor: "#f5ede0", mb: 1.5,
+              bgcolor: C.surface, mb: 1.5,
               "& .MuiLinearProgress-bar": {
                 borderRadius: 6,
                 background: canConvert
@@ -444,7 +445,7 @@ export default function RewardsPage() {
               textTransform: "none", fontWeight: 700, borderRadius: 3, height: 42, fontSize: FONT.md, px: 3,
               ...(canConvert
                 ? { bgcolor: "#b87444", "&:hover": { bgcolor: "#a0622e" }, color: "#fff", boxShadow: "0 4px 12px rgba(184,116,68,0.30)" }
-                : { borderColor: "#e8ddd0", color: "#b8a090" }),
+                : { borderColor: C.divider, color: C.textMuted }),
             }}
           >
             {isConverting ? "Converting…" : canConvert ? "✨ Convert 100 AP → 1 × 360 Point" : `Need ${pointsToNext} more AP`}
@@ -453,20 +454,20 @@ export default function RewardsPage() {
       </Card>
 
       {/* ── Badges ── */}
-      <Card sx={{ mb: 2, boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: "1px solid #e8ddd0", background: "#ffffff", borderRadius: 3 }}>
+      <Card sx={{ mb: 2, boxShadow: "0 1px 4px rgba(44,26,10,0.06)", border: `1px solid ${C.divider}`, background: C.cardBg, borderRadius: 3 }}>
         <CardContent sx={{ padding: { xs: 2,md: 2.5, lg: 3, }}}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}>
               Badges
             </Typography>
             <Chip
               label={`${unlockedBadges} / ${BADGES.length} unlocked`}
               size="small"
               sx={{
-                bgcolor: unlockedBadges > 0 ? "#f5ede0" : "#f5ede0",
-                color: unlockedBadges > 0 ? "#b87444" : "#8c6a50",
+                bgcolor: C.surface,
+                color: unlockedBadges > 0 ? C.accent : C.textMuted,
                 fontWeight: 600, fontSize: FONT.sm, height: 22,
-                border: "1px solid #e8ddd0",
+                border: `1px solid ${C.divider}`,
               }}
             />
           </Box>

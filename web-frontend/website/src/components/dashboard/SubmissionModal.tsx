@@ -10,6 +10,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { Zap, ExternalLink } from "lucide-react";
 import { api, SubmissionResult } from "@/lib/api";
 import { normalizeLeetcodeUrl } from "@/lib/leetcode-url";
+import { C } from "@/lib/ui-colors";
 
 interface Task {
   id: number;
@@ -74,18 +75,18 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
       slotProps={{ backdrop: { sx: { backdropFilter: "blur(6px)", backgroundColor: "rgba(44,26,10,0.2)" } } }}>
       <Box sx={{
         position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-        width: 700, maxWidth: "90vw", bgcolor: "#ffffff", borderRadius: 3,
+        width: 700, maxWidth: "90vw", bgcolor: C.cardBg, borderRadius: 3,
         boxShadow: "0 20px 60px rgba(44,26,10,0.16)",
-        border: "1px solid #e8ddd0",
+        border: `1px solid ${C.divider}`,
         p: 4, maxHeight: "85vh", overflowY: "auto",
       }}>
         {/* Header */}
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3 }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}>
               Submit Your Answer
             </Typography>
-            <Typography variant="body2" sx={{ color: "#8c6a50", display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Typography variant="body2" sx={{ color: C.textMuted, display: "flex", alignItems: "center", gap: 0.5 }}>
               {task.title}
               {getLeetcodeUrl(task) && (
                 <Box component="a" href={getLeetcodeUrl(task)!} target="_blank" rel="noopener noreferrer"
@@ -112,7 +113,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
             )}
           </Box>
           <IconButton onClick={handleClose}
-            sx={{ color: "#8c6a50", "&:hover": { color: "#b87444", backgroundColor: "rgba(184,116,68,0.08)" } }}>
+            sx={{ color: C.textMuted, "&:hover": { color: "#b87444", backgroundColor: "rgba(184,116,68,0.08)" } }}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -137,7 +138,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
                   boxShadow: "0 12px 28px rgba(160,98,46,.24)",
                   border: "5px solid rgba(255,255,255,.7)",
                 }}>🏆</Box>
-                <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 25, fontWeight: 800, color: "#2c1a0a" }}>
+                <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: 25, fontWeight: 800, color: C.textPrimary }}>
                   Course completed!
                 </Typography>
                 <Typography sx={{ mt: 0.75, color: "#6f5542", lineHeight: 1.55 }}>
@@ -157,7 +158,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
               boxShadow: "none",
             }}>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: "#2c1a0a" }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: C.textPrimary }}>
                   Score: {result.score}/10
                 </Typography>
                 <Chip
@@ -171,7 +172,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
                   }}
                 />
               </Box>
-              <Typography variant="body1" sx={{ mb: 2, color: "#2c1a0a", lineHeight: 1.6 }}>
+              <Typography variant="body1" sx={{ mb: 2, color: C.textPrimary, lineHeight: 1.6 }}>
                 {result.feedback}
               </Typography>
 
@@ -185,7 +186,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
                   <Typography variant="body2" sx={{ fontWeight: 700, color: "#a0622e" }}>
                     +{result.anchorPointsEarned} Anchor Points earned!
                   </Typography>
-                  <Typography variant="caption" sx={{ ml: "auto", color: "#8c6a50" }}>
+                  <Typography variant="caption" sx={{ ml: "auto", color: C.textMuted }}>
                     Total: {result.newAnchorPointsBalance} AP
                   </Typography>
                 </Box>
@@ -193,11 +194,11 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
 
               {result.details && !result.details.selfReport && (
                 <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #e8ddd0" }}>
-                  <Typography variant="caption" sx={{ display: "block", mb: 1, color: "#8c6a50" }}>
+                  <Typography variant="caption" sx={{ display: "block", mb: 1, color: C.textMuted }}>
                     Analysis Details:
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                    {result.details.wordCount && <Chip label={`${result.details.wordCount} words`} size="small" variant="outlined" sx={{ borderColor: "#e8ddd0", color: "#8c6a50" }} />}
+                    {result.details.wordCount && <Chip label={`${result.details.wordCount} words`} size="small" variant="outlined" sx={{ borderColor: "#e8ddd0", color: C.textMuted }} />}
                     {result.details.passingScore && <Chip label={`Needed: ${result.details.passingScore}/10`} size="small" variant="outlined" sx={{ borderColor: result.approved ? "#b87444" : "#fca5a5", color: result.approved ? "#b87444" : "#ef4444" }} />}
                     {result.details.hasSituation && <Chip label="✓ Has Situation" size="small" sx={{ backgroundColor: "#f5ede0", color: "#b87444" }} />}
                     {result.details.hasTask && <Chip label="✓ Has Task" size="small" sx={{ backgroundColor: "#f5ede0", color: "#b87444" }} />}
@@ -235,7 +236,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
             />
 
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-              <Typography variant="caption" sx={{ color: "#8c6a50" }}>
+              <Typography variant="caption" sx={{ color: C.textMuted }}>
                 {wordCount} words • {charCount} characters
               </Typography>
               <Typography variant="caption" sx={{ fontWeight: 600, color: isValid ? "#b87444" : "#ef4444" }}>
@@ -244,13 +245,13 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
             </Box>
 
             {isSelfReport && (
-              <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: "#2c1a0a", border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
+              <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: C.textPrimary, border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
                 This is a self-report task. Just briefly confirm you completed it!
               </Alert>
             )}
 
             {isLeetcode && (
-              <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: "#2c1a0a", border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
+              <Alert severity="info" sx={{ mb: 2, backgroundColor: "#f5ede0", color: C.textPrimary, border: "1px solid #e8ddd0", "& .MuiAlert-icon": { color: "#b87444" } }}>
                 Submit code in any programming language. Explanations are optional and the evaluator will assess correctness, edge cases, and complexity.
               </Alert>
             )}
@@ -260,7 +261,7 @@ export default function SubmissionModal({ open, onClose, task, onSuccess }: Subm
             {isSubmitting && (
               <Box sx={{ mb: 2 }}>
                 <LinearProgress sx={{ "& .MuiLinearProgress-bar": { backgroundColor: "#b87444" }, backgroundColor: "#f5ede0" }} />
-                <Typography variant="caption" sx={{ display: "block", mt: 1, textAlign: "center", color: "#8c6a50" }}>
+                <Typography variant="caption" sx={{ display: "block", mt: 1, textAlign: "center", color: C.textMuted }}>
                   {isSelfReport ? "Submitting..." : "AI is evaluating your answer..."}
                 </Typography>
               </Box>

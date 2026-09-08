@@ -4,23 +4,7 @@ import React from "react";
 import { Box, Typography, Card, Stack } from "@mui/material";
 import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
 import { useRouter } from "next/navigation";
-
-// ── Anchor palette tokens ────────────────────────────────────────────────────
-const C = {
-  accent:       "#b87444",
-  accentDark:   "#a0622e",
-  accentBg:     "rgba(184,116,68,0.08)",
-  accentBorder: "rgba(184,116,68,0.15)",
-  accentFaint:  "rgba(184,116,68,0.10)",
-  accentHover:  "rgba(184,116,68,0.06)",
-  accentGrad:   "linear-gradient(to right, #b87444, #a0622e)",
-  cardBg:       "#ffffff",
-  surface:      "#fdfaf7",
-  divider:      "#e8ddd0",
-  textPrimary:  "#2c1a0a",
-  textSub:      "#8c6a50",
-  textMuted:    "#b8a090",
-} as const;
+import { C } from "@/lib/ui-colors";
 
 export type Submission = {
   id: string;

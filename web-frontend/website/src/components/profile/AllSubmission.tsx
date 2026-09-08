@@ -32,24 +32,7 @@ import { useRouter } from "next/navigation";
 import SubmissionDetailModal, {
   type Submission,
 } from "./Submissiondetailmodal";
-
-const C = {
-  accent: "#b87444",
-  accentDark: "#a0622e",
-  accentBg: "rgba(184,116,68,0.08)",
-  accentBorder: "rgba(184,116,68,0.18)",
-  accentFaint: "rgba(184,116,68,0.10)",
-  accentHover: "rgba(184,116,68,0.04)",
-  accentSelected: "rgba(184,116,68,0.13)",
-  accentGrad: "linear-gradient(to right, #b87444, #a0622e)",
-  dotActive: "#b87444",
-  surface: "#fdfaf7",
-  divider: "#e8ddd0",
-  textPrimary: "#2c1a0a",
-  textSub: "#8c6a50",
-  textHint: "#b8a090",
-  calDayHover: "rgba(184,116,68,0.07)",
-} as const;
+import { C } from "@/lib/ui-colors";
 
 const ROWS_PER_PAGE = 10;
 
@@ -514,7 +497,7 @@ export default function AllSubmissions() {
               border: `1px solid ${C.accentFaint}`,
               overflow: "hidden",
               minHeight: loading ? 500 : "unset",
-              background: "#ffffff",
+              background: C.cardBg,
             }}
           >
             <Box sx={{ height: 4, background: C.accentGrad }} />

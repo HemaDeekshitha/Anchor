@@ -27,11 +27,11 @@ export class AuthService {
   private issueTokens(user: User) {
     const payload = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '15m',
+      expiresIn: '30d',
     });
     const refreshToken = this.jwtService.sign(payload, {
       secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: '7d',
+      expiresIn: '30d',
     });
 
     return { accessToken, refreshToken };
@@ -338,12 +338,7 @@ export class AuthService {
       const user = await this.userRepo.findOne({ where: { id: payload.sub } });
       if (!user) throw new UnauthorizedException('User not found');
 
-      const newAccessToken = this.jwtService.sign(
-        { sub: user.id, email: user.email },
-        { expiresIn: '15m' },
-      );
-
-      return { accessToken: newAccessToken };
+      return this.issueTokens(user);
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }

@@ -20,15 +20,15 @@ export default function GlobalError({
         minHeight: "100vh",
         display: "grid",
         placeItems: "center",
-        bgcolor: "#ede8e0",
+        bgcolor: "var(--background, #ffffff)",
         p: 3,
       }}
     >
       <Box
         sx={{
           maxWidth: 520,
-          bgcolor: "#fff",
-          border: "1px solid #e8ddd0",
+          bgcolor: "var(--anchor-surface, #ffffff)",
+          border: "1px solid var(--anchor-divider, #e5e7eb)",
           borderRadius: 4,
           p: 4,
           textAlign: "center",
@@ -37,7 +37,7 @@ export default function GlobalError({
         <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
           Anchor hit a snag
         </Typography>
-        <Typography sx={{ color: "#8c6a50", mb: 3 }}>
+        <Typography sx={{ color: "var(--anchor-muted, #666666)", mb: 3 }}>
           Try loading this page again, or sign in if your session has ended.
         </Typography>
         <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5 }}>

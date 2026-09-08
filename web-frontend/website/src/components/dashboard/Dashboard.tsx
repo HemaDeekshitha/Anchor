@@ -10,6 +10,7 @@ import { apiFetch, requireOk } from "@/lib/auth-client";
 import { FONT } from "@/lib/typography";
 import { SPACE } from "@/lib/spacing";
 import { SIZE } from "@/lib/sizes";
+import { C } from "@/lib/ui-colors";
 import LearningTrackPanel from "../learning-plan/LearningTrackPanel";
 import { normalizeLeetcodeUrl } from "@/lib/leetcode-url";
 import {
@@ -181,16 +182,16 @@ const Dashboard = () => {
           <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
             <Card sx={{
               padding: SPACE.lg, borderRadius: SIZE.radius, maxWidth: SIZE.cardWidth, width: "100%", textAlign: "center",
-              background: "linear-gradient(135deg, #fdfaf7, #ffffff)",
-              border: "1px solid #e8ddd0",
+              background: C.cardBg,
+              border: `1px solid ${C.divider}`,
               boxShadow: "0 16px 40px rgba(44,26,10,0.08)",
             }}>
               <CardContent>
                 <CircularProgress size={40} sx={{ color: "#b87444", mb: 2 }} />
-                <Typography sx={{ fontSize: FONT.lg, fontWeight: 700, color: "#2c1a0a", mb: 1, fontFamily: "'Playfair Display', serif" }}>
+                <Typography sx={{ fontSize: FONT.lg, fontWeight: 700, color: C.textPrimary, mb: 1, fontFamily: "'Playfair Display', serif" }}>
                   Loading today&apos;s Smart Plan
                 </Typography>
-                <Typography sx={{ fontSize: FONT.sm, color: "#8c6a50" }}>
+                <Typography sx={{ fontSize: FONT.sm, color: C.textMuted }}>
                   Retrieving your saved questions...
                 </Typography>
               </CardContent>
@@ -202,14 +203,14 @@ const Dashboard = () => {
               sx={{
                 mb: SPACE.md,
                 pb: SPACE.md,
-                borderBottom: "1px solid #e8ddd0",
+                borderBottom: `1px solid ${C.divider}`,
               }}
             >
               <Typography
                 sx={{
-                  fontSize: "clamp(1.25rem, 2vw, 2rem)",
+                  fontSize: "clamp(1.25rem, 1.6vw, 1.7rem)",
                   fontWeight: 800,
-                  color: "#2c1a0a",
+                  color: C.textPrimary,
                   lineHeight: 1.15,
                   fontFamily: "'Playfair Display', serif",
                 }}
@@ -221,7 +222,7 @@ const Dashboard = () => {
                 👋
               </Typography>
               <Typography
-                sx={{ mt: 0.5, fontSize: FONT.md, color: "#8c6a50", lineHeight: 1.6 }}
+                sx={{ mt: 0.5, fontSize: FONT.md, color: C.textMuted, lineHeight: 1.6 }}
               >
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "short",
@@ -239,7 +240,7 @@ const Dashboard = () => {
               gap: { xs: 2, md: 3 },
               mb: 2,
               pb: { xs: 2, md: 3 },
-              borderBottom: "1px solid #e8ddd0",
+              borderBottom: `1px solid ${C.divider}`,
               alignItems: "stretch",
             }}>
 
@@ -252,10 +253,10 @@ const Dashboard = () => {
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <Box>
-                    <Typography sx={{ fontSize: { xs: "1.5rem", md: "2rem" }, fontWeight: 800, color: "#2c1a0a", lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: { xs: "1.5rem", md: "1.7rem" }, fontWeight: 800, color: C.textPrimary, lineHeight: 1 }}>
                       {progress}%
                     </Typography>
-                    <Typography sx={{ fontSize: FONT.sm, color: "#8c6a50", mt: 0.5 }}>
+                    <Typography sx={{ fontSize: FONT.sm, color: C.textMuted, mt: 0.5 }}>
                       {completedCount} / {smartPlan.length} tasks completed
                     </Typography>
                   </Box>
@@ -275,7 +276,7 @@ const Dashboard = () => {
                       sx={{ color: "#b87444", position: "absolute", inset: 0 }}
                     />
                     <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", lineHeight: 1, color: "#2c1a0a", fontVariantNumeric: "tabular-nums" }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", lineHeight: 1, color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>
                         {progress}%
                       </Typography>
                     </Box>
@@ -286,10 +287,10 @@ const Dashboard = () => {
               <Divider
                 orientation="vertical"
                 flexItem
-                sx={{ display: { xs: "none", md: "block" }, borderColor: "#e8ddd0" }}
+                sx={{ display: { xs: "none", md: "block" }, borderColor: C.divider }}
               />
               <Divider
-                sx={{ display: { xs: "block", md: "none" }, borderColor: "#e8ddd0" }}
+                sx={{ display: { xs: "block", md: "none" }, borderColor: C.divider }}
               />
 
               {/* Pending Tasks */}
@@ -308,10 +309,10 @@ const Dashboard = () => {
                   </Typography>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>
-                      <Typography sx={{ fontSize: { xs: "1.8rem", md: "2.1rem" }, fontWeight: 800, color: "#2c1a0a", lineHeight: 1 }}>
+                      <Typography sx={{ fontSize: { xs: "1.8rem", md: "1.85rem" }, fontWeight: 800, color: C.textPrimary, lineHeight: 1 }}>
                         {pendingTasks.length}
                       </Typography>
-                      <Typography sx={{ fontSize: FONT.sm, color: "#8c6a50", mt: 0.5 }}>
+                      <Typography sx={{ fontSize: FONT.sm, color: C.textMuted, mt: 0.5 }}>
                         {pendingTasks.length === 0 ? "No pending questions at the moment" : "Questions waiting in your current plan"}
                       </Typography>
                       {pendingTasks.length > 0 && (
@@ -322,7 +323,7 @@ const Dashboard = () => {
                     </Box>
                     <Box sx={{
                       width: 40, height: 40, borderRadius: SIZE.radius,
-                      background: "linear-gradient(135deg, #f5ede0, #e8d4bc)",
+                      background: C.surface,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
                       <ClipboardCheck size={20} color="#b87444" strokeWidth={2.2} />
@@ -341,10 +342,10 @@ const Dashboard = () => {
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mb:2, flexWrap: "wrap", gap: 2 }}>
                   <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
                     <Box>
-                    <Typography sx={{ fontSize: { xs: "1.7rem", sm: "2rem", md: "2.4rem" }, fontWeight: 800, color: "#2c1a0a", letterSpacing: "-0.025em", fontFamily: "'Playfair Display', serif", lineHeight: 1.15 }}>
+                    <Typography sx={{ fontSize: { xs: "1.7rem", sm: "1.85rem", md: "2rem" }, fontWeight: 800, color: C.textPrimary, letterSpacing: "-0.025em", fontFamily: "'Playfair Display', serif", lineHeight: 1.15 }}>
                       Today&apos;s Smart Plan
                     </Typography>
-                    <Typography sx={{ fontSize: FONT.sm, color: "#8c6a50", mt: 0.65 }}>
+                    <Typography sx={{ fontSize: FONT.sm, color: C.textMuted, mt: 0.65 }}>
                       Your personalized interview practice, powered by AI.
                     </Typography>
                     </Box>
@@ -352,8 +353,8 @@ const Dashboard = () => {
                   <Box sx={{
                     px: 1.5, py: 0.75, borderRadius: 999,
                     display: "flex", alignItems: "center", gap: 0.8,
-                    background: "rgba(255,255,255,.72)",
-                    border: "1px solid #e4d5c3", color: "#6f5542",
+                    background: C.surface,
+                    border: `1px solid ${C.divider}`, color: C.textSub,
                   }}>
                     <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: progress === 100 ? "#5f806c" : "#b87444" }} />
                     <Typography sx={{ fontSize: 12, fontWeight: 700 }}>
@@ -371,10 +372,8 @@ const Dashboard = () => {
                     smartPlan.map((task, index) => (
                     <Card key={task.id} onClick={() => handleTaskClick(task)} sx={{
                       borderRadius: SIZE.radius, cursor: "pointer", transition: "all .2s ease",
-                      border: task.status === "completed" ? "1px solid #d8dfd8" : "1px solid #e4d5c3",
-                      background: task.status === "completed"
-                        ? "linear-gradient(135deg, #f7faf7, #f2f6f2)"
-                        : "linear-gradient(135deg, #ffffff, #fdfbf8)",
+                      border: task.status === "completed" ? `1px solid ${C.divider}` : `1px solid ${C.divider}`,
+                      background: C.cardBg,
                       boxShadow: task.status === "completed"
                         ? "0 5px 15px rgba(66,86,70,0.04)"
                         : "0 7px 20px rgba(76,48,27,0.055)",
@@ -396,7 +395,7 @@ const Dashboard = () => {
                             width: "clamp(36px,2vw,50px)", height: "clamp(36px,2vw,50px)", borderRadius: 2.25,
                             border: task.status === "completed" ? "1px solid #789080" : "1px solid #dfc3aa",
                             display: "flex", alignItems: "center", justifyContent: "center",
-                            background: task.status === "completed" ? "#789080" : "#f8efe7",
+                            background: task.status === "completed" ? "#789080" : C.surface,
                             color: task.status === "completed" ? "#fff" : "#a0622e",
                             flexShrink: 0,
                           }}>
@@ -416,8 +415,8 @@ const Dashboard = () => {
                               )}
                             </Box>
                             <Typography component="div" sx={{
-                              fontSize: { xs: 15, md: 16.5 }, fontWeight: 650,
-                              color: task.status === "completed" ? "#627066" : "#2c1a0a",
+                              fontSize: { xs: 15, md: 15.5 }, fontWeight: 650,
+                              color: task.status === "completed" ? "#627066" : C.textPrimary,
                               lineHeight: 1.48,
                               overflowWrap:"anywhere",
                             }}>
@@ -478,23 +477,23 @@ const Dashboard = () => {
           slotProps={{ backdrop: { sx: { backdropFilter: "blur(6px)", backgroundColor: "rgba(44,26,10,0.2)" } } }}>
           <Box sx={{
             position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            width: "clamp(520px,55vw,760px)", maxWidth: "92vw", bgcolor: "#ffffff", borderRadius: 4,
+            width: "clamp(520px,55vw,760px)", maxWidth: "92vw", bgcolor: C.cardBg, borderRadius: 4,
             boxShadow: "0 30px 80px rgba(44,26,10,0.16)",
-            border: "1px solid #e8ddd0",
+            border: `1px solid ${C.divider}`,
             overflow: "hidden", maxHeight: "85vh", display: "flex", flexDirection: "column", pb: 3,
           }}>
             <Box sx={{
               paddingInline: SPACE.lg, py: 2.2, pb: 2.5,
               display: "flex", justifyContent: "space-between", alignItems: "center",
-              borderBottom: "1px solid #e8ddd0",
-              background: "linear-gradient(135deg, #fdfaf7, #ffffff)",
+              borderBottom: `1px solid ${C.divider}`,
+              background: C.cardBg,
             }}>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
-                <Typography sx={{ fontSize: FONT.lg, fontWeight: 700, color: "#2c1a0a", fontFamily: "'Playfair Display', serif" }}>
+                <Typography sx={{ fontSize: FONT.lg, fontWeight: 700, color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}>
                   Pending Questions
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                  <Typography sx={{ fontSize: FONT.sm, color: "#8c6a50" }}>
+                  <Typography sx={{ fontSize: FONT.sm, color: C.textMuted }}>
                     Unfinished questions from your current learning plan
                   </Typography>
                   <Box sx={{
@@ -508,7 +507,7 @@ const Dashboard = () => {
                 </Box>
               </Box>
               <IconButton onClick={() => setOpenPendingModal(false)}
-                sx={{ color: "#8c6a50", "&:hover": { color: "#b87444", backgroundColor: "rgba(184,116,68,0.08)" } }}>
+                sx={{ color: C.textMuted, "&:hover": { color: "#b87444", backgroundColor: "rgba(184,116,68,0.08)" } }}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
@@ -524,7 +523,7 @@ const Dashboard = () => {
                           onClick={() => { setOpenPendingModal(false); handleTaskClick(task); }}
                           sx={{
                             py: 1.6, px: 2, gap: 2, borderRadius: 2, transition: "all .15s ease",
-                            "&:hover": { backgroundColor: "#fdfaf7", transform: "translateX(3px)" },
+                            "&:hover": { backgroundColor: C.surface, transform: "translateX(3px)" },
                           }}>
                           <Box sx={{
                             width: 20, height: 20, borderRadius: "50%", border: "2px solid #b87444",
@@ -536,12 +535,12 @@ const Dashboard = () => {
                           <Box sx={{ flex: 1 }}>
                             <Typography sx={{
                               fontSize: FONT.md, fontWeight: 500,
-                              color: isCompleted ? "#9ca3af" : "#2c1a0a",
+                              color: isCompleted ? C.textMuted : C.textPrimary,
                               textDecoration: isCompleted ? "line-through" : "none",
                             }}>
                               {task.title}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: "#8c6a50" }}>
+                            <Typography variant="caption" sx={{ color: C.textMuted }}>
                               {task.date || "Overdue"}
                             </Typography>
                           </Box>

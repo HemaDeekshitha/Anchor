@@ -188,6 +188,7 @@ services:
       NODE_ENV: production
       PORT: 3002
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set to the public production API URL}
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:3001}
     ports:
       - "127.0.0.1:3014:3002"
     healthcheck:

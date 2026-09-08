@@ -1,0 +1,21 @@
+export const C = {
+  accent: "var(--anchor-header-accent)",
+  accentDark: "var(--anchor-header-accent)",
+  accentTeal: "#2E9B8F",
+  accentBg: "color-mix(in srgb, var(--anchor-header-accent) 12%, transparent)",
+  accentBorder: "color-mix(in srgb, var(--anchor-header-accent) 20%, transparent)",
+  accentFaint: "color-mix(in srgb, var(--anchor-header-accent) 12%, transparent)",
+  accentHover: "color-mix(in srgb, var(--anchor-header-accent) 8%, transparent)",
+  accentSelected: "color-mix(in srgb, var(--anchor-header-accent) 13%, transparent)",
+  accentGrad:
+    "linear-gradient(to right, var(--anchor-header-accent), var(--anchor-header-accent))",
+  cardBg: "var(--anchor-surface)",
+  surface: "var(--anchor-surface-muted)",
+  divider: "var(--anchor-divider)",
+  textPrimary: "var(--foreground)",
+  textSub: "var(--anchor-text-sub)",
+  textMuted: "var(--anchor-muted)",
+  textHint: "var(--anchor-muted)",
+  dotActive: "var(--anchor-header-accent)",
+  calDayHover: "color-mix(in srgb, var(--anchor-header-accent) 8%, transparent)",
+} as const;
