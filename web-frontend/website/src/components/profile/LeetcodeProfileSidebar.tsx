@@ -12,26 +12,9 @@ import {
   Stack,
   Popover,
 } from "@mui/material";
+import { C } from "@/lib/ui-colors";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
-// ── Anchor palette tokens ────────────────────────────────────────────────────
-const C = {
-  accent: "#b87444",
-  accentDark: "#a0622e",
-  accentBg: "rgba(184,116,68,0.08)",
-  accentBorder: "rgba(184,116,68,0.15)",
-  accentFaint: "rgba(184,116,68,0.10)",
-  accentHover: "rgba(184,116,68,0.06)",
-  accentSelected: "rgba(184,116,68,0.13)",
-  accentGrad: "linear-gradient(to right, #b87444, #a0622e)",
-  cardBg: "#ffffff",
-  surface: "#fdfaf7",
-  divider: "#e8ddd0",
-  textPrimary: "#2c1a0a",
-  textSub: "#8c6a50",
-  textMuted: "#b8a090",
-} as const;
 
 type ProfileSkill = { name: string; category: string };
 
@@ -116,7 +99,7 @@ export default function LeetcodeProfileSidebar({
         borderRadius: 3,
         padding: { xs: 2, md: 2 },
         overflow: "hidden",
-        background: "linear-gradient(135deg, #ffffff, #fdfaf7)",
+        background: C.cardBg,
         border: `1px solid ${C.divider}`,
         borderTop: `4px solid ${C.accent}`,
         boxShadow: "0 4px 20px rgba(44,26,10,0.06)",
@@ -288,7 +271,7 @@ export default function LeetcodeProfileSidebar({
               gap: 1,
               flexWrap: "wrap",
               maxWidth: 300,
-              background: "#ffffff",
+              background: C.cardBg,
               border: `1px solid ${C.divider}`,
             }}
           >

@@ -4,7 +4,9 @@ const API_BASE_URL =
 export const SESSION_ENDED_EVENT = "anchor:session-ended";
 export const SESSION_CHANNEL = "anchor-session";
 
-let refreshPromise: Promise<boolean> | null = null;
+type RefreshOutcome = "ok" | "unauthorized" | "failed";
+
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
 function notifySessionEnded(reason: string) {
   if (typeof window === "undefined") return;
@@ -20,20 +22,28 @@ function notifySessionEnded(reason: string) {
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+async function refreshAccessToken(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
       credentials: "include",
     })
-      .then((response) => response.ok)
-      .catch(() => false)
+      .then((response): RefreshOutcome => {
+        if (response.ok) return "ok";
+        if (response.status === 401) return "unauthorized";
+        return "failed";
+      })
+      .catch((): RefreshOutcome => "failed")
       .finally(() => {
         refreshPromise = null;
       });
   }
 
   return refreshPromise;
+}
+
+export async function keepSessionAlive(): Promise<boolean> {
+  return (await refreshAccessToken()) === "ok";
 }
 
 export async function apiFetch(
@@ -48,14 +58,16 @@ export async function apiFetch(
   let response = await fetch(input, requestInit);
   if (response.status !== 401) return response;
 
-  const refreshed = await refreshAccessToken();
-  if (!refreshed) {
-    notifySessionEnded("expired");
+  const outcome = await refreshAccessToken();
+  if (outcome === "ok") {
+    response = await fetch(input, requestInit);
+    if (response.status === 401) await logoutSession("expired");
     return response;
   }
 
-  response = await fetch(input, requestInit);
-  if (response.status === 401) notifySessionEnded("expired");
+  if (outcome === "unauthorized") {
+    await logoutSession("expired");
+  }
   return response;
 }
 

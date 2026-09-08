@@ -23,10 +23,13 @@ const isProd = process.env.NODE_ENV === 'production';
 // while keeping local dev behavior unchanged.
 const cookieBaseOptions = {
   httpOnly: true,
+  path: '/',
   secure: isProd,
   sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
   ...(isProd && { domain: '.feeltiptop.com' }),
 };
+
+const SESSION_COOKIE_MS = 30 * 24 * 60 * 60 * 1000;
 
 @Controller('auth')
 export class AuthController {
@@ -39,11 +42,11 @@ export class AuthController {
   ) {
     res.cookie('access_token', accessToken, {
       ...cookieBaseOptions,
-      maxAge: 15 * 60 * 1000,
+      maxAge: SESSION_COOKIE_MS,
     });
     res.cookie('refresh_token', refreshToken, {
       ...cookieBaseOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: SESSION_COOKIE_MS,
     });
   }
 
@@ -74,19 +77,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const { accessToken, refreshToken } = await this.authService.login(dto);
-    const rememberMe = dto.rememberMe === true;
-
-    res.cookie('access_token', accessToken, {
-      ...cookieBaseOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie('refresh_token', refreshToken, {
-      ...cookieBaseOptions,
-      ...(rememberMe && {
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      }),
-    });
+    this.setAuthCookies(res, accessToken, refreshToken);
 
     console.log('Login successful');
 
@@ -107,15 +98,7 @@ export class AuthController {
     const { accessToken, refreshToken, user } =
       await this.authService.googleLogin(req.user);
 
-    res.cookie('access_token', accessToken, {
-      ...cookieBaseOptions,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie('refresh_token', refreshToken, {
-      ...cookieBaseOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    this.setAuthCookies(res, accessToken, refreshToken);
 
     const baseUrl =
       process.env.FRONTEND_URL ||
@@ -197,13 +180,9 @@ export class AuthController {
       throw new UnauthorizedException('No refresh token');
     }
 
-    const { accessToken } =
+    const { accessToken, refreshToken: nextRefreshToken } =
       await this.authService.refreshAccessToken(refreshToken);
-
-    res.cookie('access_token', accessToken, {
-      ...cookieBaseOptions,
-      maxAge: 15 * 60 * 1000,
-    });
+    this.setAuthCookies(res, accessToken, nextRefreshToken);
 
     return { message: 'Token refreshed' };
   }

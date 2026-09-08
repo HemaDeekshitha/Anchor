@@ -30,7 +30,7 @@ export default function LoginPage() {
     if (typeof window === "undefined") return "";
     const remembered = localStorage.getItem("rememberMe");
     const savedEmail = localStorage.getItem("rememberedEmail");
-    return remembered === "true" && savedEmail ? savedEmail : "";
+    return remembered !== "false" && savedEmail ? savedEmail : "";
   });
 
   const [password, setPassword] = useState("");
@@ -38,8 +38,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [rememberMe, setRememberMe] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("rememberMe") === "true";
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("rememberMe") !== "false";
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -99,7 +99,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, rememberMe, timezone }),
+        body: JSON.stringify({ email, password, rememberMe: true, timezone }),
       });
 
       const data = await res.json();

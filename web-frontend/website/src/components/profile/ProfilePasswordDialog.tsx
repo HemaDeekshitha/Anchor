@@ -12,6 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import { apiFetch, requireOk } from "@/lib/auth-client";
+import { C } from "@/lib/ui-colors";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=]).{8,}$/;
@@ -119,14 +120,14 @@ export default function ProfilePasswordDialog({
               onChange={(event) => setCurrentPassword(event.target.value)} autoFocus />
           )}
           {!codeSent && mode === "forgot" && (
-            <Typography sx={{ color: "#8c6a50" }}>
+            <Typography sx={{ color: C.textMuted }}>
               We will send a verification code to {email}.
             </Typography>
           )}
           {codeSent && (
             <>
-              <Typography sx={{ color: "#8c6a50", fontSize: 14 }}>{message}</Typography>
-              <Typography sx={{ color: "#8c6a50", fontSize: 13 }}>
+              <Typography sx={{ color: C.textMuted, fontSize: 14 }}>{message}</Typography>
+              <Typography sx={{ color: C.textMuted, fontSize: 13 }}>
                 If you don&apos;t see the email in your inbox, check your spam or junk folder.
               </Typography>
               <TextField label="Verification code" value={otp} autoFocus

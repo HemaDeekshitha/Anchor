@@ -11,8 +11,6 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
 import {
   BriefcaseBusiness,
@@ -39,39 +37,38 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   onDesktopExpandedChange,
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const router = useRouter();
   const pathname = usePathname();
   const [desktopExpanded, setDesktopExpanded] = useState(false);
-  const isExpanded = isMobile || desktopExpanded;
-  const drawerWidth = isExpanded ? expandedDrawerWidth : collapsedDrawerWidth;
+  const drawerWidth = desktopExpanded
+    ? expandedDrawerWidth
+    : collapsedDrawerWidth;
 
   const navItems = [
     {
       href: "/dashboard",
       label: "My Plan",
-      icon: <ListTodo size={isMobile ? 22 : 26} />,
+      icon: <ListTodo size={26} />,
     },
     {
       href: "/rewards",
       label: "Rewards",
-      icon: <Trophy size={isMobile ? 22 : 26} />,
+      icon: <Trophy size={26} />,
     },
     {
       href: "/profile",
       label: "Profile",
-      icon: <User size={isMobile ? 22 : 26} />,
+      icon: <User size={26} />,
     },
     {
       href: "/application-tracker",
       label: "Jobs",
-      icon: <BriefcaseBusiness size={isMobile ? 22 : 26} />,
+      icon: <BriefcaseBusiness size={26} />,
     },
     {
       href: "/community?tab=communities",
       label: "Communities",
-      icon: <Users size={isMobile ? 22 : 26} />,
+      icon: <Users size={26} />,
     },
   ];
 
@@ -87,26 +84,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   // T: O(1) and S: O(1)
 
   const handleExpand = () => {
-    if (!isMobile) {
-      setDesktopExpanded(true);
-      onDesktopExpandedChange(true);
-    }
+    setDesktopExpanded(true);
+    onDesktopExpandedChange(true);
   };
   // T: O(1) and S: O(1)
 
   const handleCollapse = () => {
-    if (!isMobile) {
-      setDesktopExpanded(false);
-      onDesktopExpandedChange(false);
-    }
+    setDesktopExpanded(false);
+    onDesktopExpandedChange(false);
   };
   // T: O(1) and S: O(1)
 
   const handleBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-    if (
-      !isMobile &&
-      !event.currentTarget.contains(event.relatedTarget as Node | null)
-    ) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setDesktopExpanded(false);
       onDesktopExpandedChange(false);
     }
@@ -114,23 +104,24 @@ const Sidebar: React.FC<SidebarProps> = ({
   // T: O(1) and S: O(1)
 
   const handleNavigation = () => {
-    if (isMobile) onClose();
+    onClose();
   };
   // T: O(1) and S: O(1)
 
-  const content = (
+  const renderContent = (expanded: boolean, allowHover: boolean) => (
     <Box
-      onMouseEnter={handleExpand}
-      onMouseLeave={handleCollapse}
-      onFocusCapture={handleExpand}
-      onBlurCapture={handleBlur}
+      onMouseEnter={allowHover ? handleExpand : undefined}
+      onMouseLeave={allowHover ? handleCollapse : undefined}
+      onFocusCapture={allowHover ? handleExpand : undefined}
+      onBlurCapture={allowHover ? handleBlur : undefined}
       sx={{
-        width: drawerWidth,
+        width: expanded ? expandedDrawerWidth : collapsedDrawerWidth,
         height: "100%",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        bgcolor: "#ffffff",
+        bgcolor: "var(--anchor-sidebar-bg)",
+        color: "var(--anchor-header-text)",
         boxSizing: "border-box",
         overflow: "hidden",
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
@@ -145,21 +136,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           sx={{
             display: "flex",
             alignItems: "center",
-            justifyContent: isExpanded ? "flex-start" : "center",
-            gap: isExpanded ? 1.5 : 0,
-            px: isExpanded ? 2.5 : 0,
+            justifyContent: expanded ? "flex-start" : "center",
+            gap: expanded ? 1.5 : 0,
+            px: expanded ? 2.5 : 0,
             py: 2,
             fontSize: {
               xs: "1.4rem",
-              md: "1.7rem",
-              lg: "1.9rem",
-              xl: "2.1rem",
+              md: "1.5rem",
+              lg: "1.6rem",
+              xl: "1.7rem",
             },
             fontWeight: 700,
-            color: "#2c1a0a",
+            color: "var(--anchor-header-text)",
             textDecoration: "none",
             fontFamily: "'Playfair Display', serif",
-            "&:hover": { color: "#b87444" },
+            "&:hover": { color: "var(--anchor-header-accent)" },
           }}
         >
           <Box
@@ -187,8 +178,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               color: "inherit",
               font: "inherit",
               whiteSpace: "nowrap",
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? "auto" : 0,
+              opacity: expanded ? 1 : 0,
+              width: expanded ? "auto" : 0,
               overflow: "hidden",
               transition: "opacity 140ms ease",
             }}
@@ -197,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Typography>
         </Box>
 
-        <Divider sx={{ borderColor: "#e8ddd0" }} />
+        <Divider sx={{ borderColor: "var(--anchor-header-border)" }} />
 
         {/* Navigation */}
         <List
@@ -228,8 +219,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     md: 1.4,
                     lg: 1.6,
                   },
-                  color: active ? "#b87444" : "#8c6a50",
-                  bgcolor: active ? "#f5ede5" : "transparent",
+                  color: active
+                    ? "var(--anchor-header-accent)"
+                    : "var(--anchor-header-muted)",
+                  bgcolor: active ? "var(--anchor-search-bg)" : "transparent",
                   position: "relative",
                   transition:
                     "background-color 150ms ease, color 150ms ease, padding 220ms ease",
@@ -238,11 +231,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                     position: "absolute",
                     inset: "0 auto 0 0",
                     width: 3,
-                    bgcolor: active ? "#b87444" : "transparent",
+                    bgcolor: active
+                      ? "var(--anchor-header-accent)"
+                      : "transparent",
                   },
                   "&:hover": {
-                    bgcolor: "#f5ede5",
-                    color: "#b87444",
+                    bgcolor: "var(--anchor-search-bg)",
+                    color: "var(--anchor-header-accent)",
                   },
                 }}
               >
@@ -260,8 +255,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <ListItemText
                   primary={label}
                   sx={{
-                    opacity: isExpanded ? 1 : 0,
-                    width: isExpanded ? "auto" : 0,
+                    opacity: expanded ? 1 : 0,
+                    width: expanded ? "auto" : 0,
                     m: 0,
                     overflow: "hidden",
                     whiteSpace: "nowrap",
@@ -285,20 +280,20 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* BOTTOM: Logout */}
       <Box sx={{ pb: 2 }}>
-        <Divider sx={{ borderColor: "#e8ddd0", mb: 1 }} />
+        <Divider sx={{ borderColor: "var(--anchor-header-border)", mb: 1 }} />
         <Box
           onClick={handleLogOut}
           sx={{
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-start",
-            gap: isExpanded ? 1 : 0,
+            gap: expanded ? 1 : 0,
             py: 1.5,
             cursor: "pointer",
-            color: "#8c6a50",
+            color: "var(--anchor-header-muted)",
             "&:hover": {
-              bgcolor: "#f5ede5",
-              color: "#b87444",
+              bgcolor: "var(--anchor-search-bg)",
+              color: "var(--anchor-header-accent)",
             },
             transition: "all 0.15s",
           }}
@@ -318,8 +313,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               fontSize: "0.9rem",
               fontWeight: 500,
               whiteSpace: "nowrap",
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? "auto" : 0,
+              opacity: expanded ? 1 : 0,
+              width: expanded ? "auto" : 0,
               overflow: "hidden",
               transition: "opacity 140ms ease",
             }}
@@ -332,29 +327,51 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   return (
-    <Drawer
-      variant={isMobile ? "temporary" : "permanent"}
-      open={isMobile ? isSidebarOpen : true}
-      onClose={onClose}
-      ModalProps={{ keepMounted: true }}
-      sx={{
-        width: isMobile ? expandedDrawerWidth : drawerWidth,
-        display: { xs: isSidebarOpen ? "block" : "none", md: "block" },
-        flexShrink: 0,
-        transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-        "& .MuiDrawer-paper": {
-          width: isMobile ? expandedDrawerWidth : drawerWidth,
-          boxSizing: "border-box",
-          borderRight: "1px solid #d4b898",
-          bgcolor: "#fff",
-          boxShadow: isMobile ? "4px 0 12px rgba(44,26,10,0.08)" : "none",
-          overflowX: "hidden",
+    <>
+      <Drawer
+        variant="permanent"
+        open
+        sx={{
+          display: { xs: "none", md: "block" },
+          width: drawerWidth,
+          flexShrink: 0,
           transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-        },
-      }}
-    >
-      {content}
-    </Drawer>
+          "& .MuiDrawer-paper": {
+            width: drawerWidth,
+            boxSizing: "border-box",
+            borderRight: "1px solid var(--anchor-sidebar-border)",
+            bgcolor: "var(--anchor-sidebar-bg)",
+            boxShadow: "none",
+            overflowX: "hidden",
+            transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+          },
+        }}
+      >
+        {renderContent(desktopExpanded, true)}
+      </Drawer>
+      <Drawer
+        variant="temporary"
+        open={isSidebarOpen}
+        onClose={onClose}
+        ModalProps={{
+          keepMounted: true,
+          sx: { display: { xs: "block", md: "none" } },
+        }}
+        sx={{
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": {
+            width: expandedDrawerWidth,
+            boxSizing: "border-box",
+            borderRight: "1px solid var(--anchor-sidebar-border)",
+            bgcolor: "var(--anchor-sidebar-bg)",
+            boxShadow: "4px 0 12px rgba(44,26,10,0.08)",
+            overflowX: "hidden",
+          },
+        }}
+      >
+        {renderContent(true, false)}
+      </Drawer>
+    </>
   );
 };
 

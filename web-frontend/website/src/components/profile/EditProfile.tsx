@@ -13,28 +13,12 @@ import PersonRoundedIcon      from "@mui/icons-material/PersonRounded";
 import WorkRoundedIcon        from "@mui/icons-material/WorkRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
 import CameraAltRoundedIcon   from "@mui/icons-material/CameraAltRounded";
-
-// ── Anchor palette tokens ────────────────────────────────────────────────────
-const C = {
-  accent:      "#b87444",
-  accentDark:  "#a0622e",
-  accentBg:    "rgba(184,116,68,0.07)",
-  accentBorder:"rgba(184,116,68,0.18)",
-  accentFaint: "rgba(184,116,68,0.10)",
-  accentHover: "rgba(184,116,68,0.06)",
-  accentGrad:  "linear-gradient(135deg, #b87444, #a0622e)",
-  cardBg:      "#ffffff",
-  surface:     "#fdfaf7",
-  divider:     "#e8ddd0",
-  textPrimary: "#2c1a0a",
-  textSub:     "#8c6a50",
-  textMuted:   "#b8a090",
-} as const;
+import { C } from "@/lib/ui-colors";
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
     borderRadius: "10px", fontSize: 14,
-    background: "#fdfaf7", transition: "all 0.18s",
+    background: C.surface, transition: "all 0.18s",
     "& fieldset": { borderColor: C.divider },
     "&:hover fieldset": { borderColor: C.accentBorder },
     "&.Mui-focused": {
@@ -102,7 +86,7 @@ function TagInput({ label, hint, values, onChange, suggestions = [] }: {
         {filtered.length > 0 && (
           <Box sx={{
             position: "absolute", top: "calc(100% + 4px)", left: 0, right: 44,
-            background: "#fff", border: `1px solid ${C.accentBorder}`,
+            background: C.cardBg, border: `1px solid ${C.accentBorder}`,
             borderRadius: "10px", boxShadow: "0 8px 24px rgba(44,26,10,0.10)",
             zIndex: 100, overflow: "hidden",
           }}>
@@ -159,7 +143,7 @@ function ResumeSection({ form, set, onResumeFile }: {
             px: 2, py: 0.75, borderRadius: "8px", fontSize: 13, fontWeight: 600, cursor: "pointer",
             transition: "all 0.16s",
             color: tab === t ? C.accent : C.textSub,
-            background: tab === t ? "#fff" : "transparent",
+            background: tab === t ? C.cardBg : "transparent",
             boxShadow: tab === t ? "0 1px 6px rgba(44,26,10,0.08)" : "none",
             border: tab === t ? `1px solid ${C.accentBorder}` : "1px solid transparent",
           }}>
@@ -298,7 +282,7 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
         position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         width: { xs: "95vw", sm: 540 }, maxHeight: "88vh",
         display: "flex", flexDirection: "column",
-        background: "#fff", borderRadius: "20px",
+        background: C.cardBg, borderRadius: "20px",
         boxShadow: "0 32px 80px rgba(44,26,10,0.16)",
         outline: "none", overflow: "hidden",
         border: `1px solid ${C.divider}`,
@@ -306,7 +290,7 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
         {/* HEADER */}
         <Box sx={{
           px: 3, pt: 3, pb: 0,
-          background: "linear-gradient(135deg, #fdfaf7 0%, #ffffff 100%)",
+          background: C.cardBg,
           borderBottom: `1px solid ${C.divider}`,
         }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2.5 }}>
@@ -330,12 +314,12 @@ export default function EditProfileModal({ open, onClose, profile, onSave, savin
                 px: 2, py: 1, borderRadius: "10px 10px 0 0",
                 cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.16s",
                 color: tab === i ? C.accent : C.textSub,
-                background: tab === i ? "#fff" : "transparent",
+                background: tab === i ? C.cardBg : "transparent",
                 borderTop:   tab === i ? `2px solid ${C.accent}` : "2px solid transparent",
                 borderLeft:  tab === i ? `1px solid ${C.divider}` : "1px solid transparent",
                 borderRight: tab === i ? `1px solid ${C.divider}` : "1px solid transparent",
                 mb: tab === i ? "-1px" : 0,
-                "&:hover": { color: C.accent, background: tab === i ? "#fff" : C.accentBg },
+                "&:hover": { color: C.accent, background: tab === i ? C.cardBg : C.accentBg },
               }}>
                 {t.icon}{t.label}
               </Box>

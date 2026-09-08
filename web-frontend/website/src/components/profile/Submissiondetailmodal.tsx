@@ -18,19 +18,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { ExternalLink, Pencil, X as XIcon, RotateCcw } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
-const C = {
-  accent: "#b87444",
-  accentDark: "#a0622e",
-  accentBg: "rgba(184,116,68,0.08)",
-  accentBorder: "rgba(184,116,68,0.18)",
-  accentGrad: "linear-gradient(to right, #b87444, #a0622e)",
-  surface: "#fdfaf7",
-  divider: "#e8ddd0",
-  textPrimary: "#2c1a0a",
-  textSub: "#8c6a50",
-  textHint: "#b8a090",
-} as const;
+import { C } from "@/lib/ui-colors";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,7 +238,7 @@ export default function SubmissionDetailModal({
           transform: "translate(-50%,-50%)",
           width: 700,
           maxWidth: "90vw",
-          bgcolor: "#fff",
+          bgcolor: C.cardBg,
           borderRadius: 3,
           boxShadow: "0 20px 60px rgba(44,26,10,0.16)",
           border: "1px solid #e8ddd0",
@@ -272,7 +260,7 @@ export default function SubmissionDetailModal({
               pt: 3,
               pb: 2.5,
               borderBottom: `1px solid ${C.divider}`,
-              bgcolor: "#fff",
+              bgcolor: C.cardBg,
             }}
           >
             <Box sx={{ flex: 1, pr: 2 }}>
@@ -627,7 +615,7 @@ export default function SubmissionDetailModal({
                         fontSize: "0.9rem",
                         lineHeight: 1.75,
                         color: C.textPrimary,
-                        bgcolor: "#fff",
+                        bgcolor: C.cardBg,
                         "& fieldset": { borderColor: C.accent, borderWidth: 2 },
                         "&:hover fieldset": { borderColor: C.accentDark },
                         "&.Mui-focused fieldset": { borderColor: C.accentDark },
@@ -679,7 +667,7 @@ export default function SubmissionDetailModal({
               px: 4,
               py: 2.5,
               borderTop: `1px solid ${C.divider}`,
-              bgcolor: "#fff",
+              bgcolor: C.cardBg,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",

@@ -15,16 +15,16 @@
 
 .pageTitle {
   margin: 0;
-  font-size: clamp(28px, 1.7vw, 42px);
+  font-size: clamp(28px, 1.5vw, 34px);
   font-weight: 800;
-  color: #2c1a0a;
+  color: var(--foreground);
   font-family: "Playfair Display", serif;
 }
 
 /* ── View toggle ───────────────────────────────────────────────────────────── */
 .viewToggle {
   display: flex;
-  border: 1px solid #e8ddd0;
+  border: 1px solid var(--anchor-divider);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -33,7 +33,7 @@
   padding: 6px 18px;
   border: none;
   background: transparent;
-  color: #8c6a50;
+  color: var(--anchor-muted);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -41,7 +41,7 @@
 }
 
 .viewToggleBtn:hover:not(.viewToggleActive) {
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
 }
 
 .viewToggleActive {
@@ -74,10 +74,10 @@
 }
 
 .scanButton {
-  border: 1px solid #e8ddd0;
+  border: 1px solid var(--anchor-divider);
   border-radius: 10px;
-  background-color: #ffffff;
-  color: #8c6a50;
+  background-color: var(--anchor-surface);
+  color: var(--anchor-muted);
   padding: clamp(10px, 0.8vw, 16px) clamp(16px, 1.2vw, 26px);
   font-size: clamp(14px, 0.85vw, 17px);
   font-weight: 600;
@@ -86,7 +86,7 @@
 }
 
 .scanButton:hover:not(:disabled) {
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
 }
 
 .scanButton:disabled {
@@ -134,8 +134,8 @@
 .statCard {
   flex: 1;
   min-width: 72px;
-  background-color: #ffffff;
-  border: 1px solid #e8ddd0;
+  background-color: var(--anchor-surface);
+  border: 1px solid var(--anchor-divider);
   border-left: 3px solid #e8ddd0;
   border-radius: 10px;
   padding: clamp(14px, 1vw, 24px);
@@ -148,14 +148,14 @@
 .statValue {
   font-size: clamp(22px, 1.5vw, 34px);
   font-weight: 800;
-  color: #2c1a0a;
+  color: var(--foreground);
   line-height: 1;
 }
 
 .statLabel {
   font-size: clamp(11px, 0.8vw, 15px);
   font-weight: 600;
-  color: #8c6a50;
+  color: var(--anchor-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -217,8 +217,8 @@
 .boardColumn {
   min-width: 0; /* prevents grid blowout */
   min-height: 700px;
-  background-color: #fdfaf7;
-  border: 1px solid #e8ddd0;
+  background-color: var(--anchor-surface-muted);
+  border: 1px solid var(--anchor-divider);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
@@ -230,7 +230,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  background-color: #ffffff;
+  background-color: var(--anchor-surface);
   border-bottom: 1px solid #e8ddd0;
   border-top: 3px solid transparent;
 }
@@ -243,7 +243,7 @@
 .colLabel {
   font-size: clamp(12px, 0.85vw, 17px);
   font-weight: 700;
-  color: #2c1a0a;
+  color: var(--foreground);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -301,15 +301,15 @@
 
 .colEmpty {
   margin: 16px 0;
-  color: #b8a090;
+  color: var(--anchor-muted);
   font-size: 13px;
   text-align: center;
 }
 
 /* ── Grid section wrapper ───────────────────────────────────────────────────── */
 .sectionCard {
-  background-color: #ffffff;
-  border: 1px solid #e8ddd0;
+  background-color: var(--anchor-surface);
+  border: 1px solid var(--anchor-divider);
   border-radius: 12px;
   padding: 16px;
 }
@@ -318,7 +318,7 @@
   margin: 0 0 10px 0;
   font-size: 18px;
   font-weight: 700;
-  color: #2c1a0a;
+  color: var(--foreground);
   font-family: "Playfair Display", serif;
 }
 
@@ -330,10 +330,10 @@
 
 /* ── Job card ───────────────────────────────────────────────────────────────── */
 .jobCard {
-  border: 1px solid #e8ddd0;
+  border: 1px solid var(--anchor-divider);
   border-radius: 12px;
   padding: clamp(16px, 1vw, 24px);
-  background-color: #ffffff;
+  background-color: var(--anchor-surface);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -367,7 +367,7 @@
 }
 
 .deleteButton:hover:not(:disabled) {
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
   color: #a0622e;
 }
 
@@ -398,7 +398,7 @@
   margin: 0 0 2px 0;
   font-size: clamp(15px, 1vw, 20px);
   font-weight: 700;
-  color: #2c1a0a;
+  color: var(--foreground);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -417,7 +417,7 @@
 
 .jobField span {
   font-size: 10px;
-  color: #8c6a50;
+  color: var(--anchor-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 500;
@@ -425,7 +425,7 @@
 
 .jobField strong {
   font-size: 13px;
-  color: #2c1a0a;
+  color: var(--foreground);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -435,7 +435,7 @@
 /* ── Empty / loading states ────────────────────────────────────────────────── */
 .emptyState {
   margin: 0;
-  color: #8c6a50;
+  color: var(--anchor-muted);
 }
 
 /* ── Manual badge ───────────────────────────────────────────────────────────── */
@@ -447,7 +447,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
   color: #b87444;
   width: fit-content;
 }
@@ -460,7 +460,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
   color: #b87444;
   display: flex;
   align-items: center;
@@ -479,7 +479,7 @@
 /* ── Notes snippet ──────────────────────────────────────────────────────────── */
 .notesSnippet {
   font-size: 11px;
-  color: #8c6a50;
+  color: var(--anchor-muted);
   line-height: 1.5;
   border-top: 1px solid #e8ddd0;
   padding-top: 6px;
@@ -500,7 +500,7 @@
 }
 
 .modalCard {
-  background-color: #ffffff;
+  background-color: var(--anchor-surface);
   border-radius: 16px;
   padding: 24px;
   width: 100%;
@@ -511,7 +511,7 @@
   flex-direction: column;
   gap: 14px;
   box-shadow: 0 20px 60px rgba(44, 26, 10, 0.18);
-  border: 1px solid #e8ddd0;
+  border: 1px solid var(--anchor-divider);
 }
 
 .modalHeader {
@@ -524,7 +524,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #2c1a0a;
+  color: var(--foreground);
   font-family: "Playfair Display", serif;
 }
 
@@ -535,7 +535,7 @@
   border-radius: 50%;
   background: transparent;
   font-size: 20px;
-  color: #b8a090;
+  color: var(--anchor-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -546,7 +546,7 @@
 }
 
 .modalClose:hover {
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
   color: #b87444;
 }
 
@@ -569,7 +569,7 @@
 .formLabel {
   font-size: 12px;
   font-weight: 700;
-  color: #8c6a50;
+  color: var(--anchor-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -577,12 +577,12 @@
 .formInput,
 .formSelect,
 .formTextarea {
-  border: 1px solid #e8ddd0;
+  border: 1px solid var(--anchor-divider);
   border-radius: 8px;
   padding: clamp(10px, 0.9vw, 16px);
   font-size: clamp(14px, 0.9vw, 17px);
-  color: #2c1a0a;
-  background-color: #fdfaf7;
+  color: var(--foreground);
+  background-color: var(--anchor-surface-muted);
   outline: none;
   transition: border-color 0.15s ease;
   font-family: inherit;
@@ -597,8 +597,8 @@
 }
 
 .formInput:disabled {
-  background-color: #f5ede0;
-  color: #8c6a50;
+  background-color: var(--anchor-surface-muted);
+  color: var(--anchor-muted);
 }
 
 .formTextarea {
@@ -621,10 +621,10 @@
 }
 
 .cancelButton {
-  border: 1px solid #e8ddd0;
+  border: 1px solid var(--anchor-divider);
   border-radius: 8px;
-  background-color: #ffffff;
-  color: #8c6a50;
+  background-color: var(--anchor-surface);
+  color: var(--anchor-muted);
   padding: 9px 18px;
   font-size: 14px;
   font-weight: 600;
@@ -633,7 +633,7 @@
 }
 
 .cancelButton:hover {
-  background-color: #f5ede0;
+  background-color: var(--anchor-surface-muted);
 }
 
 .saveButton {

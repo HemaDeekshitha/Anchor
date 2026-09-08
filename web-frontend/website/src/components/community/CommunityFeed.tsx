@@ -39,6 +39,7 @@ import FavoriteBorderRoundedIcon from "@mui/icons-material/FavoriteBorderRounded
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
+import ShortcutRoundedIcon from "@mui/icons-material/ShortcutRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
@@ -66,6 +67,7 @@ import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
@@ -108,24 +110,34 @@ import {
   updateCommunityMemberRole,
   uploadCommunityMedia,
 } from "@/lib/community-api";
+import { OPEN_POST_EVENT, useAppChrome, type OpenPostDetail } from "@/lib/app-chrome";
 
 // ── Anchor palette tokens ────────────────────────────────────────────────────
 const C = {
-  accent: "#b87444",
-  accentDark: "#a0622e",
-  accentBg: "rgba(184,116,68,0.08)",
-  accentBorder: "rgba(184,116,68,0.15)",
-  accentFaint: "rgba(184,116,68,0.10)",
-  accentHover: "rgba(184,116,68,0.06)",
-  accentGrad: "linear-gradient(to right, #b87444, #a0622e)",
-  cardBg: "#ffffff",
-  surface: "#fdfaf7",
-  divider: "#e5e7eb",
-  textPrimary: "#111111",
-  textSub: "#242424",
-  textMuted: "#666666",
+  accent: "var(--anchor-header-accent)",
+  accentDark: "var(--anchor-header-accent)",
+  accentBg: "color-mix(in srgb, var(--anchor-header-accent) 12%, transparent)",
+  accentBorder: "color-mix(in srgb, var(--anchor-header-accent) 20%, transparent)",
+  accentFaint: "color-mix(in srgb, var(--anchor-header-accent) 12%, transparent)",
+  accentHover: "color-mix(in srgb, var(--anchor-header-accent) 8%, transparent)",
+  accentGrad: "linear-gradient(to right, var(--anchor-header-accent), var(--anchor-header-accent))",
+  cardBg: "var(--anchor-surface)",
+  surface: "var(--anchor-surface-muted)",
+  divider: "var(--anchor-divider)",
+  textPrimary: "var(--foreground)",
+  textSub: "var(--anchor-text-sub)",
+  textMuted: "var(--anchor-muted)",
   green: "#3f7d4f",
   red: "#b9573f",
+} as const;
+
+const COMMUNITY_COLUMN_MAX = 860;
+const COMMUNITY_GUTTER = { xs: 2, sm: 3, md: 4, lg: 5 } as const;
+const communityColumnSx = {
+  width: "min(100%, 860px)",
+  maxWidth: COMMUNITY_COLUMN_MAX,
+  mx: "auto",
+  alignSelf: "center",
 } as const;
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -217,6 +229,65 @@ type CommunityPageTab = "posts" | "communities" | "friends";
 type CommunitySectionTab = "current" | "join" | "create";
 type CommunityLayout = "grid" | "list";
 type ComposerMode = "text" | "emoji" | "image" | "video" | "poll";
+
+function CommunityLayoutToggle({
+  layout,
+  onChange,
+}: {
+  layout: CommunityLayout;
+  onChange: (next: CommunityLayout) => void;
+}) {
+  return (
+    <Box
+      role="group"
+      aria-label="Community layout"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        flexShrink: 0,
+        border: `1px solid ${C.divider}`,
+        borderRadius: 1.5,
+        overflow: "hidden",
+        bgcolor: C.surface,
+      }}
+    >
+      <Tooltip title="Grid view">
+        <IconButton
+          aria-label="Grid view"
+          aria-pressed={layout === "grid"}
+          onClick={() => onChange("grid")}
+          size="small"
+          sx={{
+            width: 36,
+            height: 36,
+            color: layout === "grid" ? C.textPrimary : C.textMuted,
+            bgcolor: layout === "grid" ? C.accentFaint : "transparent",
+            borderRadius: 0,
+          }}
+        >
+          <GridViewRoundedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="List view">
+        <IconButton
+          aria-label="List view"
+          aria-pressed={layout === "list"}
+          onClick={() => onChange("list")}
+          size="small"
+          sx={{
+            width: 36,
+            height: 36,
+            color: layout === "list" ? C.textPrimary : C.textMuted,
+            bgcolor: layout === "list" ? C.accentFaint : "transparent",
+            borderRadius: 0,
+          }}
+        >
+          <ViewListRoundedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
 const COMMUNITY_LAYOUT_STORAGE_KEY = "anchor.community.layout";
 const COMMUNITY_SECTION_STORAGE_KEY = "anchor.community.section";
 const COMMUNITY_PAGE_TAB_STORAGE_KEY = "anchor.community.pageTab";
@@ -803,16 +874,19 @@ const Composer = ({
       sx={{
         position: "relative",
         width: "100%",
-        maxHeight: open ? 780 : { xs: 52, sm: 48, md: 58 },
+        maxHeight: open
+          ? "min(52dvh, 520px)"
+          : { xs: 52, sm: 48, md: 58 },
         minHeight: open ? 0 : { xs: 52, sm: 48, md: 58 },
         p: open ? { xs: 1.5, sm: 1.75 } : 0,
         borderRadius: open ? 4 : 999,
-        bgcolor: "#fff",
+        bgcolor: C.cardBg,
+        touchAction: "manipulation",
         border: `1px solid ${open ? C.accentBorder : C.divider}`,
         boxShadow: open
           ? "0 10px 30px rgba(44,26,10,0.12)"
           : "0 3px 14px rgba(44,26,10,0.06)",
-        overflow: "hidden",
+        overflow: open ? "auto" : "hidden",
         transition:
           "max-height 320ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease",
       }}
@@ -828,7 +902,7 @@ const Composer = ({
             px: 1.1,
             py: 0.8,
             borderRadius: 2,
-            bgcolor: "#f5f5f5",
+            bgcolor: C.surface,
             borderLeft: `3px solid ${C.accent}`,
           }}
         >
@@ -867,6 +941,7 @@ const Composer = ({
           alignItems: open ? "flex-start" : "center",
           gap: open ? 1.2 : 0.5,
           minHeight: open ? 0 : { xs: 50, sm: 46, md: 56 },
+          pr: open ? 4.5 : 0,
         }}
       >
         <TextField
@@ -904,27 +979,25 @@ const Composer = ({
             py: open ? 0.3 : 0.25,
             "& .MuiInputBase-root": {
               alignItems: open ? "flex-start" : "center",
-              color: "#111",
-              fontSize: open
-                ? { xs: "0.82rem", sm: "1rem" }
-                : { xs: "0.86rem", sm: "0.84rem", md: "0.95rem" },
+              color: C.textPrimary,
+              fontSize: "16px",
               lineHeight: 1.55,
-              border: open ? "1px solid #242424" : "1px solid transparent",
+              border: open ? `1px solid ${C.divider}` : "1px solid transparent",
               borderRadius: open ? 2 : 0,
-              bgcolor: "#fff",
+              bgcolor: "transparent",
               px: open ? 1.5 : { xs: 1.25, sm: 1.5, md: 2 },
               py: open ? 1.1 : 0,
               transition: "font-size 200ms ease",
             },
             "& .MuiInputBase-root.Mui-focused": {
-              borderColor: "#111",
+              borderColor: C.textPrimary,
             },
             "& textarea::placeholder": {
-              color: "rgba(0, 0, 0, 0.62)",
+              color: C.textMuted,
               opacity: 1,
             },
             "& input::placeholder": {
-              color: "rgba(0, 0, 0, 0.62)",
+              color: C.textMuted,
               opacity: 1,
             },
           }}
@@ -940,7 +1013,7 @@ const Composer = ({
               left: { xs: 12, sm: 16 },
               width: { xs: "calc(100% - 56px)", sm: 320 },
               zIndex: 5,
-              bgcolor: "#fff",
+              bgcolor: C.cardBg,
               border: `1px solid ${C.divider}`,
               borderRadius: 2,
               boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
@@ -963,11 +1036,11 @@ const Composer = ({
                   gap: 1,
                   p: 1,
                   border: 0,
-                  bgcolor: "#fff",
+                  bgcolor: C.cardBg,
                   color: C.textPrimary,
                   cursor: "pointer",
                   textAlign: "left",
-                  "&:hover": { bgcolor: "#f5f5f5" },
+                  "&:hover": { bgcolor: C.surface },
                 }}
               >
                 <Avatar sx={{ width: 28, height: 28, fontSize: "0.72rem" }}>
@@ -1006,7 +1079,14 @@ const Composer = ({
             aria-label="Cancel post"
             onClick={handleCancel}
             size="small"
-            sx={{ color: C.textMuted, flexShrink: 0 }}
+            sx={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              color: C.textMuted,
+              flexShrink: 0,
+              zIndex: 2,
+            }}
           >
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
@@ -1065,7 +1145,7 @@ const Composer = ({
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: 2,
-                    bgcolor: "#fff",
+                    bgcolor: C.surface,
                     "& fieldset": { borderColor: C.divider },
                   },
                 }}
@@ -1143,7 +1223,7 @@ const Composer = ({
               px: 1.5,
               py: 1.25,
               borderRadius: 2,
-              bgcolor: "#fff",
+              bgcolor: C.surface,
               border: `1px solid ${C.divider}`,
             }}
           >
@@ -1249,7 +1329,7 @@ const Composer = ({
               overflowY: "auto",
               border: `1px solid ${C.divider}`,
               borderRadius: 2,
-              bgcolor: "#fff",
+              bgcolor: C.surface,
             }}
           >
             {COMPOSER_EMOJIS.map((emoji) => (
@@ -1919,6 +1999,18 @@ const PostCard = ({
   };
   // T: O(b) and S: O(b), where b is the post text length
 
+  const handleCopyPostText = async () => {
+    setOwnerMenuAnchor(null);
+    const text = [post.title, post.body].filter(Boolean).join("\n\n").trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      setActionMessage("Message copied.");
+    } catch {
+      setActionMessage("Could not copy the message.");
+    }
+  };
+  // T: O(b) and S: O(b), where b is the post text length
+
   const handleCopyPostLink = async () => {
     setOwnerMenuAnchor(null);
     const url = `${window.location.origin}/community?post=${encodeURIComponent(
@@ -2038,7 +2130,7 @@ const PostCard = ({
         mx: "auto",
         boxSizing: "border-box",
         py: { xs: 1.2, sm: 2 },
-        background: C.cardBg,
+        bgcolor: C.cardBg,
         border: showComments ? `1px solid ${C.accentBorder}` : 0,
         borderBottom: showComments
           ? `1px solid ${C.accentBorder}`
@@ -2046,13 +2138,13 @@ const PostCard = ({
         borderRadius: showComments ? 2 : 0,
         px: showComments ? { xs: 1, sm: 1.5 } : 0,
         boxShadow: "none",
-        overflow: "visible",
+        overflow: "hidden",
         transition: "background-color 140ms ease",
         transform: { xs: `translateX(${mobileSwipeOffset}px)`, md: "none" },
         touchAction: "pan-y",
         transitionProperty: "background-color, transform",
         "&:hover": {
-          bgcolor: "#fafafa",
+          bgcolor: C.surface,
         },
         "&::after": {
           content: '"↩"',
@@ -2091,7 +2183,7 @@ const PostCard = ({
         sx={{
           display: { xs: "none", md: "flex" },
           position: "absolute",
-          top: { md: -18 },
+          top: { md: 8 },
           right: { md: 8 },
           width: "fit-content",
           ml: "auto",
@@ -2099,7 +2191,7 @@ const PostCard = ({
           p: 0.35,
           border: `1px solid ${C.divider}`,
           borderRadius: 2,
-          bgcolor: "#fff",
+          bgcolor: C.cardBg,
           boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
           transition: "opacity 140ms ease, transform 140ms ease",
           zIndex: 2,
@@ -2143,14 +2235,14 @@ const PostCard = ({
             <ReplyRoundedIcon />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Share">
+        <Tooltip title="Forward">
           <IconButton
             size="small"
-            aria-label="Share message"
+            aria-label="Forward message"
             onClick={() => void handleSharePost()}
             sx={{ color: C.textMuted }}
           >
-            <ShareOutlinedIcon />
+            <ShortcutRoundedIcon />
           </IconButton>
         </Tooltip>
         {friendshipStatus === "none" && (
@@ -2195,9 +2287,9 @@ const PostCard = ({
           width: 32,
           height: 32,
           color: C.textMuted,
-          bgcolor: "rgba(255,255,255,0.94)",
+          bgcolor: C.cardBg,
           zIndex: 3,
-          "&:hover": { bgcolor: "#fff" },
+          "&:hover": { bgcolor: C.surface },
         }}
       >
         <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
@@ -2211,15 +2303,15 @@ const PostCard = ({
           mb: { xs: 0.55, sm: 0.8 },
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.8, sm: 1.2 } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.8, sm: 1 } }}>
           <Avatar
             src={post.authorAvatar}
             sx={{
-              width: { xs: 30, sm: 38 },
-              height: { xs: 30, sm: 38 },
+              width: { xs: 22, sm: 24 },
+              height: { xs: 22, sm: 24 },
               bgcolor: C.accentFaint,
               color: C.accentDark,
-              fontSize: { xs: "0.68rem", sm: "0.85rem" },
+              fontSize: "0.95rem",
             }}
           >
             {post.authorName.charAt(0)}
@@ -2228,18 +2320,26 @@ const PostCard = ({
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
               <Typography
                 sx={{
-                  fontSize: { xs: "0.82rem", sm: "0.92rem" },
+                  fontSize: "0.95rem",
                   fontWeight: 600,
+                  lineHeight: 1.5,
                   color: C.textPrimary,
                 }}
               >
                 {post.authorName}
               </Typography>
               {post.verified && (
-                <VerifiedRoundedIcon sx={{ fontSize: 15, color: C.accent }} />
+                <VerifiedRoundedIcon sx={{ fontSize: 16, color: C.accent }} />
               )}
             </Box>
-            <Typography sx={{ fontSize: { xs: "0.7rem", sm: "0.78rem" }, color: C.textMuted }}>
+            <Typography
+              sx={{
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                lineHeight: 1.5,
+                color: C.textMuted,
+              }}
+            >
               {post.authorProfession} · {post.timeAgo}
             </Typography>
           </Box>
@@ -2281,6 +2381,10 @@ const PostCard = ({
                 <LinkRoundedIcon fontSize="small" />
                 Copy message link
               </MenuItem>
+              <MenuItem onClick={handleCopyPostText} sx={{ gap: 1 }}>
+                <ContentCopyRoundedIcon fontSize="small" />
+                Copy text
+              </MenuItem>
               {friendshipStatus === "accepted" && (
                 <MenuItem
                   disabled={friendActionPending}
@@ -2317,26 +2421,38 @@ const PostCard = ({
             pl: { xs: 1.15, sm: 1.4 },
             py: 0.35,
             minWidth: 0,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 1,
             borderLeft: `3px solid ${C.divider}`,
           }}
         >
-            <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
-              {post.replyTo.authorName}
-            </Typography>
-            <Typography
-              sx={{
-                color: C.textMuted,
-                fontSize: { xs: "0.72rem", sm: "0.76rem" },
-                lineHeight: 1.35,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                overflowWrap: "anywhere",
-              }}
+            <Avatar
+              src={post.replyTo.authorAvatar}
+              alt={post.replyTo.authorName}
+              sx={{ width: 26, height: 26, fontSize: "0.7rem", mt: 0.15 }}
             >
-              {post.replyTo.body}
-            </Typography>
+              {post.replyTo.authorName.charAt(0)}
+            </Avatar>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
+                {post.replyTo.authorName}
+              </Typography>
+              <Typography
+                sx={{
+                  color: C.textMuted,
+                  fontSize: { xs: "0.72rem", sm: "0.76rem" },
+                  lineHeight: 1.35,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {post.replyTo.body}
+              </Typography>
+            </Box>
         </Box>
       )}
 
@@ -2356,9 +2472,9 @@ const PostCard = ({
       )}
       <Typography
         sx={{
-          fontSize: { xs: "0.82rem", sm: "0.86rem", md: "0.9rem" },
+          fontSize: "0.95rem",
           color: C.textPrimary,
-          lineHeight: { xs: 1.52, sm: 1.6 },
+          lineHeight: 1.5,
           mb: post.media?.length || poll ? 1.5 : 0.5,
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
@@ -2380,7 +2496,7 @@ const PostCard = ({
             py: 1.25,
             border: `1px solid ${C.divider}`,
             borderRadius: 2,
-            bgcolor: "#fff",
+            bgcolor: C.surface,
           }}
         >
           <CircularProgress size={17} sx={{ color: C.accent }} />
@@ -2465,13 +2581,13 @@ const PostCard = ({
                 justifyContent: "space-between",
                 borderColor: C.divider,
                 color: C.textPrimary,
-                bgcolor: "#fff",
+                bgcolor: C.surface,
                 textTransform: "none",
                 borderRadius: 2,
                 py: 1,
                 "&:hover": {
                   borderColor: C.divider,
-                  bgcolor: "#fff",
+                  bgcolor: C.cardBg,
                 },
               }}
             >
@@ -2554,8 +2670,8 @@ const PostCard = ({
       <Stack
         direction="row"
         alignItems="center"
-        spacing={{ xs: 0.75, sm: 1.25 }}
-        sx={{ mt: 0.75, minHeight: 24 }}
+        spacing={{ xs: 1, sm: 1.5 }}
+        sx={{ mt: 0.9, minHeight: 32 }}
       >
         <Button
           size="small"
@@ -2568,10 +2684,11 @@ const PostCard = ({
             minWidth: 0,
             px: 0.25,
             color: liked ? C.accentDark : C.textMuted,
-            fontSize: { xs: "0.62rem", sm: "0.7rem" },
+            fontSize: "0.95rem",
+            fontWeight: 600,
             textTransform: "none",
-            "& .MuiButton-startIcon": { mr: 0.35 },
-            "& .MuiSvgIcon-root": { fontSize: 15 },
+            "& .MuiButton-startIcon": { mr: 0.5 },
+            "& .MuiSvgIcon-root": { fontSize: 24 },
           }}
         >
           {likeCount}
@@ -2584,22 +2701,15 @@ const PostCard = ({
             minWidth: 0,
             px: 0.25,
             color: showComments ? C.accentDark : C.textMuted,
-            fontSize: { xs: "0.62rem", sm: "0.7rem" },
+            fontSize: "0.95rem",
+            fontWeight: 600,
             textTransform: "none",
-            "& .MuiButton-startIcon": { mr: 0.35 },
-            "& .MuiSvgIcon-root": { fontSize: 15 },
+            "& .MuiButton-startIcon": { mr: 0.5 },
+            "& .MuiSvgIcon-root": { fontSize: 24 },
           }}
         >
           {commentCount}
         </Button>
-        <IconButton
-          size="small"
-          aria-label="Share message"
-          onClick={() => void handleSharePost()}
-          sx={{ p: 0.35, color: C.textMuted }}
-        >
-          <ShareOutlinedIcon sx={{ fontSize: 15 }} />
-        </IconButton>
       </Stack>
 
       {actionMessage && (
@@ -2702,7 +2812,7 @@ const PostCard = ({
                       right: 0,
                       ml: "auto",
                       flexShrink: 0,
-                      bgcolor: "#fff",
+                      bgcolor: C.cardBg,
                       border: `1px solid ${C.divider}`,
                       borderRadius: 2,
                       px: 0.25,
@@ -3116,18 +3226,19 @@ const ScheduleMeetings = ({
         boxSizing: "border-box",
         p: compact ? { xs: 1.25, sm: 2 } : { xs: 1.75, sm: 3 },
         borderRadius: 3,
-        background: C.cardBg,
+        bgcolor: C.cardBg,
         border: `1px solid ${C.divider}`,
         borderTop: `4px solid ${C.accent}`,
         boxShadow: "0 4px 20px rgba(44,26,10,0.07)",
         overflow: "hidden",
+        overflowWrap: "anywhere",
       }}
     >
       <Typography
         sx={{
           fontSize: compact
-            ? { xs: "0.78rem", sm: "0.9rem" }
-            : { xs: "0.9rem", sm: "1.05rem" },
+            ? { xs: "18px", lg: "0.9rem" }
+            : { xs: "18px", lg: "1.05rem" },
           fontWeight: 700,
           color: C.accent,
           mb: 0.5,
@@ -3139,9 +3250,9 @@ const ScheduleMeetings = ({
 
       {isAllView ? (
         <>
-          <Typography sx={{ fontSize: { xs: "0.74rem", sm: "0.82rem" }, color: C.textSub, mb: 2 }}>
+          <Typography sx={{ fontSize: { xs: "16px", lg: "0.82rem" }, lineHeight: 1.5, color: C.textSub, mb: 2 }}>
             Schedule the meeting in Comm360, then{" "}
-            <Box component="span" sx={{ color: "#111", fontWeight: 700 }}>
+            <Box component="span" sx={{ color: C.textPrimary, fontWeight: 700 }}>
               paste the meeting link into the appropriate community group.
             </Box>{" "}
             Anchor will add the details and show the Join option at the
@@ -3167,9 +3278,11 @@ const ScheduleMeetings = ({
               borderRadius: 2,
               background: C.accentGrad,
               color: "#fff",
-              fontSize: "0.85rem",
+              fontSize: { xs: "16px", lg: "0.85rem" },
               fontWeight: 600,
               textAlign: "center",
+              whiteSpace: "normal",
+              overflowWrap: "anywhere",
               textDecoration: "none",
               cursor: "pointer",
               "&:hover": { opacity: 0.92 },
@@ -3227,7 +3340,7 @@ const ScheduleMeetings = ({
                           display: "grid",
                           placeItems: "center",
                           flexShrink: 0,
-                          bgcolor: "#fff",
+                          bgcolor: C.cardBg,
                           color: C.accentDark,
                         }}
                       >
@@ -3389,13 +3502,13 @@ const CommunityNavigation = ({
           },
           "& .MuiTab-root": {
             minHeight: 54,
-            color: "#111",
+            color: C.textPrimary,
             textTransform: "none",
             fontSize: { xs: "0.85rem", sm: "0.95rem" },
             fontWeight: 500,
           },
           "& .Mui-selected": {
-            color: "#111 !important",
+            color: `${C.textPrimary} !important`,
             fontWeight: 700,
           },
         }}
@@ -3442,6 +3555,7 @@ const CommunitiesView = ({
   communities,
   friends,
   meetings,
+  pendingEditCommunityId = null,
   onJoin,
   onCreate,
   onOpen,
@@ -3449,16 +3563,19 @@ const CommunitiesView = ({
   onUpdate,
   onDelete,
   onMembersChanged,
+  onPendingEditConsumed,
 }: {
   communities: Community[];
   friends: Friend[];
   meetings: ScheduledMeeting[];
+  pendingEditCommunityId?: string | null;
   onJoin: (communityId: string) => Promise<void>;
   onCreate: (
     input: CreateCommunityFormInput,
   ) => Promise<{ community: Community; inviteLink: string | null }>;
   onOpen: (communityId: string) => void;
   onSchedule: (community: Community) => void;
+  onPendingEditConsumed?: () => void;
   onUpdate: (
     communityId: string,
     input: Partial<{
@@ -3541,6 +3658,21 @@ const CommunitiesView = ({
   const [removingMember, setRemovingMember] =
     useState<CommunityMemberRecord | null>(null);
   const [memberRemovalError, setMemberRemovalError] = useState("");
+
+  useEffect(() => {
+    if (!pendingEditCommunityId) return;
+    const community = communities.find(
+      (item) => item.id === pendingEditCommunityId && item.joined,
+    );
+    if (!community) return;
+    setEditingCommunity(community);
+    setEditName(community.name);
+    setEditDescription(community.description);
+    setEditVisibility(community.visibility);
+    setManagementError("");
+    setUpdateConfirmationOpen(false);
+    onPendingEditConsumed?.();
+  }, [communities, onPendingEditConsumed, pendingEditCommunityId]);
 
   const joinedCommunities = communities.filter((community) => community.joined);
   const visibleJoinedCommunities = showAllCommunities
@@ -3905,13 +4037,13 @@ const CommunitiesView = ({
   // T: O(1) and S: O(1)
 
   return (
-    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: "100%", minWidth: 0 }}>
+    <Stack spacing={{ xs: 1.5, sm: 2 }} sx={{ width: "100%", minWidth: 0 }}>
       <Box>
         <Typography
           sx={{
             color: C.textPrimary,
             fontFamily: "'Playfair Display', serif",
-            fontSize: "1.55rem",
+            fontSize: { xs: "1.55rem", md: "1.35rem" },
             fontWeight: 700,
           }}
         >
@@ -3926,8 +4058,12 @@ const CommunitiesView = ({
       <Card
         sx={{
           width: "100%",
+          maxWidth: "100%",
           minWidth: 0,
+          boxSizing: "border-box",
           overflow: "hidden",
+          bgcolor: C.cardBg,
+          height: "fit-content",
           borderRadius: { xs: 0, sm: 3 },
           border: { xs: 0, sm: `1px solid ${C.divider}` },
           boxShadow: {
@@ -3943,11 +4079,15 @@ const CommunitiesView = ({
           scrollButtons={false}
           sx={{
             width: "100%",
+            maxWidth: "100%",
             minWidth: 0,
+            boxSizing: "border-box",
             px: { xs: 0, sm: 1 },
+            overflow: "hidden",
             borderBottom: `1px solid ${C.divider}`,
+            "& .MuiTabs-scroller": { overflow: "hidden !important" },
             "& .MuiTabs-indicator": { bgcolor: C.accent },
-            "& .MuiTabs-flexContainer": { width: "100%" },
+            "& .MuiTabs-flexContainer": { width: "100%", maxWidth: "100%" },
             "& .MuiTab-root": {
               flex: { xs: "1 1 0", sm: "0 0 auto" },
               minWidth: { xs: 0, sm: 90 },
@@ -3970,26 +4110,17 @@ const CommunitiesView = ({
           <Tab value="create" label="Create a community" />
         </Tabs>
 
-        <Box sx={{ width: "100%", minWidth: 0, p: { xs: 0, sm: 2, md: 3 }, pt: { xs: 2, sm: 2 } }}>
+        <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", p: { xs: 1.5, sm: 2, md: 2.5 }, pt: { xs: 2, sm: 2 }, overflow: "hidden" }}>
           {section === "current" && (
             <Box
               sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  md: "minmax(0, 1fr) minmax(260px, 320px)",
-                  xl: "minmax(0, 1fr) minmax(300px, 360px)",
-                },
-                columnGap: { xs: 0, md: 4 },
-                rowGap: { xs: 2, md: 3 },
-                alignItems: "start",
                 minWidth: 0,
                 width: "100%",
                 maxWidth: "100%",
+                boxSizing: "border-box",
                 overflow: "hidden",
               }}
             >
-              <Box>
                 <Box
                   sx={{
                     display: "flex",
@@ -3997,9 +4128,10 @@ const CommunitiesView = ({
                     justifyContent: "space-between",
                     gap: 1,
                     mb: 1.5,
+                    minWidth: 0,
                   }}
                 >
-                  <Box>
+                  <Box sx={{ minWidth: 0, pr: 1 }}>
                     <Typography
                       sx={{
                         color: C.textPrimary,
@@ -4015,52 +4147,10 @@ const CommunitiesView = ({
                       Select one to schedule a discussion.
                     </Typography>
                   </Box>
-                  <Box
-                    role="group"
-                    aria-label="Community layout"
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      borderBottom: `1px solid ${C.divider}`,
-                    }}
-                  >
-                    <Tooltip title="Grid view">
-                      <IconButton
-                        aria-label="Grid view"
-                        onClick={() => handleLayoutChange("grid")}
-                        size="small"
-                        sx={{
-                          color:
-                            layout === "grid" ? C.textPrimary : C.textMuted,
-                          borderRadius: 0,
-                          borderBottom:
-                            layout === "grid"
-                              ? `2px solid ${C.accent}`
-                              : "2px solid transparent",
-                        }}
-                      >
-                        <GridViewRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="List view">
-                      <IconButton
-                        aria-label="List view"
-                        onClick={() => handleLayoutChange("list")}
-                        size="small"
-                        sx={{
-                          color:
-                            layout === "list" ? C.textPrimary : C.textMuted,
-                          borderRadius: 0,
-                          borderBottom:
-                            layout === "list"
-                              ? `2px solid ${C.accent}`
-                              : "2px solid transparent",
-                        }}
-                      >
-                        <ViewListRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
+                  <CommunityLayoutToggle
+                    layout={layout}
+                    onChange={handleLayoutChange}
+                  />
                 </Box>
 
                 <Box
@@ -4069,13 +4159,13 @@ const CommunitiesView = ({
                     gridTemplateColumns:
                       layout === "grid"
                         ? {
-                            xs: "repeat(2, minmax(0, 1fr))",
-                            sm: "1fr",
-                            lg: "repeat(2, minmax(0, 1fr))",
+                            xs: "1fr",
+                            sm: "repeat(auto-fill, minmax(220px, 260px))",
                           }
                         : "1fr",
+                    justifyContent: "start",
                     gap:
-                      layout === "grid" ? { xs: 1, sm: 2 } : 0,
+                      layout === "grid" ? { xs: 1, sm: 1.5 } : 0,
                   }}
                 >
                   {visibleJoinedCommunities.map((community) => {
@@ -4098,17 +4188,13 @@ const CommunitiesView = ({
                         }}
                         sx={{
                           width: "100%",
+                          maxWidth: "100%",
+                          minWidth: 0,
                           boxSizing: "border-box",
                           display: "flex",
                           position: "relative",
-                          flexDirection: {
-                            xs: layout === "grid" ? "column" : "row",
-                            sm: "row",
-                          },
-                          alignItems: {
-                            xs: layout === "grid" ? "flex-start" : "center",
-                            sm: "center",
-                          },
+                          flexDirection: layout === "grid" ? "column" : "row",
+                          alignItems: layout === "grid" ? "flex-start" : "center",
                           gap: { xs: 1, sm: 1.3 },
                           p:
                             layout === "grid"
@@ -4120,7 +4206,7 @@ const CommunitiesView = ({
                               ? `1px solid ${C.divider}`
                               : "none",
                           borderRadius: layout === "grid" ? 2 : 0,
-                          bgcolor: isSelected ? C.accentFaint : "#fff",
+                          bgcolor: isSelected ? C.accentFaint : C.cardBg,
                           boxShadow:
                             layout === "grid"
                               ? `inset 0 0 0 1px ${
@@ -4128,6 +4214,7 @@ const CommunitiesView = ({
                                 }`
                               : "none",
                           color: C.textPrimary,
+                          overflow: "hidden",
                           font: "inherit",
                           textAlign: "left",
                           cursor: "pointer",
@@ -4153,7 +4240,7 @@ const CommunitiesView = ({
                             borderRadius: "50%",
                             display: "grid",
                             placeItems: "center",
-                            bgcolor: isSelected ? "#fff" : C.accentFaint,
+                            bgcolor: isSelected ? C.surface : C.accentFaint,
                             color: C.accentDark,
                             flexShrink: 0,
                           }}
@@ -4230,12 +4317,8 @@ const CommunitiesView = ({
                             sx={{
                               color: C.textSub,
                               flexShrink: 0,
-                              position: {
-                                xs: layout === "grid" ? "absolute" : "static",
-                                sm: "static",
-                              },
-                              top: { xs: 6, sm: "auto" },
-                              right: { xs: 4, sm: "auto" },
+                              alignSelf: layout === "grid" ? "flex-end" : "center",
+                              ml: layout === "grid" ? "auto" : 0,
                             }}
                             >
                               <MoreHorizRoundedIcon fontSize="small" />
@@ -4285,50 +4368,95 @@ const CommunitiesView = ({
                     </Typography>
                   </Box>
                 )}
-              </Box>
-
-              <ScheduleMeetings
-                meetings={meetings}
-                activeCommunityId={scheduleCommunityId}
-                activeCommunityName={scheduleCommunity?.name}
-              />
             </Box>
           )}
 
           {section === "join" && (
-            <Stack spacing={2.5}>
-              <TextField
-                fullWidth
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search communities by name or topic"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchRoundedIcon sx={{ color: C.textMuted }} />
-                    </InputAdornment>
-                  ),
-                }}
+            <Box
+              sx={{
+                minWidth: 0,
+                width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+                overflow: "hidden",
+              }}
+            >
+              <Box
                 sx={{
-                  maxWidth: { xs: "100%", md: 720 },
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2.5,
-                    bgcolor: C.surface,
-                    "& fieldset": { borderColor: C.divider },
-                  },
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 2,
+                  minWidth: 0,
                 }}
-              />
+              >
+                <TextField
+                  fullWidth
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search communities by name or topic"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchRoundedIcon sx={{ color: C.textMuted }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2.5,
+                      bgcolor: C.surface,
+                      "& fieldset": { borderColor: C.divider },
+                    },
+                  }}
+                />
+                <CommunityLayoutToggle
+                  layout={layout}
+                  onChange={handleLayoutChange}
+                />
+              </Box>
 
-              <Stack divider={<Divider sx={{ borderColor: C.divider }} />}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    layout === "grid"
+                      ? {
+                          xs: "1fr",
+                          sm: "repeat(auto-fill, minmax(220px, 260px))",
+                        }
+                      : "1fr",
+                  justifyContent: "start",
+                  gap: layout === "grid" ? { xs: 1, sm: 1.5 } : 0,
+                  width: "100%",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                }}
+              >
                 {discoverableCommunities.map((community) => (
                   <Box
                     key={community.id}
                     sx={{
                       display: "flex",
-                      alignItems: "center",
+                      flexDirection: layout === "grid" ? "column" : "row",
+                      alignItems: layout === "grid" ? "flex-start" : "center",
                       gap: { xs: 0.8, sm: 1.5 },
-                      py: 1.6,
+                      p: layout === "grid" ? { xs: 1.25, sm: 1.5 } : { xs: 1.1, sm: 1.5 },
+                      py: layout === "list" ? 1.6 : undefined,
                       minWidth: 0,
+                      maxWidth: "100%",
+                      boxSizing: "border-box",
+                      overflow: "hidden",
+                      borderRadius: layout === "grid" ? 2 : 0,
+                      borderBottom:
+                        layout === "list" ? `1px solid ${C.divider}` : "none",
+                      boxShadow:
+                        layout === "grid"
+                          ? `inset 0 0 0 1px ${C.divider}`
+                          : "none",
+                      bgcolor: C.cardBg,
                     }}
                   >
                     <Box
@@ -4345,9 +4473,13 @@ const CommunitiesView = ({
                     >
                       <GroupsRoundedIcon />
                     </Box>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
                       <Typography
-                        sx={{ color: C.textPrimary, fontWeight: 700 }}
+                        sx={{
+                          color: C.textPrimary,
+                          fontWeight: 700,
+                          overflowWrap: "anywhere",
+                        }}
                       >
                         {community.name}
                       </Typography>
@@ -4357,7 +4489,10 @@ const CommunitiesView = ({
                           fontSize: "0.78rem",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          whiteSpace: layout === "grid" ? "normal" : "nowrap",
+                          display: layout === "grid" ? "-webkit-box" : "block",
+                          WebkitLineClamp: layout === "grid" ? 2 : undefined,
+                          WebkitBoxOrient: "vertical",
                         }}
                       >
                         {community.description} · {community.memberCount}
@@ -4381,6 +4516,8 @@ const CommunitiesView = ({
                       sx={{
                         minWidth: { xs: 62, sm: 82 },
                         px: { xs: 1, sm: 2 },
+                        flexShrink: 0,
+                        alignSelf: layout === "grid" ? "stretch" : "center",
                         borderRadius: 2,
                         bgcolor: community.joined ? "transparent" : C.accent,
                         color: community.joined ? C.green : "#fff",
@@ -4396,24 +4533,29 @@ const CommunitiesView = ({
                     </Button>
                   </Box>
                 ))}
-                {discoverableCommunities.length === 0 && (
-                  <Typography
-                    sx={{ color: C.textMuted, textAlign: "center", py: 4 }}
-                  >
-                    No communities match “{search}”.
-                  </Typography>
-                )}
-              </Stack>
+              </Box>
+              {discoverableCommunities.length === 0 && (
+                <Typography
+                  sx={{ color: C.textMuted, textAlign: "center", py: 4 }}
+                >
+                  No communities match “{search}”.
+                </Typography>
+              )}
               {formError && <Alert severity="error">{formError}</Alert>}
-            </Stack>
+            </Box>
           )}
 
           {section === "create" && (
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "1.25fr 0.75fr" },
+                gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1.25fr) minmax(0, 0.75fr)" },
                 gap: 3,
+                width: "100%",
+                maxWidth: "100%",
+                minWidth: 0,
+                boxSizing: "border-box",
+                overflow: "hidden",
               }}
             >
               <Stack spacing={2}>
@@ -4573,6 +4715,11 @@ const CommunitiesView = ({
                 variant="outlined"
                 sx={{
                   p: 2,
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  boxSizing: "border-box",
+                  overflow: "hidden",
+                  bgcolor: C.cardBg,
                   borderColor: C.divider,
                   borderRadius: 2.5,
                   boxShadow: "none",
@@ -4669,6 +4816,14 @@ const CommunitiesView = ({
           )}
         </Box>
       </Card>
+
+      {section === "current" && (
+        <ScheduleMeetings
+          meetings={meetings}
+          activeCommunityId={ALL_ID}
+          activeCommunityName={scheduleCommunity?.name}
+        />
+      )}
 
       <Menu
         anchorEl={manageAnchor}
@@ -5161,7 +5316,7 @@ const FriendsView = ({
           sx={{
             color: C.textPrimary,
             fontFamily: "'Playfair Display', serif",
-            fontSize: "1.55rem",
+            fontSize: { xs: "1.55rem", md: "1.35rem" },
             fontWeight: 700,
           }}
         >
@@ -5268,7 +5423,11 @@ const FriendsView = ({
           variant="fullWidth"
           sx={{
             mb: 2,
+            maxWidth: "100%",
+            minWidth: 0,
+            overflow: "hidden",
             borderBottom: `1px solid ${C.divider}`,
+            "& .MuiTabs-scroller": { overflow: "hidden !important" },
             "& .MuiTab-root": {
               minWidth: 0,
               px: { xs: 0.25, sm: 1.5 },
@@ -5321,6 +5480,8 @@ const FriendsView = ({
                     borderRadius: 2.5,
                     border: `1px solid ${C.divider}`,
                     boxShadow: "0 4px 16px rgba(44,26,10,0.04)",
+                    bgcolor: C.cardBg,
+                    overflow: "hidden",
                   }}
                 >
                   <FriendRow
@@ -5562,6 +5723,7 @@ type Props = {
 };
 
 const CommunityFeed = ({ meetings = [] }: Props) => {
+  const { setMessages } = useAppChrome();
   const [pageTab, setPageTab] = useState<CommunityPageTab>("posts");
   const [activeCommunityId, setActiveCommunityId] = useState<string>(ALL_ID);
   const [communityConversationId, setCommunityConversationId] = useState<
@@ -5578,6 +5740,9 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     CommunityFriendRequest[]
   >([]);
   const [unreadFriendRequestCount, setUnreadFriendRequestCount] = useState(0);
+  const [pendingEditCommunityId, setPendingEditCommunityId] = useState<
+    string | null
+  >(null);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -5585,6 +5750,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const [notificationNotice, setNotificationNotice] = useState("");
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [missedBehindCount, setMissedBehindCount] = useState(0);
   const [readTrackingReady, setReadTrackingReady] = useState(false);
   const [currentProfileName, setCurrentProfileName] = useState("");
   const [showCommunityChrome, setShowCommunityChrome] = useState(true);
@@ -5606,6 +5772,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const communityHeaderRef = useRef<HTMLDivElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const restoredReadScopeRef = useRef("");
+  const jumpingToLatestRef = useRef(false);
+  const caughtUpThisVisitRef = useRef(false);
   const lastWindowScrollYRef = useRef(0);
   const lastMainScrollYRef = useRef(0);
   const chromeVisibleRef = useRef(true);
@@ -6407,6 +6575,58 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const latestVisiblePostId = visiblePosts.at(-1)?.id;
 
   useEffect(() => {
+    setMessages(
+      posts.map((post) => ({
+        id: post.id,
+        communityId: post.communityId,
+        communityName:
+          communities.find((community) => community.id === post.communityId)
+            ?.name ?? conversationCommunity?.name,
+        authorName: post.authorName,
+        authorAvatar: post.authorAvatar,
+        body: [post.title, post.body].filter(Boolean).join(" "),
+      })),
+    );
+    return () => setMessages([]);
+  }, [communities, conversationCommunity?.name, posts, setMessages]);
+
+  useEffect(() => {
+    const postId = new URLSearchParams(window.location.search).get("post");
+    if (!postId || posts.length === 0) return;
+    const timer = window.setTimeout(() => {
+      document
+        .querySelector(`[data-community-post-id="${postId}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [communityConversationId, pageTab, posts]);
+
+  useEffect(() => {
+    const openFromInbox = (event: Event) => {
+      const detail = (event as CustomEvent<OpenPostDetail>).detail;
+      if (!detail?.postId) return;
+      const open = async () => {
+        if (detail.communityId) {
+          await handleOpenCommunity(detail.communityId);
+        } else {
+          setPageTab("posts");
+          setCommunityConversationId(null);
+          replaceCommunityUrl("posts");
+          await refreshPosts(ALL_ID);
+        }
+        window.setTimeout(() => {
+          document
+            .querySelector(`[data-community-post-id="${detail.postId}"]`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 350);
+      };
+      void open();
+    };
+    window.addEventListener(OPEN_POST_EVENT, openFromInbox);
+    return () => window.removeEventListener(OPEN_POST_EVENT, openFromInbox);
+  }, [handleOpenCommunity, refreshPosts, replaceCommunityUrl]);
+
+  useEffect(() => {
     const header = communityHeaderRef.current;
     if (!communityConversationId || !header) return;
     const updateHeight = () =>
@@ -6415,12 +6635,62 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     const observer = new ResizeObserver(updateHeight);
     observer.observe(header);
     return () => observer.disconnect();
-  }, [communityConversationId, conversationCommunity?.id, allMeetings.length]);
+  }, [communityConversationId, conversationCommunity?.id]);
+
+  const messageItems = () =>
+    Array.from(
+      messageListRef.current?.querySelectorAll<HTMLElement>(
+        "[data-community-post-id]",
+      ) ?? [],
+    );
+
+  const persistLatestRead = (items: HTMLElement[]) => {
+    const latestId = items.at(-1)?.dataset.communityPostId;
+    if (!latestId || !currentReadScope) return;
+    window.localStorage.setItem(
+      `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`,
+      latestId,
+    );
+  };
+
+  const markVisitCaughtUp = (items: HTMLElement[]) => {
+    caughtUpThisVisitRef.current = true;
+    setMissedBehindCount(0);
+    persistLatestRead(items);
+  };
+
+  const syncCaughtUpState = () => {
+    if (jumpingToLatestRef.current) return 0;
+    const items = messageItems();
+    if (items.length === 0) {
+      setShowJumpToLatest(false);
+      return 0;
+    }
+    const scroller = pageRootRef.current?.closest("main");
+    const viewportBottom = scroller
+      ? scroller.getBoundingClientRect().bottom - 88
+      : window.innerHeight - 88;
+    let lastVisibleIndex = -1;
+    items.forEach((item, index) => {
+      if (item.getBoundingClientRect().top < viewportBottom - 8) {
+        lastVisibleIndex = index;
+      }
+    });
+    const behind = Math.max(0, items.length - 1 - lastVisibleIndex);
+    setShowJumpToLatest(behind > 0);
+    if (behind === 0) {
+      markVisitCaughtUp(items);
+    }
+    return behind;
+  };
+  // T: O(p) and S: O(1), where p is the number of rendered posts
 
   useEffect(() => {
     restoredReadScopeRef.current = "";
+    caughtUpThisVisitRef.current = false;
     setReadTrackingReady(false);
     setShowJumpToLatest(false);
+    setMissedBehindCount(0);
   }, [currentReadScope]);
 
   useEffect(() => {
@@ -6438,27 +6708,25 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     let readyTimer = 0;
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
-        const items = Array.from(
-          messageListRef.current?.querySelectorAll<HTMLElement>(
-            "[data-community-post-id]",
-          ) ?? [],
-        );
+        const items = messageItems();
         if (items.length === 0) return;
         const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
         const savedPostId = window.localStorage.getItem(storageKey);
         const savedIndex = items.findIndex(
           (item) => item.dataset.communityPostId === savedPostId,
         );
-        const target =
-          savedIndex >= 0
-            ? items[Math.min(savedIndex + 1, items.length - 1)]
-            : items.at(-1);
-        target?.scrollIntoView({ block: "center" });
-        if (!savedPostId && target?.dataset.communityPostId) {
-          window.localStorage.setItem(
-            storageKey,
-            target.dataset.communityPostId,
-          );
+        const caughtUp = savedIndex < 0 || savedIndex >= items.length - 1;
+        if (caughtUp) {
+          items.at(-1)?.scrollIntoView({ block: "end" });
+          setShowJumpToLatest(false);
+          markVisitCaughtUp(items);
+        } else {
+          const firstMissed = items[savedIndex + 1];
+          firstMissed?.scrollIntoView({ block: "center" });
+          caughtUpThisVisitRef.current = false;
+          const behind = items.length - 1 - savedIndex;
+          setMissedBehindCount(behind);
+          setShowJumpToLatest(behind > 0);
         }
         restoredReadScopeRef.current = currentReadScope;
         readyTimer = window.setTimeout(() => setReadTrackingReady(true), 350);
@@ -6480,43 +6748,15 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     if (!currentReadScope || !readTrackingReady || visiblePosts.length === 0) {
       return;
     }
-    const items = Array.from(
-      messageListRef.current?.querySelectorAll<HTMLElement>(
-        "[data-community-post-id]",
-      ) ?? [],
-    );
-    if (items.length === 0) return;
-    const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleEntries = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (left, right) =>
-              left.boundingClientRect.top - right.boundingClientRect.top,
-          );
-        const lastVisible = visibleEntries.at(-1)?.target as
-          | HTMLElement
-          | undefined;
-        if (lastVisible?.dataset.communityPostId) {
-          window.localStorage.setItem(
-            storageKey,
-            lastVisible.dataset.communityPostId,
-          );
-        }
-        const latestEntry = entries.find(
-          (entry) =>
-            (entry.target as HTMLElement).dataset.communityPostId ===
-            latestVisiblePostId,
-        );
-        if (latestEntry) {
-          setShowJumpToLatest(!latestEntry.isIntersecting);
-        }
-      },
-      { threshold: 0.45 },
-    );
-    items.forEach((item) => observer.observe(item));
-    return () => observer.disconnect();
+    const scroller = pageRootRef.current?.closest("main");
+    const handleScroll = () => syncCaughtUpState();
+    syncCaughtUpState();
+    scroller?.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      scroller?.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, [
     currentReadScope,
     latestVisiblePostId,
@@ -6525,18 +6765,16 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   ]);
 
   const handleJumpToLatest = () => {
-    const latest = Array.from(
-      messageListRef.current?.querySelectorAll<HTMLElement>(
-        "[data-community-post-id]",
-      ) ?? [],
-    ).at(-1);
-    latest?.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (latest?.dataset.communityPostId && currentReadScope) {
-      window.localStorage.setItem(
-        `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`,
-        latest.dataset.communityPostId,
-      );
-    }
+    const items = messageItems();
+    const latest = items.at(-1);
+    jumpingToLatestRef.current = true;
+    setShowJumpToLatest(false);
+    markVisitCaughtUp(items);
+    latest?.scrollIntoView({ behavior: "smooth", block: "end" });
+    window.setTimeout(() => {
+      jumpingToLatestRef.current = false;
+      syncCaughtUpState();
+    }, 700);
   };
   // T: O(p) and S: O(p), where p is the number of rendered posts
 
@@ -6544,9 +6782,10 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     <Box
       ref={pageRootRef}
       sx={{
-        bgcolor: "#fff",
-        minHeight: "100vh",
-        p: { xs: 0, sm: 2, md: 4 },
+        bgcolor: "var(--background)",
+        minHeight: 0,
+        px: 0,
+        pt: 0,
         "& .MuiInputLabel-root.Mui-focused": {
           color: C.accentDark,
         },
@@ -6571,17 +6810,17 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             md: "block",
           },
           position: "fixed",
-          top: 0,
-          left: { xs: 0, md: "var(--anchor-sidebar-width, 84px)" },
+          top: "var(--anchor-topbar-height, 56px)",
+          left: "var(--anchor-sidebar-width, 0px)",
           right: 0,
           zIndex: 1150,
           minHeight: { xs: 70, md: 56 },
           boxSizing: "border-box",
-          bgcolor: { xs: "rgba(250,250,250,0.98)", md: "#fff" },
-          pl: { xs: 9, sm: 10, md: 4 },
-          pr: { xs: 2, sm: 3, md: 4 },
-          pt: { xs: 1, md: 1 },
-          pb: { xs: 1.25, md: 0 },
+          bgcolor: { xs: "var(--anchor-header-bg)", md: "var(--anchor-header-bg)" },
+          pl: COMMUNITY_GUTTER,
+          pr: COMMUNITY_GUTTER,
+          pt: 0,
+          pb: 0,
           borderBottom: `1px solid ${C.divider}`,
           boxShadow: { xs: "0 3px 14px rgba(17,17,17,0.08)", md: "none" },
           transform: showCommunityChrome ? "translateY(0)" : "translateY(-110%)",
@@ -6644,6 +6883,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         sx={{
           width: "100%",
           mt: { xs: communityConversationId ? 0 : 3, sm: 3 },
+          alignItems: "center",
         }}
       >
         {pageError && (
@@ -6665,11 +6905,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         )}
 
         {!loading && pageTab === "posts" && (
-          <Box
-            sx={{
-              width: "100%",
-            }}
-          >
+          <Box sx={communityColumnSx}>
             <Stack spacing={3}>
               <Box
                 sx={{
@@ -6698,7 +6934,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     borderRadius: 3,
                     border: `1px solid ${C.divider}`,
                     textAlign: "center",
-                    background: C.cardBg,
+                    bgcolor: C.cardBg,
                   }}
                 >
                   <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
@@ -6731,7 +6967,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           conversationCommunity && (
             <Box
               sx={{
-                width: "100%",
+                ...communityColumnSx,
                 position: "relative",
               }}
             >
@@ -6740,27 +6976,30 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                   ref={communityHeaderRef}
                   sx={{
                     position: "fixed",
-                    top: { xs: 0, md: 56 },
-                    left: { xs: 0, md: "var(--anchor-sidebar-width, 84px)" },
+                    top: {
+                      xs: "var(--anchor-topbar-height, 56px)",
+                      md: "calc(var(--anchor-topbar-height, 56px) + 56px)",
+                    },
+                    left: "var(--anchor-sidebar-width, 0px)",
                     right: 0,
                     zIndex: 1140,
-                    minHeight: { xs: 62, md: 72, lg: 0 },
+                    minHeight: { xs: 62, md: 72 },
                     boxSizing: "border-box",
-                    display: { xs: "block", lg: "grid" },
-                    gridTemplateColumns: { lg: "minmax(0, 1fr) 280px" },
-                    columnGap: { lg: 4 },
-                    alignItems: { lg: "start" },
-                    bgcolor: "rgba(250,250,250,0.97)",
+                    display: "flex",
+                    alignItems: "center",
+                    bgcolor: "color-mix(in srgb, var(--anchor-header-bg) 97%, transparent)",
                     backdropFilter: "blur(10px)",
-                    pl: { xs: 9, md: 5 },
-                    pr: { xs: 2, md: 5 },
+                    pl: COMMUNITY_GUTTER,
+                    pr: COMMUNITY_GUTTER,
                     pt: { xs: 1, md: 1.5 },
                     pb: { xs: 1.5, md: 1.5 },
                     borderBottom: `1px solid ${C.divider}`,
                     boxShadow: "0 3px 14px rgba(17,17,17,0.08)",
                     opacity: showCommunityChrome ? 1 : 0,
                     visibility: showCommunityChrome ? "visible" : "hidden",
-                    transform: showCommunityChrome ? "translateY(0)" : "translateY(-12px)",
+                    transform: showCommunityChrome
+                      ? "translateY(0)"
+                      : "translateY(-12px)",
                     pointerEvents: showCommunityChrome ? "auto" : "none",
                     transition:
                       "opacity 150ms ease, transform 150ms ease, visibility 150ms ease",
@@ -6770,7 +7009,9 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      pr: { xs: 5, sm: 24, lg: 6 },
+                      pr: { xs: 1, sm: 2 },
+                      minWidth: 0,
+                      flex: 1,
                     }}
                   >
                     <IconButton
@@ -6793,7 +7034,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         sx={{
                           color: C.textPrimary,
                           fontFamily: "'Playfair Display', serif",
-                          fontSize: { xs: "1.1rem", sm: "1.45rem" },
+                          fontSize: { xs: "1.1rem", sm: "1.25rem" },
                           fontWeight: 700,
                           lineHeight: 1.25,
                         }}
@@ -6802,28 +7043,72 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       </Typography>
                     </Box>
                   </Box>
-                  <IconButton
-                    aria-label="Community actions"
-                    onClick={(event) =>
-                      setCommunityMenuAnchor(event.currentTarget)
-                    }
+                  <Box
                     sx={{
-                      position: "absolute",
-                      top: { xs: 13, md: 18 },
-                      right: { xs: 14, md: 40, lg: 332 },
-                      width: { xs: 34, md: 38 },
-                      height: { xs: 34, md: 38 },
-                      color: C.textMuted,
-                      bgcolor: "transparent",
-                      border: 0,
-                      "&:hover": {
-                        bgcolor: "transparent",
-                        color: C.textPrimary,
-                      },
+                      display: "flex",
+                      alignItems: "center",
+                      gap: { xs: 0.25, sm: 0.5 },
+                      flexShrink: 0,
                     }}
                   >
-                    <MoreHorizRoundedIcon sx={{ fontSize: { xs: 22, md: 26 } }} />
-                  </IconButton>
+                    <Tooltip title="Members">
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.4,
+                          color: C.textMuted,
+                          px: 0.5,
+                        }}
+                      >
+                        <GroupsRoundedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
+                        <Typography sx={{ fontSize: "0.86rem", fontWeight: 700 }}>
+                          {Number.parseInt(conversationCommunity.memberCount, 10) ||
+                            0}
+                        </Typography>
+                      </Box>
+                    </Tooltip>
+                    <Tooltip title="Schedule discussion">
+                      <IconButton
+                        aria-label="Schedule discussion"
+                        onClick={() =>
+                          handleScheduleCommunityDiscussion(conversationCommunity)
+                        }
+                        sx={{ color: C.textMuted }}
+                      >
+                        <VideocamRoundedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Community settings">
+                      <IconButton
+                        aria-label="Community settings"
+                        onClick={() => {
+                          setPendingEditCommunityId(conversationCommunity.id);
+                          handleCloseCommunityConversation();
+                        }}
+                        sx={{ color: C.textMuted }}
+                      >
+                        <SettingsOutlinedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
+                      </IconButton>
+                    </Tooltip>
+                    <IconButton
+                      aria-label="Community actions"
+                      onClick={(event) =>
+                        setCommunityMenuAnchor(event.currentTarget)
+                      }
+                      sx={{
+                        color: C.textMuted,
+                        bgcolor: "transparent",
+                        border: 0,
+                        "&:hover": {
+                          bgcolor: "transparent",
+                          color: C.textPrimary,
+                        },
+                      }}
+                    >
+                      <MoreHorizRoundedIcon sx={{ fontSize: { xs: 22, md: 26 } }} />
+                    </IconButton>
+                  </Box>
                   <Menu
                     anchorEl={communityMenuAnchor}
                     open={Boolean(communityMenuAnchor)}
@@ -6866,42 +7151,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       Schedule discussion
                     </MenuItem>
                   </Menu>
-                  <Box
-                    sx={{
-                      display: { xs: "none", lg: "block" },
-                      gridColumn: 2,
-                      gridRow: 1,
-                      width: 280,
-                      maxHeight: 220,
-                      overflowY: "auto",
-                      overscrollBehavior: "contain",
-                      scrollbarWidth: "thin",
-                    }}
-                  >
-                    <ScheduleMeetings
-                      meetings={allMeetings}
-                      activeCommunityId={conversationCommunity.id}
-                      activeCommunityName={conversationCommunity.name}
-                      compact
-                    />
-                  </Box>
                 </Box>
                 <Box sx={{ height: `${communityHeaderHeight}px` }} />
-                <Box
-                  sx={{
-                    display: { xs: "block", lg: "none" },
-                    position: "static",
-                    width: "100%",
-                    minWidth: 0,
-                  }}
-                >
-                  <ScheduleMeetings
-                    meetings={allMeetings}
-                    activeCommunityId={conversationCommunity.id}
-                    activeCommunityName={conversationCommunity.name}
-                    compact
-                  />
-                </Box>
                 {conversationLoading ? (
                   <Box
                     sx={{
@@ -6920,6 +7171,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       border: `1px solid ${C.divider}`,
                       textAlign: "center",
                       boxShadow: "none",
+                      bgcolor: C.cardBg,
                     }}
                   >
                     <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
@@ -6956,35 +7208,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             </Box>
           )}
 
-        {showJumpToLatest && currentReadScope && (
-          <Tooltip title="Jump to latest message">
-            <IconButton
-              aria-label="Jump to latest message"
-              onClick={handleJumpToLatest}
-              sx={{
-                position: "fixed",
-                left: "50%",
-                bottom: { xs: 78, md: 92 },
-                zIndex: 1110,
-                width: { xs: 34, md: 38 },
-                height: { xs: 34, md: 38 },
-                color: C.textMuted,
-                bgcolor: "rgba(255,255,255,0.68)",
-                border: `1px solid ${C.divider}`,
-                boxShadow: "none",
-                backdropFilter: "blur(6px)",
-                transform: "translateX(-50%)",
-                "&:hover": {
-                  color: C.textPrimary,
-                  bgcolor: "rgba(255,255,255,0.84)",
-                },
-              }}
-            >
-              <KeyboardArrowDownRoundedIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-
         {!loading &&
           (pageTab === "posts" ||
             (pageTab === "communities" &&
@@ -6992,24 +7215,64 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             <Box
               sx={{
                 position: "fixed",
-                left: { xs: 0, md: "var(--anchor-sidebar-width, 84px)" },
+                left: "var(--anchor-sidebar-width, 0px)",
                 right: 0,
                 bottom: { xs: 14, md: 18 },
                 zIndex: 1100,
-                px: { xs: 2, sm: 3, md: 4, lg: 5 },
-                py: { xs: 0.5, md: 0.55 },
-                bgcolor: "transparent",
-                borderTop: "none",
-                boxShadow: "none",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                gap: 1,
+                px: COMMUNITY_GUTTER,
                 pointerEvents: "none",
                 transition: "left 220ms cubic-bezier(0.4, 0, 0.2, 1)",
               }}
             >
+              {showJumpToLatest && currentReadScope && (
+                <Tooltip title="Go to latest messages">
+                  <Badge
+                    badgeContent={missedBehindCount}
+                    color="error"
+                    overlap="circular"
+                    invisible={missedBehindCount < 1}
+                    sx={{
+                      pointerEvents: "auto",
+                      "& .MuiBadge-badge": {
+                        fontSize: "0.65rem",
+                        fontWeight: 700,
+                        minWidth: 18,
+                        height: 18,
+                        top: 4,
+                        right: 4,
+                      },
+                    }}
+                  >
+                    <IconButton
+                      aria-label="Go to latest messages"
+                      onClick={handleJumpToLatest}
+                      sx={{
+                        width: { xs: 36, md: 40 },
+                        height: { xs: 36, md: 40 },
+                        color: C.textMuted,
+                        bgcolor: C.cardBg,
+                        border: `1px solid ${C.divider}`,
+                        boxShadow: "0 4px 14px rgba(17,17,17,0.12)",
+                        "&:hover": {
+                          color: C.textPrimary,
+                          bgcolor: C.surface,
+                        },
+                      }}
+                    >
+                      <KeyboardArrowDownRoundedIcon />
+                    </IconButton>
+                  </Badge>
+                </Tooltip>
+              )}
               <Box
                 sx={{
-                  width: "100%",
-                  maxWidth: { md: 1100 },
-                  mx: "auto",
+                  ...communityColumnSx,
+                  width: "min(100%, 860px)",
                   pointerEvents: "auto",
                 }}
               >
@@ -7025,30 +7288,36 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           )}
 
         {!loading && pageTab === "communities" && !communityConversationId && (
-          <CommunitiesView
-            communities={communities}
-            friends={friends}
-            meetings={allMeetings}
-            onJoin={handleJoinCommunity}
-            onCreate={handleCreateCommunity}
-            onOpen={handleOpenCommunity}
-            onSchedule={handleScheduleCommunityDiscussion}
-            onUpdate={handleUpdateCommunity}
-            onDelete={handleDeleteCommunity}
-            onMembersChanged={async () => {
-              await refreshCommunities();
-            }}
-          />
+          <Box sx={{ width: "100%", alignSelf: "stretch" }}>
+            <CommunitiesView
+              communities={communities}
+              friends={friends}
+              meetings={allMeetings}
+              pendingEditCommunityId={pendingEditCommunityId}
+              onJoin={handleJoinCommunity}
+              onCreate={handleCreateCommunity}
+              onOpen={handleOpenCommunity}
+              onSchedule={handleScheduleCommunityDiscussion}
+              onUpdate={handleUpdateCommunity}
+              onDelete={handleDeleteCommunity}
+              onPendingEditConsumed={() => setPendingEditCommunityId(null)}
+              onMembersChanged={async () => {
+                await refreshCommunities();
+              }}
+            />
+          </Box>
         )}
 
         {!loading && pageTab === "friends" && (
-          <FriendsView
-            friends={friends}
-            friendRequests={friendRequests}
-            sentFriendRequests={sentFriendRequests}
-            onAddFriend={handleAddFriend}
-            onResolveRequest={handleResolveFriendRequest}
-          />
+          <Box sx={{ width: "100%", alignSelf: "stretch" }}>
+            <FriendsView
+              friends={friends}
+              friendRequests={friendRequests}
+              sentFriendRequests={sentFriendRequests}
+              onAddFriend={handleAddFriend}
+              onResolveRequest={handleResolveFriendRequest}
+            />
+          </Box>
         )}
       </Stack>
     </Box>

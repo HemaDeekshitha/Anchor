@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { CalendarDays, Check, Map, Target, X } from "lucide-react";
 import { apiFetch, requireOk } from "@/lib/auth-client";
+import { C } from "@/lib/ui-colors";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -199,7 +200,7 @@ export default function LearningTrackPanel() {
                 </Button>
                 <Button
                   onClick={() => setChangingPlan(true)}
-                  sx={{ bgcolor: "#fff", color: "#2c1a0a", "&:hover": { bgcolor: "#f7efe7" } }}
+                  sx={{ bgcolor: "#fff", color: "#111", "&:hover": { bgcolor: "#f3f3f3" } }}
                   variant="contained"
                 >
                   Change plan
@@ -221,7 +222,7 @@ export default function LearningTrackPanel() {
               <Typography sx={{ fontSize: "clamp(1.5rem,1.8vw,1.9rem)", fontWeight: 800 }}>
                 {track.targetRole} roadmap
               </Typography>
-              <Typography sx={{ fontSize: 13, color: "#8c6a50" }}>
+              <Typography sx={{ fontSize: 13, color: C.textMuted }}>
                 {questionRange(track.durationMonths)} · target {track.targetDate}
               </Typography>
             </Box>
@@ -235,11 +236,11 @@ export default function LearningTrackPanel() {
                 <Box key={phase.name}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
                     <Typography sx={{ fontWeight: 800 }}>{phase.name}</Typography>
-                    <Typography sx={{ color: "#8c6a50", fontSize: 13 }}>
+                    <Typography sx={{ color: C.textMuted, fontSize: 13 }}>
                       Weeks {phase.startWeek}–{phase.endWeek}
                     </Typography>
                   </Box>
-                  <Typography sx={{ color: "#6f5542", fontSize: 14, mt: 0.5 }}>
+                  <Typography sx={{ color: C.textSub, fontSize: 14, mt: 0.5 }}>
                     {phase.outcome}
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.7, mt: 1 }}>
@@ -261,14 +262,14 @@ export default function LearningTrackPanel() {
     <Box sx={{ mb: 4 }}>
       <Box sx={{ mb: 2.5 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Typography sx={{ fontSize: "clamp(1.8rem,2.2vw,2.4rem)", fontWeight: 800, color: "#2c1a0a" }}>
+          <Typography sx={{ fontSize: "clamp(1.65rem, 1.8vw, 1.9rem)", fontWeight: 800, color: C.textPrimary, fontFamily: "'Playfair Display', serif" }}>
             Choose your interview learning track
           </Typography>
           {track && changingPlan && (
             <Button onClick={() => setChangingPlan(false)}>Keep current plan</Button>
           )}
         </Box>
-        <Typography sx={{ color: "#8c6a50", mt: 0.5 }}>
+        <Typography sx={{ color: C.textMuted, mt: 0.5 }}>
           Anchor will create a role-specific roadmap and adapt your daily questions as you progress.
         </Typography>
       </Box>
@@ -286,7 +287,7 @@ export default function LearningTrackPanel() {
               key={option.durationMonths}
               sx={{
                 borderRadius: 4,
-                border: recommended ? `2px solid ${accent}` : "1px solid #e8ddd0",
+                border: recommended ? `2px solid ${accent}` : `1px solid ${C.divider}`,
                 position: "relative",
                 overflow: "visible",
               }}
@@ -302,10 +303,10 @@ export default function LearningTrackPanel() {
                 <Typography sx={{ color: accent, fontWeight: 800, fontSize: 13, letterSpacing: ".08em" }}>
                   {option.durationMonths} MONTH{option.durationMonths > 1 ? "S" : ""}
                 </Typography>
-                <Typography sx={{ mt: 1, fontSize: 21, fontWeight: 800, color: "#2c1a0a" }}>
+                <Typography sx={{ mt: 1, fontSize: 21, fontWeight: 800, color: C.textPrimary }}>
                   {option.name}
                 </Typography>
-                <Typography sx={{ mt: 1, minHeight: 64, fontSize: 14, color: "#8c6a50" }}>
+                <Typography sx={{ mt: 1, minHeight: 64, fontSize: 14, color: C.textMuted }}>
                   {option.description}
                 </Typography>
                 <Stack spacing={1.1} sx={{ my: 2.5 }}>

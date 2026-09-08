@@ -17,6 +17,7 @@ import MomentumGraphCard from "./ProfileGraphCard";
 import RecentSubmissions from "./RecentSubmission";
 import EditProfileModal, { EditableProfile } from "./EditProfile";
 import { apiFetch, requireOk } from "@/lib/auth-client";
+import { C } from "@/lib/ui-colors";
 import ProfilePasswordDialog from "./ProfilePasswordDialog";
 
 export default function Profile() {
@@ -218,7 +219,7 @@ export default function Profile() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            background: "#fff",
+            background: C.cardBg,
           }}
         >
           <CircularProgress sx={{ color: "#b87444" }} />
@@ -237,10 +238,10 @@ export default function Profile() {
           px: 0,
           py: 2,
           ml: 0,
-          background: "#fff",
+          bgcolor: "transparent",
           overflowX: "hidden",
           boxSizing: "border-box",
-          color: "#2c1a0a",
+          color: "var(--foreground)",
         }}
       >
         <Box
@@ -312,11 +313,11 @@ export default function Profile() {
           Verify your new email
         </DialogTitle>
         <DialogContent>
-          <Typography sx={{ color: "#8c6a50", mb: 2 }}>
+          <Typography sx={{ color: "var(--anchor-muted)", mb: 2 }}>
             Enter the six-digit code sent to {pendingEmailSave?.updated.email}{" "}
             before saving this change.
           </Typography>
-          <Typography sx={{ color: "#8c6a50", fontSize: 13, mt: -1, mb: 2 }}>
+          <Typography sx={{ color: "var(--anchor-muted)", fontSize: 13, mt: -1, mb: 2 }}>
             If you don&apos;t see the email in your inbox, check your spam or
             junk folder.
           </Typography>

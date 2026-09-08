@@ -314,6 +314,7 @@ export type CommunityFriendRequest = {
 
 export type CommunityCurrentProfile = {
   name: string;
+  email?: string;
   avatarUrl: string | null;
 };
 
