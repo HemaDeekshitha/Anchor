@@ -274,6 +274,7 @@ export type CommunityPostRecord = {
     id: string;
     body: string | null;
     kind: "text" | "media" | "poll";
+    media: CommunityMedia[];
     author: {
       id: string;
       name: string;

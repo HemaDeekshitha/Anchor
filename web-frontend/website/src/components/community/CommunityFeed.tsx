@@ -32,8 +32,6 @@ import {
   RadioGroup,
   Badge,
 } from "@mui/material";
-import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
-import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
 import PollOutlinedIcon from "@mui/icons-material/PollOutlined";
 import FavoriteBorderRoundedIcon from "@mui/icons-material/FavoriteBorderRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
@@ -66,7 +64,18 @@ import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import AlternateEmailRoundedIcon from "@mui/icons-material/AlternateEmailRounded";
+import MicNoneRoundedIcon from "@mui/icons-material/MicNoneRounded";
+import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
+import VideoCameraFrontOutlinedIcon from "@mui/icons-material/VideoCameraFrontOutlined";
+import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
+import FormatBoldRoundedIcon from "@mui/icons-material/FormatBoldRounded";
+import FormatItalicRoundedIcon from "@mui/icons-material/FormatItalicRounded";
+import FormatUnderlinedRoundedIcon from "@mui/icons-material/FormatUnderlinedRounded";
+import StrikethroughSRoundedIcon from "@mui/icons-material/StrikethroughSRounded";
+import InsertLinkRoundedIcon from "@mui/icons-material/InsertLinkRounded";
+import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
+import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
@@ -180,6 +189,7 @@ export type ForumPost = {
     authorAvatar?: string;
     body: string;
     kind: "text" | "media" | "poll";
+    media: Array<{ id: string; type: "image" | "video"; url: string }>;
   } | null;
   media?: Array<{ id: string; type: "image" | "video"; url: string }>;
   poll?: {
@@ -198,6 +208,7 @@ const ALL_ID = "all";
 export type ScheduledMeeting = {
   id: string;
   communityId: string;
+  communityName?: string;
   withName: string;
   withAvatar?: string;
   topic: string;
@@ -296,8 +307,49 @@ const FRIEND_REQUEST_SEEN_STORAGE_KEY =
 const COMM360_URL =
   process.env.NEXT_PUBLIC_COMM360_URL || "https://comm360.feeltiptop.com/";
 const MESSAGE_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
-const COMM360_MEETING_URL_PATTERN =
-  /https?:\/\/comm360\.feeltiptop\.com\/meeting\/([A-Za-z0-9_-]+)/i;
+
+const getComm360Host = () => {
+  try {
+    return new URL(COMM360_URL).hostname.replace(/^www\./i, "");
+  } catch {
+    return "comm360.feeltiptop.com";
+  }
+};
+
+const extractComm360RoomIds = (message: string): string[] => {
+  const host = getComm360Host().replace(/\./g, "\\.");
+  const pattern = new RegExp(
+    `(?:https?:\\/\\/)?(?:www\\.)?${host}\\/meetings?\\/([A-Za-z0-9_-]+)`,
+    "gi",
+  );
+  const roomIds: string[] = [];
+  for (const match of message.matchAll(pattern)) {
+    const roomId = match[1];
+    if (roomId && !roomIds.includes(roomId)) roomIds.push(roomId);
+  }
+  return roomIds;
+};
+
+const meetingFromRoomId = (roomId: string): Comm360Meeting => {
+  const base = COMM360_URL.replace(/\/$/, "");
+  return {
+    id: roomId,
+    roomId,
+    title: "Community discussion",
+    description: "",
+    startTime: "",
+    organizerName: "Comm360",
+    joinUrl: `${base}/meeting/${encodeURIComponent(roomId)}?type=direct`,
+  };
+};
+
+const loadComm360Meeting = async (roomId: string): Promise<Comm360Meeting> => {
+  try {
+    return await getComm360Meeting(roomId);
+  } catch {
+    return meetingFromRoomId(roomId);
+  }
+};
 
 const readSeenFriendRequestIds = (): Set<string> => {
   if (typeof window === "undefined") return new Set<string>();
@@ -325,9 +377,6 @@ const saveSeenFriendRequestIds = (requestIds: Set<string>): void => {
     // The in-memory acknowledgement still clears the badge for this session.
   }
 };
-
-const getComm360RoomId = (message: string) =>
-  message.match(COMM360_MEETING_URL_PATTERN)?.[1] ?? null;
 
 const renderMessageWithLinks = (message: string) =>
   message.split(MESSAGE_URL_PATTERN).map((part, index) => {
@@ -490,12 +539,13 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
         authorAvatar: post.replyTo.author?.avatarUrl ?? undefined,
         body:
           post.replyTo.body?.trim() ||
-          (post.replyTo.kind === "media"
-            ? "Shared a photo or video"
-            : post.replyTo.kind === "poll"
-              ? "Shared a poll"
-              : "Message"),
+          (post.replyTo.kind === "poll" ? "Shared a poll" : ""),
         kind: post.replyTo.kind,
+        media: (post.replyTo.media ?? []).map((item) => ({
+          id: item.id,
+          type: item.resourceType,
+          url: item.url,
+        })),
       }
     : null,
   media: (post.media ?? []).map((item) => ({
@@ -546,12 +596,14 @@ const formatUploadBytes = (bytes: number): string => {
 const Composer = ({
   scope,
   communityId,
+  communityName,
   onCreated,
   replyTo,
   onCancelReply,
 }: {
   scope: "global" | "community";
   communityId?: string;
+  communityName?: string;
   onCreated: (post: CommunityPostRecord) => Promise<void>;
   replyTo?: ForumPost | null;
   onCancelReply?: () => void;
@@ -573,9 +625,20 @@ const Composer = ({
     "idle" | "uploading" | "uploaded" | "publishing"
   >("idle");
   const [error, setError] = useState("");
+  const [attachmentMenuAnchor, setAttachmentMenuAnchor] =
+    useState<HTMLElement | null>(null);
+  const [formattingOpen, setFormattingOpen] = useState(false);
+  const [composerFont, setComposerFont] = useState<
+    "standard" | "emphasis" | "monospace"
+  >("standard");
+  const [composerItalic, setComposerItalic] = useState(false);
+  const [composerUnderline, setComposerUnderline] = useState(false);
+  const [composerStrike, setComposerStrike] = useState(false);
   const [mentionMembers, setMentionMembers] = useState<CommunityMemberRecord[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const videoCaptureInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const mediaUploadAbortRef = useRef<AbortController | null>(null);
@@ -599,6 +662,10 @@ const Composer = ({
       : Boolean(content.trim())) &&
     (mode !== "poll" || validPollOptions.length >= 2) &&
     (mode === "poll" ? Boolean(content.trim()) : true);
+  const messagePlaceholder =
+    scope === "community" && communityName
+      ? `Message ${communityName}`
+      : "Start a message or post";
 
   useEffect(() => {
     if (!file) {
@@ -668,6 +735,29 @@ const Composer = ({
     });
   };
   // T: O(1) and S: O(1)
+
+  const handleAnyMediaSelected = (selectedFile: File | null) => {
+    if (!selectedFile) return;
+    handleMediaSelected(
+      selectedFile.type.startsWith("video/") ? "video" : "image",
+      selectedFile,
+    );
+  };
+  // T: O(1) and S: O(1)
+
+  const insertComposerText = (value: string) => {
+    const input = composerInputRef.current;
+    const start = input?.selectionStart ?? content.length;
+    const end = input?.selectionEnd ?? start;
+    setContent(
+      (current) => `${current.slice(0, start)}${value}${current.slice(end)}`,
+    );
+    window.requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(start + value.length, start + value.length);
+    });
+  };
+  // T: O(c) and S: O(c), where c is the current message length
 
   const handleMediaSelected = (
     resourceType: "image" | "video",
@@ -749,6 +839,16 @@ const Composer = ({
     setOpen(true);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   };
+
+  const handleMentionClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setMode("text");
+    setContent(
+      (current) =>
+        `${current}${current && !current.endsWith(" ") ? " " : ""}@`,
+    );
+    window.requestAnimationFrame(() => composerInputRef.current?.focus());
+  };
   // T: O(1) and S: O(1)
 
   const resetComposer = () => {
@@ -764,14 +864,20 @@ const Composer = ({
     setTotalUploadBytes(0);
     setUploadStage("idle");
     setError("");
+    setComposerFont("standard");
+    setComposerItalic(false);
+    setComposerUnderline(false);
+    setComposerStrike(false);
+    setFormattingOpen(false);
   };
   // T: O(1) and S: O(1)
 
-  const handleCancel = (event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    if (submitting) return;
+  const handleCancelComposer = (event: React.MouseEvent) => {
+    event.stopPropagation();
     resetComposer();
     setOpen(false);
+    setAttachmentMenuAnchor(null);
+    onCancelReply?.();
   };
   // T: O(1) and S: O(1)
 
@@ -779,6 +885,12 @@ const Composer = ({
     if (!open) return;
     const handleDocumentPointerDown = (event: PointerEvent) => {
       if (submitting) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
+      ) {
+        return;
+      }
       if (
         composerRef.current &&
         !composerRef.current.contains(event.target as Node)
@@ -873,12 +985,6 @@ const Composer = ({
   };
   // T: O(b + p) and S: O(b + p), where b is media bytes and p is poll options
 
-  const handleCompactShare = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    void handleShare();
-  };
-  // T: O(b + p) and S: O(b + p), where b is media bytes and p is poll options
-
   return (
     <Card
       ref={composerRef}
@@ -887,12 +993,13 @@ const Composer = ({
       sx={{
         position: "relative",
         width: "100%",
+        boxSizing: "border-box",
         maxHeight: open
-          ? "min(52dvh, 520px)"
-          : { xs: 52, sm: 48, md: 58 },
-        minHeight: open ? 0 : { xs: 52, sm: 48, md: 58 },
-        p: open ? { xs: 1.5, sm: 1.75 } : 0,
-        borderRadius: open ? 4 : 999,
+          ? "min(48dvh, 460px)"
+          : { xs: 58, sm: 60, md: 62 },
+        minHeight: open ? 0 : { xs: 58, sm: 60, md: 62 },
+        p: open ? { xs: 1, sm: 1.25 } : 0,
+        borderRadius: open ? { xs: 3, sm: 3.5 } : 999,
         bgcolor: C.cardBg,
         touchAction: "manipulation",
         border: `1px solid ${open ? C.accentBorder : C.divider}`,
@@ -904,6 +1011,27 @@ const Composer = ({
           "max-height 320ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease",
       }}
     >
+      {open && !replyTo && (
+        <IconButton
+          aria-label="Cancel message"
+          size="small"
+          onClick={handleCancelComposer}
+          sx={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 28,
+            height: 28,
+            zIndex: 6,
+            color: C.textMuted,
+            bgcolor: C.surface,
+            border: `1px solid ${C.divider}`,
+            "&:hover": { color: C.textPrimary, bgcolor: C.accentFaint },
+          }}
+        >
+          <CloseRoundedIcon sx={{ fontSize: 17 }} />
+        </IconButton>
+      )}
       {open && replyTo && (
         <Box
           onClick={(event) => event.stopPropagation()}
@@ -929,12 +1057,33 @@ const Composer = ({
             <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
               Replying to {replyTo.authorName}
             </Typography>
-            <Typography
-              noWrap
-              sx={{ color: C.textMuted, fontSize: "0.72rem" }}
-            >
-              {replyTo.body || "Shared a message"}
-            </Typography>
+            {replyTo.body && (
+              <Typography
+                noWrap
+                sx={{ color: C.textMuted, fontSize: "0.72rem" }}
+              >
+                {replyTo.body}
+              </Typography>
+            )}
+            {replyTo.media?.[0] && (
+              <Box
+                component={
+                  replyTo.media[0].type === "image" ? "img" : "video"
+                }
+                src={replyTo.media[0].url}
+                muted={replyTo.media[0].type === "video"}
+                playsInline={replyTo.media[0].type === "video"}
+                sx={{
+                  display: "block",
+                  width: 52,
+                  height: 38,
+                  mt: 0.6,
+                  borderRadius: 1,
+                  objectFit: "cover",
+                  bgcolor: C.surface,
+                }}
+              />
+            )}
           </Box>
           <IconButton
             aria-label="Cancel reply"
@@ -952,17 +1101,37 @@ const Composer = ({
         sx={{
           display: "flex",
           alignItems: open ? "flex-start" : "center",
-          gap: open ? 1.2 : 0.5,
-          minHeight: open ? 0 : { xs: 50, sm: 46, md: 56 },
-          pr: open ? 4.5 : 0,
+          gap: open ? 0 : 0.5,
+          minHeight: open ? 0 : { xs: 56, sm: 58, md: 60 },
+          pr: open && !replyTo ? 3.5 : 0,
         }}
       >
+        {!open && (
+          <IconButton
+            aria-label="Add an image, video, or file"
+            onClick={(event) => {
+              event.stopPropagation();
+              setAttachmentMenuAnchor(event.currentTarget);
+            }}
+            sx={{
+              width: { xs: 48, sm: 50 },
+              height: { xs: 48, sm: 50 },
+              ml: 0.55,
+              flexShrink: 0,
+              color: C.textSub,
+              bgcolor: C.surface,
+              "&:hover": { bgcolor: C.accentFaint },
+            }}
+          >
+            <AddRoundedIcon sx={{ fontSize: { xs: 30, sm: 32 } }} />
+          </IconButton>
+        )}
         <TextField
           inputRef={composerInputRef}
           fullWidth
           multiline
-          minRows={open ? 4 : 1}
-          maxRows={open ? 8 : 1}
+          minRows={open ? 2 : 1}
+          maxRows={open ? 6 : 1}
           value={content}
           disabled={submitting}
           onFocus={handleOpen}
@@ -978,13 +1147,7 @@ const Composer = ({
               fontSize: "0.7rem",
             },
           }}
-          placeholder={
-            open
-              ? mode === "poll"
-                ? "What is the question?"
-                : "What do you want to share?"
-              : "Start a message or post"
-          }
+          placeholder={open && mode === "poll" ? "What is the question?" : messagePlaceholder}
           variant="standard"
           InputProps={{ disableUnderline: true }}
           sx={{
@@ -993,20 +1156,24 @@ const Composer = ({
             "& .MuiInputBase-root": {
               alignItems: open ? "flex-start" : "center",
               color: C.textPrimary,
-              fontSize: "16px",
+              fontSize: { xs: "18px", sm: "17px" },
               lineHeight: 1.55,
-              border: open ? `1px solid ${C.divider}` : "1px solid transparent",
-              borderRadius: open ? 2 : 0,
+              border: 0,
+              borderRadius: 0,
               bgcolor: "transparent",
-              px: open ? 1.5 : { xs: 1.25, sm: 1.5, md: 2 },
-              py: open ? 1.1 : 0,
+              px: open ? { xs: 0.75, sm: 1 } : { xs: 1, sm: 1.25, md: 1.5 },
+              py: open ? 0.8 : 0,
             },
             "& .MuiInputBase-input": {
-              fontSize: "16px",
-              fontFamily: "Inter, sans-serif",
-            },
-            "& .MuiInputBase-root.Mui-focused": {
-              borderColor: C.textPrimary,
+              fontSize: { xs: "18px", sm: "17px" },
+              fontWeight: composerFont === "emphasis" ? 700 : 400,
+              fontStyle: composerItalic ? "italic" : "normal",
+              textDecoration: [
+                composerUnderline ? "underline" : "",
+                composerStrike ? "line-through" : "",
+              ]
+                .filter(Boolean)
+                .join(" "),
             },
             "& textarea::placeholder": {
               color: C.textMuted,
@@ -1070,41 +1237,17 @@ const Composer = ({
 
         {!open && (
           <IconButton
-            aria-label="Send message or post"
-            onClick={handleCompactShare}
-            disabled={!canSubmit || submitting}
-            size="small"
+            aria-label="Voice message"
+            onClick={(event) => event.stopPropagation()}
             sx={{
-              width: { xs: 30, sm: 34, md: 40 },
-              height: { xs: 30, sm: 34, md: 40 },
-              minWidth: { xs: 30, sm: 34, md: 40 },
-              mr: { xs: 0.55, sm: 0.7, md: 0.75 },
+              width: { xs: 44, sm: 46 },
+              height: { xs: 44, sm: 46 },
+              mr: { xs: 0.55, sm: 0.75 },
               flexShrink: 0,
-              color: "#fff",
-              bgcolor: canSubmit ? C.accent : "#e7e4e1",
-              "&:hover": { bgcolor: canSubmit ? C.accentDark : "#e7e4e1" },
-              "&.Mui-disabled": { color: "#aaa", bgcolor: "#e7e4e1" },
+              color: C.textSub,
             }}
           >
-            <SendRoundedIcon sx={{ fontSize: { xs: 15, sm: 17, md: 18 } }} />
-          </IconButton>
-        )}
-
-        {open && (
-          <IconButton
-            aria-label="Cancel post"
-            onClick={handleCancel}
-            size="small"
-            sx={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              color: C.textMuted,
-              flexShrink: 0,
-              zIndex: 2,
-            }}
-          >
-            <CloseRoundedIcon fontSize="small" />
+            <MicNoneRoundedIcon sx={{ fontSize: { xs: 27, sm: 29 } }} />
           </IconButton>
         )}
       </Box>
@@ -1375,18 +1518,149 @@ const Composer = ({
           </Alert>
         )}
 
+        {formattingOpen && (
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.25}
+            sx={{
+              mt: 0.75,
+              py: 0.55,
+              overflowX: "auto",
+              borderTop: `1px solid ${C.divider}`,
+              borderBottom: `1px solid ${C.divider}`,
+            }}
+          >
+            <IconButton
+              aria-label="Close formatting options"
+              size="small"
+              onClick={() => setFormattingOpen(false)}
+              sx={{ mr: 0.5, color: "#fff", bgcolor: C.accent, "&:hover": { bgcolor: C.accentDark } }}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Bold"
+              aria-pressed={composerFont === "emphasis"}
+              size="small"
+              onClick={() =>
+                setComposerFont((current) =>
+                  current === "emphasis" ? "standard" : "emphasis",
+                )
+              }
+              sx={{
+                color: composerFont === "emphasis" ? C.accentDark : C.textSub,
+                bgcolor:
+                  composerFont === "emphasis" ? C.accentFaint : "transparent",
+              }}
+            >
+              <FormatBoldRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Italic"
+              aria-pressed={composerItalic}
+              size="small"
+              onClick={() => setComposerItalic((current) => !current)}
+              sx={{ color: composerItalic ? C.accentDark : C.textSub }}
+            >
+              <FormatItalicRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Underline"
+              aria-pressed={composerUnderline}
+              size="small"
+              onClick={() => setComposerUnderline((current) => !current)}
+              sx={{ color: composerUnderline ? C.accentDark : C.textSub }}
+            >
+              <FormatUnderlinedRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Strikethrough"
+              aria-pressed={composerStrike}
+              size="small"
+              onClick={() => setComposerStrike((current) => !current)}
+              sx={{ color: composerStrike ? C.accentDark : C.textSub }}
+            >
+              <StrikethroughSRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Insert link"
+              size="small"
+              onClick={() => insertComposerText("https://")}
+              sx={{ color: C.textSub }}
+            >
+              <InsertLinkRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Start numbered list"
+              size="small"
+              onClick={() => insertComposerText(content ? "\n1. " : "1. ")}
+              sx={{ color: C.textSub }}
+            >
+              <FormatListNumberedRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Start bulleted list"
+              size="small"
+              onClick={() => insertComposerText(content ? "\n• " : "• ")}
+              sx={{ color: C.textSub }}
+            >
+              <FormatListBulletedRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        )}
+
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 2,
-            mt: 1.4,
-            pt: 1.1,
-            borderTop: `1px solid ${C.divider}`,
+            mt: 0.75,
+            pt: 0.35,
           }}
         >
-          <Stack direction="row" spacing={0.35}>
+          <Stack
+            direction="row"
+            spacing={{ xs: 0.05, sm: 0.3 }}
+            alignItems="center"
+          >
+            <Tooltip title="Add an image, video, or file">
+              <IconButton
+                aria-label="Add an image, video, or file"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setAttachmentMenuAnchor(event.currentTarget);
+                }}
+                sx={{ color: C.textSub, bgcolor: C.surface }}
+              >
+                <AddRoundedIcon sx={{ fontSize: 28 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Text style">
+              <IconButton
+                aria-label="Show formatting options"
+                aria-expanded={formattingOpen}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setFormattingOpen((current) => !current);
+                }}
+                sx={{
+                  color:
+                    formattingOpen || composerFont !== "standard"
+                      ? C.accentDark
+                      : C.textSub,
+                  bgcolor:
+                    formattingOpen || composerFont !== "standard"
+                      ? C.accentFaint
+                      : "transparent",
+                  fontSize: "1.1rem",
+                  fontWeight: 500,
+                }}
+              >
+                Aa
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Add emoji">
               <IconButton
                 aria-label="Add emoji"
@@ -1399,28 +1673,13 @@ const Composer = ({
                 <EmojiEmotionsOutlinedIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Add image">
+            <Tooltip title="Mention someone">
               <IconButton
-                aria-label="Add image"
-                onClick={() => handleMediaPicker("image")}
-                sx={{
-                  color: mode === "image" ? C.accentDark : C.textSub,
-                  bgcolor: mode === "image" ? C.accentFaint : "transparent",
-                }}
+                aria-label="Mention someone"
+                onClick={handleMentionClick}
+                sx={{ color: C.textSub }}
               >
-                <ImageOutlinedIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Add video">
-              <IconButton
-                aria-label="Add video"
-                onClick={() => handleMediaPicker("video")}
-                sx={{
-                  color: mode === "video" ? C.accentDark : C.textSub,
-                  bgcolor: mode === "video" ? C.accentFaint : "transparent",
-                }}
-              >
-                <VideocamOutlinedIcon />
+                <AlternateEmailRoundedIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Create poll">
@@ -1438,29 +1697,107 @@ const Composer = ({
           </Stack>
 
           <Button
-            variant="contained"
-            endIcon={!submitting ? <SendRoundedIcon /> : undefined}
+            variant="text"
+            aria-label="Send message"
             onClick={handleShare}
             disabled={!canSubmit || submitting}
             sx={{
-              minWidth: 104,
-              px: 2.4,
-              borderRadius: 5,
-              bgcolor: C.accent,
-              textTransform: "none",
-              fontWeight: 700,
-              boxShadow: "none",
-              "&:hover": { bgcolor: C.accentDark, boxShadow: "none" },
+              minWidth: 44,
+              width: 44,
+              height: 44,
+              p: 0,
+              borderRadius: "50%",
+              color: canSubmit ? C.accent : C.textMuted,
+              "&:hover": { bgcolor: C.accentFaint },
             }}
           >
             {submitting ? (
-              <CircularProgress size={20} sx={{ color: "#fff" }} />
+              <CircularProgress size={20} sx={{ color: C.accent }} />
             ) : (
-              "Send"
+              <SendRoundedIcon sx={{ fontSize: 30 }} />
             )}
           </Button>
         </Box>
       </Box>
+      <Dialog
+        open={Boolean(attachmentMenuAnchor)}
+        onClose={() => setAttachmentMenuAnchor(null)}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby="attachment-panel-title"
+        PaperProps={{
+          sx: {
+            position: { xs: "fixed", sm: "relative" },
+            bottom: { xs: 0, sm: "auto" },
+            width: { xs: "calc(100% - 16px)", sm: "100%" },
+            m: { xs: 1, sm: 4 },
+            borderRadius: { xs: "28px 28px 22px 22px", sm: 3 },
+            overflow: "hidden",
+          },
+        }}
+      >
+        <DialogTitle id="attachment-panel-title" sx={{ pb: 1, fontWeight: 800 }}>
+          Add to your message
+        </DialogTitle>
+        <DialogContent sx={{ px: 1.25, pb: 2 }}>
+        <MenuItem
+          onClick={() => {
+            setAttachmentMenuAnchor(null);
+            window.requestAnimationFrame(() => {
+              if (mediaInputRef.current) {
+                mediaInputRef.current.value = "";
+                mediaInputRef.current.click();
+              }
+            });
+          }}
+          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
+        >
+          <PhotoLibraryOutlinedIcon />
+          Photos &amp; videos
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAttachmentMenuAnchor(null);
+            setOpen(true);
+            setError("Audio clips are not supported yet.");
+          }}
+          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
+        >
+          <MicNoneRoundedIcon />
+          Record an audio clip
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAttachmentMenuAnchor(null);
+            window.requestAnimationFrame(() => {
+              if (videoCaptureInputRef.current) {
+                videoCaptureInputRef.current.value = "";
+                videoCaptureInputRef.current.click();
+              }
+            });
+          }}
+          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
+        >
+          <VideoCameraFrontOutlinedIcon />
+          Record a video clip
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAttachmentMenuAnchor(null);
+            window.requestAnimationFrame(() => {
+              if (mediaInputRef.current) {
+                mediaInputRef.current.value = "";
+                mediaInputRef.current.click();
+              }
+            });
+          }}
+          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
+        >
+          <UploadFileOutlinedIcon />
+          Upload a file
+        </MenuItem>
+        </DialogContent>
+      </Dialog>
       <input
         ref={imageInputRef}
         hidden
@@ -1475,6 +1812,25 @@ const Composer = ({
         hidden
         type="file"
         accept="video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm"
+        onChange={(event) =>
+          handleMediaSelected("video", event.target.files?.[0] ?? null)
+        }
+      />
+      <input
+        ref={mediaInputRef}
+        hidden
+        type="file"
+        accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm"
+        onChange={(event) =>
+          handleAnyMediaSelected(event.target.files?.[0] ?? null)
+        }
+      />
+      <input
+        ref={videoCaptureInputRef}
+        hidden
+        type="file"
+        accept="video/*"
+        capture="user"
         onChange={(event) =>
           handleMediaSelected("video", event.target.files?.[0] ?? null)
         }
@@ -1495,6 +1851,7 @@ const PostCard = ({
   onDeleted,
   onReply,
   onMeetingDiscovered,
+  discoveryCommunityId,
 }: {
   post: ForumPost;
   communityName?: string;
@@ -1508,6 +1865,7 @@ const PostCard = ({
     meeting: Comm360Meeting,
     communityId: string,
   ) => void;
+  discoveryCommunityId?: string;
 }) => {
   const [comments, setComments] = useState<ForumComment[]>(
     post.initialComments ?? [],
@@ -1579,19 +1937,29 @@ const PostCard = ({
   );
 
   useEffect(() => {
-    const roomId = getComm360RoomId(displayBody);
-    if (!roomId || !post.communityId) return;
+    const communityId = post.communityId ?? discoveryCommunityId;
+    const roomIds = [
+      ...extractComm360RoomIds(displayBody),
+      ...comments.flatMap((comment) => extractComm360RoomIds(comment.body)),
+    ];
+    if (!communityId || roomIds.length === 0) return;
     let cancelled = false;
-    void getComm360Meeting(roomId)
-      .then((meeting) => {
+    for (const roomId of roomIds) {
+      void loadComm360Meeting(roomId).then((meeting) => {
         if (cancelled) return;
-        onMeetingDiscovered?.(meeting, post.communityId!);
-      })
-      .catch(() => undefined);
+        onMeetingDiscovered?.(meeting, communityId);
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [displayBody, onMeetingDiscovered, post.communityId]);
+  }, [
+    comments,
+    discoveryCommunityId,
+    displayBody,
+    onMeetingDiscovered,
+    post.communityId,
+  ]);
   // T: O(b) and S: O(1), where b is the post body length
 
   useEffect(() => {
@@ -2147,12 +2515,9 @@ const PostCard = ({
         boxSizing: "border-box",
         py: { xs: 1.2, sm: 2 },
         bgcolor: C.cardBg,
-        border: showComments ? `1px solid ${C.accentBorder}` : 0,
-        borderBottom: showComments
-          ? `1px solid ${C.accentBorder}`
-          : `1px solid ${C.divider}`,
-        borderRadius: showComments ? 2 : 0,
-        px: showComments ? { xs: 1, sm: 1.5 } : 0,
+        border: 0,
+        borderRadius: 0,
+        px: 0,
         boxShadow: "none",
         overflow: "hidden",
         transition: "background-color 140ms ease",
@@ -2431,6 +2796,8 @@ const PostCard = ({
         </Menu>
       </Box>
 
+      <Box sx={{ ml: { xs: 5.5, sm: 6.15 }, minWidth: 0 }}>
+
       {communityName && !conversationStyle && (
         <Chip
           label={communityName}
@@ -2471,20 +2838,41 @@ const PostCard = ({
               <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
                 {post.replyTo.authorName}
               </Typography>
-              <Typography
-                sx={{
-                  color: C.textMuted,
-                  fontSize: { xs: "0.72rem", sm: "0.76rem" },
-                  lineHeight: 1.35,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  overflowWrap: "anywhere",
-                }}
-              >
-                {post.replyTo.body}
-              </Typography>
+              {post.replyTo.body && (
+                <Typography
+                  sx={{
+                    color: C.textMuted,
+                    fontSize: { xs: "0.72rem", sm: "0.76rem" },
+                    lineHeight: 1.35,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {post.replyTo.body}
+                </Typography>
+              )}
+              {post.replyTo.media?.[0] && (
+                <Box
+                  component={
+                    post.replyTo.media[0].type === "image" ? "img" : "video"
+                  }
+                  src={post.replyTo.media[0].url}
+                  muted={post.replyTo.media[0].type === "video"}
+                  playsInline={post.replyTo.media[0].type === "video"}
+                  sx={{
+                    display: "block",
+                    width: { xs: 64, sm: 76 },
+                    height: { xs: 46, sm: 54 },
+                    mt: 0.65,
+                    borderRadius: 1.25,
+                    objectFit: "cover",
+                    bgcolor: C.surface,
+                  }}
+                />
+              )}
             </Box>
         </Box>
       )}
@@ -2702,12 +3090,14 @@ const PostCard = ({
         </Stack>
       )}
 
+      {(likeCount > 0 || commentCount > 0) && (
       <Stack
         direction="row"
         alignItems="center"
         spacing={{ xs: 1, sm: 1.5 }}
         sx={{ mt: 0.9, minHeight: 32 }}
       >
+        {likeCount > 0 && (
         <Button
           size="small"
           onClick={() => void handleLike()}
@@ -2728,6 +3118,8 @@ const PostCard = ({
         >
           {likeCount}
         </Button>
+        )}
+        {commentCount > 0 && (
         <Button
           size="small"
           onClick={() => void handleToggleComments()}
@@ -2745,17 +3137,20 @@ const PostCard = ({
         >
           {commentCount}
         </Button>
+        )}
       </Stack>
+      )}
 
       {actionMessage && (
         <Typography sx={{ mt: 1, color: C.textMuted, fontSize: "0.75rem" }}>
           {actionMessage}
         </Typography>
       )}
+      </Box>
 
       {/* Comments + reply box */}
       {showComments && (
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2, ml: { xs: 5.5, sm: 6.15 } }}>
           <Divider sx={{ borderColor: C.divider, mb: 1.5 }} />
 
           {comments.length === 0 ? (
@@ -3245,7 +3640,9 @@ const ScheduleMeetings = ({
     return () => window.clearInterval(timer);
   }, []);
   const scopedMeetings = meetings
-    .filter((meeting) => meeting.communityId === activeCommunityId)
+    .filter((meeting) =>
+      isAllView ? true : meeting.communityId === activeCommunityId,
+    )
     .sort((left, right) => {
       const leftStart = left.startAt
         ? new Date(left.startAt).getTime()
@@ -3287,7 +3684,7 @@ const ScheduleMeetings = ({
         {isAllView ? "Schedule a Discussion" : "Scheduled Discussions"}
       </Typography>
 
-      {isAllView ? (
+      {isAllView && (
         <>
           <Typography sx={{ fontSize: { xs: "16px", lg: "0.82rem" }, lineHeight: 1.5, color: C.textSub, mb: 2 }}>
             Schedule the meeting in Comm360, then{" "}
@@ -3331,9 +3728,10 @@ const ScheduleMeetings = ({
             Open Comm360 to schedule
           </Box>
         </>
-      ) : (
-        <>
-          <Stack spacing={compact ? 0.75 : 1.25} sx={{ mt: compact ? 0.75 : 1.75 }}>
+      )}
+
+      {(!isAllView || scopedMeetings.length > 0) && (
+        <Stack spacing={compact ? 0.75 : 1.25} sx={{ mt: compact ? 0.75 : 1.75 }}>
             {scopedMeetings.length === 0 ? (
               <Typography
                 sx={{
@@ -3354,9 +3752,9 @@ const ScheduleMeetings = ({
                   : Number.NaN;
                 const canJoin =
                   Boolean(meeting.joinUrl) &&
-                  Number.isFinite(startsAt) &&
-                  currentTime >= startsAt &&
-                  currentTime <= startsAt + 2 * 60 * 60_000;
+                  (!Number.isFinite(startsAt) ||
+                    (currentTime >= startsAt &&
+                      currentTime <= startsAt + 2 * 60 * 60_000));
                 const hasEnded =
                   Number.isFinite(startsAt) &&
                   currentTime > startsAt + 2 * 60 * 60_000;
@@ -3396,6 +3794,18 @@ const ScheduleMeetings = ({
                         >
                           {meeting.topic}
                         </Typography>
+                        {isAllView && meeting.communityName && (
+                          <Typography
+                            sx={{
+                              mt: 0.2,
+                              fontSize: "0.72rem",
+                              fontWeight: 600,
+                              color: C.accentDark,
+                            }}
+                          >
+                            {meeting.communityName}
+                          </Typography>
+                        )}
                         <Typography
                           sx={{
                             mt: 0.35,
@@ -3496,7 +3906,6 @@ const ScheduleMeetings = ({
               })
             )}
           </Stack>
-        </>
       )}
     </Card>
   );
@@ -3716,7 +4125,7 @@ const CommunitiesView = ({
   const joinedCommunities = communities.filter((community) => community.joined);
   const visibleJoinedCommunities = showAllCommunities
     ? joinedCommunities
-    : joinedCommunities.slice(0, 5);
+    : joinedCommunities.slice(0, 4);
   const scheduleCommunity = joinedCommunities.find(
     (community) => community.id === scheduleCommunityId,
   );
@@ -4306,15 +4715,6 @@ const CommunitiesView = ({
                           >
                             {community.description || "A new Anchor community"}
                           </Typography>
-                          <Typography
-                            sx={{
-                              color: C.textMuted,
-                              fontSize: "0.7rem",
-                              mt: 0.2,
-                            }}
-                          >
-                            {community.memberCount}
-                          </Typography>
                           <Box
                             sx={{
                               display: "flex",
@@ -4366,7 +4766,7 @@ const CommunitiesView = ({
                   })}
                 </Box>
 
-                {joinedCommunities.length > 5 && (
+                {joinedCommunities.length > 4 && (
                   <Box
                     component="button"
                     type="button"
@@ -4538,15 +4938,6 @@ const CommunitiesView = ({
                         }}
                       >
                         {community.description || "A new Anchor community"}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          color: C.textMuted,
-                          fontSize: "0.72rem",
-                          mt: 0.2,
-                        }}
-                      >
-                        {community.memberCount}
                       </Typography>
                       <Typography
                         sx={{
@@ -5263,8 +5654,12 @@ const FriendsView = ({
   const [searchError, setSearchError] = useState("");
   const [requestActionId, setRequestActionId] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [showAllFriends, setShowAllFriends] = useState(false);
   const normalizedSearch = search.trim().toLowerCase();
   const currentFriends = friends.filter((friend) => friend.isFriend);
+  const visibleFriends = showAllFriends
+    ? currentFriends
+    : currentFriends.slice(0, 4);
 
   useEffect(() => {
     if (normalizedSearch.length < 2) {
@@ -5512,6 +5907,7 @@ const FriendsView = ({
               Your accepted friends will appear here.
             </Typography>
           ) : (
+            <>
             <Box
               sx={{
                 display: "grid",
@@ -5523,7 +5919,7 @@ const FriendsView = ({
                 gap: 2,
               }}
             >
-              {currentFriends.map((friend) => (
+              {visibleFriends.map((friend) => (
                 <Card
                   key={friend.id}
                   sx={{
@@ -5543,6 +5939,43 @@ const FriendsView = ({
                 </Card>
               ))}
             </Box>
+            {currentFriends.length > 4 && (
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setShowAllFriends((current) => !current)}
+                aria-expanded={showAllFriends}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.5,
+                  mx: "auto",
+                  mt: 1.5,
+                  p: 0.5,
+                  border: 0,
+                  bgcolor: "transparent",
+                  color: C.accentDark,
+                  cursor: "pointer",
+                  font: "inherit",
+                  "&:hover": { color: C.textPrimary },
+                }}
+              >
+                <KeyboardArrowDownRoundedIcon
+                  sx={{
+                    fontSize: 20,
+                    transform: showAllFriends
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 160ms ease",
+                  }}
+                />
+                <Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
+                  {showAllFriends ? "Show fewer friends" : "Show all friends"}
+                </Typography>
+              </Box>
+            )}
+            </>
           )
         ) : section === "requests" ? friendRequests.length === 0 ? (
           <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
@@ -5816,6 +6249,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const communityInviteLinksRef = useRef<Record<string, string>>({});
   const activePostScopeRef = useRef<string>(ALL_ID);
   const conversationRequestRef = useRef(0);
+  const lastCommunityConversationIdRef = useRef<string | null>(null);
   const seenPostIdsRef = useRef<Set<string> | null>(null);
   const knownFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const acknowledgedFriendRequestIdsRef = useRef<Set<string> | null>(null);
@@ -5852,25 +6286,32 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
   const handleMeetingDiscovered = useCallback(
     (meeting: Comm360Meeting, communityId: string) => {
-      const start = new Date(meeting.startTime);
+      const start = meeting.startTime ? new Date(meeting.startTime) : null;
+      const validStart = Boolean(start && !Number.isNaN(start.getTime()));
       setDiscoveredMeetings((current) => {
         const mapped: ScheduledMeeting = {
           id: meeting.id,
           communityId,
+          communityName: communities.find((item) => item.id === communityId)
+            ?.name,
           withName: meeting.organizerName,
           topic: meeting.title,
           description: meeting.description,
-          date: start.toLocaleDateString([], {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          }),
-          time: start.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
-          }),
+          date: validStart
+            ? start!.toLocaleDateString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })
+            : "Scheduled in Comm360",
+          time: validStart
+            ? start!.toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "Open to join",
           via: "Comm360",
-          startAt: meeting.startTime,
+          startAt: validStart ? meeting.startTime : undefined,
           joinUrl: meeting.joinUrl,
         };
         const existingIndex = current.findIndex(
@@ -5882,9 +6323,27 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         return next;
       });
     },
-    [],
+    [communities],
   );
   // T: O(m) and S: O(m), where m is discovered meetings
+
+  useEffect(() => {
+    const fallbackCommunityId = communityConversationId;
+    const requested = new Set<string>();
+    for (const post of posts) {
+      const communityId = post.communityId ?? fallbackCommunityId;
+      if (!communityId) continue;
+      for (const roomId of extractComm360RoomIds(post.body)) {
+        const key = `${communityId}:${roomId}`;
+        if (requested.has(key)) continue;
+        requested.add(key);
+        void loadComm360Meeting(roomId).then((meeting) =>
+          handleMeetingDiscovered(meeting, communityId),
+        );
+      }
+    }
+  }, [communityConversationId, handleMeetingDiscovered, posts]);
+  // T: O(p) and S: O(p), where p is loaded posts
 
   const refreshPosts = useCallback(async (communityId: string) => {
     activePostScopeRef.current = communityId;
@@ -6035,6 +6494,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
       setPageTab(restoredPageTab);
       setCommunityConversationId(restoredConversation);
+      lastCommunityConversationIdRef.current = restoredConversation;
       setActiveCommunityId(restoredConversation ?? nextCommunityId);
       if (restoredConversation) {
         await refreshPosts(restoredConversation);
@@ -6300,8 +6760,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         COMMUNITY_CONVERSATION_STORAGE_KEY,
         communityConversationId,
       );
-    } else {
-      window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
     }
   }, [communityConversationId, hydrated, pageTab]);
 
@@ -6358,6 +6816,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     }
     if (communityConversationId === communityId) {
       setCommunityConversationId(null);
+      lastCommunityConversationIdRef.current = null;
+      window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
       setPosts([]);
     }
     await refreshCommunities();
@@ -6389,6 +6849,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       setPosts([]);
       setActiveCommunityId(communityId);
       setCommunityConversationId(communityId);
+      lastCommunityConversationIdRef.current = communityId;
       setPageTab("communities");
       window.localStorage.setItem(
         COMMUNITY_CONVERSATION_STORAGE_KEY,
@@ -6423,6 +6884,21 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const handlePageTabChange = (nextTab: CommunityPageTab) => {
     if (nextTab === "friends") {
       acknowledgeFriendRequests(friendRequests);
+    }
+    if (nextTab === "communities") {
+      const previousCommunityId =
+        lastCommunityConversationIdRef.current ??
+        window.localStorage.getItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
+      if (
+        previousCommunityId &&
+        communities.some(
+          (community) =>
+            community.id === previousCommunityId && community.joined,
+        )
+      ) {
+        void handleOpenCommunity(previousCommunityId);
+        return;
+      }
     }
     setPageTab(nextTab);
     window.localStorage.setItem(COMMUNITY_PAGE_TAB_STORAGE_KEY, nextTab);
@@ -6459,6 +6935,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     setConversationLoading(false);
     setPageError("");
     setCommunityConversationId(null);
+    lastCommunityConversationIdRef.current = null;
     window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
     replaceCommunityUrl("communities");
     void refreshCommunities();
@@ -6886,8 +7363,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           pb: 0,
           borderBottom: `1px solid ${C.divider}`,
           boxShadow: { xs: "0 3px 14px rgba(17,17,17,0.08)", md: "none" },
-          transform: showCommunityChrome ? "translateY(0)" : "translateY(-110%)",
-          transition: "transform 180ms ease",
         }}
       >
         <Box sx={{ width: "100%" }}>
@@ -7019,6 +7494,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       onUpdated={handlePostUpdated}
                       onDeleted={handlePostDeleted}
                       onMeetingDiscovered={handleMeetingDiscovered}
+                      discoveryCommunityId={communityConversationId ?? undefined}
                     />
                   </Box>
                 ))}
@@ -7146,18 +7622,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         <VideocamRoundedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Community settings">
-                      <IconButton
-                        aria-label="Community settings"
-                        onClick={() => {
-                          setPendingEditCommunityId(conversationCommunity.id);
-                          handleCloseCommunityConversation();
-                        }}
-                        sx={{ color: C.textMuted }}
-                      >
-                        <SettingsOutlinedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
-                      </IconButton>
-                    </Tooltip>
                     <IconButton
                       aria-label="Community actions"
                       onClick={(event) =>
@@ -7269,6 +7733,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         onUpdated={handlePostUpdated}
                         onDeleted={handlePostDeleted}
                         onMeetingDiscovered={handleMeetingDiscovered}
+                        discoveryCommunityId={conversationCommunity.id}
                       />
                     </Box>
                     );
@@ -7286,16 +7751,25 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             <Box
               sx={{
                 position: "fixed",
-                left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
-                right: 0,
-                bottom: { xs: 14, md: 18 },
+                left: {
+                  xs: "12px",
+                  sm: "18px",
+                  md: "calc(var(--anchor-sidebar-width, 0px) + 32px)",
+                  lg: "calc(var(--anchor-sidebar-width, 0px) + 40px)",
+                },
+                right: { xs: "12px", sm: "18px", md: "32px", lg: "40px" },
+                bottom: {
+                  xs: "max(12px, env(safe-area-inset-bottom))",
+                  sm: 16,
+                  md: 18,
+                },
                 zIndex: 1100,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-end",
-                alignItems: "stretch",
+                alignItems: "center",
                 gap: 1,
-                px: COMMUNITY_GUTTER,
+                px: 0,
                 boxSizing: "border-box",
                 width: "auto",
                 pointerEvents: "none",
@@ -7347,12 +7821,14 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                 sx={{
                   ...communityColumnSx,
                   width: "100%",
+                  maxWidth: "100%",
                   pointerEvents: "auto",
                 }}
               >
                 <Composer
                   scope={pageTab === "posts" ? "global" : "community"}
                   communityId={communityConversationId ?? undefined}
+                  communityName={conversationCommunity?.name}
                   replyTo={replyingToPost}
                   onCancelReply={() => setReplyingToPost(null)}
                   onCreated={handlePostCreated}
