@@ -21,58 +21,67 @@ export class HealthController {
     try {
       const [[schema], redis] = await Promise.all([
         this.dataSource.query(`
-        SELECT (
+        SELECT
           EXISTS (
             SELECT 1
             FROM information_schema.columns
             WHERE table_schema = current_schema()
               AND table_name = 'community_posts'
               AND column_name = 'replyToPostId'
-          )
-          AND EXISTS (
+          ) AS "coreSchemaReady",
+          EXISTS (
             SELECT 1
             FROM information_schema.columns
             WHERE table_schema = current_schema()
               AND table_name = 'post_media'
               AND column_name = 'originalFilename'
-          )
-          AND EXISTS (
+          ) AS "mediaFilenameReady",
+          EXISTS (
             SELECT 1
             FROM information_schema.tables
             WHERE table_schema = current_schema()
               AND table_name = 'post_comment_votes'
-          )
-        ) AS "communitySchemaReady"
-      `) as Promise<Array<{ communitySchemaReady: boolean }>>,
-        this.cache.readiness(),
+          ) AS "commentVotesReady"
+      `) as Promise<
+        Array<{
+          coreSchemaReady: boolean;
+          mediaFilenameReady: boolean;
+          commentVotesReady: boolean;
+        }>
+      >,
+        this.cache.readiness().catch(() => 'disabled' as const),
       ]);
-      if (!schema?.communitySchemaReady) {
+
+      // Only the core community column is deploy-blocking. Extra columns are
+      // reported as warnings so a lagging migration cannot take the API down.
+      if (!schema?.coreSchemaReady) {
         throw new Error('Community schema migration is incomplete');
       }
-      const redisRequired =
-        process.env.NODE_ENV === 'production' && redis === 'disabled';
-      if (redisRequired) {
-        // Keep the process up so deploys can still roll, but surface the
-        // misconfiguration clearly — community cache/queues need Redis.
-        return {
-          status: 'degraded',
-          database: 'reachable',
-          redis,
-          communitySchema: 'ready',
-          warning: 'REDIS_URL is unset; community cache and queues are offline',
-          timestamp: new Date().toISOString(),
-        };
+
+      const warnings: string[] = [];
+      if (!schema.mediaFilenameReady) {
+        warnings.push('post_media.originalFilename migration pending');
       }
+      if (!schema.commentVotesReady) {
+        warnings.push('post_comment_votes migration pending');
+      }
+      if (redis === 'disabled') {
+        warnings.push(
+          'REDIS_URL is unset or Redis is unreachable; community cache and queues are offline',
+        );
+      }
+
       return {
         status: 'ready',
         database: 'reachable',
         redis,
         communitySchema: 'ready',
+        ...(warnings.length ? { warning: warnings.join('; ') } : {}),
         timestamp: new Date().toISOString(),
       };
     } catch {
       throw new ServiceUnavailableException(
-        'Database, Redis, or required schema is unavailable',
+        'Database or required schema is unavailable',
       );
     }
   }
