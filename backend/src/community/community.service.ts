@@ -1331,9 +1331,11 @@ export class CommunityService {
     resourceType: PostMedia['resourceType'];
     originalFilename: string | null;
     url: string | null;
+    posterUrl: string | null;
   }> {
     return media.map((item) => {
       let url: string | null = null;
+      let posterUrl: string | null = null;
       try {
         url = this.mediaService.createDeliveryUrl(
           item.providerAssetId,
@@ -1342,11 +1344,21 @@ export class CommunityService {
       } catch {
         url = null;
       }
+      if (item.resourceType === 'video') {
+        try {
+          posterUrl = this.mediaService.createVideoPosterUrl(
+            item.providerAssetId,
+          );
+        } catch {
+          posterUrl = null;
+        }
+      }
       return {
         id: item.id,
         resourceType: item.resourceType,
         originalFilename: item.originalFilename ?? null,
         url,
+        posterUrl,
       };
     });
   }

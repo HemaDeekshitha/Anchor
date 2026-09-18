@@ -236,6 +236,7 @@ export type CommunityMedia = {
   id: string;
   resourceType: "image" | "video" | "audio" | "file";
   url: string;
+  posterUrl?: string | null;
   originalFilename?: string | null;
 };
 

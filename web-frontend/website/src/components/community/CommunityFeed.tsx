@@ -213,6 +213,7 @@ export type ForumPost = {
       id: string;
       type: "image" | "video" | "audio" | "file";
       url: string;
+      posterUrl?: string | null;
       originalFilename?: string | null;
     }>;
   } | null;
@@ -220,6 +221,7 @@ export type ForumPost = {
     id: string;
     type: "image" | "video" | "audio" | "file";
     url: string;
+    posterUrl?: string | null;
     originalFilename?: string | null;
   }>;
   poll?: {
@@ -620,6 +622,191 @@ function isPdfMediaUrl(url: string) {
 
 function isImageLikeFileUrl(url: string) {
   return /\.(png|jpe?g|gif|webp|bmp|svg)($|\?)/i.test(url);
+}
+
+/** Retries once on failure so brief signed-URL / network blips do not leave a blank tile. */
+function CommunityFeedImage({
+  url,
+  alt,
+  onOpen,
+}: {
+  url: string;
+  alt: string;
+  onOpen: () => void;
+}) {
+  const [src, setSrc] = useState(url);
+  const [failed, setFailed] = useState(false);
+  const retriedRef = useRef(false);
+
+  useEffect(() => {
+    setSrc(url);
+    setFailed(false);
+    retriedRef.current = false;
+  }, [url]);
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      aria-label={alt}
+      onClick={onOpen}
+      sx={{
+        display: "block",
+        width: "100%",
+        maxWidth: { xs: "100%", sm: 640 },
+        mr: "auto",
+        p: 0,
+        border: 0,
+        borderRadius: 2,
+        bgcolor: C.surface,
+        mb: 2,
+        overflow: "hidden",
+        cursor: "zoom-in",
+        minHeight: { xs: 160, sm: 200 },
+      }}
+    >
+      {failed ? (
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          spacing={0.75}
+          sx={{ minHeight: { xs: 160, sm: 200 }, px: 2 }}
+        >
+          <Typography sx={{ color: C.textMuted, fontSize: "0.82rem" }}>
+            Could not load image
+          </Typography>
+          <Button
+            size="small"
+            onClick={(event) => {
+              event.stopPropagation();
+              retriedRef.current = false;
+              setFailed(false);
+              setSrc(`${url}${url.includes("?") ? "&" : "?"}retry=${Date.now()}`);
+            }}
+            sx={{ textTransform: "none", color: C.accentDark }}
+          >
+            Retry
+          </Button>
+        </Stack>
+      ) : (
+        <Box
+          component="img"
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          onError={() => {
+            if (!retriedRef.current) {
+              retriedRef.current = true;
+              setSrc(`${url}${url.includes("?") ? "&" : "?"}retry=${Date.now()}`);
+              return;
+            }
+            setFailed(true);
+          }}
+          sx={{
+            display: "block",
+            width: "100%",
+            minHeight: { xs: 160, sm: 200 },
+            maxHeight: { xs: 260, sm: 380 },
+            objectFit: "contain",
+            bgcolor: C.surface,
+          }}
+        />
+      )}
+    </Box>
+  );
+}
+
+/** Uses a Cloudinary poster frame so mobile does not show a black tile before play. */
+function CommunityFeedVideo({
+  url,
+  posterUrl,
+}: {
+  url: string;
+  posterUrl?: string | null;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [fallbackPoster, setFallbackPoster] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFallbackPoster(null);
+    const video = videoRef.current;
+    if (!video || posterUrl) return;
+
+    let cancelled = false;
+    const captureFrame = () => {
+      if (cancelled || video.videoWidth < 2 || video.videoHeight < 2) return;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d");
+        if (!context) return;
+        context.drawImage(video, 0, 0);
+        setFallbackPoster(canvas.toDataURL("image/jpeg", 0.72));
+      } catch {
+        // Cross-origin canvases may be tainted; poster URL from API is preferred.
+      }
+    };
+
+    const onLoadedData = () => {
+      if (cancelled) return;
+      if (video.readyState >= 2) {
+        const seekTo = Math.min(0.15, Math.max(0.01, (video.duration || 1) / 20));
+        const onSeeked = () => {
+          captureFrame();
+          video.removeEventListener("seeked", onSeeked);
+        };
+        video.addEventListener("seeked", onSeeked);
+        try {
+          video.currentTime = seekTo;
+        } catch {
+          captureFrame();
+        }
+      }
+    };
+
+    video.addEventListener("loadeddata", onLoadedData);
+    return () => {
+      cancelled = true;
+      video.removeEventListener("loadeddata", onLoadedData);
+    };
+  }, [url, posterUrl]);
+
+  return (
+    <Box
+      sx={{
+        position: "relative",
+        width: "100%",
+        maxWidth: { xs: "100%", sm: 640 },
+        mr: "auto",
+        mb: 2,
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "#111",
+        minHeight: { xs: 180, sm: 220 },
+      }}
+    >
+      <Box
+        component="video"
+        ref={videoRef}
+        src={url}
+        poster={posterUrl || fallbackPoster || undefined}
+        controls
+        playsInline
+        preload="metadata"
+        controlsList="nodownload"
+        sx={{
+          display: "block",
+          width: "100%",
+          maxHeight: { xs: 260, sm: 380 },
+          minHeight: { xs: 180, sm: 220 },
+          bgcolor: "#111",
+          verticalAlign: "middle",
+        }}
+      />
+    </Box>
+  );
 }
 
 function CommunityPdfBlobFrame({
@@ -1279,20 +1466,28 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
           post.replyTo.body?.trim() ||
           (post.replyTo.kind === "poll" ? "Shared a poll" : ""),
         kind: post.replyTo.kind,
-        media: (post.replyTo.media ?? []).map((item) => ({
-          id: item.id,
-          type: item.resourceType,
-          url: item.url,
-          originalFilename: item.originalFilename ?? null,
-        })),
+        media: (post.replyTo.media ?? [])
+          .filter((item): item is typeof item & { url: string } =>
+            Boolean(item.url),
+          )
+          .map((item) => ({
+            id: item.id,
+            type: item.resourceType,
+            url: item.url,
+            posterUrl: item.posterUrl ?? null,
+            originalFilename: item.originalFilename ?? null,
+          })),
       }
     : null,
-  media: (post.media ?? []).map((item) => ({
-    id: item.id,
-    type: item.resourceType,
-    url: item.url,
-    originalFilename: item.originalFilename ?? null,
-  })),
+  media: (post.media ?? [])
+    .filter((item): item is typeof item & { url: string } => Boolean(item.url))
+    .map((item) => ({
+      id: item.id,
+      type: item.resourceType,
+      url: item.url,
+      posterUrl: item.posterUrl ?? null,
+      originalFilename: item.originalFilename ?? null,
+    })),
   poll: post.poll
     ? {
         id: post.poll.id,
@@ -5098,41 +5293,15 @@ const PostCard = ({
       {post.status === "published" &&
         post.media?.map((item) =>
         item.type === "image" ? (
-          <Box
+          <CommunityFeedImage
             key={item.id}
-            component="button"
-            type="button"
-            aria-label="Open image in full screen"
-            onClick={() => {
+            url={item.url}
+            alt="Community post upload"
+            onOpen={() => {
               setImageZoomed(false);
               setImageViewerUrl(item.url);
             }}
-            sx={{
-              display: "block",
-              width: "100%",
-              maxWidth: { xs: "100%", sm: 640 },
-              mr: "auto",
-              p: 0,
-              border: 0,
-              borderRadius: 2,
-              bgcolor: C.surface,
-              mb: 2,
-              overflow: "hidden",
-              cursor: "zoom-in",
-            }}
-          >
-            <Box
-              component="img"
-              src={item.url}
-              alt="Community post upload"
-              sx={{
-                display: "block",
-                width: "100%",
-                maxHeight: { xs: 260, sm: 380 },
-                objectFit: "contain",
-              }}
-            />
-          </Box>
+          />
         ) : item.type === "file" ? (
           (() => {
             const label = mediaFileLabel(item.url, item.originalFilename);
@@ -5143,40 +5312,14 @@ const PostCard = ({
             const imageLike = isImageLikeFileUrl(item.url);
             if (imageLike) {
               return (
-                <Box
+                <CommunityFeedImage
                   key={item.id}
-                  component="button"
-                  type="button"
-                  aria-label={`Open ${label}`}
-                  onClick={() =>
+                  url={item.url}
+                  alt={label}
+                  onOpen={() =>
                     setFileViewer({ url: item.url, label, kind: "image" })
                   }
-                  sx={{
-                    display: "block",
-                    width: "100%",
-                    maxWidth: { xs: "100%", sm: 640 },
-                    mr: "auto",
-                    p: 0,
-                    border: 0,
-                    borderRadius: 2,
-                    bgcolor: C.surface,
-                    mb: 2,
-                    overflow: "hidden",
-                    cursor: "zoom-in",
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={item.url}
-                    alt={label}
-                    sx={{
-                      display: "block",
-                      width: "100%",
-                      maxHeight: { xs: 260, sm: 380 },
-                      objectFit: "contain",
-                    }}
-                  />
-                </Box>
+                />
               );
             }
             return (
@@ -5212,21 +5355,10 @@ const PostCard = ({
             }}
           />
         ) : (
-          <Box
+          <CommunityFeedVideo
             key={item.id}
-            component="video"
-            src={item.url}
-            controls
-            sx={{
-              display: "block",
-              width: "100%",
-              maxWidth: { xs: "100%", sm: 640 },
-              maxHeight: { xs: 260, sm: 380 },
-              mr: "auto",
-              borderRadius: 2,
-              bgcolor: "#111",
-              mb: 2,
-            }}
+            url={item.url}
+            posterUrl={item.posterUrl}
           />
         ),
         )}

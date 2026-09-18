@@ -127,7 +127,8 @@ export class CommunityMediaService {
       type: 'authenticated',
       sign_url: true,
       secure: true,
-      expires_at: Math.floor(Date.now() / 1000) + 15 * 60,
+      // Long enough for an open chat session without mid-scroll broken media.
+      expires_at: Math.floor(Date.now() / 1000) + 2 * 60 * 60,
       format: resourceType === 'video' ? 'mp4' : undefined,
       transformation:
         resourceType === 'image'
@@ -142,6 +143,23 @@ export class CommunityMediaService {
           : resourceType === 'video'
             ? [{ quality: 'auto' }]
             : undefined,
+    });
+  }
+  // T: O(1) and S: O(1)
+
+  /** First-frame thumbnail so mobile clients are not stuck on a black video tile. */
+  createVideoPosterUrl(providerAssetId: string): string {
+    return cloudinary.url(providerAssetId, {
+      resource_type: 'video',
+      type: 'authenticated',
+      sign_url: true,
+      secure: true,
+      expires_at: Math.floor(Date.now() / 1000) + 2 * 60 * 60,
+      format: 'jpg',
+      transformation: [
+        { start_offset: '0' },
+        { quality: 'auto', width: 1280, crop: 'limit' },
+      ],
     });
   }
   // T: O(1) and S: O(1)
