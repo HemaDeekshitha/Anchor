@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "npm cache dir: $(npm config get cache)"
+if [ -d "$(npm config get cache)" ]; then
+  echo "npm cache present ($(du -sh "$(npm config get cache)" 2>/dev/null | cut -f1 || echo unknown))"
+else
+  echo "npm cache directory missing (cold cache / first run for this lockfile set)"
+fi
+
 npm ci --prefer-offline
 
 audit_rc=1
