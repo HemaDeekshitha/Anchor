@@ -19,7 +19,7 @@
     "framer-motion": "^12.26.2",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.562.0",
-    "next": "15.5.21",
+    "next": "15.5.25",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.0"
@@ -31,7 +31,7 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.24",
     "eslint": "^9",
-    "eslint-config-next": "15.5.21",
+    "eslint-config-next": "15.5.25",
     "postcss": "^8.5.24",
     "tailwindcss": "^4.1.18",
     "typescript": "^5"
@@ -39,7 +39,7 @@
   "overrides": {
     "postcss": "$postcss",
     "next": {
-      "sharp": "0.35.0"
+      "sharp": "0.35.4"
     },
     "@humanfs/node": "0.16.8",
     "browserslist": "4.28.8"
