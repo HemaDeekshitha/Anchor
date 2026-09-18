@@ -4273,11 +4273,11 @@ const PostCard = ({
           transition: "opacity 140ms ease, transform 140ms ease",
           zIndex: 2,
           "& .MuiIconButton-root": {
-            width: { xs: 24, sm: 28 },
-            height: { xs: 24, sm: 28 },
+            width: { xs: 28, sm: 32 },
+            height: { xs: 28, sm: 32 },
           },
           "& .MuiSvgIcon-root": {
-            fontSize: { xs: 14, sm: 16 },
+            fontSize: { xs: 17, sm: 19 },
           },
         }}
       >
