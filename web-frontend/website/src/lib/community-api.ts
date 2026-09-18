@@ -436,6 +436,26 @@ export async function getLatestPostMarker(
 }
 // T: O(1) and S: O(1)
 
+export async function transcribeSpeech(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/speech/transcribe`, {
+    method: "POST",
+    body,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw await readError(response, "Could not convert speech to text");
+  }
+  const payload = (await response.json()) as { text?: string };
+  const text = typeof payload.text === "string" ? payload.text.trim() : "";
+  if (!text) {
+    throw new Error("No speech detected. Try again and speak clearly.");
+  }
+  return text;
+}
+// T: O(a) and S: O(a), where a is the audio payload size
+
 export type CommunityTypingUser = {
   userId: string;
   name: string;

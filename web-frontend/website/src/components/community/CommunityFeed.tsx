@@ -59,7 +59,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
-import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
@@ -67,7 +67,6 @@ import AlternateEmailRoundedIcon from "@mui/icons-material/AlternateEmailRounded
 import MicNoneRoundedIcon from "@mui/icons-material/MicNoneRounded";
 import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
-import VideoCameraFrontOutlinedIcon from "@mui/icons-material/VideoCameraFrontOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
@@ -79,7 +78,6 @@ import StrikethroughSRoundedIcon from "@mui/icons-material/StrikethroughSRounded
 import InsertLinkRoundedIcon from "@mui/icons-material/InsertLinkRounded";
 import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
 import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
-import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
@@ -273,6 +271,81 @@ type ComposerMode =
   | "audio"
   | "file"
   | "poll";
+
+const joinDictatedText = (base: string, spoken: string) => {
+  const left = base.replace(/\s+$/, "");
+  const right = spoken.replace(/^\s+/, "");
+  if (!left) return right;
+  if (!right) return left;
+  return `${left} ${right}`;
+};
+
+type SpeechRecognitionController = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: ArrayLike<{
+          isFinal: boolean;
+          0?: { transcript: string };
+          item?: (index: number) => { transcript?: string } | undefined;
+        }>;
+      }) => void)
+    | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+const getSpeechRecognitionConstructor = ():
+  | (new () => SpeechRecognitionController)
+  | null => {
+  if (typeof window === "undefined") return null;
+  const speechWindow = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognitionController;
+    webkitSpeechRecognition?: new () => SpeechRecognitionController;
+  };
+  return (
+    speechWindow.SpeechRecognition ??
+    speechWindow.webkitSpeechRecognition ??
+    null
+  );
+};
+
+const RecordingWaveform = ({ accent }: { accent: string }) => (
+  <Box
+    aria-hidden
+    sx={{
+      display: "flex",
+      alignItems: "flex-end",
+      gap: "3px",
+      height: 36,
+      px: 0.5,
+      "@keyframes anchorVoiceWave": {
+        "0%": { transform: "scaleY(0.35)" },
+        "100%": { transform: "scaleY(1)" },
+      },
+    }}
+  >
+    {Array.from({ length: 18 }, (_, index) => (
+      <Box
+        key={index}
+        sx={{
+          width: 3,
+          height: 10 + ((index * 7) % 22),
+          borderRadius: 999,
+          bgcolor: accent,
+          transformOrigin: "center bottom",
+          animation: `anchorVoiceWave ${0.55 + (index % 5) * 0.08}s ease-in-out ${index * 0.04}s infinite alternate`,
+        }}
+      />
+    ))}
+  </Box>
+);
 
 const RECENT_MEDIA_STORAGE_KEY = "anchor:communityRecentLibrary";
 const MAX_RECENT_MEDIA = 12;
@@ -1237,13 +1310,13 @@ const Composer = ({
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalUploadBytes, setTotalUploadBytes] = useState(0);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
   const [uploadStage, setUploadStage] = useState<
     "idle" | "uploading" | "uploaded" | "publishing"
   >("idle");
   const [error, setError] = useState("");
   const [attachmentMenuAnchor, setAttachmentMenuAnchor] =
     useState<HTMLElement | null>(null);
-  const [cameraChoiceOpen, setCameraChoiceOpen] = useState(false);
   const [recentMediaLibrary, setRecentMediaLibrary] = useState<
     RecentMediaEntry[]
   >([]);
@@ -1260,7 +1333,6 @@ const Composer = ({
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoCaptureInputRef = useRef<HTMLInputElement>(null);
-  const videoCaptureInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const pendingCaretRef = useRef<number | null>(null);
@@ -1270,6 +1342,10 @@ const Composer = ({
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const pendingAudioSendRef = useRef(false);
+  const speechRecognitionRef = useRef<SpeechRecognitionController | null>(null);
+  const dictationBaseRef = useRef("");
+  const dictationWantedRef = useRef(false);
   const typingActiveRef = useRef(false);
   const lastTypingPulseRef = useRef(0);
   const validPollOptions = pollOptions.filter((option) => option.trim());
@@ -1285,12 +1361,13 @@ const Composer = ({
           .slice(0, 6);
   const canSubmit =
     (scope === "global" || Boolean(communityId)) &&
-    (mode === "image" ||
-    mode === "video" ||
-    mode === "audio" ||
-    mode === "file"
-      ? Boolean(file)
-      : Boolean(content.trim())) &&
+    (isRecordingAudio ||
+      (mode === "image" ||
+      mode === "video" ||
+      mode === "audio" ||
+      mode === "file"
+        ? Boolean(file)
+        : Boolean(content.trim()))) &&
     (mode !== "poll" || validPollOptions.length >= 2) &&
     (mode === "poll" ? Boolean(content.trim()) : true);
   const messagePlaceholder =
@@ -1321,7 +1398,10 @@ const Composer = ({
   useEffect(() => {
     if (scope !== "community" || !communityId) return;
     const isTyping =
-      Boolean(content.trim()) || Boolean(file) || isRecordingAudio;
+      Boolean(content.trim()) ||
+      Boolean(file) ||
+      isRecordingAudio ||
+      isDictating;
     const clearTyping = () => {
       if (!typingActiveRef.current) return;
       typingActiveRef.current = false;
@@ -1344,7 +1424,7 @@ const Composer = ({
     return () => {
       window.clearInterval(timer);
     };
-  }, [communityId, content, file, isRecordingAudio, scope]);
+  }, [communityId, content, file, isDictating, isRecordingAudio, scope]);
 
   useEffect(
     () => () => {
@@ -1410,6 +1490,35 @@ const Composer = ({
     setIsRecordingAudio(false);
   };
   // T: O(t) and S: O(1), where t is the number of media tracks
+
+  const discardDictationRecording = () => {
+    dictationWantedRef.current = false;
+    setIsDictating(false);
+    const recognition = speechRecognitionRef.current;
+    if (!recognition) return;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    try {
+      recognition.stop();
+    } catch {
+      try {
+        recognition.abort();
+      } catch {
+        // Recognition may already be stopped.
+      }
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  useEffect(
+    () => () => {
+      discardDictationRecording();
+    },
+    // Mount-only cleanup for active dictation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const handleModeChange = (nextMode: ComposerMode) => {
     if (nextMode !== mode) {
@@ -1500,10 +1609,23 @@ const Composer = ({
     setAttachmentMenuAnchor(null);
     setOpen(true);
     setError("");
+    if (isDictating || dictationWantedRef.current) {
+      discardDictationRecording();
+    }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       setError("Audio recording is not supported by this browser.");
       return;
     }
+    if (isRecordingAudio) return;
+    pendingAudioSendRef.current = false;
+    cancelMediaUpload();
+    setMode("audio");
+    setFile(null);
+    setUploadStage("idle");
+    setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(0);
+    setUploadedAssetId(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const preferredMimeType = [
@@ -1534,13 +1656,26 @@ const Composer = ({
         audioStreamRef.current = null;
         audioChunksRef.current = [];
         setIsRecordingAudio(false);
-        if (recording.size > 0) handleMediaSelected("audio", recording);
+        const shouldSend = pendingAudioSendRef.current;
+        pendingAudioSendRef.current = false;
+        if (recording.size <= 0) {
+          if (shouldSend) {
+            setSubmitting(false);
+            setError("No audio captured. Hold a moment longer, then tap send.");
+          }
+          return;
+        }
+        if (shouldSend) {
+          void shareRecordedAudio(recording);
+          return;
+        }
+        handleMediaSelected("audio", recording);
       };
-      setMode("audio");
-      setFile(null);
       setIsRecordingAudio(true);
       recorder.start(250);
     } catch (caught) {
+      setIsRecordingAudio(false);
+      pendingAudioSendRef.current = false;
       setError(
         caught instanceof DOMException && caught.name === "NotAllowedError"
           ? "Microphone permission was denied. Enable it in your browser or device settings to continue."
@@ -1553,6 +1688,193 @@ const Composer = ({
   const handleStopAudioRecording = () => {
     const recorder = audioRecorderRef.current;
     if (recorder?.state === "recording") recorder.stop();
+  };
+  // T: O(1) and S: O(1)
+
+  const shareRecordedAudio = async (recording: File) => {
+    setSubmitting(true);
+    setMode("audio");
+    setFile(recording);
+    setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(recording.size);
+    setError("");
+    if (typingActiveRef.current && communityId) {
+      typingActiveRef.current = false;
+      void setCommunityTyping(communityId, false).catch(() => undefined);
+    }
+    try {
+      setUploadStage("uploading");
+      const providerAssetId = await uploadCommunityMedia(
+        recording,
+        "audio",
+        (percentage, loadedBytes, totalBytes) => {
+          setUploadProgress(percentage);
+          setUploadedBytes(loadedBytes);
+          setTotalUploadBytes(totalBytes);
+        },
+      );
+      setUploadedAssetId(providerAssetId);
+      setUploadProgress(100);
+      setUploadStage("publishing");
+      const post = await createPost({
+        communityId: scope === "community" ? communityId : null,
+        replyToPostId: replyTo?.id,
+        body: content,
+        mode: "audio",
+        file: recording,
+        providerAssetId,
+      });
+      resetComposer();
+      setOpen(false);
+      onCancelReply?.();
+      void onCreated(post);
+    } catch (caught) {
+      setUploadStage("idle");
+      setError(
+        caught instanceof Error ? caught.message : "Could not create post",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  // T: O(a) and S: O(a), where a is the audio payload size
+
+  const startSpeechToText = async () => {
+    const Recognition = getSpeechRecognitionConstructor();
+    if (!Recognition) {
+      setOpen(true);
+      setError(
+        "Live speech-to-text is not supported in this browser. Try Chrome or Safari.",
+      );
+      return;
+    }
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setOpen(true);
+      setError(
+        "Speech-to-text needs HTTPS (or localhost). Open Anchor over a secure connection.",
+      );
+      return;
+    }
+    if (isRecordingAudio) discardAudioRecording();
+    discardDictationRecording();
+
+    setOpen(true);
+    setMode("text");
+    setError("");
+
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (caught) {
+        setError(
+          caught instanceof DOMException && caught.name === "NotAllowedError"
+            ? "Microphone permission was denied. Enable it in your browser or device settings, then try again."
+            : "Could not access the microphone for speech-to-text.",
+        );
+        return;
+      }
+    }
+
+    const isAppleMobile =
+      typeof navigator !== "undefined" &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+    dictationWantedRef.current = true;
+    dictationBaseRef.current = content;
+
+    let recognition = speechRecognitionRef.current;
+    if (!recognition) {
+      recognition = new Recognition();
+      speechRecognitionRef.current = recognition;
+    }
+
+    recognition.continuous = !isAppleMobile;
+    recognition.interimResults = true;
+    recognition.lang =
+      typeof navigator !== "undefined" && navigator.language
+        ? navigator.language
+        : "en-US";
+
+    recognition.onresult = (event) => {
+      let finals = "";
+      let interim = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (!result) continue;
+        const transcript =
+          (result[0] && result[0].transcript) ||
+          (typeof result.item === "function"
+            ? result.item(0)?.transcript
+            : "") ||
+          "";
+        if (!transcript) continue;
+        if (result.isFinal) finals += transcript;
+        else interim += transcript;
+      }
+      if (finals) {
+        dictationBaseRef.current = joinDictatedText(
+          dictationBaseRef.current,
+          finals,
+        );
+      }
+      setContent(joinDictatedText(dictationBaseRef.current, interim));
+    };
+
+    recognition.onerror = (event) => {
+      const code = event.error ?? "";
+      if (code === "aborted" || code === "no-speech") return;
+      if (code === "network") {
+        setError(
+          "Live speech-to-text needs an internet connection. Check your network and try again.",
+        );
+      } else if (code === "not-allowed" || code === "service-not-allowed") {
+        setError(
+          "Microphone permission was denied. Enable it to use speech-to-text.",
+        );
+      } else {
+        setError("Could not continue speech-to-text. Please try again.");
+      }
+      dictationWantedRef.current = false;
+      setIsDictating(false);
+    };
+
+    recognition.onend = () => {
+      if (!dictationWantedRef.current) {
+        setIsDictating(false);
+        return;
+      }
+      window.setTimeout(() => {
+        if (!dictationWantedRef.current || !speechRecognitionRef.current) {
+          setIsDictating(false);
+          return;
+        }
+        try {
+          speechRecognitionRef.current.start();
+          setIsDictating(true);
+        } catch {
+          setIsDictating(true);
+        }
+      }, isAppleMobile ? 280 : 120);
+    };
+
+    try {
+      recognition.start();
+      setIsDictating(true);
+      window.requestAnimationFrame(() => composerInputRef.current?.focus());
+    } catch {
+      dictationWantedRef.current = false;
+      setIsDictating(false);
+      setError("Could not start speech-to-text. Please try again.");
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleToggleSpeechToText = () => {
+    if (isDictating || dictationWantedRef.current) return;
+    void startSpeechToText();
   };
   // T: O(1) and S: O(1)
 
@@ -1675,6 +1997,8 @@ const Composer = ({
 
   const resetComposer = () => {
     discardAudioRecording();
+    discardDictationRecording();
+    pendingAudioSendRef.current = false;
     cancelMediaUpload();
     setContent("");
     setPollOptions(["", ""]);
@@ -1707,7 +2031,7 @@ const Composer = ({
   useEffect(() => {
     if (!open) return;
     const handleDocumentPointerDown = (event: PointerEvent) => {
-      if (submitting || isRecordingAudio) return;
+      if (submitting || isRecordingAudio || isDictating) return;
       if (
         event.target instanceof Element &&
         event.target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
@@ -1725,7 +2049,7 @@ const Composer = ({
     document.addEventListener("pointerdown", handleDocumentPointerDown);
     return () =>
       document.removeEventListener("pointerdown", handleDocumentPointerDown);
-  }, [isRecordingAudio, open, submitting]);
+  }, [isDictating, isRecordingAudio, open, submitting]);
 
   useEffect(
     () => () => {
@@ -1764,6 +2088,13 @@ const Composer = ({
   // T: O(p) and S: O(p), where p is the number of poll options
 
   const handleShare = async () => {
+    if (isRecordingAudio) {
+      pendingAudioSendRef.current = true;
+      setSubmitting(true);
+      setError("");
+      handleStopAudioRecording();
+      return;
+    }
     if (!canSubmit) {
       setError(
         scope === "community" && !communityId
@@ -1782,6 +2113,7 @@ const Composer = ({
     }
     setSubmitting(true);
     setUploadProgress(0);
+    discardDictationRecording();
     if (typingActiveRef.current && communityId) {
       typingActiveRef.current = false;
       void setCommunityTyping(communityId, false).catch(() => undefined);
@@ -2017,7 +2349,11 @@ const Composer = ({
           value={content}
           disabled={submitting}
           onFocus={handleOpen}
-          onChange={(event) => setContent(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setContent(next);
+            if (isDictating) dictationBaseRef.current = next;
+          }}
           inputProps={{ maxLength: mode === "poll" ? 150 : 10_000 }}
           helperText={open && mode === "poll" ? `${content.length}/150` : ""}
           FormHelperTextProps={{
@@ -2119,22 +2455,63 @@ const Composer = ({
         )}
         </Box>
 
-        {!open && (
+        {(!open || isDictating) && (
           <IconButton
-            aria-label="Voice message"
-            onClick={(event) => event.stopPropagation()}
+            aria-label={isDictating ? "Listening" : "Dictate message"}
+            aria-pressed={isDictating}
+            aria-disabled={isDictating}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleToggleSpeechToText();
+            }}
             sx={{
               width: { xs: 44, sm: 46 },
               height: { xs: 44, sm: 46 },
               mr: { xs: 0.55, sm: 0.75 },
               flexShrink: 0,
-              color: C.textSub,
+              color: isDictating ? C.red : C.textSub,
+              bgcolor: isDictating
+                ? "color-mix(in srgb, #d32f2f 12%, transparent)"
+                : "transparent",
+              "@keyframes anchorMicPulse": {
+                "0%": { transform: "scale(1)", opacity: 1 },
+                "100%": { transform: "scale(1.08)", opacity: 0.75 },
+              },
+              animation: isDictating
+                ? "anchorMicPulse 0.9s ease-in-out infinite alternate"
+                : "none",
             }}
           >
             <MicNoneRoundedIcon sx={{ fontSize: { xs: 27, sm: 29 } }} />
           </IconButton>
         )}
       </Box>
+
+      {error && (
+        <Alert
+          severity="error"
+          onClick={(event) => event.stopPropagation()}
+          onClose={() => setError("")}
+          sx={{ mx: 1, mb: 0.75, py: 0 }}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {isDictating && (
+        <Typography
+          onClick={(event) => event.stopPropagation()}
+          sx={{
+            px: 1.5,
+            pb: open ? 0 : 0.25,
+            color: C.red,
+            fontSize: "0.75rem",
+            fontWeight: 600,
+          }}
+        >
+          Listening… live text appears below. Tap send when you&apos;re done
+        </Typography>
+      )}
 
       <Box
         aria-hidden={!open}
@@ -2274,22 +2651,50 @@ const Composer = ({
             }}
           >
             {mode === "audio" && isRecordingAudio && (
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<StopCircleRoundedIcon />}
-                onClick={handleStopAudioRecording}
+              <Box
                 sx={{
                   mb: 1,
-                  py: 1.25,
-                  color: C.red,
-                  borderColor: C.red,
-                  textTransform: "none",
-                  fontWeight: 700,
+                  px: 1.25,
+                  py: 1.1,
+                  borderRadius: 2,
+                  border: `1px solid color-mix(in srgb, ${C.red} 35%, ${C.divider})`,
+                  bgcolor: "color-mix(in srgb, #d32f2f 8%, transparent)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.25,
                 }}
               >
-                Recording… tap to stop
-              </Button>
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: C.red,
+                    flexShrink: 0,
+                    "@keyframes anchorRecBlink": {
+                      "0%": { opacity: 1 },
+                      "100%": { opacity: 0.35 },
+                    },
+                    animation: "anchorRecBlink 0.9s ease-in-out infinite alternate",
+                  }}
+                />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    sx={{
+                      color: C.red,
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Recording…
+                  </Typography>
+                  <Typography sx={{ color: C.textMuted, fontSize: "0.7rem" }}>
+                    Tap send to post this voice note
+                  </Typography>
+                </Box>
+                <RecordingWaveform accent={C.red} />
+              </Box>
             )}
             {mediaPreviewUrl && mode !== "file" && (
               <Box
@@ -2398,7 +2803,9 @@ const Composer = ({
                 {file
                   ? file.name
                   : mode === "audio"
-                    ? "Record a voice message · max 20 MB"
+                    ? isRecordingAudio
+                      ? "Recording… tap send to post"
+                      : "Record a voice message · max 20 MB"
                     : mode === "file"
                       ? "Choose a document · max 25 MB"
                     : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
@@ -2408,7 +2815,7 @@ const Composer = ({
               <Button
                 size="small"
                 variant="text"
-                disabled={submitting}
+                disabled={submitting || (mode === "audio" && isRecordingAudio)}
                 onClick={() =>
                   file && uploadStage === "idle"
                     ? handleMediaSelected(mode, file)
@@ -2555,12 +2962,6 @@ const Composer = ({
               ))}
             </Box>
           </Box>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mt: 1.25, py: 0 }}>
-            {error}
-          </Alert>
         )}
 
         {formattingOpen && (
@@ -2816,24 +3217,16 @@ const Composer = ({
           <Box component="span">Camera</Box>
           <Button
             size="small"
-            onClick={() => {
-              setAttachmentMenuAnchor(null);
-              window.requestAnimationFrame(() => {
-                if (mediaInputRef.current) {
-                  mediaInputRef.current.value = "";
-                  mediaInputRef.current.click();
-                }
-              });
-            }}
+            onClick={() => setAttachmentMenuAnchor(null)}
             sx={{
               textTransform: "none",
               fontWeight: 700,
-              color: C.accent,
+              color: C.textSub,
               minWidth: 0,
               px: 0.5,
             }}
           >
-            View Library
+            Cancel
           </Button>
         </DialogTitle>
         <DialogContent sx={{ px: 0, pb: 1.5 }}>
@@ -2850,8 +3243,16 @@ const Composer = ({
             <Box
               component="button"
               type="button"
-              aria-label="Open camera"
-              onClick={() => setCameraChoiceOpen(true)}
+              aria-label="Take a picture"
+              onClick={async () => {
+                setAttachmentMenuAnchor(null);
+                if (await requestRecordingPermission("camera")) {
+                  if (photoCaptureInputRef.current) {
+                    photoCaptureInputRef.current.value = "";
+                    photoCaptureInputRef.current.click();
+                  }
+                }
+              }}
               sx={{
                 flex: "0 0 auto",
                 width: 84,
@@ -2970,78 +3371,6 @@ const Composer = ({
             <MicNoneRoundedIcon sx={{ color: C.textSub }} />
             Record an Audio Clip
           </MenuItem>
-          <MenuItem
-            onClick={async () => {
-              setAttachmentMenuAnchor(null);
-              if (await requestRecordingPermission("camera")) {
-                if (videoCaptureInputRef.current) {
-                  videoCaptureInputRef.current.value = "";
-                  videoCaptureInputRef.current.click();
-                }
-              }
-            }}
-            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
-          >
-            <VideoCameraFrontOutlinedIcon sx={{ color: C.textSub }} />
-            Record a Video Clip
-          </MenuItem>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={cameraChoiceOpen}
-        onClose={() => setCameraChoiceOpen(false)}
-        fullWidth
-        maxWidth="xs"
-        aria-labelledby="camera-choice-title"
-        PaperProps={{
-          sx: {
-            position: { xs: "fixed", sm: "relative" },
-            bottom: { xs: 0, sm: "auto" },
-            left: { xs: 0, sm: "auto" },
-            right: { xs: 0, sm: "auto" },
-            width: { xs: "100%", sm: "100%" },
-            m: { xs: 0, sm: 4 },
-            borderRadius: { xs: "22px 22px 0 0", sm: 3 },
-            overflow: "hidden",
-          },
-        }}
-      >
-        <DialogTitle id="camera-choice-title" sx={{ fontWeight: 800, pb: 1 }}>
-          Camera
-        </DialogTitle>
-        <DialogContent sx={{ px: 1.25, pb: 2 }}>
-          <MenuItem
-            onClick={async () => {
-              setCameraChoiceOpen(false);
-              setAttachmentMenuAnchor(null);
-              if (await requestRecordingPermission("camera")) {
-                if (photoCaptureInputRef.current) {
-                  photoCaptureInputRef.current.value = "";
-                  photoCaptureInputRef.current.click();
-                }
-              }
-            }}
-            sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
-          >
-            <PhotoCameraOutlinedIcon />
-            Take a picture
-          </MenuItem>
-          <MenuItem
-            onClick={async () => {
-              setCameraChoiceOpen(false);
-              setAttachmentMenuAnchor(null);
-              if (await requestRecordingPermission("camera")) {
-                if (videoCaptureInputRef.current) {
-                  videoCaptureInputRef.current.value = "";
-                  videoCaptureInputRef.current.click();
-                }
-              }
-            }}
-            sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
-          >
-            <VideoCameraFrontOutlinedIcon />
-            Record a video
-          </MenuItem>
         </DialogContent>
       </Dialog>
       <input
@@ -3093,16 +3422,6 @@ const Composer = ({
           handleMediaSelected("image", event.target.files?.[0] ?? null)
         }
       />
-      <input
-        ref={videoCaptureInputRef}
-        hidden
-        type="file"
-        accept="video/*"
-        capture="environment"
-        onChange={(event) =>
-          handleMediaSelected("video", event.target.files?.[0] ?? null)
-        }
-      />
     </Card>
   );
 };
@@ -3151,6 +3470,9 @@ const PostCard = ({
     anchor: HTMLElement;
     comment: ForumComment;
   } | null>(null);
+  const [activeCommentActionsId, setActiveCommentActionsId] = useState<
+    string | null
+  >(null);
   const [editingComment, setEditingComment] = useState<ForumComment | null>(null);
   const [commentEditBody, setCommentEditBody] = useState("");
   const [commentEditPending, setCommentEditPending] = useState(false);
@@ -3203,6 +3525,14 @@ const PostCard = ({
   const mobileTouchStartYRef = useRef(0);
   const mobileSwipeOffsetRef = useRef(0);
   const lastMobileTapAtRef = useRef(0);
+  const commentLongPressTimerRef = useRef<number | null>(null);
+  const commentLongPressTriggeredRef = useRef(false);
+  const commentLastTapRef = useRef<{ id: string; at: number }>({
+    id: "",
+    at: 0,
+  });
+  const commentTouchMovedRef = useRef(false);
+  const commentTouchStartRef = useRef({ x: 0, y: 0 });
   const [editWindowOpen, setEditWindowOpen] = useState(
     Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000,
   );
@@ -3368,6 +3698,88 @@ const PostCard = ({
       );
     }
   };
+
+  const clearCommentLongPressTimer = () => {
+    if (commentLongPressTimerRef.current !== null) {
+      window.clearTimeout(commentLongPressTimerRef.current);
+      commentLongPressTimerRef.current = null;
+    }
+  };
+
+  const revealCommentActions = (commentId: string) => {
+    setActiveCommentActionsId(commentId);
+  };
+
+  const handleCommentRowPointerDown = (
+    event: React.PointerEvent<HTMLElement>,
+    commentId: string,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    commentTouchMovedRef.current = false;
+    commentTouchStartRef.current = { x: event.clientX, y: event.clientY };
+    commentLongPressTriggeredRef.current = false;
+    clearCommentLongPressTimer();
+    commentLongPressTimerRef.current = window.setTimeout(() => {
+      commentLongPressTriggeredRef.current = true;
+      revealCommentActions(commentId);
+    }, 420);
+  };
+
+  const handleCommentRowPointerMove = (
+    event: React.PointerEvent<HTMLElement>,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    const dx = event.clientX - commentTouchStartRef.current.x;
+    const dy = event.clientY - commentTouchStartRef.current.y;
+    if (Math.hypot(dx, dy) > 12) {
+      commentTouchMovedRef.current = true;
+      clearCommentLongPressTimer();
+    }
+  };
+
+  const handleCommentRowPointerUp = (
+    event: React.PointerEvent<HTMLElement>,
+    comment: ForumComment,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    clearCommentLongPressTimer();
+    if (commentTouchMovedRef.current) return;
+    if (commentLongPressTriggeredRef.current) {
+      commentLongPressTriggeredRef.current = false;
+      return;
+    }
+    const now = Date.now();
+    const last = commentLastTapRef.current;
+    if (last.id === comment.id && now - last.at < 350) {
+      commentLastTapRef.current = { id: "", at: 0 };
+      revealCommentActions(comment.id);
+      void handleCommentLike(comment);
+      return;
+    }
+    commentLastTapRef.current = { id: comment.id, at: now };
+    revealCommentActions(comment.id);
+  };
+
+  useEffect(() => {
+    if (!showComments) setActiveCommentActionsId(null);
+  }, [showComments]);
+
+  useEffect(() => {
+    if (!activeCommentActionsId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(`[data-comment-row="${activeCommentActionsId}"]`)) {
+        return;
+      }
+      if (target.closest(".MuiMenu-root, .MuiPopover-root, .MuiDialog-root")) {
+        return;
+      }
+      setActiveCommentActionsId(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [activeCommentActionsId]);
 
   const updatePollSelectionOptimistically = (optionIds: string[]): void => {
     const currentPoll = pollRef.current;
@@ -3703,12 +4115,12 @@ const PostCard = ({
     try {
       await removeFriend(post.authorId);
       setFriendshipStatus("none");
-      setActionMessage(`You are no longer following ${post.authorName}.`);
+      setActionMessage(`You are no longer friends with ${post.authorName}.`);
     } catch (caught) {
       setActionMessage(
         caught instanceof Error
           ? caught.message
-          : `Could not unfollow ${post.authorName}`,
+          : `Could not unfriend ${post.authorName}`,
       );
     } finally {
       setFriendActionPending(false);
@@ -3863,11 +4275,11 @@ const PostCard = ({
           transition: "opacity 140ms ease, transform 140ms ease",
           zIndex: 2,
           "& .MuiIconButton-root": {
-            width: { xs: 25, sm: 34 },
-            height: { xs: 25, sm: 34 },
+            width: { xs: 24, sm: 28 },
+            height: { xs: 24, sm: 28 },
           },
           "& .MuiSvgIcon-root": {
-            fontSize: { xs: 16, sm: 24 },
+            fontSize: { xs: 14, sm: 16 },
           },
         }}
       >
@@ -4053,7 +4465,7 @@ const PostCard = ({
                   sx={{ gap: 1, color: C.red }}
                 >
                   <PersonRemoveOutlinedIcon fontSize="small" />
-                  Unfollow {post.authorName}
+                  Unfriend {post.authorName}
                 </MenuItem>
               )}
         </Menu>
@@ -4467,8 +4879,8 @@ const PostCard = ({
       <Stack
         direction="row"
         alignItems="center"
-        spacing={{ xs: 1, sm: 1.5 }}
-        sx={{ mt: 0.9, minHeight: 32 }}
+        spacing={{ xs: 1, sm: 1.25 }}
+        sx={{ mt: 0.75, minHeight: 24 }}
       >
         {likeCount > 0 && (
         <Button
@@ -4482,11 +4894,12 @@ const PostCard = ({
             minWidth: 0,
             px: 0.25,
             color: liked ? C.accentDark : C.textMuted,
-            fontSize: "0.95rem",
+            fontSize: "0.82rem",
             fontWeight: 600,
             textTransform: "none",
-            "& .MuiButton-startIcon": { mr: 0.5 },
-            "& .MuiSvgIcon-root": { fontSize: 24 },
+            lineHeight: 1.2,
+            "& .MuiButton-startIcon": { mr: 0.35 },
+            "& .MuiSvgIcon-root": { fontSize: "0.78rem" },
           }}
         >
           {likeCount}
@@ -4501,11 +4914,12 @@ const PostCard = ({
             minWidth: 0,
             px: 0.25,
             color: showComments ? C.accentDark : C.textMuted,
-            fontSize: "0.95rem",
+            fontSize: "0.82rem",
             fontWeight: 600,
             textTransform: "none",
-            "& .MuiButton-startIcon": { mr: 0.5 },
-            "& .MuiSvgIcon-root": { fontSize: 24 },
+            lineHeight: 1.2,
+            "& .MuiButton-startIcon": { mr: 0.35 },
+            "& .MuiSvgIcon-root": { fontSize: "0.78rem" },
           }}
         >
           {commentCount}
@@ -4532,22 +4946,46 @@ const PostCard = ({
             </Typography>
           ) : (
             <Stack spacing={1.1} sx={{ mb: 2 }}>
-              {comments.map((comment) => (
+              {comments.map((comment) => {
+                const actionsVisible = activeCommentActionsId === comment.id;
+                return (
                 <Box
                   key={comment.id}
+                  data-comment-row={comment.id}
+                  onPointerDown={(event) =>
+                    handleCommentRowPointerDown(event, comment.id)
+                  }
+                  onPointerMove={handleCommentRowPointerMove}
+                  onPointerUp={(event) =>
+                    handleCommentRowPointerUp(event, comment)
+                  }
+                  onPointerCancel={clearCommentLongPressTimer}
+                  onDoubleClick={() => {
+                    revealCommentActions(comment.id);
+                    void handleCommentLike(comment);
+                  }}
                   sx={{
                     display: "flex",
                     alignItems: "flex-start",
                     gap: 1.2,
                     position: "relative",
                     pr: { xs: 0, md: 16 },
+                    borderRadius: 1.5,
+                    touchAction: "manipulation",
+                    WebkitUserSelect: "none",
+                    userSelect: "none",
+                    bgcolor: actionsVisible ? C.surface : "transparent",
                     "& .comment-actions": {
-                      opacity: { xs: 1, md: 0 },
-                      pointerEvents: { xs: "auto", md: "none" },
+                      opacity: actionsVisible ? 1 : 0,
+                      pointerEvents: actionsVisible ? "auto" : "none",
+                      transition: "opacity 140ms ease",
                     },
-                    "&:hover .comment-actions, &:focus-within .comment-actions": {
-                      opacity: 1,
-                      pointerEvents: "auto",
+                    "@media (hover: hover) and (min-width: 900px)": {
+                      "&:hover .comment-actions, &:focus-within .comment-actions":
+                        {
+                          opacity: 1,
+                          pointerEvents: "auto",
+                        },
                     },
                   }}
                 >
@@ -4601,6 +5039,8 @@ const PostCard = ({
                           lineHeight: 1.45,
                           flex: "0 1 auto",
                           fontFamily: "Inter, sans-serif",
+                          WebkitUserSelect: "text",
+                          userSelect: "text",
                         }}
                       >
                         {comment.body}
@@ -4612,6 +5052,8 @@ const PostCard = ({
                     direction="row"
                     alignItems="center"
                     spacing={0.25}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerUp={(event) => event.stopPropagation()}
                     sx={{
                       position: { xs: "static", md: "absolute" },
                       top: 0,
@@ -4622,12 +5064,14 @@ const PostCard = ({
                       border: `1px solid ${C.divider}`,
                       borderRadius: 2,
                       px: 0.25,
-                      transition: "opacity 140ms ease",
                     }}
                   >
                     <Button
                       size="small"
-                      onClick={() => void handleCommentLike(comment)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleCommentLike(comment);
+                      }}
                       startIcon={
                         comment.viewerLiked ? (
                           <FavoriteRoundedIcon />
@@ -4641,6 +5085,8 @@ const PostCard = ({
                         color: comment.viewerLiked ? C.accentDark : C.textMuted,
                         fontSize: "0.68rem",
                         textTransform: "none",
+                        "& .MuiButton-startIcon": { mr: 0.3 },
+                        "& .MuiSvgIcon-root": { fontSize: "0.75rem" },
                       }}
                     >
                       {comment.likeCount}
@@ -4649,20 +5095,22 @@ const PostCard = ({
                       <IconButton
                         size="small"
                         aria-label={`Comment options for ${comment.authorName}`}
-                        onClick={(event) =>
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setCommentMenu({
                             anchor: event.currentTarget,
                             comment,
-                          })
-                        }
+                          });
+                        }}
                         sx={{ color: C.textMuted }}
                       >
-                        <MoreHorizRoundedIcon sx={{ fontSize: 18 }} />
+                        <MoreHorizRoundedIcon sx={{ fontSize: 16 }} />
                       </IconButton>
                     )}
                   </Stack>
                 </Box>
-              ))}
+              );
+              })}
             </Stack>
           )}
 
@@ -5805,7 +6253,7 @@ const CommunitiesView = ({
     try {
       const result = await onCreate({
         name: normalizedTitle,
-        description: description.trim() || "A new Anchor community",
+        description: description.trim(),
         visibility,
         friendIds: selectedFriendIds,
         firstPost: communityPost.trim(),
@@ -6087,10 +6535,6 @@ const CommunitiesView = ({
         >
           Communities
         </Typography>
-        <Typography sx={{ color: C.textSub, fontSize: "0.9rem", mt: 0.5 }}>
-          Keep up with your groups, discover new people, or start a space of
-          your own.
-        </Typography>
       </Box>
 
       <Card
@@ -6177,11 +6621,6 @@ const CommunitiesView = ({
                       }}
                     >
                       Your communities
-                    </Typography>
-                    <Typography
-                      sx={{ color: C.textMuted, fontSize: "0.76rem", mt: 0.2 }}
-                    >
-                      Select one to schedule a discussion.
                     </Typography>
                   </Box>
                   <CommunityLayoutToggle
@@ -6321,20 +6760,24 @@ const CommunitiesView = ({
                           >
                             {community.name}
                           </Typography>
-                          <Typography
-                            sx={{
-                              color: C.textMuted,
-                              fontSize: { xs: "0.68rem", sm: "0.74rem" },
-                              lineHeight: 1.35,
-                              overflowWrap: "anywhere",
-                              display: "-webkit-box",
-                              WebkitLineClamp: layout === "grid" ? 2 : 3,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {community.description || "A new Anchor community"}
-                          </Typography>
+                          {community.description.trim() &&
+                          community.description.trim() !==
+                            "A new Anchor community" ? (
+                            <Typography
+                              sx={{
+                                color: C.textMuted,
+                                fontSize: { xs: "0.68rem", sm: "0.74rem" },
+                                lineHeight: 1.35,
+                                overflowWrap: "anywhere",
+                                display: "-webkit-box",
+                                WebkitLineClamp: layout === "grid" ? 2 : 3,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {community.description.trim()}
+                            </Typography>
+                          ) : null}
                           <Box
                             sx={{
                               display: "flex",
@@ -6571,16 +7014,20 @@ const CommunitiesView = ({
                       >
                         {community.name}
                       </Typography>
-                      <Typography
-                        sx={{
-                          color: C.textMuted,
-                          fontSize: "0.78rem",
-                          lineHeight: 1.35,
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {community.description || "A new Anchor community"}
-                      </Typography>
+                      {community.description.trim() &&
+                      community.description.trim() !==
+                        "A new Anchor community" ? (
+                        <Typography
+                          sx={{
+                            color: C.textMuted,
+                            fontSize: "0.78rem",
+                            lineHeight: 1.35,
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          {community.description.trim()}
+                        </Typography>
+                      ) : null}
                       <Typography
                         sx={{
                           color: C.textMuted,
@@ -7316,12 +7763,14 @@ const FriendsView = ({
   friendRequests,
   sentFriendRequests,
   onAddFriend,
+  onRemoveFriend,
   onResolveRequest,
 }: {
   friends: Friend[];
   friendRequests: CommunityFriendRequest[];
   sentFriendRequests: CommunityFriendRequest[];
   onAddFriend: (friendId: string) => Promise<void>;
+  onRemoveFriend: (friendId: string) => Promise<void>;
   onResolveRequest: (
     requestId: string,
     status: "accepted" | "declined",
@@ -7336,6 +7785,7 @@ const FriendsView = ({
   const [searchError, setSearchError] = useState("");
   const [requestActionId, setRequestActionId] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [unfriendActionId, setUnfriendActionId] = useState("");
   const [showAllFriends, setShowAllFriends] = useState(false);
   const normalizedSearch = search.trim().toLowerCase();
   const currentFriends = friends.filter((friend) => friend.isFriend);
@@ -7415,6 +7865,30 @@ const FriendsView = ({
     }
   };
   // T: O(r) and S: O(r), where r is the current search results
+
+  const handleUnfriend = async (friendId: string) => {
+    if (unfriendActionId) return;
+    setUnfriendActionId(friendId);
+    setSearchError("");
+    setRequestError("");
+    try {
+      await onRemoveFriend(friendId);
+      setSearchResults((current) =>
+        current.map((friend) =>
+          friend.id === friendId
+            ? { ...friend, isFriend: false, friendshipStatus: "none" }
+            : friend,
+        ),
+      );
+    } catch (caught) {
+      setRequestError(
+        caught instanceof Error ? caught.message : "Could not unfriend",
+      );
+    } finally {
+      setUnfriendActionId("");
+    }
+  };
+  // T: O(1) and S: O(1)
 
   const handleResolveRequest = async (
     requestId: string,
@@ -7506,6 +7980,8 @@ const FriendsView = ({
                 key={friend.id}
                 friend={friend}
                 onAddFriend={handleSearchResultAdd}
+                onRemoveFriend={handleUnfriend}
+                removePending={unfriendActionId === friend.id}
               />
             ))}
             {searching && (
@@ -7616,6 +8092,8 @@ const FriendsView = ({
                   <FriendRow
                     friend={friend}
                     onAddFriend={onAddFriend}
+                    onRemoveFriend={handleUnfriend}
+                    removePending={unfriendActionId === friend.id}
                     compact
                   />
                 </Card>
@@ -7795,10 +8273,14 @@ const FriendsView = ({
 const FriendRow = ({
   friend,
   onAddFriend,
+  onRemoveFriend,
+  removePending = false,
   compact = false,
 }: {
   friend: Friend;
   onAddFriend: (friendId: string) => void | Promise<void>;
+  onRemoveFriend?: (friendId: string) => void | Promise<void>;
+  removePending?: boolean;
   compact?: boolean;
 }) => {
   return (
@@ -7844,16 +8326,35 @@ const FriendRow = ({
         </Typography>
       </Box>
       {friend.isFriend || friend.friendshipStatus === "accepted" ? (
-        <Chip
-          icon={<CheckRoundedIcon />}
-          label="Friend"
-          size="small"
-          sx={{
-            bgcolor: "rgba(63,125,79,0.10)",
-            color: C.green,
-            fontWeight: 600,
-          }}
-        />
+        onRemoveFriend ? (
+          <Button
+            size="small"
+            disabled={removePending}
+            startIcon={<PersonRemoveOutlinedIcon />}
+            onClick={() => void onRemoveFriend(friend.id)}
+            sx={{
+              color: C.red,
+              bgcolor: "rgba(211,47,47,0.08)",
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {removePending ? "Removing…" : "Unfriend"}
+          </Button>
+        ) : (
+          <Chip
+            icon={<CheckRoundedIcon />}
+            label="Friend"
+            size="small"
+            sx={{
+              bgcolor: "rgba(63,125,79,0.10)",
+              color: C.green,
+              fontWeight: 600,
+            }}
+          />
+        )
       ) : friend.friendshipStatus === "pending" ? (
         <Chip
           label="Pending"
@@ -7923,6 +8424,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [communityMenuAnchor, setCommunityMenuAnchor] =
     useState<HTMLElement | null>(null);
   const [communitySharePending, setCommunitySharePending] = useState(false);
+  const [groupDetailsOpen, setGroupDetailsOpen] = useState(false);
+  const [groupDetailsMembers, setGroupDetailsMembers] = useState<
+    CommunityMemberRecord[]
+  >([]);
+  const [groupDetailsLoading, setGroupDetailsLoading] = useState(false);
+  const [groupDetailsError, setGroupDetailsError] = useState("");
   const [typingUsers, setTypingUsers] = useState<CommunityTypingUser[]>([]);
   const [discoveredMeetings, setDiscoveredMeetings] = useState<
     ScheduledMeeting[]
@@ -8698,9 +9205,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         ).at(-1);
         feedMarkerByScopeRef.current[communityId] = latestPost?.id ?? null;
         feedForceRefreshRef.current[communityId] = Date.now();
-        if (latestPost) {
-          seedReadPosition(`community:${communityId}`, latestPost.id, true);
-        }
+        // Do not seed read position here — landing scroll decides:
+        // caught up → latest; otherwise first missed message.
       } catch (caught) {
         if (conversationRequestRef.current === requestId) {
           setPageError(
@@ -8788,6 +9294,25 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     window.open(scheduleUrl.toString(), "_blank", "noopener,noreferrer");
   };
   // T: O(n) and S: O(n), where n is the community name length
+
+  const handleOpenGroupDetails = async (community: Community) => {
+    setGroupDetailsOpen(true);
+    setGroupDetailsLoading(true);
+    setGroupDetailsError("");
+    setGroupDetailsMembers([]);
+    try {
+      setGroupDetailsMembers(await listCommunityMembers(community.id));
+    } catch (caught) {
+      setGroupDetailsError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not load group members",
+      );
+    } finally {
+      setGroupDetailsLoading(false);
+    }
+  };
+  // T: O(m) and S: O(m), where m is returned members
 
   const getCommunityInviteLink = async (communityId: string) => {
     const existingLink = communityInviteLinksRef.current[communityId];
@@ -8926,6 +9451,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
   const handleAddFriend = async (friendId: string): Promise<void> => {
     await sendFriendRequest(friendId);
+    await refreshFriendWorkspace();
+  };
+  // T: O(1) network request and S: O(1)
+
+  const handleRemoveFriend = async (friendId: string): Promise<void> => {
+    await removeFriend(friendId);
     await refreshFriendWorkspace();
   };
   // T: O(1) network request and S: O(1)
@@ -9083,6 +9614,31 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       ?.scrollIntoView({ behavior, block: "end" });
   };
 
+  const scrollThreadToPost = (
+    postId: string,
+    behavior: ScrollBehavior = "auto",
+  ) => {
+    const target = messageListRef.current?.querySelector<HTMLElement>(
+      `[data-community-post-id="${postId}"]`,
+    );
+    if (!target) return;
+    const scroller = threadScroller();
+    if (scroller) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const headerOffset = Math.max(communityHeaderHeight, 56) + 12;
+      const nextTop =
+        scroller.scrollTop + (targetRect.top - scrollerRect.top) - headerOffset;
+      if (behavior === "smooth") {
+        scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+      } else {
+        scroller.scrollTop = Math.max(0, nextTop);
+      }
+      return;
+    }
+    target.scrollIntoView({ behavior, block: "start" });
+  };
+
   const queueStickToLatest = () => {
     stickToLatestRef.current = true;
   };
@@ -9163,38 +9719,63 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
     let secondFrame = 0;
     let readyTimer = 0;
+    let retryTimer = 0;
+    const restoreLanding = () => {
+      const items = messageItems();
+      if (items.length === 0) return false;
+      if (items.length < visiblePosts.length) return false;
+
+      const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
+      let savedPostId: string | null = null;
+      try {
+        savedPostId = window.localStorage.getItem(storageKey);
+      } catch {
+        savedPostId = null;
+      }
+      const savedIndex = savedPostId
+        ? items.findIndex(
+            (item) => item.dataset.communityPostId === savedPostId,
+          )
+        : -1;
+      const hasMissed =
+        savedIndex >= 0 && savedIndex < items.length - 1;
+
+      if (userReadingHistoryRef.current) {
+        setShowJumpToLatest(true);
+      } else if (!hasMissed) {
+        scrollThreadToLatest();
+        setShowJumpToLatest(false);
+        markVisitCaughtUp(items);
+      } else {
+        const firstMissedId =
+          items[savedIndex + 1]?.dataset.communityPostId ?? null;
+        if (firstMissedId) scrollThreadToPost(firstMissedId);
+        caughtUpThisVisitRef.current = false;
+        userReadingHistoryRef.current = true;
+        const behind = items.length - 1 - savedIndex;
+        setMissedBehindCount(behind);
+        setShowJumpToLatest(behind > 0);
+      }
+      restoredReadScopeRef.current = currentReadScope;
+      readyTimer = window.setTimeout(() => setReadTrackingReady(true), 350);
+      return true;
+    };
+
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
-        const items = messageItems();
-        if (items.length === 0) return;
-        const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
-        const savedPostId = window.localStorage.getItem(storageKey);
-        const savedIndex = items.findIndex(
-          (item) => item.dataset.communityPostId === savedPostId,
-        );
-        const caughtUp = savedIndex < 0 || savedIndex >= items.length - 1;
-        if (userReadingHistoryRef.current) {
-          setShowJumpToLatest(true);
-        } else if (caughtUp) {
-          scrollThreadToLatest();
-          setShowJumpToLatest(false);
-          markVisitCaughtUp(items);
-        } else {
-          const firstMissed = items[savedIndex + 1];
-          firstMissed?.scrollIntoView({ block: "center" });
-          caughtUpThisVisitRef.current = false;
-          const behind = items.length - 1 - savedIndex;
-          setMissedBehindCount(behind);
-          setShowJumpToLatest(behind > 0);
-        }
-        restoredReadScopeRef.current = currentReadScope;
-        readyTimer = window.setTimeout(() => setReadTrackingReady(true), 350);
+        if (restoreLanding()) return;
+        // DOM may still be catching up after posts paint.
+        retryTimer = window.setTimeout(() => {
+          if (restoredReadScopeRef.current === currentReadScope) return;
+          restoreLanding();
+        }, 120);
       });
     });
     return () => {
       window.cancelAnimationFrame(firstFrame);
       window.cancelAnimationFrame(secondFrame);
       window.clearTimeout(readyTimer);
+      window.clearTimeout(retryTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore read position once the thread is painted
   }, [
@@ -9475,13 +10056,21 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         display: "inline-flex",
                         width: 34,
                         height: 34,
-                        ml: -0.75,
-                        mr: 0.25,
+                        ml: -0.35,
+                        mr: 0.75,
                         mt: 0,
-                        color: C.accentDark,
+                        p: 0,
+                        color: C.textPrimary,
+                        bgcolor: C.cardBg,
+                        border: `1px solid ${C.divider}`,
+                        boxShadow: "0 1px 2px rgba(44,26,10,0.04)",
+                        "&:hover": {
+                          bgcolor: C.surface,
+                          borderColor: C.divider,
+                        },
                       }}
                     >
-                      <ArrowBackRoundedIcon sx={{ fontSize: 22 }} />
+                      <ChevronLeftRoundedIcon sx={{ fontSize: 22 }} />
                     </IconButton>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
                       <Typography
@@ -9505,22 +10094,31 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       flexShrink: 0,
                     }}
                   >
-                    <Tooltip title="Members">
-                      <Box
+                    <Tooltip title="Group details">
+                      <IconButton
+                        aria-label={`Group details, ${
+                          Number.parseInt(conversationCommunity.memberCount, 10) ||
+                          0
+                        } members`}
+                        onClick={() =>
+                          void handleOpenGroupDetails(conversationCommunity)
+                        }
                         sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.4,
                           color: C.textMuted,
-                          px: 0.5,
+                          borderRadius: 2,
+                          px: 0.75,
+                          gap: 0.4,
                         }}
                       >
                         <GroupsRoundedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
-                        <Typography sx={{ fontSize: "0.86rem", fontWeight: 700 }}>
+                        <Typography
+                          component="span"
+                          sx={{ fontSize: "0.86rem", fontWeight: 700 }}
+                        >
                           {Number.parseInt(conversationCommunity.memberCount, 10) ||
                             0}
                         </Typography>
-                      </Box>
+                      </IconButton>
                     </Tooltip>
                     <Tooltip title="Schedule discussion">
                       <IconButton
@@ -9579,18 +10177,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     >
                       <ShareOutlinedIcon fontSize="small" />
                       Share invite
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        setCommunityMenuAnchor(null);
-                        handleScheduleCommunityDiscussion(
-                          conversationCommunity,
-                        );
-                      }}
-                      sx={{ gap: 1 }}
-                    >
-                      <CalendarMonthRoundedIcon fontSize="small" />
-                      Schedule discussion
                     </MenuItem>
                   </Menu>
                 </Box>
@@ -9792,11 +10378,132 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
               friendRequests={friendRequests}
               sentFriendRequests={sentFriendRequests}
               onAddFriend={handleAddFriend}
+              onRemoveFriend={handleRemoveFriend}
               onResolveRequest={handleResolveFriendRequest}
             />
           </Box>
         )}
       </Stack>
+
+      <Dialog
+        open={groupDetailsOpen}
+        onClose={() => setGroupDetailsOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          {conversationCommunity?.name ?? "Group details"}
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub, mb: 2 }}>
+            {groupDetailsLoading
+              ? "Loading members…"
+              : `${groupDetailsMembers.length} ${
+                  groupDetailsMembers.length === 1 ? "member" : "members"
+                } in this group`}
+          </Typography>
+          {conversationCommunity?.description?.trim() &&
+          conversationCommunity.description.trim() !==
+            "A new Anchor community" ? (
+            <Typography
+              sx={{
+                color: C.textMuted,
+                fontSize: "0.86rem",
+                mb: 2,
+                lineHeight: 1.45,
+              }}
+            >
+              {conversationCommunity.description.trim()}
+            </Typography>
+          ) : null}
+          {groupDetailsError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {groupDetailsError}
+            </Alert>
+          )}
+          {groupDetailsLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress size={28} sx={{ color: C.accent }} />
+            </Box>
+          ) : (
+            <Stack divider={<Divider flexItem sx={{ borderColor: C.divider }} />}>
+              {groupDetailsMembers.map((member) => (
+                <Box
+                  key={member.userId}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.25,
+                    py: 1.25,
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      bgcolor: C.accentFaint,
+                      color: C.accentDark,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    {member.name.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700, color: C.textPrimary }}>
+                      {member.name}
+                      {member.isCurrentUser ? " (you)" : ""}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: C.textMuted,
+                        fontSize: "0.78rem",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {member.email}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={
+                      member.role === "owner"
+                        ? "Owner"
+                        : member.role === "admin"
+                          ? "Admin"
+                          : member.role === "moderator"
+                            ? "Moderator"
+                            : "Member"
+                    }
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 600,
+                      borderColor: C.divider,
+                      color: C.textSub,
+                    }}
+                  />
+                </Box>
+              ))}
+              {!groupDetailsError && groupDetailsMembers.length === 0 && (
+                <Typography
+                  sx={{ color: C.textMuted, textAlign: "center", py: 3 }}
+                >
+                  No members found for this group.
+                </Typography>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setGroupDetailsOpen(false)}
+            sx={{ textTransform: "none", color: C.textSub }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

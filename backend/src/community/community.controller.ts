@@ -9,8 +9,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { CommunityService } from './community.service';
@@ -467,6 +470,19 @@ export class CommunityController {
     );
   }
   // T: O(1) and S: O(1)
+
+  @Post('speech/transcribe')
+  @DistributedRateLimit(20, 60)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }),
+  )
+  transcribeSpeech(
+    @Req() request: Request,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.communityService.transcribeSpeech(this.userId(request), file);
+  }
+  // T: O(a) and S: O(a), where a is the audio payload size
 
   @Get('friends')
   @DistributedRateLimit(120, 60)

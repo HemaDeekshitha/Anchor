@@ -1336,6 +1336,69 @@ export class CommunityService {
   }
   // T: O(1) Redis or O(log P) DB and S: O(1), where P is posts
 
+  async transcribeSpeech(
+    _userId: string,
+    file: Express.Multer.File,
+  ): Promise<{ text: string }> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Audio is required');
+    }
+    const apiKey = process.env.GROQ_API_KEY?.trim();
+    if (!apiKey) {
+      throw new BadRequestException('Speech-to-text is unavailable');
+    }
+
+    const mimeType = file.mimetype?.trim() || 'audio/webm';
+    const filename =
+      file.originalname?.trim() ||
+      (mimeType.includes('mp4') || mimeType.includes('m4a')
+        ? 'speech.m4a'
+        : 'speech.webm');
+
+    const form = new FormData();
+    form.append(
+      'file',
+      new Blob([new Uint8Array(file.buffer)], { type: mimeType }),
+      filename,
+    );
+    form.append('model', 'whisper-large-v3-turbo');
+    form.append('response_format', 'json');
+    form.append('temperature', '0');
+
+    let response: Response;
+    try {
+      response = await fetch(
+        'https://api.groq.com/openai/v1/audio/transcriptions',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: form,
+        },
+      );
+    } catch {
+      throw new BadRequestException(
+        'Could not reach speech-to-text. Check your connection and try again.',
+      );
+    }
+
+    if (!response.ok) {
+      throw new BadRequestException(
+        'Could not convert speech to text. Please try again.',
+      );
+    }
+
+    const payload = (await response.json()) as { text?: unknown };
+    const text =
+      typeof payload.text === 'string' ? payload.text.trim() : '';
+    if (!text) {
+      throw new BadRequestException(
+        'No speech detected. Try again and speak clearly.',
+      );
+    }
+    return { text };
+  }
+  // T: O(a) and S: O(a), where a is the audio payload size
+
   async setCommunityTyping(
     userId: string,
     communityId: string,
