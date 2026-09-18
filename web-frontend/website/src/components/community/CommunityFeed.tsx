@@ -1515,8 +1515,6 @@ const Composer = ({
     () => () => {
       discardDictationRecording();
     },
-    // Mount-only cleanup for active dictation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -6150,7 +6148,6 @@ const CommunitiesView = ({
       window.removeEventListener(INBOX_CHANGED_EVENT, handleInboxChanged);
     };
     // unreadCounts intentionally omitted to avoid refresh loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communities]);
 
   const joinedCommunities = sortJoinedCommunities(
