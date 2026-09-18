@@ -1448,6 +1448,7 @@ const Composer = ({
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const composerOpenedAtRef = useRef(0);
+  const suppressComposerCollapseRef = useRef(0);
   const pendingCaretRef = useRef<number | null>(null);
   const mediaUploadAbortRef = useRef<AbortController | null>(null);
   const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
@@ -2248,9 +2249,10 @@ const Composer = ({
   }, [composerExpanded, hasPendingDraft, submitting]);
 
   // Mobile/tablet: scrolling the feed collapses the expanded composer back to
-  // the compact pill. Keep it expanded while a draft/upload is pending.
+  // the compact pill. Keep it expanded while a draft/upload is pending, or
+  // while the attachment sheet is open / just opened (keyboard dismiss noise).
   useEffect(() => {
-    if (!open || hasPendingDraft || submitting) return;
+    if (!open || hasPendingDraft || submitting || attachmentMenuAnchor) return;
 
     const isInsideComposerOrOverlay = (target: EventTarget | null) => {
       if (!(target instanceof Element)) return false;
@@ -2262,6 +2264,7 @@ const Composer = ({
 
     const collapseComposer = () => {
       if (Date.now() - composerOpenedAtRef.current < 450) return;
+      if (Date.now() < suppressComposerCollapseRef.current) return;
       setOpen(false);
       setAttachmentMenuAnchor(null);
       composerInputRef.current?.blur();
@@ -2269,6 +2272,10 @@ const Composer = ({
 
     const handleScroll = (event: Event) => {
       if (isInsideComposerOrOverlay(event.target)) return;
+      const target = event.target;
+      const main = composerRef.current?.closest("main");
+      // Only collapse for real feed scrolling — ignore keyboard/viewport jitter.
+      if (target !== main && target !== document.documentElement) return;
       collapseComposer();
     };
 
@@ -2282,18 +2289,16 @@ const Composer = ({
     };
     const handleTouchMove = (event: TouchEvent) => {
       if (touchStartY == null) return;
+      if (Date.now() < suppressComposerCollapseRef.current) return;
       const currentY = event.touches[0]?.clientY;
       if (currentY == null) return;
-      // Finger drag on the feed = scroll; collapse the large message box.
       if (Math.abs(currentY - touchStartY) > 12) {
         collapseComposer();
       }
     };
 
-    document.addEventListener("scroll", handleScroll, {
-      passive: true,
-      capture: true,
-    });
+    const main = composerRef.current?.closest("main");
+    main?.addEventListener("scroll", handleScroll, { passive: true });
     document.addEventListener("touchstart", handleTouchStart, {
       passive: true,
       capture: true,
@@ -2302,15 +2307,13 @@ const Composer = ({
       passive: true,
       capture: true,
     });
-    window.addEventListener("wheel", collapseComposer, { passive: true });
 
     return () => {
-      document.removeEventListener("scroll", handleScroll, true);
+      main?.removeEventListener("scroll", handleScroll);
       document.removeEventListener("touchstart", handleTouchStart, true);
       document.removeEventListener("touchmove", handleTouchMove, true);
-      window.removeEventListener("wheel", collapseComposer);
     };
-  }, [open, hasPendingDraft, submitting]);
+  }, [open, hasPendingDraft, submitting, attachmentMenuAnchor]);
 
   useEffect(
     () => () => {
@@ -2442,8 +2445,10 @@ const Composer = ({
         position: "relative",
         width: "100%",
         boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
         maxHeight: composerExpanded
-          ? "min(48dvh, 460px)"
+          ? { xs: "min(42dvh, 380px)", sm: "min(48dvh, 460px)" }
           : { xs: 58, sm: 60, md: 62 },
         minHeight: composerExpanded ? 0 : { xs: 58, sm: 60, md: 62 },
         p: composerExpanded ? { xs: 1, sm: 1.25 } : 0,
@@ -2454,7 +2459,8 @@ const Composer = ({
         boxShadow: composerExpanded
           ? "0 10px 30px rgba(44,26,10,0.12)"
           : "0 3px 14px rgba(44,26,10,0.06)",
-        overflow: composerExpanded ? "auto" : "hidden",
+        overflow: "hidden",
+        overscrollBehavior: "none",
         transition:
           "max-height 320ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease",
       }}
@@ -2578,6 +2584,7 @@ const Composer = ({
           gap: composerExpanded ? 0 : 0.5,
           minHeight: composerExpanded ? 0 : { xs: 56, sm: 58, md: 60 },
           pr: composerExpanded && !replyTo ? 3.5 : 0,
+          flexShrink: 0,
         }}
       >
         {!composerExpanded && (
@@ -2585,6 +2592,9 @@ const Composer = ({
             aria-label="Add an image, video, or file"
             onClick={(event) => {
               event.stopPropagation();
+              suppressComposerCollapseRef.current = Date.now() + 1600;
+              composerOpenedAtRef.current = Date.now();
+              setOpen(true);
               setAttachmentMenuAnchor(event.currentTarget);
             }}
             sx={{
@@ -2606,7 +2616,7 @@ const Composer = ({
           fullWidth
           multiline
           minRows={composerExpanded ? 2 : 1}
-          maxRows={composerExpanded ? 6 : 1}
+          maxRows={composerExpanded ? 4 : 1}
           value={content}
           disabled={submitting}
           onFocus={handleOpen}
@@ -2786,6 +2796,10 @@ const Composer = ({
         aria-hidden={!composerExpanded}
         sx={{
           pl: 0,
+          flex: composerExpanded ? 1 : "none",
+          minHeight: 0,
+          overflowY: composerExpanded ? "auto" : "visible",
+          overscrollBehavior: "contain",
           opacity: composerExpanded ? 1 : 0,
           transform: composerExpanded ? "translateY(0)" : "translateY(10px)",
           pointerEvents: composerExpanded ? "auto" : "none",
@@ -2984,7 +2998,7 @@ const Composer = ({
                   maxHeight:
                     mode === "audio"
                       ? 54
-                      : { xs: 200, sm: 260, md: 320 },
+                      : { xs: 140, sm: 200, md: 280 },
                   objectFit: "contain",
                   borderRadius: 1.5,
                   bgcolor: mode === "video" ? "#111" : C.surface,
@@ -3032,7 +3046,7 @@ const Composer = ({
                     sx={{
                       display: "block",
                       width: "100%",
-                      maxHeight: 280,
+                      maxHeight: { xs: 140, sm: 200, md: 280 },
                       objectFit: "contain",
                     }}
                   />
@@ -3345,6 +3359,9 @@ const Composer = ({
                 aria-label="Add an image, video, or file"
                 onClick={(event) => {
                   event.stopPropagation();
+                  suppressComposerCollapseRef.current = Date.now() + 1600;
+                  composerOpenedAtRef.current = Date.now();
+                  setOpen(true);
                   setAttachmentMenuAnchor(event.currentTarget);
                 }}
                 sx={{ color: C.textSub, bgcolor: C.surface }}
@@ -4717,11 +4734,11 @@ const PostCard = ({
           transition: "opacity 140ms ease, transform 140ms ease",
           zIndex: 2,
           "& .MuiIconButton-root": {
-            width: { xs: 28, sm: 32 },
-            height: { xs: 28, sm: 32 },
+            width: { xs: 34, sm: 36, md: 32 },
+            height: { xs: 34, sm: 36, md: 32 },
           },
           "& .MuiSvgIcon-root": {
-            fontSize: { xs: 17, sm: 19 },
+            fontSize: { xs: 21, sm: 22, md: 19 },
           },
         }}
       >
