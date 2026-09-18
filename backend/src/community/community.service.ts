@@ -950,6 +950,14 @@ export class CommunityService {
         ),
       })),
     );
+    if (verifiedMedia.length) {
+      // Ensure media metadata column exists before insert — production has
+      // been observed without this migration applied.
+      await this.dataSource.query(`
+        ALTER TABLE post_media
+          ADD COLUMN IF NOT EXISTS "originalFilename" varchar(255);
+      `);
+    }
     const result = await this.dataSource.transaction(async (manager) => {
       const post = await manager.save(
         manager.create(CommunityPost, {
@@ -969,7 +977,10 @@ export class CommunityService {
           ).trim();
           const format = String(asset.format ?? '').trim();
           const fromCloudinary = cloudinaryName
-            ? format && !cloudinaryName.toLowerCase().endsWith(`.${format.toLowerCase()}`)
+            ? format &&
+              !cloudinaryName
+                .toLowerCase()
+                .endsWith(`.${format.toLowerCase()}`)
               ? `${cloudinaryName}.${format}`
               : cloudinaryName
             : null;

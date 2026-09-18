@@ -25,6 +25,7 @@ import {
 import { CommunityCacheService } from './infrastructure/community-cache.service';
 import { CommunityMediaService } from './infrastructure/community-media.service';
 import { CommunityQueueService } from './infrastructure/community-queue.service';
+import { CommunitySchemaRepairService } from './infrastructure/community-schema-repair.service';
 import { DistributedRateLimitGuard } from './infrastructure/distributed-rate-limit.guard';
 import { CommunityProcessor } from './workers/community.processor';
 import { CommunityRecoveryService } from './workers/community-recovery.service';
@@ -103,6 +104,7 @@ function redisConnection(urlValue: string): {
     CommunityCacheService,
     CommunityMediaService,
     CommunityQueueService,
+    CommunitySchemaRepairService,
     DistributedRateLimitGuard,
     ...communityWorkerProviders,
   ],
