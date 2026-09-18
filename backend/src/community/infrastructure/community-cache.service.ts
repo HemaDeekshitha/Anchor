@@ -59,10 +59,17 @@ export class CommunityCacheService
 
   async readiness(): Promise<'reachable' | 'disabled'> {
     if (!this.redis) return 'disabled';
-    if (!this.available) throw new Error('Redis is not connected');
-    const response = await this.redis.ping();
-    if (response !== 'PONG') throw new Error('Redis ping failed');
-    return 'reachable';
+    try {
+      if (!this.available) await this.redis.connect().catch(() => undefined);
+      const response = await this.redis.ping();
+      if (response !== 'PONG') return 'disabled';
+      this.available = true;
+      return 'reachable';
+    } catch {
+      this.available = false;
+      // Do not fail API readiness — community cache is fail-open.
+      return 'disabled';
+    }
   }
   // T: O(1) network round trip and S: O(1)
 
