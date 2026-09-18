@@ -25,6 +25,9 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
+import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
+import NotificationsOffRoundedIcon from "@mui/icons-material/NotificationsOffRounded";
+import NotificationsPausedRoundedIcon from "@mui/icons-material/NotificationsPausedRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
@@ -32,15 +35,19 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
 import { logoutSession } from "@/lib/auth-client";
 import {
+  DEVICE_NOTIFICATION_MODE_CHANGED_EVENT,
   dismissInboxPosts,
   INBOX_CHANGED_EVENT,
   markFriendRequestsSeen,
   openInboxPost,
+  readDeviceNotificationMode,
   readDismissedPostIds,
   readSeenFriendRequestIds,
   seedReadPosition,
   textMatchesQuery,
   useAppChrome,
+  writeDeviceNotificationMode,
+  type DeviceNotificationMode,
 } from "@/lib/app-chrome";
 import {
   getCurrentCommunityProfile,
@@ -65,13 +72,16 @@ type SearchHit =
   | { kind: "community"; community: CommunityRecord }
   | { kind: "person"; person: CommunityPersonSearchResult };
 
-type MissedMessage = {
-  id: string;
+type MissedGroup = {
+  key: string;
   communityId: string | null;
-  communityName?: string;
-  authorName: string;
-  authorAvatar?: string | null;
-  body: string;
+  communityName: string;
+  count: number;
+  latestPostId: string;
+  latestAuthorName: string;
+  latestAuthorAvatar?: string | null;
+  latestBody: string;
+  postIds: string[];
 };
 
 const SEARCH_DEBOUNCE_MS = 220;
@@ -111,10 +121,50 @@ const unreadAfter = (
   return sorted.slice(index + 1);
 };
 
+const groupMissedMessages = (
+  items: Array<{
+    id: string;
+    communityId: string | null;
+    communityName?: string;
+    authorName: string;
+    authorAvatar?: string | null;
+    body: string;
+  }>,
+): MissedGroup[] => {
+  const groups = new Map<string, MissedGroup>();
+  for (const item of items) {
+    const key = item.communityId ?? "feed";
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.postIds.push(item.id);
+      existing.latestPostId = item.id;
+      existing.latestAuthorName = item.authorName;
+      existing.latestAuthorAvatar = item.authorAvatar;
+      existing.latestBody = item.body;
+      continue;
+    }
+    groups.set(key, {
+      key,
+      communityId: item.communityId,
+      communityName: item.communityName?.trim() || (item.communityId ? "Community" : "Feed"),
+      count: 1,
+      latestPostId: item.id,
+      latestAuthorName: item.authorName,
+      latestAuthorAvatar: item.authorAvatar,
+      latestBody: item.body,
+      postIds: [item.id],
+    });
+  }
+  return [...groups.values()].sort((left, right) => right.count - left.count);
+};
+
 export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
   const router = useRouter();
   const { mode, toggleMode } = useThemeMode();
-  const { messages } = useAppChrome();
+  const { messages, viewingScope } = useAppChrome();
+  const viewingScopeRef = useRef(viewingScope);
+  viewingScopeRef.current = viewingScope;
   const searchFieldRef = useRef<HTMLInputElement | null>(null);
   const searchRequestIdRef = useRef(0);
   const [query, setQuery] = useState("");
@@ -130,9 +180,45 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
     avatarUrl: string | null;
   } | null>(null);
   const [requests, setRequests] = useState<CommunityFriendRequest[]>([]);
-  const [missedMessages, setMissedMessages] = useState<MissedMessage[]>([]);
+  const [missedGroups, setMissedGroups] = useState<MissedGroup[]>([]);
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
   const [noticeAnchor, setNoticeAnchor] = useState<HTMLElement | null>(null);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission>("default");
+  const [deviceNotificationMode, setDeviceNotificationMode] =
+    useState<DeviceNotificationMode>("all");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ("Notification" in window) {
+      setNotificationPermission(Notification.permission);
+    }
+    setDeviceNotificationMode(readDeviceNotificationMode());
+    const syncMode = () => setDeviceNotificationMode(readDeviceNotificationMode());
+    window.addEventListener(DEVICE_NOTIFICATION_MODE_CHANGED_EVENT, syncMode);
+    return () =>
+      window.removeEventListener(DEVICE_NOTIFICATION_MODE_CHANGED_EVENT, syncMode);
+  }, []);
+
+  const applyDeviceNotificationMode = (mode: DeviceNotificationMode) => {
+    setDeviceNotificationMode(mode);
+    writeDeviceNotificationMode(mode);
+  };
+
+  const enableDeviceNotifications = async () => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "denied") {
+      setNotificationPermission("denied");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") applyDeviceNotificationMode("all");
+    } catch {
+      // Keep the current permission state.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -159,7 +245,7 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
         setRequests(nextRequests.filter((request) => !seenRequests.has(request.id)));
 
         const communityFeeds = await Promise.all(
-          joined.slice(0, 12).map(async (community) => {
+          joined.slice(0, 6).map(async (community) => {
             const posts = await listCommunityFeed(community.id).catch(
               () => [] as CommunityPostRecord[],
             );
@@ -169,7 +255,14 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
         if (cancelled) return;
 
         const dismissed = readDismissedPostIds();
-        const nextMissed: MissedMessage[] = [];
+        const nextMissed: Array<{
+          id: string;
+          communityId: string | null;
+          communityName?: string;
+          authorName: string;
+          authorAvatar?: string | null;
+          body: string;
+        }> = [];
         const seen = new Set<string>();
         const pushUnread = (
           posts: CommunityPostRecord[],
@@ -193,6 +286,19 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
 
         communityFeeds.forEach(({ community, posts }) => {
           const scope = `community:${community.id}`;
+          // Already inside this group — don't surface it in the top inbox.
+          if (viewingScopeRef.current === scope) {
+            const latest = [...posts]
+              .filter((post) => post.status === "published")
+              .sort(
+                (left, right) =>
+                  new Date(left.createdAt).getTime() -
+                  new Date(right.createdAt).getTime(),
+              )
+              .at(-1);
+            if (latest) seedReadPosition(scope, latest.id);
+            return;
+          }
           pushUnread(
             posts,
             scope,
@@ -200,17 +306,19 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
             community.name,
           );
         });
-        pushUnread(
-          feedPosts,
-          "feed",
-          window.localStorage.getItem(`${READ_POSITION_PREFIX}.feed`),
-          "Feed",
-        );
-        setMissedMessages(nextMissed.slice(-8).reverse());
+        if (viewingScopeRef.current !== "feed") {
+          pushUnread(
+            feedPosts,
+            "feed",
+            window.localStorage.getItem(`${READ_POSITION_PREFIX}.feed`),
+            "Feed",
+          );
+        }
+        setMissedGroups(groupMissedMessages(nextMissed).slice(0, 12));
       } catch {
         if (!cancelled) {
           setRequests([]);
-          setMissedMessages([]);
+          setMissedGroups([]);
         }
       }
     };
@@ -337,7 +445,11 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
       .join("");
   }, [profile?.name]);
 
-  const inboxCount = missedMessages.length + requests.length;
+  const missedMessageCount = useMemo(
+    () => missedGroups.reduce((total, group) => total + group.count, 0),
+    [missedGroups],
+  );
+  const inboxCount = missedMessageCount + requests.length;
 
   const handleSignOut = async () => {
     setProfileAnchor(null);
@@ -371,7 +483,16 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
     setNoticeAnchor(null);
     setQuery("");
     dismissInboxPosts([post.id]);
-    setMissedMessages((current) => current.filter((item) => item.id !== post.id));
+    setMissedGroups((current) =>
+      current
+        .map((group) => {
+          if (!group.postIds.includes(post.id)) return group;
+          const postIds = group.postIds.filter((id) => id !== post.id);
+          if (postIds.length === 0) return null;
+          return { ...group, postIds, count: postIds.length };
+        })
+        .filter((group): group is MissedGroup => Boolean(group)),
+    );
     openInboxPost({ postId: post.id, communityId: post.communityId });
     if (post.communityId) {
       openCommunity(post.communityId, post.id);
@@ -379,6 +500,29 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
     }
     router.push(`/community?tab=feed&post=${post.id}`);
     void communityName;
+  };
+
+  const openMissedGroup = (group: MissedGroup) => {
+    closeSearch();
+    setNoticeAnchor(null);
+    setQuery("");
+    dismissInboxPosts(group.postIds);
+    const scope = group.communityId
+      ? `community:${group.communityId}`
+      : "feed";
+    seedReadPosition(scope, group.latestPostId, true);
+    setMissedGroups((current) =>
+      current.filter((item) => item.key !== group.key),
+    );
+    openInboxPost({
+      postId: group.latestPostId,
+      communityId: group.communityId,
+    });
+    if (group.communityId) {
+      openCommunity(group.communityId, group.latestPostId);
+      return;
+    }
+    router.push(`/community?tab=feed&post=${group.latestPostId}`);
   };
 
   const openFriends = (requestId?: string) => {
@@ -393,15 +537,15 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
   };
 
   const markAllAsRead = () => {
-    dismissInboxPosts(missedMessages.map((message) => message.id));
+    dismissInboxPosts(missedGroups.flatMap((group) => group.postIds));
     markFriendRequestsSeen(requests.map((request) => request.id));
-    missedMessages.forEach((message) => {
-      const scope = message.communityId
-        ? `community:${message.communityId}`
+    missedGroups.forEach((group) => {
+      const scope = group.communityId
+        ? `community:${group.communityId}`
         : "feed";
-      seedReadPosition(scope, message.id);
+      seedReadPosition(scope, group.latestPostId, true);
     });
-    setMissedMessages([]);
+    setMissedGroups([]);
     setRequests([]);
   };
 
@@ -595,9 +739,9 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
           </IconButton>
         </Tooltip>
 
-        <Tooltip title="Unread messages">
+        <Tooltip title="Notifications">
           <IconButton
-            aria-label="Unread messages"
+            aria-label="Notifications"
             onClick={(event) => setNoticeAnchor(event.currentTarget)}
             sx={{ color: "var(--anchor-header-text)" }}
           >
@@ -608,7 +752,15 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
               invisible={inboxCount === 0}
               sx={{ "& .MuiBadge-badge": { fontSize: "0.65rem", fontWeight: 700 } }}
             >
-              <NotificationsNoneRoundedIcon />
+              {deviceNotificationMode === "off" &&
+              notificationPermission === "granted" ? (
+                <NotificationsOffRoundedIcon />
+              ) : deviceNotificationMode === "silent" &&
+                notificationPermission === "granted" ? (
+                <NotificationsPausedRoundedIcon />
+              ) : (
+                <NotificationsNoneRoundedIcon />
+              )}
             </Badge>
           </IconButton>
         </Tooltip>
@@ -677,6 +829,78 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
           },
         }}
       >
+        <Typography
+          sx={{
+            px: 2,
+            pt: 1.35,
+            pb: 0.75,
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            color: "var(--anchor-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+          }}
+        >
+          {deviceNotificationMode === "off" ? (
+            <NotificationsOffRoundedIcon sx={{ fontSize: 16 }} />
+          ) : deviceNotificationMode === "silent" ? (
+            <NotificationsPausedRoundedIcon sx={{ fontSize: 16 }} />
+          ) : (
+            <NotificationsActiveRoundedIcon sx={{ fontSize: 16 }} />
+          )}
+          {notificationPermission !== "granted"
+            ? "Device notifications"
+            : deviceNotificationMode === "off"
+              ? "Notifications off"
+              : deviceNotificationMode === "silent"
+                ? "Silent notifications"
+                : "All message notifications"}
+        </Typography>
+        {notificationPermission === "default" ? (
+          <MenuItem
+            onClick={() => void enableDeviceNotifications()}
+            sx={{ gap: 1.25, py: 1.1 }}
+          >
+            <NotificationsNoneRoundedIcon fontSize="small" />
+            Enable device notifications
+          </MenuItem>
+        ) : notificationPermission === "denied" ? (
+          <MenuItem disabled sx={{ opacity: 1, whiteSpace: "normal" }}>
+            Notifications are blocked in browser settings.
+          </MenuItem>
+        ) : (
+          [
+            <MenuItem
+              key="notif-all"
+              selected={deviceNotificationMode === "all"}
+              onClick={() => applyDeviceNotificationMode("all")}
+              sx={{ gap: 1.25, py: 1.05 }}
+            >
+              <NotificationsActiveRoundedIcon fontSize="small" />
+              All messages
+            </MenuItem>,
+            <MenuItem
+              key="notif-silent"
+              selected={deviceNotificationMode === "silent"}
+              onClick={() => applyDeviceNotificationMode("silent")}
+              sx={{ gap: 1.25, py: 1.05 }}
+            >
+              <NotificationsPausedRoundedIcon fontSize="small" />
+              Silent
+            </MenuItem>,
+            <MenuItem
+              key="notif-off"
+              selected={deviceNotificationMode === "off"}
+              onClick={() => applyDeviceNotificationMode("off")}
+              sx={{ gap: 1.25, py: 1.05 }}
+            >
+              <NotificationsOffRoundedIcon fontSize="small" />
+              Turn off
+            </MenuItem>,
+          ]
+        )}
+        <Divider />
         {inboxCount === 0 ? (
           <MenuItem disabled sx={{ opacity: 1, whiteSpace: "normal" }}>
             No notifications.
@@ -687,54 +911,57 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
             Missed messages
           </Typography>
         ) : null}
-        {inboxCount > 0 && missedMessages.length === 0 ? (
+        {inboxCount > 0 && missedGroups.length === 0 ? (
           <MenuItem disabled sx={{ opacity: 1, whiteSpace: "normal" }}>
             No missed messages.
           </MenuItem>
         ) : (
-          missedMessages.map((message) => (
+          missedGroups.map((group) => (
             <MenuItem
-              key={message.id}
-              onClick={() =>
-                openMessage(
-                  {
-                    id: message.id,
-                    communityId: message.communityId,
-                    authorId: "",
-                    replyToPostId: null,
-                    kind: "text",
-                    title: null,
-                    body: message.body,
-                    status: "published",
-                    upvoteCount: 0,
-                    downvoteCount: 0,
-                    commentCount: 0,
-                    viewCount: "0",
-                    createdAt: "",
-                    author: {
-                      id: "",
-                      name: message.authorName,
-                      email: "",
-                      avatarUrl: message.authorAvatar ?? null,
-                      profession: "",
-                      friendshipStatus: "none",
-                    },
-                    viewerVote: 0,
-                    replyTo: null,
-                    media: [],
-                    poll: null,
-                  },
-                  message.communityName,
-                )
-              }
+              key={group.key}
+              onClick={() => openMissedGroup(group)}
               sx={{ gap: 1.25, py: 1.1, alignItems: "flex-start" }}
             >
-              <Avatar src={message.authorAvatar ?? undefined} sx={{ width: 32, height: 32 }}>
-                {message.authorName[0]}
-              </Avatar>
-              <Box sx={{ minWidth: 0 }}>
+              <Badge
+                badgeContent={group.count > 1 ? group.count : 0}
+                color="error"
+                max={99}
+                overlap="circular"
+                invisible={group.count < 2}
+                sx={{
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.62rem",
+                    fontWeight: 700,
+                    minWidth: 18,
+                    height: 18,
+                  },
+                }}
+              >
+                <Avatar
+                  src={group.latestAuthorAvatar ?? undefined}
+                  sx={{ width: 32, height: 32, bgcolor: "var(--anchor-surface-muted)" }}
+                >
+                  {group.communityId ? (
+                    <GroupsRoundedIcon sx={{ fontSize: 18 }} />
+                  ) : (
+                    group.communityName[0]
+                  )}
+                </Avatar>
+              </Badge>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography sx={{ fontWeight: 700, fontSize: "0.86rem" }}>
-                  {message.authorName}
+                  {group.communityName}
+                </Typography>
+                <Typography
+                  sx={{
+                    color: "var(--anchor-header-muted)",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {group.count === 1
+                    ? "1 new message"
+                    : `${group.count} new messages`}
                 </Typography>
                 <Typography
                   sx={{
@@ -745,8 +972,7 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {message.body}
-                  {message.communityName ? ` · ${message.communityName}` : ""}
+                  {group.latestAuthorName}: {group.latestBody}
                 </Typography>
               </Box>
             </MenuItem>

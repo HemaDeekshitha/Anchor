@@ -3,7 +3,10 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import type { Viewport } from "next";
 import "./theme-tokens.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--anchor-font-inter",
+});
 
 export const metadata = {
   title: "Anchor",
@@ -36,19 +39,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#ffffff" />
-        <link rel="apple-touch-icon" href="/assets/logo.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        {/* App Router loads this globally from root layout, not pages/_document. */}
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,800;1,400;1,700&display=swap"
-        />
+        <link rel="apple-touch-icon" href="/assets/Anchor_logo.png" />
         <script
           dangerouslySetInnerHTML={{
             __html:
@@ -56,7 +47,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${inter.variable}`}>
         <AppRouterCacheProvider>
           {children}
         </AppRouterCacheProvider>

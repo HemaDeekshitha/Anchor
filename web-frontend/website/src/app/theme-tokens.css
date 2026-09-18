@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #111111;
   --anchor-topbar-height: 56px;
@@ -15,7 +16,29 @@
   --anchor-divider: #e5e7eb;
   --anchor-text-sub: #242424;
   --anchor-muted: #666666;
-  --anchor-font-serif: "Playfair Display", Georgia, serif;
+  --anchor-font-family: var(--anchor-font-inter), "Helvetica Neue", Arial, sans-serif;
+  --anchor-font-serif: var(--anchor-font-family);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background-color: var(--background);
+  font-family: var(--anchor-font-family);
+}
+
+/* Keep typography consistent across native controls, MUI, and feature styles. */
+body *,
+body *::before,
+body *::after {
+  font-family: inherit !important;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  color-scheme: light;
+  background-color: #ffffff;
 }
 
 html,
@@ -49,6 +72,7 @@ select,
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --background: #0e1217;
   --foreground: #f4f7fb;
   --anchor-header-bg: #0e1217;

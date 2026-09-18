@@ -213,10 +213,13 @@ export class CommunityService {
     communityId: string | null,
   ): Promise<void> {
     const invalidations = [
+      this.cache.bumpVersion('global-posts'),
       this.cache.deleteByPrefix('community:global-posts:'),
     ];
     if (communityId) {
       invalidations.push(
+        this.cache.bumpVersion(`posts:${communityId}`),
+        this.cache.bumpVersion('feed'),
         this.cache.deleteByPrefix(`community:posts:${communityId}:`),
         this.cache.deleteByPrefix('community:feed:'),
       );
@@ -651,30 +654,53 @@ export class CommunityService {
         throw new BadRequestException('Could not load Comm360 meeting');
       }
       const payload = (await response.json()) as {
-        meeting?: {
-          _id?: string;
-          title?: string;
-          description?: string;
-          startTime?: string;
-          roomId?: string;
-          organizer?: { fullName?: string; username?: string };
-        };
-      };
-      const meeting = payload.meeting;
-      if (!meeting?.startTime || !meeting.roomId) {
+        meeting?: Record<string, unknown>;
+        data?: { meeting?: Record<string, unknown> };
+      } & Record<string, unknown>;
+      const meeting =
+        payload.meeting ??
+        payload.data?.meeting ??
+        (payload.roomId || payload.startTime ? payload : undefined);
+      const room =
+        (typeof meeting?.roomId === 'string' && meeting.roomId) ||
+        (typeof meeting?.room_id === 'string' && meeting.room_id) ||
+        roomId;
+      const startTime =
+        (typeof meeting?.startTime === 'string' && meeting.startTime) ||
+        (typeof meeting?.startsAt === 'string' && meeting.startsAt) ||
+        (typeof meeting?.scheduledAt === 'string' && meeting.scheduledAt) ||
+        (typeof meeting?.start_time === 'string' && meeting.start_time) ||
+        '';
+      if (!meeting || !startTime || !room) {
         throw new NotFoundException('Comm360 meeting details are unavailable');
       }
+      const organizer =
+        meeting.organizer && typeof meeting.organizer === 'object'
+          ? (meeting.organizer as { fullName?: string; username?: string })
+          : undefined;
+      const title =
+        typeof meeting.title === 'string' ? meeting.title.trim() : '';
+      const description =
+        typeof meeting.description === 'string'
+          ? meeting.description.trim()
+          : '';
       return {
-        id: meeting._id ?? meeting.roomId,
-        roomId: meeting.roomId,
-        title: meeting.title?.trim() || 'Community discussion',
-        description: meeting.description?.trim() || '',
-        startTime: meeting.startTime,
+        id:
+          (typeof meeting._id === 'string' && meeting._id) ||
+          (typeof meeting.id === 'string' && meeting.id) ||
+          room,
+        roomId: room,
+        title: title || 'Community discussion',
+        description,
+        startTime,
         organizerName:
-          meeting.organizer?.fullName?.trim() ||
-          meeting.organizer?.username?.trim() ||
+          organizer?.fullName?.trim() ||
+          organizer?.username?.trim() ||
+          (typeof meeting.organizerName === 'string'
+            ? meeting.organizerName.trim()
+            : '') ||
           'Comm360 host',
-        joinUrl: `https://comm360.feeltiptop.com/meeting/${encodeURIComponent(meeting.roomId)}?type=direct`,
+        joinUrl: `${baseUrl.replace(/\/$/, '')}/meeting/${encodeURIComponent(room)}?type=direct`,
       };
     } catch (caught) {
       if (
@@ -876,7 +902,9 @@ export class CommunityService {
     dto: CreatePostDto,
   ): Promise<unknown> {
     await this.requireMembership(userId, communityId);
-    return this.createPostRecord(userId, communityId, dto);
+    const created = await this.createPostRecord(userId, communityId, dto);
+    void this.cache.clearCommunityTyping(communityId, userId);
+    return created;
   }
   // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
 
@@ -935,12 +963,27 @@ export class CommunityService {
         }),
       );
       if (verifiedMedia.length) {
-        const mediaRows = verifiedMedia.map(({ reference, asset }, index) =>
-          manager.create(PostMedia, {
+        const mediaRows = verifiedMedia.map(({ reference, asset }, index) => {
+          const cloudinaryName = String(
+            (asset as { original_filename?: string }).original_filename ?? '',
+          ).trim();
+          const format = String(asset.format ?? '').trim();
+          const fromCloudinary = cloudinaryName
+            ? format && !cloudinaryName.toLowerCase().endsWith(`.${format.toLowerCase()}`)
+              ? `${cloudinaryName}.${format}`
+              : cloudinaryName
+            : null;
+          const originalFilename = (
+            reference.originalFilename?.trim() ||
+            fromCloudinary ||
+            null
+          )?.slice(0, 255) ?? null;
+          return manager.create(PostMedia, {
             postId: post.id,
             providerAssetId: reference.providerAssetId,
             resourceType: reference.resourceType,
             mimeType: String(asset.format ?? reference.resourceType),
+            originalFilename,
             bytes: String(asset.bytes ?? 0),
             width: asset.width ?? null,
             height: asset.height ?? null,
@@ -949,8 +992,8 @@ export class CommunityService {
               : null,
             status: 'ready',
             sortOrder: index,
-          }),
-        );
+          });
+        });
         await manager.save(mediaRows);
       }
       if (dto.poll) {
@@ -989,6 +1032,12 @@ export class CommunityService {
       data: { eventId: result.eventId },
     });
     await this.invalidatePostCaches(communityId);
+    if (result.post.status === 'published') {
+      await this.cache.setLatestPostMarker(communityId, {
+        id: result.post.id,
+        createdAt: new Date(result.post.createdAt).toISOString(),
+      });
+    }
     const [createdPost] = await this.hydratePosts([result.post], userId);
     return createdPost;
   }
@@ -1060,6 +1109,7 @@ export class CommunityService {
       return post.communityId;
     });
     await this.invalidatePostCaches(communityId);
+    await this.cache.clearLatestPostMarker(communityId);
     return { success: true };
   }
   // T: O(log P) and S: O(1), where P is the number of posts
@@ -1088,6 +1138,7 @@ export class CommunityService {
         ...replyTargets.map((post) => post.authorId),
       ]),
     ];
+    const mediaPostIds = [...new Set([...postIds, ...replyTargetIds])];
     const [authors, media, polls, profiles, friendships, viewerVotes] =
       await Promise.all([
         this.userRepository.find({
@@ -1095,7 +1146,10 @@ export class CommunityService {
           where: { id: In(authorIds) },
         }),
         this.postMediaRepository.find({
-          where: { postId: In(postIds), status: In(['pending', 'ready']) },
+          where: {
+            postId: In(mediaPostIds),
+            status: In(['pending', 'ready']),
+          },
           order: { sortOrder: 'ASC' },
         }),
         this.pollRepository.find({ where: { postId: In(postIds) } }),
@@ -1206,6 +1260,15 @@ export class CommunityService {
                 id: replyTarget.id,
                 body: replyTarget.body,
                 kind: replyTarget.kind,
+                media: (mediaByPost.get(replyTarget.id) ?? []).map((item) => ({
+                  id: item.id,
+                  resourceType: item.resourceType,
+                  originalFilename: item.originalFilename ?? null,
+                  url: this.mediaService.createDeliveryUrl(
+                    item.providerAssetId,
+                    item.resourceType,
+                  ),
+                })),
                 author: {
                   id: replyAuthor.id,
                   name: replyAuthor.name,
@@ -1214,7 +1277,9 @@ export class CommunityService {
               }
             : null,
         media: (mediaByPost.get(post.id) ?? []).map((item) => ({
-          ...item,
+          id: item.id,
+          resourceType: item.resourceType,
+          originalFilename: item.originalFilename ?? null,
           url: this.mediaService.createDeliveryUrl(
             item.providerAssetId,
             item.resourceType,
@@ -1232,19 +1297,162 @@ export class CommunityService {
   }
   // T: O(l + m + o + v + f) and S: O(l + m + o + v + f), where l is posts, m is media, o is poll options, v is viewer poll votes, and f is friendship rows
 
+  async getLatestPostMarker(
+    userId: string,
+    communityId: string | null,
+  ): Promise<{ id: string | null; createdAt: string | null }> {
+    if (communityId) {
+      await this.requireMembership(userId, communityId);
+    }
+    const cached = await this.cache.getLatestPostMarker(communityId);
+    if (cached) return cached;
+
+    const builder = this.postRepository
+      .createQueryBuilder('post')
+      .select(['post.id', 'post.createdAt'])
+      .where('post.status = :status', { status: 'published' })
+      .orderBy('post.createdAt', 'DESC')
+      .addOrderBy('post.id', 'DESC')
+      .take(1);
+    if (communityId) {
+      builder.andWhere('post."communityId" = :communityId', { communityId });
+    } else {
+      builder.andWhere('post."communityId" IS NULL');
+    }
+    const post = await builder.getOne();
+    const marker = {
+      id: post?.id ?? null,
+      createdAt: post?.createdAt
+        ? new Date(post.createdAt).toISOString()
+        : null,
+    };
+    if (marker.id && marker.createdAt) {
+      void this.cache.setLatestPostMarker(communityId, {
+        id: marker.id,
+        createdAt: marker.createdAt,
+      });
+    }
+    return marker;
+  }
+  // T: O(1) Redis or O(log P) DB and S: O(1), where P is posts
+
+  async transcribeSpeech(
+    _userId: string,
+    file: Express.Multer.File,
+  ): Promise<{ text: string }> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Audio is required');
+    }
+    const apiKey = process.env.GROQ_API_KEY?.trim();
+    if (!apiKey) {
+      throw new BadRequestException('Speech-to-text is unavailable');
+    }
+
+    const mimeType = file.mimetype?.trim() || 'audio/webm';
+    const filename =
+      file.originalname?.trim() ||
+      (mimeType.includes('mp4') || mimeType.includes('m4a')
+        ? 'speech.m4a'
+        : 'speech.webm');
+
+    const form = new FormData();
+    form.append(
+      'file',
+      new Blob([new Uint8Array(file.buffer)], { type: mimeType }),
+      filename,
+    );
+    form.append('model', 'whisper-large-v3-turbo');
+    form.append('response_format', 'json');
+    form.append('temperature', '0');
+
+    let response: Response;
+    try {
+      response = await fetch(
+        'https://api.groq.com/openai/v1/audio/transcriptions',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: form,
+        },
+      );
+    } catch {
+      throw new BadRequestException(
+        'Could not reach speech-to-text. Check your connection and try again.',
+      );
+    }
+
+    if (!response.ok) {
+      throw new BadRequestException(
+        'Could not convert speech to text. Please try again.',
+      );
+    }
+
+    const payload = (await response.json()) as { text?: unknown };
+    const text =
+      typeof payload.text === 'string' ? payload.text.trim() : '';
+    if (!text) {
+      throw new BadRequestException(
+        'No speech detected. Try again and speak clearly.',
+      );
+    }
+    return { text };
+  }
+  // T: O(a) and S: O(a), where a is the audio payload size
+
+  async setCommunityTyping(
+    userId: string,
+    communityId: string,
+    typing: boolean,
+  ): Promise<{ success: true }> {
+    await this.requireMembership(userId, communityId);
+    if (!typing) {
+      await this.cache.clearCommunityTyping(communityId, userId);
+      return { success: true };
+    }
+    const [user, profile] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: userId },
+        select: { id: true, name: true },
+      }),
+      this.onboardingRepository.findOne({ where: { userId } }),
+    ]);
+    await this.cache.setCommunityTyping(communityId, userId, {
+      name: user?.name?.trim() || 'Member',
+      avatarUrl: profile?.profileImageUrl ?? null,
+    });
+    return { success: true };
+  }
+  // T: O(log M) and S: O(1), where M is memberships
+
+  async listCommunityTyping(
+    userId: string,
+    communityId: string,
+  ): Promise<
+    Array<{ userId: string; name: string; avatarUrl: string | null }>
+  > {
+    await this.requireMembership(userId, communityId);
+    return this.cache.listCommunityTyping(communityId, userId);
+  }
+  // T: O(t) and S: O(t), where t is active typers
+
   async listPosts(
     userId: string,
     communityId: string,
     query: ListQueryDto,
+    options?: { fresh?: boolean },
   ): Promise<{ items: unknown[]; nextCursor: string | null }> {
     await this.requireMembership(userId, communityId);
     const cursor = this.decodeCursor(query.cursor);
     const cacheKey = `community:posts:${communityId}:${userId}:${query.cursor ?? 'first'}:${query.limit}`;
-    const cached = await this.cache.getJson<{
-      items: unknown[];
-      nextCursor: string | null;
-    }>(cacheKey);
-    if (cached) return cached;
+    if (!options?.fresh) {
+      const cached = await this.cache.getJson<{
+        items: unknown[];
+        nextCursor: string | null;
+      }>(cacheKey);
+      if (cached) return cached;
+    }
+    const versionNamespace = `posts:${communityId}`;
+    const cacheVersion = await this.cache.getVersion(versionNamespace);
     const builder = this.postRepository
       .createQueryBuilder('post')
       .where('post."communityId" = :communityId', { communityId })
@@ -1276,7 +1484,15 @@ export class CommunityService {
           ? this.encodeCursor(posts[posts.length - 1])
           : null,
     };
-    await this.cache.setJson(cacheKey, result, 30);
+    if (!options?.fresh) {
+      await this.cache.setJsonIfVersion(
+        cacheKey,
+        result,
+        2,
+        versionNamespace,
+        cacheVersion,
+      );
+    }
     return result;
   }
   // T: O(l + m) and S: O(l + m), where l is posts and m is media on the page
@@ -1284,14 +1500,19 @@ export class CommunityService {
   async listGlobalPosts(
     userId: string,
     query: ListQueryDto,
+    options?: { fresh?: boolean },
   ): Promise<{ items: unknown[]; nextCursor: string | null }> {
     const cursor = this.decodeCursor(query.cursor);
     const cacheKey = `community:global-posts:${userId}:${query.cursor ?? 'first'}:${query.limit}`;
-    const cached = await this.cache.getJson<{
-      items: unknown[];
-      nextCursor: string | null;
-    }>(cacheKey);
-    if (cached) return cached;
+    if (!options?.fresh) {
+      const cached = await this.cache.getJson<{
+        items: unknown[];
+        nextCursor: string | null;
+      }>(cacheKey);
+      if (cached) return cached;
+    }
+    const versionNamespace = 'global-posts';
+    const cacheVersion = await this.cache.getVersion(versionNamespace);
     const builder = this.postRepository
       .createQueryBuilder('post')
       .where('post."communityId" IS NULL')
@@ -1323,7 +1544,15 @@ export class CommunityService {
           ? this.encodeCursor(posts[posts.length - 1])
           : null,
     };
-    await this.cache.setJson(cacheKey, result, 20);
+    if (!options?.fresh) {
+      await this.cache.setJsonIfVersion(
+        cacheKey,
+        result,
+        2,
+        versionNamespace,
+        cacheVersion,
+      );
+    }
     return result;
   }
   // T: O(l + m + o + f) and S: O(l + m + o + f), where l is posts, m is media, o is poll options, and f is friendships
@@ -1331,14 +1560,19 @@ export class CommunityService {
   async listFeed(
     userId: string,
     query: ListQueryDto,
+    options?: { fresh?: boolean },
   ): Promise<{ items: unknown[]; nextCursor: string | null }> {
     const cursor = this.decodeCursor(query.cursor);
     const cacheKey = `community:feed:${userId}:${query.cursor ?? 'first'}:${query.limit}`;
-    const cached = await this.cache.getJson<{
-      items: unknown[];
-      nextCursor: string | null;
-    }>(cacheKey);
-    if (cached) return cached;
+    if (!options?.fresh) {
+      const cached = await this.cache.getJson<{
+        items: unknown[];
+        nextCursor: string | null;
+      }>(cacheKey);
+      if (cached) return cached;
+    }
+    const versionNamespace = 'feed';
+    const cacheVersion = await this.cache.getVersion(versionNamespace);
     const builder = this.postRepository
       .createQueryBuilder('post')
       .innerJoin(
@@ -1378,7 +1612,15 @@ export class CommunityService {
           ? this.encodeCursor(posts[posts.length - 1])
           : null,
     };
-    await this.cache.setJson(cacheKey, result, 20);
+    if (!options?.fresh) {
+      await this.cache.setJsonIfVersion(
+        cacheKey,
+        result,
+        2,
+        versionNamespace,
+        cacheVersion,
+      );
+    }
     return result;
   }
   // T: O(l + m + o) and S: O(l + m + o), where l is posts, m is media, and o is poll options
@@ -1685,7 +1927,7 @@ export class CommunityService {
 
   createMediaSignature(
     userId: string,
-    resourceType: 'image' | 'video',
+    resourceType: 'image' | 'video' | 'audio' | 'file',
   ): Record<string, string | number> {
     return this.mediaService.createUploadSignature(userId, resourceType);
   }
@@ -1716,17 +1958,21 @@ export class CommunityService {
       .addSelect('user.email', 'email')
       .addSelect(
         `(
-          SELECT COUNT(DISTINCT CASE
-            WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
-              THEN viewer_friendship."userHighId"
-            ELSE viewer_friendship."userLowId"
-          END)
-          FROM friendships viewer_friendship
-          WHERE viewer_friendship.status = 'accepted'
-            AND (
-              viewer_friendship."userLowId" = CAST(:userId AS uuid)
-              OR viewer_friendship."userHighId" = CAST(:userId AS uuid)
-            )
+          SELECT COUNT(*)::int
+          FROM (
+            SELECT CASE
+              WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
+                THEN viewer_friendship."userHighId"
+              ELSE viewer_friendship."userLowId"
+            END AS "otherId"
+            FROM friendships viewer_friendship
+            WHERE viewer_friendship.status = 'accepted'
+              AND (
+                viewer_friendship."userLowId" = CAST(:userId AS uuid)
+                OR viewer_friendship."userHighId" = CAST(:userId AS uuid)
+              )
+          ) viewer_friends
+          WHERE viewer_friends."otherId" <> "user"."id"
             AND EXISTS (
               SELECT 1
               FROM friendships friend_friendship
@@ -1734,26 +1980,19 @@ export class CommunityService {
                 AND (
                   (
                     friend_friendship."userLowId" = "user"."id"
-                    AND friend_friendship."userHighId" = CASE
-                      WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
-                        THEN viewer_friendship."userHighId"
-                      ELSE viewer_friendship."userLowId"
-                    END
+                    AND friend_friendship."userHighId" = viewer_friends."otherId"
                   )
                   OR
                   (
                     friend_friendship."userHighId" = "user"."id"
-                    AND friend_friendship."userLowId" = CASE
-                      WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
-                        THEN viewer_friendship."userHighId"
-                      ELSE viewer_friendship."userLowId"
-                    END
+                    AND friend_friendship."userLowId" = viewer_friends."otherId"
                   )
                 )
             )
         )`,
         'mutualFriends',
       )
+      .setParameter('userId', userId)
       .take(50);
     if (search?.trim()) {
       builder.andWhere(
@@ -1786,10 +2025,11 @@ export class CommunityService {
       role: string;
       avatarUrl: string | null;
       friendshipStatus: 'none' | 'pending' | 'accepted';
+      mutualFriends: number;
     }>
   > {
     const normalized = search.trim().toLowerCase();
-    const cacheKey = `community:people-search:v2:${userId}:${crypto
+    const cacheKey = `community:people-search:v3:${userId}:${crypto
       .createHash('sha256')
       .update(normalized)
       .digest('hex')
@@ -1802,6 +2042,7 @@ export class CommunityService {
         role: string;
         avatarUrl: string | null;
         friendshipStatus: 'none' | 'pending' | 'accepted';
+        mutualFriends: number;
       }>
     >(cacheKey);
     if (cached) return cached;
@@ -1840,6 +2081,7 @@ export class CommunityService {
       .andWhere("(friendship.status IS NULL OR friendship.status <> 'blocked')")
       .select('user.id', 'id')
       .addSelect('user.name', 'name')
+      .addSelect('user.email', 'email')
       .addSelect(`CONCAT('@', SPLIT_PART(user.email, '@', 1))`, 'handle')
       .addSelect(
         `CASE
@@ -1848,6 +2090,42 @@ export class CommunityService {
           ELSE 'none'
         END`,
         'friendshipStatus',
+      )
+      .addSelect(
+        `(
+          SELECT COUNT(*)::int
+          FROM (
+            SELECT CASE
+              WHEN viewer_friendship."userLowId" = CAST(:userId AS uuid)
+                THEN viewer_friendship."userHighId"
+              ELSE viewer_friendship."userLowId"
+            END AS "otherId"
+            FROM friendships viewer_friendship
+            WHERE viewer_friendship.status = 'accepted'
+              AND (
+                viewer_friendship."userLowId" = CAST(:userId AS uuid)
+                OR viewer_friendship."userHighId" = CAST(:userId AS uuid)
+              )
+          ) viewer_friends
+          WHERE viewer_friends."otherId" <> "user"."id"
+            AND EXISTS (
+              SELECT 1
+              FROM friendships friend_friendship
+              WHERE friend_friendship.status = 'accepted'
+                AND (
+                  (
+                    friend_friendship."userLowId" = "user"."id"
+                    AND friend_friendship."userHighId" = viewer_friends."otherId"
+                  )
+                  OR
+                  (
+                    friend_friendship."userHighId" = "user"."id"
+                    AND friend_friendship."userLowId" = viewer_friends."otherId"
+                  )
+                )
+            )
+        )`,
+        'mutualFriends',
       )
       .orderBy(
         `CASE
@@ -1859,13 +2137,15 @@ export class CommunityService {
         'ASC',
       )
       .addOrderBy('user.name', 'ASC')
-      .setParameters({ normalized, prefix })
+      .setParameters({ userId, normalized, prefix })
       .limit(limit)
       .getRawMany<{
         id: string;
         name: string;
+        email: string;
         handle: string;
         friendshipStatus: 'none' | 'pending' | 'accepted';
+        mutualFriends: string;
       }>();
     const userIds = rows.map((row) => row.id);
     const profiles = userIds.length
@@ -1883,13 +2163,17 @@ export class CommunityService {
     const results = rows.map((row) => {
       const profile = latestProfileByUserId.get(row.id);
       return {
-        ...row,
+        id: row.id,
+        name: row.name,
+        handle: row.email || row.handle,
         role:
           profile?.dedicatedRole ??
           profile?.preferredRole?.[0] ??
           profile?.currentStatus?.[0] ??
           'Anchor member',
         avatarUrl: profile?.profileImageUrl ?? null,
+        friendshipStatus: row.friendshipStatus,
+        mutualFriends: Number(row.mutualFriends) || 0,
       };
     });
     await this.cache.setJson(cacheKey, results, 30);

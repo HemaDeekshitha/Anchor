@@ -62,6 +62,8 @@ export default function ApplicationTracker() {
   const [oauthMessage, setOauthMessage] = useState("");
   const [scanMessage, setScanMessage] = useState("");
   const [view, setView] = useState<"board" | "grid">("board");
+  const [activeMobileStatus, setActiveMobileStatus] =
+    useState<Status>("Applied");
   const [modal, setModal] = useState<ModalState>({ open: false, mode: "create", job: null });
   const [form, setForm] = useState(emptyForm());
 
@@ -295,7 +297,7 @@ export default function ApplicationTracker() {
 
   // ── Views ──────────────────────────────────────────────────────────────────
 
-  const renderBoard = () => (
+  const renderDesktopBoard = () => (
     <div className={styles.boardContainer}>
       {COLUMNS.map(({ status, label, headerClass, countClass }) => {
         const colJobs = jobs.filter((j) => (j.status || "Applied") === status);
@@ -313,6 +315,85 @@ export default function ApplicationTracker() {
       })}
     </div>
   );
+
+  const renderMobileBoard = () => {
+    const activeColumn =
+      COLUMNS.find((column) => column.status === activeMobileStatus) ??
+      COLUMNS[0];
+    const activeJobs = jobs.filter(
+      (job) => (job.status || "Applied") === activeColumn.status,
+    );
+
+    return (
+      <div className={styles.mobileBoard}>
+        <div className={styles.mobileSummary}>
+          <span>
+            <strong>{jobs.length}</strong> total applications
+          </span>
+          <span>
+            <strong>{responseRate}%</strong> response rate
+          </span>
+        </div>
+
+        <div
+          className={styles.mobileStageSelector}
+          role="tablist"
+          aria-label="Job application stages"
+        >
+          {COLUMNS.map(({ status, label }) => {
+            const count = jobs.filter(
+              (job) => (job.status || "Applied") === status,
+            ).length;
+            const isActive = activeMobileStatus === status;
+
+            return (
+              <button
+                key={status}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls="mobile-job-stage-panel"
+                className={`${styles.mobileStageButton} ${
+                  styles[`mobileStage${status}`]
+                } ${isActive ? styles.mobileStageActive : ""}`}
+                onClick={() => setActiveMobileStatus(status)}
+              >
+                <span className={styles.mobileStageCount}>{count}</span>
+                <span className={styles.mobileStageLabel}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <section
+          id="mobile-job-stage-panel"
+          role="tabpanel"
+          className={styles.mobileStagePanel}
+          aria-label={`${activeColumn.label} jobs`}
+        >
+          <div className={styles.mobileStageHeader}>
+            <div>
+              <span className={styles.mobileStageEyebrow}>Selected stage</span>
+              <h2 className={styles.mobileStageTitle}>{activeColumn.label}</h2>
+            </div>
+            <span className={`${styles.colCount} ${activeColumn.countClass}`}>
+              {activeJobs.length}
+            </span>
+          </div>
+
+          {activeJobs.length === 0 ? (
+            <p className={styles.mobileStageEmpty}>
+              No {activeColumn.label.toLowerCase()} jobs yet.
+            </p>
+          ) : (
+            <div className={styles.mobileJobsGrid}>
+              {activeJobs.map(renderJobCard)}
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  };
 
   const renderGrid = () => (
     <section className={styles.sectionCard}>
@@ -451,7 +532,14 @@ export default function ApplicationTracker() {
             <h2 className={styles.sectionTitle}>All Jobs</h2>
             <p className={styles.emptyState}>No jobs yet. Connect Gmail to scan or add one manually.</p>
           </section>
-        ) : view === "board" ? renderBoard() : renderGrid()}
+        ) : (
+          <>
+            <div className={styles.desktopJobsView}>
+              {view === "board" ? renderDesktopBoard() : renderGrid()}
+            </div>
+            {renderMobileBoard()}
+          </>
+        )}
 
       </div>
 

@@ -32,8 +32,6 @@ import {
   RadioGroup,
   Badge,
 } from "@mui/material";
-import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
-import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
 import PollOutlinedIcon from "@mui/icons-material/PollOutlined";
 import FavoriteBorderRoundedIcon from "@mui/icons-material/FavoriteBorderRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
@@ -61,15 +59,29 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
-import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
-import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import AlternateEmailRoundedIcon from "@mui/icons-material/AlternateEmailRounded";
+import MicNoneRoundedIcon from "@mui/icons-material/MicNoneRounded";
+import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
+import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
+import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
+import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
+import FormatBoldRoundedIcon from "@mui/icons-material/FormatBoldRounded";
+import FormatItalicRoundedIcon from "@mui/icons-material/FormatItalicRounded";
+import FormatUnderlinedRoundedIcon from "@mui/icons-material/FormatUnderlinedRounded";
+import StrikethroughSRoundedIcon from "@mui/icons-material/StrikethroughSRounded";
+import InsertLinkRoundedIcon from "@mui/icons-material/InsertLinkRounded";
+import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
+import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
+  CommunityTypingUser,
   Comm360Meeting,
   CommunityMemberRecord,
   CommunityPersonSearchResult,
@@ -92,6 +104,7 @@ import {
   listComments,
   listCommunities,
   listCommunityFeed,
+  listCommunityTyping,
   listFriendRequests,
   listSentFriendRequests,
   listFriends,
@@ -101,6 +114,7 @@ import {
   removeCommunityMember,
   sendFriendRequest,
   searchPeople,
+  setCommunityTyping,
   resolveFriendRequest,
   votePoll,
   votePost,
@@ -109,7 +123,19 @@ import {
   updateCommunityMemberRole,
   uploadCommunityMedia,
 } from "@/lib/community-api";
-import { OPEN_POST_EVENT, useAppChrome, type OpenPostDetail } from "@/lib/app-chrome";
+import {
+  INBOX_CHANGED_EVENT,
+  OPEN_POST_EVENT,
+  playCommunityMessageSound,
+  readDeviceNotificationMode,
+  readNotifiedPostIds,
+  readRecentlyActiveCommunityOrder,
+  saveNotifiedPostIds,
+  seedReadPosition,
+  touchRecentlyActiveCommunities,
+  useAppChrome,
+  type OpenPostDetail,
+} from "@/lib/app-chrome";
 
 // ── Anchor palette tokens ────────────────────────────────────────────────────
 const C = {
@@ -180,8 +206,19 @@ export type ForumPost = {
     authorAvatar?: string;
     body: string;
     kind: "text" | "media" | "poll";
+    media: Array<{
+      id: string;
+      type: "image" | "video" | "audio" | "file";
+      url: string;
+      originalFilename?: string | null;
+    }>;
   } | null;
-  media?: Array<{ id: string; type: "image" | "video"; url: string }>;
+  media?: Array<{
+    id: string;
+    type: "image" | "video" | "audio" | "file";
+    url: string;
+    originalFilename?: string | null;
+  }>;
   poll?: {
     id: string;
     allowsMultiple: boolean;
@@ -198,6 +235,7 @@ const ALL_ID = "all";
 export type ScheduledMeeting = {
   id: string;
   communityId: string;
+  communityName?: string;
   withName: string;
   withAvatar?: string;
   topic: string;
@@ -225,7 +263,510 @@ export type Community = {
 type CommunityPageTab = "posts" | "communities" | "friends";
 type CommunitySectionTab = "current" | "join" | "create";
 type CommunityLayout = "grid" | "list";
-type ComposerMode = "text" | "emoji" | "image" | "video" | "poll";
+type ComposerMode =
+  | "text"
+  | "emoji"
+  | "image"
+  | "video"
+  | "audio"
+  | "file"
+  | "poll";
+
+const joinDictatedText = (base: string, spoken: string) => {
+  const left = base.replace(/\s+$/, "");
+  const right = spoken.replace(/^\s+/, "");
+  if (!left) return right;
+  if (!right) return left;
+  return `${left} ${right}`;
+};
+
+type SpeechRecognitionController = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: ArrayLike<{
+          isFinal: boolean;
+          0?: { transcript: string };
+          item?: (index: number) => { transcript?: string } | undefined;
+        }>;
+      }) => void)
+    | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+const getSpeechRecognitionConstructor = ():
+  | (new () => SpeechRecognitionController)
+  | null => {
+  if (typeof window === "undefined") return null;
+  const speechWindow = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognitionController;
+    webkitSpeechRecognition?: new () => SpeechRecognitionController;
+  };
+  return (
+    speechWindow.SpeechRecognition ??
+    speechWindow.webkitSpeechRecognition ??
+    null
+  );
+};
+
+const RecordingWaveform = ({ accent }: { accent: string }) => (
+  <Box
+    aria-hidden
+    sx={{
+      display: "flex",
+      alignItems: "flex-end",
+      gap: "3px",
+      height: 36,
+      px: 0.5,
+      "@keyframes anchorVoiceWave": {
+        "0%": { transform: "scaleY(0.35)" },
+        "100%": { transform: "scaleY(1)" },
+      },
+    }}
+  >
+    {Array.from({ length: 18 }, (_, index) => (
+      <Box
+        key={index}
+        sx={{
+          width: 3,
+          height: 10 + ((index * 7) % 22),
+          borderRadius: 999,
+          bgcolor: accent,
+          transformOrigin: "center bottom",
+          animation: `anchorVoiceWave ${0.55 + (index % 5) * 0.08}s ease-in-out ${index * 0.04}s infinite alternate`,
+        }}
+      />
+    ))}
+  </Box>
+);
+
+const RECENT_MEDIA_STORAGE_KEY = "anchor:communityRecentLibrary";
+const MAX_RECENT_MEDIA = 12;
+
+type RecentMediaEntry = {
+  id: string;
+  kind: "image" | "video";
+  name: string;
+  previewUrl: string;
+};
+
+const recentMediaFileCache = new Map<string, File>();
+
+function readRecentMediaLibrary(): RecentMediaEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_MEDIA_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RecentMediaEntry[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry) =>
+        entry &&
+        typeof entry.id === "string" &&
+        (entry.kind === "image" || entry.kind === "video") &&
+        typeof entry.previewUrl === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentMediaLibrary(entries: RecentMediaEntry[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    RECENT_MEDIA_STORAGE_KEY,
+    JSON.stringify(entries.slice(0, MAX_RECENT_MEDIA)),
+  );
+}
+
+async function createRecentMediaPreview(
+  file: File,
+  kind: "image" | "video",
+): Promise<string> {
+  if (kind === "image") {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Could not read image"));
+      reader.readAsDataURL(file);
+    });
+    return await new Promise<string>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxEdge = 220;
+        const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) {
+          resolve(dataUrl);
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      image.onerror = () => reject(new Error("Could not preview image"));
+      image.src = dataUrl;
+    });
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      video.onloadeddata = () => {
+        const seekTo = Math.min(0.2, (video.duration || 1) / 4);
+        const capture = () => {
+          const canvas = document.createElement("canvas");
+          const maxEdge = 220;
+          const width = video.videoWidth || 220;
+          const height = video.videoHeight || 220;
+          const scale = Math.min(1, maxEdge / Math.max(width, height));
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          const context = canvas.getContext("2d");
+          if (!context) {
+            reject(new Error("Could not preview video"));
+            return;
+          }
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        if (seekTo > 0) {
+          video.onseeked = capture;
+          video.currentTime = seekTo;
+        } else {
+          capture();
+        }
+      };
+      video.onerror = () => reject(new Error("Could not preview video"));
+      video.src = objectUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function rememberRecentMediaFiles(files: File[]) {
+  if (!files.length) return;
+  const existing = readRecentMediaLibrary();
+  const next = [...existing];
+  for (const file of files) {
+    const kind = file.type.startsWith("video/")
+      ? ("video" as const)
+      : file.type.startsWith("image/")
+        ? ("image" as const)
+        : null;
+    if (!kind) continue;
+    const id = `${file.name}-${file.size}-${file.lastModified}-${kind}`;
+    recentMediaFileCache.set(id, file);
+    try {
+      const previewUrl = await createRecentMediaPreview(file, kind);
+      const entry: RecentMediaEntry = {
+        id,
+        kind,
+        name: file.name,
+        previewUrl,
+      };
+      const withoutDup = next.filter((item) => item.id !== id);
+      next.splice(0, next.length, entry, ...withoutDup);
+    } catch {
+      // Skip unreadable media; the picker selection still works.
+    }
+  }
+  writeRecentMediaLibrary(next.slice(0, MAX_RECENT_MEDIA));
+}
+
+function mediaFileLabel(
+  url: string,
+  originalFilename?: string | null,
+) {
+  const named = originalFilename?.trim();
+  if (named) return named;
+  try {
+    const path = decodeURIComponent(new URL(url).pathname);
+    const name = path.split("/").pop() ?? "";
+    return name.split("?")[0] || "Attached document";
+  } catch {
+    return "Attached document";
+  }
+}
+
+function isPdfMediaUrl(url: string) {
+  return /\.pdf($|\?)/i.test(url) || /\/[^/?]*pdf($|\?)/i.test(url);
+}
+
+function isImageLikeFileUrl(url: string) {
+  return /\.(png|jpe?g|gif|webp|bmp|svg)($|\?)/i.test(url);
+}
+
+function CommunityPdfBlobFrame({
+  url,
+  title,
+  height,
+}: {
+  url: string;
+  title: string;
+  height: string | number;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setBlobUrl(null);
+    setFailed(false);
+    void (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Could not load PDF");
+        const bytes = await response.blob();
+        const pdfBlob =
+          bytes.type === "application/pdf" || bytes.type === "application/octet-stream"
+            ? new Blob([bytes], { type: "application/pdf" })
+            : bytes.type
+              ? bytes
+              : new Blob([bytes], { type: "application/pdf" });
+        objectUrl = URL.createObjectURL(pdfBlob);
+        if (!cancelled) setBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  if (failed) {
+    return (
+      <Stack spacing={2} alignItems="center" sx={{ px: 2, py: 4 }}>
+        <PictureAsPdfOutlinedIcon sx={{ fontSize: 56, color: C.accentDark }} />
+        <Typography sx={{ color: C.textMuted, textAlign: "center" }}>
+          Preview unavailable. Open the file to view it.
+        </Typography>
+        <Button
+          component="a"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="contained"
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            bgcolor: C.accent,
+            "&:hover": { bgcolor: C.accentDark },
+          }}
+        >
+          Open file
+        </Button>
+      </Stack>
+    );
+  }
+
+  if (!blobUrl) {
+    return <CircularProgress size={28} sx={{ color: C.accent }} />;
+  }
+
+  return (
+    <Box
+      component="iframe"
+      src={`${blobUrl}#toolbar=1&navpanes=0&scrollbar=0&view=FitH`}
+      title={title}
+      sx={{
+        width: "100%",
+        height,
+        border: 0,
+        borderRadius: 2,
+        bgcolor: "#fff",
+      }}
+    />
+  );
+}
+
+function CommunityFilePreviewCard({
+  url,
+  label,
+  kind,
+  onOpen,
+}: {
+  url: string;
+  label: string;
+  kind: "pdf" | "document";
+  onOpen: () => void;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (kind !== "pdf") return;
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setBlobUrl(null);
+    setFailed(false);
+    void (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Could not load PDF");
+        const bytes = await response.blob();
+        objectUrl = URL.createObjectURL(
+          new Blob([bytes], { type: "application/pdf" }),
+        );
+        if (!cancelled) setBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [kind, url]);
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      aria-label={`Open ${label}`}
+      onClick={onOpen}
+      sx={{
+        display: "block",
+        width: "100%",
+        maxWidth: { xs: "100%", sm: 560 },
+        mr: "auto",
+        p: 0,
+        border: `1px solid ${C.divider}`,
+        borderRadius: 2.5,
+        bgcolor: C.cardBg,
+        mb: 2,
+        overflow: "hidden",
+        cursor: "zoom-in",
+        textAlign: "left",
+        boxShadow: "0 1px 2px rgba(17,17,17,0.04)",
+      }}
+    >
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          height: { xs: 220, sm: 300 },
+          bgcolor: kind === "pdf" ? "#f3eee6" : C.surface,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        {kind === "pdf" && blobUrl ? (
+          <Box
+            component="iframe"
+            src={`${blobUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+            title={label}
+            sx={{
+              width: "100%",
+              height: "130%",
+              border: 0,
+              pointerEvents: "none",
+              bgcolor: "#fff",
+              transform: "scale(1)",
+              transformOrigin: "top center",
+            }}
+          />
+        ) : kind === "pdf" && !failed ? (
+          <CircularProgress size={28} sx={{ color: C.accent }} />
+        ) : (
+          <Stack alignItems="center" spacing={1} sx={{ px: 2 }}>
+            {kind === "pdf" ? (
+              <PictureAsPdfOutlinedIcon sx={{ fontSize: 64, color: "#b42318" }} />
+            ) : (
+              <InsertDriveFileOutlinedIcon
+                sx={{ fontSize: 64, color: C.accentDark }}
+              />
+            )}
+            <Typography
+              sx={{
+                fontSize: { xs: "0.92rem", sm: "1rem" },
+                fontWeight: 800,
+                color: C.textPrimary,
+                textAlign: "center",
+                wordBreak: "break-word",
+                maxWidth: "100%",
+              }}
+            >
+              {label}
+            </Typography>
+            <Typography sx={{ fontSize: "0.78rem", color: C.textMuted }}>
+              Tap to open
+            </Typography>
+          </Stack>
+        )}
+        <Box
+          sx={{
+            position: "absolute",
+            left: 10,
+            bottom: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.5,
+            px: 1,
+            py: 0.35,
+            borderRadius: 999,
+            bgcolor: "rgba(0,0,0,0.55)",
+            color: "#fff",
+          }}
+        >
+          {kind === "pdf" ? (
+            <PictureAsPdfOutlinedIcon sx={{ fontSize: 16 }} />
+          ) : (
+            <InsertDriveFileOutlinedIcon sx={{ fontSize: 16 }} />
+          )}
+          <Typography sx={{ fontSize: "0.72rem", fontWeight: 700 }}>
+            {kind === "pdf" ? "PDF" : "FILE"}
+          </Typography>
+        </Box>
+      </Box>
+      <Box
+        sx={{
+          px: 1.35,
+          py: 1.05,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          borderTop: `1px solid ${C.divider}`,
+          bgcolor: C.cardBg,
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: "0.86rem",
+            fontWeight: 700,
+            color: C.textPrimary,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </Typography>
+        <DownloadRoundedIcon sx={{ color: C.textMuted, fontSize: 20 }} />
+      </Box>
+    </Box>
+  );
+}
 
 function CommunityLayoutToggle({
   layout,
@@ -293,11 +834,113 @@ const COMMUNITY_CONVERSATION_STORAGE_KEY =
 const COMMUNITY_READ_POSITION_PREFIX = "anchor.community.readPosition";
 const FRIEND_REQUEST_SEEN_STORAGE_KEY =
   "anchor.community.seenFriendRequestIds";
+
+const countUnreadCommunityMessages = (
+  posts: CommunityPostRecord[],
+  communityId: string,
+): number => {
+  const scope = `community:${communityId}`;
+  const sorted = [...posts]
+    .filter((post) => post.status === "published")
+    .sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    );
+  if (sorted.length === 0) return 0;
+  const latestId = sorted.at(-1)?.id;
+  let lastReadId: string | null = null;
+  try {
+    lastReadId = window.localStorage.getItem(
+      `${COMMUNITY_READ_POSITION_PREFIX}.${scope}`,
+    );
+  } catch {
+    lastReadId = null;
+  }
+  if (!lastReadId) {
+    if (latestId) seedReadPosition(scope, latestId);
+    return 0;
+  }
+  const index = sorted.findIndex((post) => post.id === lastReadId);
+  if (index === -1) {
+    if (latestId) seedReadPosition(scope, latestId);
+    return 0;
+  }
+  return sorted.length - index - 1;
+};
+
+const sortJoinedCommunities = (
+  communities: Community[],
+  recentlyActiveOrder: string[],
+  unreadCounts: Record<string, number>,
+): Community[] => {
+  const orderIndex = new Map(
+    recentlyActiveOrder.map((id, index) => [id, index]),
+  );
+  return [...communities].sort((left, right) => {
+    const unreadLeft = unreadCounts[left.id] ?? 0;
+    const unreadRight = unreadCounts[right.id] ?? 0;
+    const leftHasUnread = unreadLeft > 0;
+    const rightHasUnread = unreadRight > 0;
+    if (leftHasUnread !== rightHasUnread) {
+      return leftHasUnread ? -1 : 1;
+    }
+    if (leftHasUnread && rightHasUnread && unreadLeft !== unreadRight) {
+      return unreadRight - unreadLeft;
+    }
+    const leftOrder = orderIndex.get(left.id);
+    const rightOrder = orderIndex.get(right.id);
+    if (leftOrder == null && rightOrder == null) return 0;
+    if (leftOrder == null) return 1;
+    if (rightOrder == null) return -1;
+    return leftOrder - rightOrder;
+  });
+};
 const COMM360_URL =
   process.env.NEXT_PUBLIC_COMM360_URL || "https://comm360.feeltiptop.com/";
 const MESSAGE_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
-const COMM360_MEETING_URL_PATTERN =
-  /https?:\/\/comm360\.feeltiptop\.com\/meeting\/([A-Za-z0-9_-]+)/i;
+
+const getComm360Host = () => {
+  try {
+    return new URL(COMM360_URL).hostname.replace(/^www\./i, "");
+  } catch {
+    return "comm360.feeltiptop.com";
+  }
+};
+
+const extractComm360RoomIds = (message: string): string[] => {
+  const host = getComm360Host().replace(/\./g, "\\.");
+  const pattern = new RegExp(
+    `(?:https?:\\/\\/)?(?:www\\.)?${host}\\/meetings?\\/([A-Za-z0-9_-]+)`,
+    "gi",
+  );
+  const roomIds: string[] = [];
+  for (const match of message.matchAll(pattern)) {
+    const roomId = match[1];
+    if (roomId && !roomIds.includes(roomId)) roomIds.push(roomId);
+  }
+  return roomIds;
+};
+
+const meetingFromRoomId = (roomId: string): Comm360Meeting => {
+  const base = COMM360_URL.replace(/\/$/, "");
+  return {
+    id: roomId,
+    roomId,
+    title: "Community discussion",
+    description: "",
+    startTime: "",
+    organizerName: "Comm360",
+    joinUrl: `${base}/meeting/${encodeURIComponent(roomId)}?type=direct`,
+  };
+};
+
+const loadComm360Meeting = async (roomId: string): Promise<Comm360Meeting> => {
+  try {
+    return await getComm360Meeting(roomId);
+  } catch {
+    return meetingFromRoomId(roomId);
+  }
+};
 
 const readSeenFriendRequestIds = (): Set<string> => {
   if (typeof window === "undefined") return new Set<string>();
@@ -325,9 +968,6 @@ const saveSeenFriendRequestIds = (requestIds: Set<string>): void => {
     // The in-memory acknowledgement still clears the badge for this session.
   }
 };
-
-const getComm360RoomId = (message: string) =>
-  message.match(COMM360_MEETING_URL_PATTERN)?.[1] ?? null;
 
 const renderMessageWithLinks = (message: string) =>
   message.split(MESSAGE_URL_PATTERN).map((part, index) => {
@@ -362,44 +1002,80 @@ const renderMessageWithLinks = (message: string) =>
     );
   });
 
-const COMPOSER_EMOJIS = [
-  "😀",
-  "😃",
-  "😄",
-  "😁",
-  "😊",
-  "😍",
-  "🤩",
-  "😂",
-  "🤔",
-  "😎",
-  "😢",
-  "😭",
-  "😡",
-  "👍",
-  "👎",
-  "👏",
-  "🙌",
-  "💪",
-  "🙏",
-  "🎉",
-  "✨",
-  "💡",
-  "❤️",
-  "🧡",
-  "💛",
-  "💚",
-  "💙",
-  "💜",
-  "🔥",
-  "🚀",
-  "✅",
-  "💯",
-  "🎯",
-  "📚",
-  "💻",
-  "🛠️",
-];
+const COMPOSER_EMOJI_GROUPS = [
+  {
+    label: "Smileys",
+    icon: "😀",
+    emojis:
+      "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🫣 🤭 🫢 🫡 🤫 🫠 🤥 😶 🫥 😐 🫤 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕".split(
+        " ",
+      ),
+  },
+  {
+    label: "People",
+    icon: "👋",
+    emojis:
+      "👋 🤚 🖐️ ✋ 🖖 🫱 🫲 🫳 🫴 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ 🫵 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 🫶 👐 🤲 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 👃 🧠 🫀 🫁 🦷 🦴 👀 👁️ 👅 👄 🫦 👶 🧒 👦 👧 🧑 👱 👨 🧔 👩 🧓 👴 👵 🙍 🙎 🙅 🙆 💁 🙋 🧏 🙇 🤦 🤷 👮 👷 💂 🕵️ 👩‍⚕️ 👩‍🎓 👩‍🏫 👩‍💻 👩‍🔧 👩‍🔬 👩‍🎨 👩‍🚒 👩‍✈️ 👩‍🚀 👩‍⚖️".split(
+        " ",
+      ),
+  },
+  {
+    label: "Nature",
+    icon: "🐶",
+    emojis:
+      "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐻‍❄️ 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐒 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🪱 🐛 🦋 🐌 🐞 🐜 🪰 🪲 🪳 🦟 🦗 🕷️ 🦂 🐢 🐍 🦎 🐙 🦑 🦐 🦞 🦀 🐠 🐟 🐡 🐬 🐳 🐋 🦈 🐊 🐅 🐆 🦓 🦍 🦧 🐘 🦛 🦏 🐪 🐫 🦒 🦘 🦬 🐃 🐂 🐄 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐩 🦮 🐈 🐓 🦃 🦚 🦜 🦢 🦩 🕊️ 🐇 🦝 🦨 🦡 🦫 🦦 🦥 🌵 🎄 🌲 🌳 🌴 🪴 🌱 🌿 ☘️ 🍀 🎍 🪷 🌺 🌸 🌼 🌻 🌞 🌝 🌛 ⭐ 🌟 ✨ ⚡ 🔥 🌈".split(
+        " ",
+      ),
+  },
+  {
+    label: "Food",
+    icon: "🍕",
+    emojis:
+      "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🍆 🥑 🥦 🥬 🥒 🌶️ 🫑 🌽 🥕 🫒 🧄 🧅 🥔 🍠 🥐 🥯 🍞 🥖 🥨 🧀 🥚 🍳 🧈 🥞 🧇 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🫓 🥪 🥙 🧆 🌮 🌯 🫔 🥗 🥘 🫕 🥫 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍙 🍚 🍘 🍥 🥠 🥮 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 🌰 🥜 🍯 🥛 ☕ 🫖 🍵 🧃 🥤 🧋 🍺 🍻 🥂 🍷 🍸 🍹".split(
+        " ",
+      ),
+  },
+  {
+    label: "Activities",
+    icon: "⚽",
+    emojis:
+      "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🪀 🏓 🏸 🏒 🏑 🥍 🏏 🪃 🥅 ⛳ 🪁 🏹 🎣 🤿 🥊 🥋 🎽 🛹 🛼 🛷 ⛸️ 🥌 🎿 ⛷️ 🏂 🪂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🤽 🚣 🧗 🚵 🚴 🏆 🥇 🥈 🥉 🏅 🎖️ 🏵️ 🎗️ 🎫 🎟️ 🎪 🤹 🎭 🩰 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🪘 🎷 🎺 🪗 🎸 🪕 🎻 🎲 ♟️ 🎯 🎳 🎮 🎰 🧩".split(
+        " ",
+      ),
+  },
+  {
+    label: "Travel",
+    icon: "🚀",
+    emojis:
+      "🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🦯 🦽 🦼 🛴 🚲 🛵 🏍️ 🛺 🚨 🚔 🚍 🚘 🚖 🚡 🚠 🚟 🚃 🚋 🚞 🚝 🚄 🚅 🚈 🚂 🚆 🚇 🚊 🚉 ✈️ 🛫 🛬 🛩️ 💺 🛰️ 🚀 🛸 🚁 🛶 ⛵ 🚤 🛥️ 🛳️ ⛴️ 🚢 ⚓ 🛟 ⛽ 🚧 🚦 🗺️ 🗿 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🎠 ⛲ ⛱️ 🏖️ 🏝️ 🏜️ 🌋 ⛰️ 🏕️ ⛺ 🛖 🏠 🏡 🏢 🏥 🏦 🏨 🏪 🏫 🏛️ ⛪ 🕌 🛕 🕍 ⛩️ 🕋 🌅 🌄 🌠 🎇 🎆 🌇 🌆 🏙️ 🌃 🌉".split(
+        " ",
+      ),
+  },
+  {
+    label: "Objects",
+    icon: "💡",
+    emojis:
+      "⌚ 📱 💻 ⌨️ 🖥️ 🖨️ 🖱️ 🖲️ 🕹️ 🗜️ 💽 💾 💿 📀 📼 📷 📸 📹 🎥 📽️ 🎞️ 📞 ☎️ 📟 📠 📺 📻 🎙️ 🎚️ 🎛️ 🧭 ⏱️ ⏲️ ⏰ 🕰️ ⌛ ⏳ 📡 🔋 🪫 🔌 💡 🔦 🕯️ 🪔 🧯 🛢️ 💸 💵 💴 💶 💷 🪙 💰 💳 💎 ⚖️ 🪜 🧰 🪛 🔧 🔨 ⚒️ 🛠️ ⛏️ 🪚 🔩 ⚙️ 🪤 🧱 ⛓️ 🧲 🔫 💣 🧨 🪓 🔪 🗡️ ⚔️ 🛡️ 🚬 ⚰️ 🪦 ⚱️ 🏺 🔮 📿 🧿 🪬 💈 ⚗️ 🔭 🔬 🩹 🩺 💊 💉 🩸 🧬 🦠 🧹 🪠 🧺 🧻 🚽 🚿 🛁 🧼 🪥 🪒 🧽 🪣 🧴 🔑 🗝️ 🚪 🪑 🛋️ 🛏️ 🧸 🪆 🖼️ 🪞 🪟 🛍️ 🎁 🎈 🎏 🎀 🪄 🪅 🎊 🎉 ✉️ 📩 📨 📧 💌 📥 📤 📦 🏷️ 📪 📫 📬 📭 📮 📯 📜 📃 📄 📑 🧾 📊 📈 📉 🗒️ 🗓️ 📆 📅 🗑️ 📇 🗃️ 🗳️ 🗄️ 📋 📁 📂 🗂️ 🗞️ 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🧷 🔗 📎 🖇️ 📐 📏 🧮 📌 📍 ✂️ 🖊️ 🖋️ ✒️ 🖌️ 🖍️ 📝 ✏️ 🔍 🔎 🔏 🔐 🔒 🔓".split(
+        " ",
+      ),
+  },
+  {
+    label: "Symbols",
+    icon: "❤️",
+    emojis:
+      "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❤️‍🔥 ❤️‍🩹 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ☮️ ✝️ ☪️ 🕉️ ☸️ ✡️ 🔯 🕎 ☯️ ☦️ 🛐 ⛎ ♈ ♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓ 🆔 ⚛️ ☢️ ☣️ 📴 📳 🈶 🈚 🈸 🈺 🈷️ ✴️ 🆚 💮 🉐 ㊙️ ㊗️ 🈴 🈵 🈹 🈲 🅰️ 🅱️ 🆎 🆑 🅾️ 🆘 ❌ ⭕ 🛑 ⛔ 📛 🚫 💯 💢 ♨️ 🚷 🚯 🚳 🚱 🔞 📵 🚭 ❗ ❕ ❓ ❔ ‼️ ⁉️ 🔅 🔆 〽️ ⚠️ 🚸 🔱 ⚜️ 🔰 ♻️ ✅ 🈯 💹 ❇️ ✳️ ❎ 🌐 💠 Ⓜ️ 🌀 💤 🏧 🚾 ♿ 🅿️ 🛗 🛂 🛃 🛄 🛅 🚹 🚺 🚼 ⚧️ 🚻 🚮 🎦 📶 🈁 🔣 ℹ️ 🔤 🔡 🔠 🆖 🆗 🆙 🆒 🆕 🆓 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟 🔢 ▶️ ⏸️ ⏯️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ 🔀 🔁 🔂 ◀️ 🔼 🔽 ⏫ ⏬ ➡️ ⬅️ ⬆️ ⬇️ ↗️ ↘️ ↙️ ↖️ ↕️ ↔️ 🔄 ↪️ ↩️ 🔃 🔚 🔙 🔛 🔝 🔜 ☑️ 🔘 ⚪ ⚫ 🔴 🔵 🟤 🟣 🟢 🟡 🟠 🔺 🔻 🔸 🔹 🔶 🔷 🔳 🔲".split(
+        " ",
+      ),
+  },
+  {
+    label: "Flags",
+    icon: "🏳️",
+    emojis:
+      "🏁 🚩 🎌 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ 🇺🇳 🇺🇸 🇨🇦 🇲🇽 🇧🇷 🇦🇷 🇬🇧 🇮🇪 🇫🇷 🇩🇪 🇪🇸 🇮🇹 🇵🇹 🇳🇱 🇧🇪 🇨🇭 🇦🇹 🇸🇪 🇳🇴 🇩🇰 🇫🇮 🇵🇱 🇺🇦 🇬🇷 🇹🇷 🇮🇳 🇵🇰 🇧🇩 🇱🇰 🇳🇵 🇨🇳 🇯🇵 🇰🇷 🇸🇬 🇲🇾 🇮🇩 🇵🇭 🇹🇭 🇻🇳 🇦🇺 🇳🇿 🇿🇦 🇳🇬 🇰🇪 🇪🇬 🇸🇦 🇦🇪 🇮🇱".split(
+        " ",
+      ),
+  },
+] as const;
 
 type CreateCommunityFormInput = {
   name: string;
@@ -490,18 +1166,21 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
         authorAvatar: post.replyTo.author?.avatarUrl ?? undefined,
         body:
           post.replyTo.body?.trim() ||
-          (post.replyTo.kind === "media"
-            ? "Shared a photo or video"
-            : post.replyTo.kind === "poll"
-              ? "Shared a poll"
-              : "Message"),
+          (post.replyTo.kind === "poll" ? "Shared a poll" : ""),
         kind: post.replyTo.kind,
+        media: (post.replyTo.media ?? []).map((item) => ({
+          id: item.id,
+          type: item.resourceType,
+          url: item.url,
+          originalFilename: item.originalFilename ?? null,
+        })),
       }
     : null,
   media: (post.media ?? []).map((item) => ({
     id: item.id,
     type: item.resourceType,
     url: item.url,
+    originalFilename: item.originalFilename ?? null,
   })),
   poll: post.poll
     ? {
@@ -532,6 +1211,64 @@ const sameFeedPosts = (current: ForumPost[], next: ForumPost[]) =>
   });
 // T: O(p) and S: O(1), where p is the number of posts
 
+/** Keep freshly created local posts when a stale list response omits them. */
+const LOCAL_FEED_GRACE_MS = 60_000;
+
+const mergeFeedPosts = (
+  current: ForumPost[],
+  incoming: ForumPost[],
+  localSeenAt: Map<string, number>,
+  options?: { replaceScope?: boolean },
+): ForumPost[] => {
+  const now = Date.now();
+  const incomingById = new Map(incoming.map((post) => [post.id, post]));
+
+  for (const post of incoming) {
+    localSeenAt.delete(post.id);
+  }
+
+  const mergedById = new Map<string, ForumPost>();
+  if (!options?.replaceScope) {
+    for (const post of current) {
+      if (incomingById.has(post.id)) continue;
+      if (post.status === "deleted" || post.status === "removed") continue;
+      const seenAt = localSeenAt.get(post.id);
+      const isFreshLocal =
+        post.status === "processing" ||
+        (typeof seenAt === "number" && now - seenAt < LOCAL_FEED_GRACE_MS);
+      if (isFreshLocal) {
+        mergedById.set(post.id, post);
+      }
+    }
+  }
+  for (const post of incoming) {
+    mergedById.set(post.id, post);
+  }
+
+  return [...mergedById.values()].sort(
+    (left, right) =>
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+  );
+};
+// T: O((c + i) log (c + i)) and S: O(c + i), where c is current posts and i is incoming
+
+const rememberLocalFeedPosts = (
+  localSeenAt: Map<string, number>,
+  posts: ForumPost[],
+) => {
+  const now = Date.now();
+  for (const post of posts) {
+    if (!localSeenAt.has(post.id)) localSeenAt.set(post.id, now);
+  }
+  if (localSeenAt.size > 200) {
+    const cutoff = now - LOCAL_FEED_GRACE_MS;
+    for (const [id, seenAt] of localSeenAt) {
+      if (seenAt < cutoff) localSeenAt.delete(id);
+    }
+  }
+};
+// T: O(p) and S: O(1), where p is remembered posts
+
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 // T: O(1) scheduled work and S: O(1)
@@ -546,18 +1283,21 @@ const formatUploadBytes = (bytes: number): string => {
 const Composer = ({
   scope,
   communityId,
+  communityName,
   onCreated,
   replyTo,
   onCancelReply,
 }: {
   scope: "global" | "community";
   communityId?: string;
+  communityName?: string;
   onCreated: (post: CommunityPostRecord) => Promise<void>;
   replyTo?: ForumPost | null;
   onCancelReply?: () => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ComposerMode>("text");
+  const [emojiCategory, setEmojiCategory] = useState(0);
   const [content, setContent] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [pollDurationDays, setPollDurationDays] = useState(7);
@@ -569,18 +1309,45 @@ const Composer = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalUploadBytes, setTotalUploadBytes] = useState(0);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
   const [uploadStage, setUploadStage] = useState<
     "idle" | "uploading" | "uploaded" | "publishing"
   >("idle");
   const [error, setError] = useState("");
+  const [attachmentMenuAnchor, setAttachmentMenuAnchor] =
+    useState<HTMLElement | null>(null);
+  const [recentMediaLibrary, setRecentMediaLibrary] = useState<
+    RecentMediaEntry[]
+  >([]);
+  const [formattingOpen, setFormattingOpen] = useState(false);
+  const [composerFont, setComposerFont] = useState<
+    "standard" | "emphasis" | "monospace"
+  >("standard");
+  const [composerItalic, setComposerItalic] = useState(false);
+  const [composerUnderline, setComposerUnderline] = useState(false);
+  const [composerStrike, setComposerStrike] = useState(false);
   const [mentionMembers, setMentionMembers] = useState<CommunityMemberRecord[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoCaptureInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  const pendingCaretRef = useRef<number | null>(null);
   const mediaUploadAbortRef = useRef<AbortController | null>(null);
   const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
   const mediaUploadRequestRef = useRef(0);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const pendingAudioSendRef = useRef(false);
+  const speechRecognitionRef = useRef<SpeechRecognitionController | null>(null);
+  const dictationBaseRef = useRef("");
+  const dictationWantedRef = useRef(false);
+  const typingActiveRef = useRef(false);
+  const lastTypingPulseRef = useRef(0);
   const validPollOptions = pollOptions.filter((option) => option.trim());
   const mentionQuery =
     scope === "community" ? content.match(/(?:^|\s)@([^\s@]*)$/)?.[1] : undefined;
@@ -594,11 +1361,19 @@ const Composer = ({
           .slice(0, 6);
   const canSubmit =
     (scope === "global" || Boolean(communityId)) &&
-    (mode === "image" || mode === "video"
-      ? Boolean(file)
-      : Boolean(content.trim())) &&
+    (isRecordingAudio ||
+      (mode === "image" ||
+      mode === "video" ||
+      mode === "audio" ||
+      mode === "file"
+        ? Boolean(file)
+        : Boolean(content.trim()))) &&
     (mode !== "poll" || validPollOptions.length >= 2) &&
     (mode === "poll" ? Boolean(content.trim()) : true);
+  const messagePlaceholder =
+    scope === "community" && communityName
+      ? `Message ${communityName}`
+      : "Start a message or post";
 
   useEffect(() => {
     if (!file) {
@@ -621,16 +1396,77 @@ const Composer = ({
   }, [communityId, scope]);
 
   useEffect(() => {
+    if (scope !== "community" || !communityId) return;
+    const isTyping =
+      Boolean(content.trim()) ||
+      Boolean(file) ||
+      isRecordingAudio ||
+      isDictating;
+    const clearTyping = () => {
+      if (!typingActiveRef.current) return;
+      typingActiveRef.current = false;
+      void setCommunityTyping(communityId, false).catch(() => undefined);
+    };
+    if (!isTyping) {
+      clearTyping();
+      return;
+    }
+    typingActiveRef.current = true;
+    const now = Date.now();
+    if (now - lastTypingPulseRef.current > 1_800) {
+      lastTypingPulseRef.current = now;
+      void setCommunityTyping(communityId, true).catch(() => undefined);
+    }
+    const timer = window.setInterval(() => {
+      lastTypingPulseRef.current = Date.now();
+      void setCommunityTyping(communityId, true).catch(() => undefined);
+    }, 2_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [communityId, content, file, isDictating, isRecordingAudio, scope]);
+
+  useEffect(
+    () => () => {
+      if (typingActiveRef.current && communityId) {
+        typingActiveRef.current = false;
+        void setCommunityTyping(communityId, false).catch(() => undefined);
+      }
+    },
+    [communityId],
+  );
+
+  useEffect(() => {
     if (!replyTo) return;
     setOpen(true);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   }, [replyTo]);
 
-  const insertMention = (member: CommunityMemberRecord) => {
-    setContent((current) =>
-      `${current.replace(/@[^\s@]*$/, "")}@${member.name} `,
-    );
+  useEffect(() => {
+    if (!attachmentMenuAnchor) return;
+    setRecentMediaLibrary(readRecentMediaLibrary());
+  }, [attachmentMenuAnchor]);
+
+  const refreshRecentMediaLibrary = async (files: File[]) => {
+    await rememberRecentMediaFiles(files);
+    setRecentMediaLibrary(readRecentMediaLibrary());
   };
+
+  const insertMention = (member: CommunityMemberRecord) => {
+    const next = `${content.replace(/@[^\s@]*$/, "")}@${member.name} `;
+    pendingCaretRef.current = next.length;
+    setContent(next);
+  };
+
+  useEffect(() => {
+    if (pendingCaretRef.current == null) return;
+    const caret = pendingCaretRef.current;
+    pendingCaretRef.current = null;
+    const input = composerInputRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(caret, caret);
+  }, [content]);
 
   const cancelMediaUpload = () => {
     mediaUploadRequestRef.current += 1;
@@ -641,8 +1477,52 @@ const Composer = ({
   };
   // T: O(1) and S: O(1)
 
+  const discardAudioRecording = () => {
+    const recorder = audioRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.stop();
+    }
+    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    audioRecorderRef.current = null;
+    audioStreamRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+  };
+  // T: O(t) and S: O(1), where t is the number of media tracks
+
+  const discardDictationRecording = () => {
+    dictationWantedRef.current = false;
+    setIsDictating(false);
+    const recognition = speechRecognitionRef.current;
+    if (!recognition) return;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    try {
+      recognition.stop();
+    } catch {
+      try {
+        recognition.abort();
+      } catch {
+        // Recognition may already be stopped.
+      }
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  useEffect(
+    () => () => {
+      discardDictationRecording();
+    },
+    // Mount-only cleanup for active dictation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const handleModeChange = (nextMode: ComposerMode) => {
     if (nextMode !== mode) {
+      if (mode === "audio") discardAudioRecording();
       cancelMediaUpload();
       setFile(null);
       setUploadStage("idle");
@@ -669,15 +1549,361 @@ const Composer = ({
   };
   // T: O(1) and S: O(1)
 
+  const handleAnyMediaSelected = (selectedFile: File | null) => {
+    if (!selectedFile) return;
+    void refreshRecentMediaLibrary([selectedFile]);
+    handleMediaSelected(
+      selectedFile.type.startsWith("video/") ? "video" : "image",
+      selectedFile,
+    );
+  };
+  // T: O(1) and S: O(1)
+
+  const handleRecentMediaSelect = (entry: RecentMediaEntry) => {
+    const cached = recentMediaFileCache.get(entry.id);
+    setAttachmentMenuAnchor(null);
+    if (cached) {
+      handleMediaSelected(entry.kind, cached);
+      return;
+    }
+    setOpen(true);
+    window.requestAnimationFrame(() => {
+      if (mediaInputRef.current) {
+        mediaInputRef.current.value = "";
+        mediaInputRef.current.click();
+      }
+    });
+  };
+  // T: O(1) and S: O(1)
+
+  const requestRecordingPermission = async (
+    kind: "camera" | "microphone",
+  ): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setOpen(true);
+      setError(
+        `${kind === "camera" ? "Camera" : "Microphone"} access is not supported by this browser.`,
+      );
+      return false;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: kind === "camera",
+        audio: kind === "microphone" || kind === "camera",
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (caught) {
+      setOpen(true);
+      setError(
+        caught instanceof DOMException && caught.name === "NotAllowedError"
+          ? `${kind === "camera" ? "Camera" : "Microphone"} permission was denied. Enable it in your browser or device settings to continue.`
+          : `Could not access the ${kind}. Please check your device settings.`,
+      );
+      return false;
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleStartAudioRecording = async () => {
+    setAttachmentMenuAnchor(null);
+    setOpen(true);
+    setError("");
+    if (isDictating || dictationWantedRef.current) {
+      discardDictationRecording();
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError("Audio recording is not supported by this browser.");
+      return;
+    }
+    if (isRecordingAudio) return;
+    pendingAudioSendRef.current = false;
+    cancelMediaUpload();
+    setMode("audio");
+    setFile(null);
+    setUploadStage("idle");
+    setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(0);
+    setUploadedAssetId(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredMimeType = [
+        "audio/webm;codecs=opus",
+        "audio/mp4",
+        "audio/webm",
+      ].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(
+        stream,
+        preferredMimeType ? { mimeType: preferredMimeType } : undefined,
+      );
+      audioStreamRef.current = stream;
+      audioRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || preferredMimeType || "audio/webm";
+        const extension = mimeType.includes("mp4") ? "m4a" : "webm";
+        const recording = new File(
+          audioChunksRef.current,
+          `voice-message-${Date.now()}.${extension}`,
+          { type: mimeType },
+        );
+        stream.getTracks().forEach((track) => track.stop());
+        audioRecorderRef.current = null;
+        audioStreamRef.current = null;
+        audioChunksRef.current = [];
+        setIsRecordingAudio(false);
+        const shouldSend = pendingAudioSendRef.current;
+        pendingAudioSendRef.current = false;
+        if (recording.size <= 0) {
+          if (shouldSend) {
+            setSubmitting(false);
+            setError("No audio captured. Hold a moment longer, then tap send.");
+          }
+          return;
+        }
+        if (shouldSend) {
+          void shareRecordedAudio(recording);
+          return;
+        }
+        handleMediaSelected("audio", recording);
+      };
+      setIsRecordingAudio(true);
+      recorder.start(250);
+    } catch (caught) {
+      setIsRecordingAudio(false);
+      pendingAudioSendRef.current = false;
+      setError(
+        caught instanceof DOMException && caught.name === "NotAllowedError"
+          ? "Microphone permission was denied. Enable it in your browser or device settings to continue."
+          : "Could not start audio recording. Please check your microphone.",
+      );
+    }
+  };
+  // T: O(1) setup and S: O(a), where a is the recorded audio size
+
+  const handleStopAudioRecording = () => {
+    const recorder = audioRecorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+  };
+  // T: O(1) and S: O(1)
+
+  const shareRecordedAudio = async (recording: File) => {
+    setSubmitting(true);
+    setMode("audio");
+    setFile(recording);
+    setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(recording.size);
+    setError("");
+    if (typingActiveRef.current && communityId) {
+      typingActiveRef.current = false;
+      void setCommunityTyping(communityId, false).catch(() => undefined);
+    }
+    try {
+      setUploadStage("uploading");
+      const providerAssetId = await uploadCommunityMedia(
+        recording,
+        "audio",
+        (percentage, loadedBytes, totalBytes) => {
+          setUploadProgress(percentage);
+          setUploadedBytes(loadedBytes);
+          setTotalUploadBytes(totalBytes);
+        },
+      );
+      setUploadedAssetId(providerAssetId);
+      setUploadProgress(100);
+      setUploadStage("publishing");
+      const post = await createPost({
+        communityId: scope === "community" ? communityId : null,
+        replyToPostId: replyTo?.id,
+        body: content,
+        mode: "audio",
+        file: recording,
+        providerAssetId,
+      });
+      resetComposer();
+      setOpen(false);
+      onCancelReply?.();
+      void onCreated(post);
+    } catch (caught) {
+      setUploadStage("idle");
+      setError(
+        caught instanceof Error ? caught.message : "Could not create post",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  // T: O(a) and S: O(a), where a is the audio payload size
+
+  const startSpeechToText = async () => {
+    const Recognition = getSpeechRecognitionConstructor();
+    if (!Recognition) {
+      setOpen(true);
+      setError(
+        "Live speech-to-text is not supported in this browser. Try Chrome or Safari.",
+      );
+      return;
+    }
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setOpen(true);
+      setError(
+        "Speech-to-text needs HTTPS (or localhost). Open Anchor over a secure connection.",
+      );
+      return;
+    }
+    if (isRecordingAudio) discardAudioRecording();
+    discardDictationRecording();
+
+    setOpen(true);
+    setMode("text");
+    setError("");
+
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (caught) {
+        setError(
+          caught instanceof DOMException && caught.name === "NotAllowedError"
+            ? "Microphone permission was denied. Enable it in your browser or device settings, then try again."
+            : "Could not access the microphone for speech-to-text.",
+        );
+        return;
+      }
+    }
+
+    const isAppleMobile =
+      typeof navigator !== "undefined" &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+    dictationWantedRef.current = true;
+    dictationBaseRef.current = content;
+
+    let recognition = speechRecognitionRef.current;
+    if (!recognition) {
+      recognition = new Recognition();
+      speechRecognitionRef.current = recognition;
+    }
+
+    recognition.continuous = !isAppleMobile;
+    recognition.interimResults = true;
+    recognition.lang =
+      typeof navigator !== "undefined" && navigator.language
+        ? navigator.language
+        : "en-US";
+
+    recognition.onresult = (event) => {
+      let finals = "";
+      let interim = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        if (!result) continue;
+        const transcript =
+          (result[0] && result[0].transcript) ||
+          (typeof result.item === "function"
+            ? result.item(0)?.transcript
+            : "") ||
+          "";
+        if (!transcript) continue;
+        if (result.isFinal) finals += transcript;
+        else interim += transcript;
+      }
+      if (finals) {
+        dictationBaseRef.current = joinDictatedText(
+          dictationBaseRef.current,
+          finals,
+        );
+      }
+      setContent(joinDictatedText(dictationBaseRef.current, interim));
+    };
+
+    recognition.onerror = (event) => {
+      const code = event.error ?? "";
+      if (code === "aborted" || code === "no-speech") return;
+      if (code === "network") {
+        setError(
+          "Live speech-to-text needs an internet connection. Check your network and try again.",
+        );
+      } else if (code === "not-allowed" || code === "service-not-allowed") {
+        setError(
+          "Microphone permission was denied. Enable it to use speech-to-text.",
+        );
+      } else {
+        setError("Could not continue speech-to-text. Please try again.");
+      }
+      dictationWantedRef.current = false;
+      setIsDictating(false);
+    };
+
+    recognition.onend = () => {
+      if (!dictationWantedRef.current) {
+        setIsDictating(false);
+        return;
+      }
+      window.setTimeout(() => {
+        if (!dictationWantedRef.current || !speechRecognitionRef.current) {
+          setIsDictating(false);
+          return;
+        }
+        try {
+          speechRecognitionRef.current.start();
+          setIsDictating(true);
+        } catch {
+          setIsDictating(true);
+        }
+      }, isAppleMobile ? 280 : 120);
+    };
+
+    try {
+      recognition.start();
+      setIsDictating(true);
+      window.requestAnimationFrame(() => composerInputRef.current?.focus());
+    } catch {
+      dictationWantedRef.current = false;
+      setIsDictating(false);
+      setError("Could not start speech-to-text. Please try again.");
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleToggleSpeechToText = () => {
+    if (isDictating || dictationWantedRef.current) return;
+    void startSpeechToText();
+  };
+  // T: O(1) and S: O(1)
+
+  const insertComposerText = (value: string) => {
+    const input = composerInputRef.current;
+    const start = input?.selectionStart ?? content.length;
+    const end = input?.selectionEnd ?? start;
+    const next = `${content.slice(0, start)}${value}${content.slice(end)}`;
+    pendingCaretRef.current = start + value.length;
+    setContent(next);
+  };
+  // T: O(c) and S: O(c), where c is the current message length
+
   const handleMediaSelected = (
-    resourceType: "image" | "video",
+    resourceType: "image" | "video" | "audio" | "file",
     selectedFile: File | null,
   ) => {
     cancelMediaUpload();
-    const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
+    const maxBytes =
+      resourceType === "video"
+        ? 50_000_000
+        : resourceType === "audio"
+          ? 20_000_000
+          : resourceType === "file"
+            ? 25_000_000
+            : 10_000_000;
     if (selectedFile && selectedFile.size > maxBytes) {
       setError(
-        `${resourceType === "video" ? "Video" : "Image"} must be smaller than ${
+        `${resourceType === "video" ? "Video" : resourceType === "audio" ? "Audio" : resourceType === "file" ? "File" : "Image"} must be smaller than ${
           maxBytes / 1_000_000
         } MB`,
       );
@@ -694,6 +1920,9 @@ const Composer = ({
     if (!selectedFile) {
       setUploadStage("idle");
       return;
+    }
+    if (resourceType === "image" || resourceType === "video") {
+      void refreshRecentMediaLibrary([selectedFile]);
     }
 
     const requestId = mediaUploadRequestRef.current;
@@ -735,7 +1964,7 @@ const Composer = ({
   // T: O(1) and S: O(1)
 
   const handleEmojiSelect = (emoji: string) => {
-    setContent((current) => `${current}${current ? " " : ""}${emoji}`);
+    insertComposerText(emoji);
   };
   // T: O(c) and S: O(c), where c is the current post length
 
@@ -749,9 +1978,27 @@ const Composer = ({
     setOpen(true);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   };
+
+  const handleMentionClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setMode("text");
+    const input = composerInputRef.current;
+    const start = input?.selectionStart ?? content.length;
+    const end = input?.selectionEnd ?? start;
+    const prefix =
+      start > 0 && content[start - 1] && !/\s/.test(content[start - 1]!)
+        ? " @"
+        : "@";
+    const next = `${content.slice(0, start)}${prefix}${content.slice(end)}`;
+    pendingCaretRef.current = start + prefix.length;
+    setContent(next);
+  };
   // T: O(1) and S: O(1)
 
   const resetComposer = () => {
+    discardAudioRecording();
+    discardDictationRecording();
+    pendingAudioSendRef.current = false;
     cancelMediaUpload();
     setContent("");
     setPollOptions(["", ""]);
@@ -764,21 +2011,33 @@ const Composer = ({
     setTotalUploadBytes(0);
     setUploadStage("idle");
     setError("");
+    setComposerFont("standard");
+    setComposerItalic(false);
+    setComposerUnderline(false);
+    setComposerStrike(false);
+    setFormattingOpen(false);
   };
   // T: O(1) and S: O(1)
 
-  const handleCancel = (event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    if (submitting) return;
+  const handleCancelComposer = (event: React.MouseEvent) => {
+    event.stopPropagation();
     resetComposer();
     setOpen(false);
+    setAttachmentMenuAnchor(null);
+    onCancelReply?.();
   };
   // T: O(1) and S: O(1)
 
   useEffect(() => {
     if (!open) return;
     const handleDocumentPointerDown = (event: PointerEvent) => {
-      if (submitting) return;
+      if (submitting || isRecordingAudio || isDictating) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
+      ) {
+        return;
+      }
       if (
         composerRef.current &&
         !composerRef.current.contains(event.target as Node)
@@ -790,7 +2049,19 @@ const Composer = ({
     document.addEventListener("pointerdown", handleDocumentPointerDown);
     return () =>
       document.removeEventListener("pointerdown", handleDocumentPointerDown);
-  }, [open, submitting]);
+  }, [isDictating, isRecordingAudio, open, submitting]);
+
+  useEffect(
+    () => () => {
+      const recorder = audioRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    },
+    [],
+  );
 
   const handlePollOptionChange = (index: number, value: string) => {
     setPollOptions((current) =>
@@ -817,13 +2088,24 @@ const Composer = ({
   // T: O(p) and S: O(p), where p is the number of poll options
 
   const handleShare = async () => {
+    if (isRecordingAudio) {
+      pendingAudioSendRef.current = true;
+      setSubmitting(true);
+      setError("");
+      handleStopAudioRecording();
+      return;
+    }
     if (!canSubmit) {
       setError(
         scope === "community" && !communityId
           ? "Choose a community before posting."
           : mode === "poll" && validPollOptions.length < 2
             ? "A poll needs at least two options."
-            : (mode === "image" || mode === "video") && !file
+          : (mode === "image" ||
+                mode === "video" ||
+                mode === "audio" ||
+                mode === "file") &&
+              !file
               ? `Choose a ${mode} to upload.`
               : "Write something before posting.",
       );
@@ -831,12 +2113,23 @@ const Composer = ({
     }
     setSubmitting(true);
     setUploadProgress(0);
+    discardDictationRecording();
+    if (typingActiveRef.current && communityId) {
+      typingActiveRef.current = false;
+      void setCommunityTyping(communityId, false).catch(() => undefined);
+    }
     setUploadedBytes(uploadedAssetId ? file?.size ?? 0 : 0);
     setTotalUploadBytes(file?.size ?? 0);
     setError("");
     try {
       let providerAssetId = uploadedAssetId;
-      if ((mode === "image" || mode === "video") && !providerAssetId) {
+      if (
+        (mode === "image" ||
+          mode === "video" ||
+          mode === "audio" ||
+          mode === "file") &&
+        !providerAssetId
+      ) {
         const pendingUpload = mediaUploadPromiseRef.current;
         if (!pendingUpload) {
           throw new Error(`Choose a ${mode} to upload.`);
@@ -844,7 +2137,12 @@ const Composer = ({
         setUploadStage("uploading");
         providerAssetId = await pendingUpload;
       }
-      if (mode === "image" || mode === "video") {
+      if (
+        mode === "image" ||
+        mode === "video" ||
+        mode === "audio" ||
+        mode === "file"
+      ) {
         setUploadStage("publishing");
       }
       const post = await createPost({
@@ -852,6 +2150,7 @@ const Composer = ({
         replyToPostId: replyTo?.id,
         body: content,
         mode: mode === "emoji" ? "text" : mode,
+        file,
         providerAssetId,
         pollOptions,
         pollAllowsMultiple,
@@ -873,12 +2172,6 @@ const Composer = ({
   };
   // T: O(b + p) and S: O(b + p), where b is media bytes and p is poll options
 
-  const handleCompactShare = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    void handleShare();
-  };
-  // T: O(b + p) and S: O(b + p), where b is media bytes and p is poll options
-
   return (
     <Card
       ref={composerRef}
@@ -887,12 +2180,13 @@ const Composer = ({
       sx={{
         position: "relative",
         width: "100%",
+        boxSizing: "border-box",
         maxHeight: open
-          ? "min(52dvh, 520px)"
-          : { xs: 52, sm: 48, md: 58 },
-        minHeight: open ? 0 : { xs: 52, sm: 48, md: 58 },
-        p: open ? { xs: 1.5, sm: 1.75 } : 0,
-        borderRadius: open ? 4 : 999,
+          ? "min(48dvh, 460px)"
+          : { xs: 58, sm: 60, md: 62 },
+        minHeight: open ? 0 : { xs: 58, sm: 60, md: 62 },
+        p: open ? { xs: 1, sm: 1.25 } : 0,
+        borderRadius: open ? { xs: 3, sm: 3.5 } : 999,
         bgcolor: C.cardBg,
         touchAction: "manipulation",
         border: `1px solid ${open ? C.accentBorder : C.divider}`,
@@ -904,6 +2198,27 @@ const Composer = ({
           "max-height 320ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease",
       }}
     >
+      {open && !replyTo && (
+        <IconButton
+          aria-label="Cancel message"
+          size="small"
+          onClick={handleCancelComposer}
+          sx={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 28,
+            height: 28,
+            zIndex: 6,
+            color: C.textMuted,
+            bgcolor: C.surface,
+            border: `1px solid ${C.divider}`,
+            "&:hover": { color: C.textPrimary, bgcolor: C.accentFaint },
+          }}
+        >
+          <CloseRoundedIcon sx={{ fontSize: 17 }} />
+        </IconButton>
+      )}
       {open && replyTo && (
         <Box
           onClick={(event) => event.stopPropagation()}
@@ -929,12 +2244,59 @@ const Composer = ({
             <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
               Replying to {replyTo.authorName}
             </Typography>
-            <Typography
-              noWrap
-              sx={{ color: C.textMuted, fontSize: "0.72rem" }}
-            >
-              {replyTo.body || "Shared a message"}
-            </Typography>
+            {replyTo.body && (
+              <Typography
+                noWrap
+                sx={{ color: C.textMuted, fontSize: "0.72rem" }}
+              >
+                {replyTo.body}
+              </Typography>
+            )}
+            {replyTo.media?.[0] && (
+              replyTo.media[0].type === "file" ? (
+                <Box
+                  component="a"
+                  href={replyTo.media[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    mt: 0.6,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    color: C.accentDark,
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  <DownloadRoundedIcon sx={{ fontSize: 16 }} />
+                  Attached file
+                </Box>
+              ) : (
+                <Box
+                  component={
+                    replyTo.media[0].type === "image"
+                      ? "img"
+                      : replyTo.media[0].type === "audio"
+                        ? "audio"
+                        : "video"
+                  }
+                  src={replyTo.media[0].url}
+                  controls={replyTo.media[0].type === "audio"}
+                  muted={replyTo.media[0].type === "video"}
+                  playsInline={replyTo.media[0].type === "video"}
+                  sx={{
+                    display: "block",
+                    width: replyTo.media[0].type === "audio" ? 220 : 52,
+                    height: replyTo.media[0].type === "audio" ? 40 : 38,
+                    mt: 0.6,
+                    borderRadius: 1,
+                    objectFit: "cover",
+                    bgcolor: C.surface,
+                  }}
+                />
+              )
+            )}
           </Box>
           <IconButton
             aria-label="Cancel reply"
@@ -952,21 +2314,46 @@ const Composer = ({
         sx={{
           display: "flex",
           alignItems: open ? "flex-start" : "center",
-          gap: open ? 1.2 : 0.5,
-          minHeight: open ? 0 : { xs: 50, sm: 46, md: 56 },
-          pr: open ? 4.5 : 0,
+          gap: open ? 0 : 0.5,
+          minHeight: open ? 0 : { xs: 56, sm: 58, md: 60 },
+          pr: open && !replyTo ? 3.5 : 0,
         }}
       >
+        {!open && (
+          <IconButton
+            aria-label="Add an image, video, or file"
+            onClick={(event) => {
+              event.stopPropagation();
+              setAttachmentMenuAnchor(event.currentTarget);
+            }}
+            sx={{
+              width: { xs: 48, sm: 50 },
+              height: { xs: 48, sm: 50 },
+              ml: 0.55,
+              flexShrink: 0,
+              color: C.textSub,
+              bgcolor: C.surface,
+              "&:hover": { bgcolor: C.accentFaint },
+            }}
+          >
+            <AddRoundedIcon sx={{ fontSize: { xs: 30, sm: 32 } }} />
+          </IconButton>
+        )}
+        <Box sx={{ position: "relative", flex: 1, minWidth: 0 }}>
         <TextField
           inputRef={composerInputRef}
           fullWidth
           multiline
-          minRows={open ? 4 : 1}
-          maxRows={open ? 8 : 1}
+          minRows={open ? 2 : 1}
+          maxRows={open ? 6 : 1}
           value={content}
           disabled={submitting}
           onFocus={handleOpen}
-          onChange={(event) => setContent(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setContent(next);
+            if (isDictating) dictationBaseRef.current = next;
+          }}
           inputProps={{ maxLength: mode === "poll" ? 150 : 10_000 }}
           helperText={open && mode === "poll" ? `${content.length}/150` : ""}
           FormHelperTextProps={{
@@ -978,13 +2365,7 @@ const Composer = ({
               fontSize: "0.7rem",
             },
           }}
-          placeholder={
-            open
-              ? mode === "poll"
-                ? "What is the question?"
-                : "What do you want to share?"
-              : "Start a message or post"
-          }
+          placeholder={open && mode === "poll" ? "What is the question?" : messagePlaceholder}
           variant="standard"
           InputProps={{ disableUnderline: true }}
           sx={{
@@ -993,20 +2374,24 @@ const Composer = ({
             "& .MuiInputBase-root": {
               alignItems: open ? "flex-start" : "center",
               color: C.textPrimary,
-              fontSize: "16px",
+              fontSize: { xs: "18px", sm: "17px" },
               lineHeight: 1.55,
-              border: open ? `1px solid ${C.divider}` : "1px solid transparent",
-              borderRadius: open ? 2 : 0,
+              border: 0,
+              borderRadius: 0,
               bgcolor: "transparent",
-              px: open ? 1.5 : { xs: 1.25, sm: 1.5, md: 2 },
-              py: open ? 1.1 : 0,
+              px: open ? { xs: 0.75, sm: 1 } : { xs: 1, sm: 1.25, md: 1.5 },
+              py: open ? 0.8 : 0,
             },
             "& .MuiInputBase-input": {
-              fontSize: "16px",
-              fontFamily: "Inter, sans-serif",
-            },
-            "& .MuiInputBase-root.Mui-focused": {
-              borderColor: C.textPrimary,
+              fontSize: { xs: "18px", sm: "17px" },
+              fontWeight: composerFont === "emphasis" ? 700 : 400,
+              fontStyle: composerItalic ? "italic" : "normal",
+              textDecoration: [
+                composerUnderline ? "underline" : "",
+                composerStrike ? "line-through" : "",
+              ]
+                .filter(Boolean)
+                .join(" "),
             },
             "& textarea::placeholder": {
               color: C.textMuted,
@@ -1025,15 +2410,16 @@ const Composer = ({
             aria-label="Mention a community member"
             sx={{
               position: "absolute",
-              top: 62,
-              left: { xs: 12, sm: 16 },
-              width: { xs: "calc(100% - 56px)", sm: 320 },
-              zIndex: 5,
+              bottom: "calc(100% + 8px)",
+              left: 0,
+              width: { xs: "100%", sm: 320 },
+              maxHeight: 220,
+              zIndex: 8,
               bgcolor: C.cardBg,
               border: `1px solid ${C.divider}`,
               borderRadius: 2,
               boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-              overflow: "hidden",
+              overflowY: "auto",
             }}
           >
             {mentionSuggestions.map((member) => (
@@ -1067,47 +2453,65 @@ const Composer = ({
             ))}
           </Box>
         )}
+        </Box>
 
-        {!open && (
+        {(!open || isDictating) && (
           <IconButton
-            aria-label="Send message or post"
-            onClick={handleCompactShare}
-            disabled={!canSubmit || submitting}
-            size="small"
+            aria-label={isDictating ? "Listening" : "Dictate message"}
+            aria-pressed={isDictating}
+            aria-disabled={isDictating}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleToggleSpeechToText();
+            }}
             sx={{
-              width: { xs: 30, sm: 34, md: 40 },
-              height: { xs: 30, sm: 34, md: 40 },
-              minWidth: { xs: 30, sm: 34, md: 40 },
-              mr: { xs: 0.55, sm: 0.7, md: 0.75 },
+              width: { xs: 44, sm: 46 },
+              height: { xs: 44, sm: 46 },
+              mr: { xs: 0.55, sm: 0.75 },
               flexShrink: 0,
-              color: "#fff",
-              bgcolor: canSubmit ? C.accent : "#e7e4e1",
-              "&:hover": { bgcolor: canSubmit ? C.accentDark : "#e7e4e1" },
-              "&.Mui-disabled": { color: "#aaa", bgcolor: "#e7e4e1" },
+              color: isDictating ? C.red : C.textSub,
+              bgcolor: isDictating
+                ? "color-mix(in srgb, #d32f2f 12%, transparent)"
+                : "transparent",
+              "@keyframes anchorMicPulse": {
+                "0%": { transform: "scale(1)", opacity: 1 },
+                "100%": { transform: "scale(1.08)", opacity: 0.75 },
+              },
+              animation: isDictating
+                ? "anchorMicPulse 0.9s ease-in-out infinite alternate"
+                : "none",
             }}
           >
-            <SendRoundedIcon sx={{ fontSize: { xs: 15, sm: 17, md: 18 } }} />
-          </IconButton>
-        )}
-
-        {open && (
-          <IconButton
-            aria-label="Cancel post"
-            onClick={handleCancel}
-            size="small"
-            sx={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              color: C.textMuted,
-              flexShrink: 0,
-              zIndex: 2,
-            }}
-          >
-            <CloseRoundedIcon fontSize="small" />
+            <MicNoneRoundedIcon sx={{ fontSize: { xs: 27, sm: 29 } }} />
           </IconButton>
         )}
       </Box>
+
+      {error && (
+        <Alert
+          severity="error"
+          onClick={(event) => event.stopPropagation()}
+          onClose={() => setError("")}
+          sx={{ mx: 1, mb: 0.75, py: 0 }}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {isDictating && (
+        <Typography
+          onClick={(event) => event.stopPropagation()}
+          sx={{
+            px: 1.5,
+            pb: open ? 0 : 0.25,
+            color: C.red,
+            fontSize: "0.75rem",
+            fontWeight: 600,
+          }}
+        >
+          Listening… live text appears below. Tap send when you&apos;re done
+        </Typography>
+      )}
 
       <Box
         aria-hidden={!open}
@@ -1232,7 +2636,10 @@ const Composer = ({
           </Stack>
         )}
 
-        {(mode === "image" || mode === "video") && (
+        {(mode === "image" ||
+          mode === "video" ||
+          mode === "audio" ||
+          mode === "file") && (
           <Box
             sx={{
               mt: 1.5,
@@ -1243,23 +2650,146 @@ const Composer = ({
               border: `1px solid ${C.divider}`,
             }}
           >
-            {mediaPreviewUrl && (
+            {mode === "audio" && isRecordingAudio && (
               <Box
-                component={mode === "image" ? "img" : "video"}
+                sx={{
+                  mb: 1,
+                  px: 1.25,
+                  py: 1.1,
+                  borderRadius: 2,
+                  border: `1px solid color-mix(in srgb, ${C.red} 35%, ${C.divider})`,
+                  bgcolor: "color-mix(in srgb, #d32f2f 8%, transparent)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.25,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: C.red,
+                    flexShrink: 0,
+                    "@keyframes anchorRecBlink": {
+                      "0%": { opacity: 1 },
+                      "100%": { opacity: 0.35 },
+                    },
+                    animation: "anchorRecBlink 0.9s ease-in-out infinite alternate",
+                  }}
+                />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    sx={{
+                      color: C.red,
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Recording…
+                  </Typography>
+                  <Typography sx={{ color: C.textMuted, fontSize: "0.7rem" }}>
+                    Tap send to post this voice note
+                  </Typography>
+                </Box>
+                <RecordingWaveform accent={C.red} />
+              </Box>
+            )}
+            {mediaPreviewUrl && mode !== "file" && (
+              <Box
+                component={
+                  mode === "image"
+                    ? "img"
+                    : mode === "audio"
+                      ? "audio"
+                      : "video"
+                }
                 src={mediaPreviewUrl}
-                controls={mode === "video"}
+                controls={mode === "video" || mode === "audio"}
                 muted={mode === "video"}
                 playsInline={mode === "video"}
                 sx={{
                   display: "block",
                   width: "100%",
-                  maxHeight: 360,
+                  maxHeight:
+                    mode === "audio"
+                      ? 54
+                      : { xs: 200, sm: 260, md: 320 },
                   objectFit: "contain",
                   borderRadius: 1.5,
                   bgcolor: mode === "video" ? "#111" : C.surface,
                   mb: 1,
                 }}
               />
+            )}
+            {mediaPreviewUrl && mode === "file" && file && (
+              <Box
+                sx={{
+                  mb: 1,
+                  borderRadius: 1.5,
+                  overflow: "hidden",
+                  border: `1px solid ${C.divider}`,
+                  bgcolor: C.cardBg,
+                }}
+              >
+                {file.type === "application/pdf" ||
+                /\.pdf$/i.test(file.name) ? (
+                  <Stack
+                    alignItems="center"
+                    spacing={0.75}
+                    sx={{ py: 3.5, px: 2, bgcolor: "#f3eee6" }}
+                  >
+                    <PictureAsPdfOutlinedIcon
+                      sx={{ fontSize: 56, color: "#b42318" }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: "0.9rem",
+                        fontWeight: 800,
+                        color: C.textPrimary,
+                        textAlign: "center",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {file.name}
+                    </Typography>
+                  </Stack>
+                ) : file.type.startsWith("image/") ? (
+                  <Box
+                    component="img"
+                    src={mediaPreviewUrl}
+                    alt={file.name}
+                    sx={{
+                      display: "block",
+                      width: "100%",
+                      maxHeight: 280,
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <Stack
+                    alignItems="center"
+                    spacing={0.75}
+                    sx={{ py: 3, px: 2 }}
+                  >
+                    <InsertDriveFileOutlinedIcon
+                      sx={{ fontSize: 48, color: C.accentDark }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: "0.86rem",
+                        fontWeight: 700,
+                        color: C.textPrimary,
+                        textAlign: "center",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {file.name}
+                    </Typography>
+                  </Stack>
+                )}
+              </Box>
             )}
             <Box
               sx={{
@@ -1272,18 +2802,28 @@ const Composer = ({
               <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
                 {file
                   ? file.name
-                  : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
-                      mode === "video" ? " · max 50 MB" : ""
-                    }`}
+                  : mode === "audio"
+                    ? isRecordingAudio
+                      ? "Recording… tap send to post"
+                      : "Record a voice message · max 20 MB"
+                    : mode === "file"
+                      ? "Choose a document · max 25 MB"
+                    : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
+                        mode === "video" ? " · max 50 MB" : ""
+                      }`}
               </Typography>
               <Button
                 size="small"
                 variant="text"
-                disabled={submitting}
+                disabled={submitting || (mode === "audio" && isRecordingAudio)}
                 onClick={() =>
                   file && uploadStage === "idle"
                     ? handleMediaSelected(mode, file)
-                    : handleMediaPicker(mode)
+                    : mode === "audio"
+                      ? void handleStartAudioRecording()
+                      : mode === "file"
+                        ? fileInputRef.current?.click()
+                        : handleMediaPicker(mode)
                 }
                 sx={{
                   color: C.accentDark,
@@ -1295,7 +2835,9 @@ const Composer = ({
                   ? "Retry"
                   : file
                     ? "Change"
-                    : "Browse"}
+                    : mode === "audio"
+                      ? "Record"
+                      : "Browse"}
               </Button>
             </Box>
 
@@ -1336,43 +2878,182 @@ const Composer = ({
           <Box
             sx={{
               mt: 1,
-              p: 0.6,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 0.25,
-              width: "min(100%, 460px)",
-              maxHeight: 142,
-              overflowY: "auto",
+              width: "min(100%, 420px)",
               border: `1px solid ${C.divider}`,
               borderRadius: 2,
-              bgcolor: C.surface,
+              overflow: "hidden",
+              bgcolor: C.cardBg,
             }}
           >
-            {COMPOSER_EMOJIS.map((emoji) => (
-              <IconButton
-                key={emoji}
-                aria-label={`Add ${emoji}`}
-                onClick={() => handleEmojiSelect(emoji)}
-                size="small"
-                sx={{
-                  fontSize: "1.2rem",
-                  opacity: 1,
-                  filter: "none",
-                  color: "initial",
-                  fontFamily:
-                    '"Apple Color Emoji", "Segoe UI Emoji", sans-serif',
-                }}
-              >
-                {emoji}
-              </IconButton>
-            ))}
+            <Stack
+              direction="row"
+              role="tablist"
+              aria-label="Emoji categories"
+              sx={{
+                px: 0.5,
+                py: 0.4,
+                overflowX: "auto",
+                borderBottom: `1px solid ${C.divider}`,
+              }}
+            >
+              {COMPOSER_EMOJI_GROUPS.map((group, index) => (
+                <IconButton
+                  key={group.label}
+                  role="tab"
+                  aria-label={group.label}
+                  aria-selected={emojiCategory === index}
+                  title={group.label}
+                  size="small"
+                  onClick={() => setEmojiCategory(index)}
+                  sx={{
+                    flexShrink: 0,
+                    fontSize: "1.25rem",
+                    color: "inherit",
+                    opacity: 1,
+                    WebkitTextFillColor: "initial",
+                    bgcolor:
+                      emojiCategory === index ? C.accentFaint : "transparent",
+                  }}
+                >
+                  {group.icon}
+                </IconButton>
+              ))}
+            </Stack>
+            <Box
+              role="tabpanel"
+              aria-label={`${COMPOSER_EMOJI_GROUPS[emojiCategory]?.label ?? "Smileys"} emojis`}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(8, minmax(34px, 1fr))",
+                gap: 0.2,
+                p: 0.6,
+                maxHeight: 250,
+                overflowY: "auto",
+              }}
+            >
+              {(COMPOSER_EMOJI_GROUPS[emojiCategory]?.emojis ??
+                COMPOSER_EMOJI_GROUPS[0].emojis
+              ).map((emoji, index) => (
+                <Box
+                  key={`${emoji}-${index}`}
+                  component="button"
+                  type="button"
+                  aria-label={`Add ${emoji}`}
+                  title={emoji}
+                  onClick={() => handleEmojiSelect(emoji)}
+                  sx={{
+                    width: "100%",
+                    minHeight: 40,
+                    border: 0,
+                    borderRadius: 1.5,
+                    bgcolor: "transparent",
+                    cursor: "pointer",
+                    fontSize: "1.55rem",
+                    lineHeight: 1.2,
+                    color: "inherit",
+                    opacity: 1,
+                    WebkitTextFillColor: "initial",
+                    filter: "none",
+                    "&:hover": { bgcolor: C.accentFaint },
+                  }}
+                >
+                  {emoji}
+                </Box>
+              ))}
+            </Box>
           </Box>
         )}
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 1.25, py: 0 }}>
-            {error}
-          </Alert>
+        {formattingOpen && (
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.25}
+            sx={{
+              mt: 0.75,
+              py: 0.55,
+              overflowX: "auto",
+              borderTop: `1px solid ${C.divider}`,
+              borderBottom: `1px solid ${C.divider}`,
+            }}
+          >
+            <IconButton
+              aria-label="Close formatting options"
+              size="small"
+              onClick={() => setFormattingOpen(false)}
+              sx={{ mr: 0.5, color: "#fff", bgcolor: C.accent, "&:hover": { bgcolor: C.accentDark } }}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Bold"
+              aria-pressed={composerFont === "emphasis"}
+              size="small"
+              onClick={() =>
+                setComposerFont((current) =>
+                  current === "emphasis" ? "standard" : "emphasis",
+                )
+              }
+              sx={{
+                color: composerFont === "emphasis" ? C.accentDark : C.textSub,
+                bgcolor:
+                  composerFont === "emphasis" ? C.accentFaint : "transparent",
+              }}
+            >
+              <FormatBoldRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Italic"
+              aria-pressed={composerItalic}
+              size="small"
+              onClick={() => setComposerItalic((current) => !current)}
+              sx={{ color: composerItalic ? C.accentDark : C.textSub }}
+            >
+              <FormatItalicRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Underline"
+              aria-pressed={composerUnderline}
+              size="small"
+              onClick={() => setComposerUnderline((current) => !current)}
+              sx={{ color: composerUnderline ? C.accentDark : C.textSub }}
+            >
+              <FormatUnderlinedRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Strikethrough"
+              aria-pressed={composerStrike}
+              size="small"
+              onClick={() => setComposerStrike((current) => !current)}
+              sx={{ color: composerStrike ? C.accentDark : C.textSub }}
+            >
+              <StrikethroughSRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Insert link"
+              size="small"
+              onClick={() => insertComposerText("https://")}
+              sx={{ color: C.textSub }}
+            >
+              <InsertLinkRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Start numbered list"
+              size="small"
+              onClick={() => insertComposerText(content ? "\n1. " : "1. ")}
+              sx={{ color: C.textSub }}
+            >
+              <FormatListNumberedRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              aria-label="Start bulleted list"
+              size="small"
+              onClick={() => insertComposerText(content ? "\n• " : "• ")}
+              sx={{ color: C.textSub }}
+            >
+              <FormatListBulletedRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
         )}
 
         <Box
@@ -1381,12 +3062,51 @@ const Composer = ({
             alignItems: "center",
             justifyContent: "space-between",
             gap: 2,
-            mt: 1.4,
-            pt: 1.1,
-            borderTop: `1px solid ${C.divider}`,
+            mt: 0.75,
+            pt: 0.35,
           }}
         >
-          <Stack direction="row" spacing={0.35}>
+          <Stack
+            direction="row"
+            spacing={{ xs: 0.05, sm: 0.3 }}
+            alignItems="center"
+          >
+            <Tooltip title="Add an image, video, or file">
+              <IconButton
+                aria-label="Add an image, video, or file"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setAttachmentMenuAnchor(event.currentTarget);
+                }}
+                sx={{ color: C.textSub, bgcolor: C.surface }}
+              >
+                <AddRoundedIcon sx={{ fontSize: 28 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Text style">
+              <IconButton
+                aria-label="Show formatting options"
+                aria-expanded={formattingOpen}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setFormattingOpen((current) => !current);
+                }}
+                sx={{
+                  color:
+                    formattingOpen || composerFont !== "standard"
+                      ? C.accentDark
+                      : C.textSub,
+                  bgcolor:
+                    formattingOpen || composerFont !== "standard"
+                      ? C.accentFaint
+                      : "transparent",
+                  fontSize: "1.1rem",
+                  fontWeight: 500,
+                }}
+              >
+                Aa
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Add emoji">
               <IconButton
                 aria-label="Add emoji"
@@ -1399,28 +3119,13 @@ const Composer = ({
                 <EmojiEmotionsOutlinedIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Add image">
+            <Tooltip title="Mention someone">
               <IconButton
-                aria-label="Add image"
-                onClick={() => handleMediaPicker("image")}
-                sx={{
-                  color: mode === "image" ? C.accentDark : C.textSub,
-                  bgcolor: mode === "image" ? C.accentFaint : "transparent",
-                }}
+                aria-label="Mention someone"
+                onClick={handleMentionClick}
+                sx={{ color: C.textSub }}
               >
-                <ImageOutlinedIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Add video">
-              <IconButton
-                aria-label="Add video"
-                onClick={() => handleMediaPicker("video")}
-                sx={{
-                  color: mode === "video" ? C.accentDark : C.textSub,
-                  bgcolor: mode === "video" ? C.accentFaint : "transparent",
-                }}
-              >
-                <VideocamOutlinedIcon />
+                <AlternateEmailRoundedIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Create poll">
@@ -1438,29 +3143,236 @@ const Composer = ({
           </Stack>
 
           <Button
-            variant="contained"
-            endIcon={!submitting ? <SendRoundedIcon /> : undefined}
+            variant="text"
+            aria-label="Send message"
             onClick={handleShare}
             disabled={!canSubmit || submitting}
             sx={{
-              minWidth: 104,
-              px: 2.4,
-              borderRadius: 5,
-              bgcolor: C.accent,
-              textTransform: "none",
-              fontWeight: 700,
-              boxShadow: "none",
-              "&:hover": { bgcolor: C.accentDark, boxShadow: "none" },
+              minWidth: 44,
+              width: 44,
+              height: 44,
+              p: 0,
+              borderRadius: "50%",
+              color: canSubmit ? C.accent : C.textMuted,
+              "&:hover": { bgcolor: C.accentFaint },
             }}
           >
             {submitting ? (
-              <CircularProgress size={20} sx={{ color: "#fff" }} />
+              <CircularProgress size={20} sx={{ color: C.accent }} />
             ) : (
-              "Send"
+              <SendRoundedIcon sx={{ fontSize: 30 }} />
             )}
           </Button>
         </Box>
       </Box>
+      <Dialog
+        open={Boolean(attachmentMenuAnchor)}
+        onClose={() => setAttachmentMenuAnchor(null)}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby="attachment-panel-title"
+        PaperProps={{
+          sx: {
+            position: { xs: "fixed", sm: "relative" },
+            bottom: { xs: 0, sm: "auto" },
+            left: { xs: 0, sm: "auto" },
+            right: { xs: 0, sm: "auto" },
+            width: { xs: "100%", sm: "100%" },
+            m: { xs: 0, sm: 4 },
+            borderRadius: { xs: "22px 22px 0 0", sm: 3 },
+            overflow: "hidden",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: { xs: "flex", sm: "none" },
+            justifyContent: "center",
+            pt: 1,
+            pb: 0.25,
+          }}
+        >
+          <Box
+            sx={{
+              width: 42,
+              height: 4,
+              borderRadius: 999,
+              bgcolor: C.divider,
+            }}
+          />
+        </Box>
+        <DialogTitle
+          id="attachment-panel-title"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            px: 2,
+            pt: { xs: 0.5, sm: 2 },
+            pb: 1,
+            fontWeight: 800,
+          }}
+        >
+          <Box component="span">Camera</Box>
+          <Button
+            size="small"
+            onClick={() => setAttachmentMenuAnchor(null)}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              color: C.textSub,
+              minWidth: 0,
+              px: 0.5,
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogTitle>
+        <DialogContent sx={{ px: 0, pb: 1.5 }}>
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              px: 2,
+              pb: 1.5,
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <Box
+              component="button"
+              type="button"
+              aria-label="Take a picture"
+              onClick={async () => {
+                setAttachmentMenuAnchor(null);
+                if (await requestRecordingPermission("camera")) {
+                  if (photoCaptureInputRef.current) {
+                    photoCaptureInputRef.current.value = "";
+                    photoCaptureInputRef.current.click();
+                  }
+                }
+              }}
+              sx={{
+                flex: "0 0 auto",
+                width: 84,
+                height: 84,
+                borderRadius: 2.5,
+                border: `1px solid ${C.divider}`,
+                bgcolor: C.cardBg,
+                color: C.textSub,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                p: 0,
+              }}
+            >
+              <PhotoCameraOutlinedIcon sx={{ fontSize: 30 }} />
+            </Box>
+            {recentMediaLibrary.slice(0, 12).map((entry) => (
+              <Box
+                key={entry.id}
+                component="button"
+                type="button"
+                aria-label={`Use recent ${entry.kind}: ${entry.name}`}
+                onClick={() => handleRecentMediaSelect(entry)}
+                sx={{
+                  position: "relative",
+                  flex: "0 0 auto",
+                  width: 84,
+                  height: 84,
+                  p: 0,
+                  border: `1px solid ${C.divider}`,
+                  borderRadius: 2.5,
+                  overflow: "hidden",
+                  bgcolor: C.cardBg,
+                  cursor: "pointer",
+                }}
+              >
+                <Box
+                  component="img"
+                  src={entry.previewUrl}
+                  alt=""
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+                {entry.kind === "video" && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      bgcolor: "rgba(0,0,0,0.28)",
+                    }}
+                  >
+                    <PlayArrowRoundedIcon sx={{ color: "#fff", fontSize: 26 }} />
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 6,
+                    right: 6,
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    border: "2px solid #fff",
+                    bgcolor: "rgba(0,0,0,0.18)",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+
+          <Divider sx={{ borderColor: C.divider }} />
+
+          <MenuItem
+            onClick={() => {
+              setAttachmentMenuAnchor(null);
+              window.requestAnimationFrame(() => {
+                if (mediaInputRef.current) {
+                  mediaInputRef.current.value = "";
+                  mediaInputRef.current.click();
+                }
+              });
+            }}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <PhotoLibraryOutlinedIcon sx={{ color: C.textSub }} />
+            Photos &amp; Videos
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setAttachmentMenuAnchor(null);
+              window.requestAnimationFrame(() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                  fileInputRef.current.click();
+                }
+              });
+            }}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <UploadFileOutlinedIcon sx={{ color: C.textSub }} />
+            Upload a File
+          </MenuItem>
+          <MenuItem
+            onClick={() => void handleStartAudioRecording()}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <MicNoneRoundedIcon sx={{ color: C.textSub }} />
+            Record an Audio Clip
+          </MenuItem>
+        </DialogContent>
+      </Dialog>
       <input
         ref={imageInputRef}
         hidden
@@ -1479,6 +3391,37 @@ const Composer = ({
           handleMediaSelected("video", event.target.files?.[0] ?? null)
         }
       />
+      <input
+        ref={mediaInputRef}
+        hidden
+        type="file"
+        multiple
+        accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm"
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length > 1) void refreshRecentMediaLibrary(files);
+          handleAnyMediaSelected(files[0] ?? null);
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        hidden
+        type="file"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.zip,application/pdf"
+        onChange={(event) =>
+          handleMediaSelected("file", event.target.files?.[0] ?? null)
+        }
+      />
+      <input
+        ref={photoCaptureInputRef}
+        hidden
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(event) =>
+          handleMediaSelected("image", event.target.files?.[0] ?? null)
+        }
+      />
     </Card>
   );
 };
@@ -1495,6 +3438,7 @@ const PostCard = ({
   onDeleted,
   onReply,
   onMeetingDiscovered,
+  discoveryCommunityId,
 }: {
   post: ForumPost;
   communityName?: string;
@@ -1508,6 +3452,7 @@ const PostCard = ({
     meeting: Comm360Meeting,
     communityId: string,
   ) => void;
+  discoveryCommunityId?: string;
 }) => {
   const [comments, setComments] = useState<ForumComment[]>(
     post.initialComments ?? [],
@@ -1525,6 +3470,9 @@ const PostCard = ({
     anchor: HTMLElement;
     comment: ForumComment;
   } | null>(null);
+  const [activeCommentActionsId, setActiveCommentActionsId] = useState<
+    string | null
+  >(null);
   const [editingComment, setEditingComment] = useState<ForumComment | null>(null);
   const [commentEditBody, setCommentEditBody] = useState("");
   const [commentEditPending, setCommentEditPending] = useState(false);
@@ -1553,15 +3501,23 @@ const PostCard = ({
   const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(
     null,
   );
+  const [ownerMenuPosition, setOwnerMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editBody, setEditBody] = useState(post.body);
   const [postActionPending, setPostActionPending] = useState(false);
   const [postActionError, setPostActionError] = useState("");
-  const [mobileMoreVisible, setMobileMoreVisible] = useState(false);
   const [mobileSwipeOffset, setMobileSwipeOffset] = useState(0);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const [imageZoomed, setImageZoomed] = useState(false);
+  const [fileViewer, setFileViewer] = useState<{
+    url: string;
+    label: string;
+    kind: "pdf" | "image" | "document";
+  } | null>(null);
   const mobileLongPressTimerRef = useRef<number | null>(null);
   const mobileLongPressTriggeredRef = useRef(false);
   const mobileTouchMovedRef = useRef(false);
@@ -1569,6 +3525,14 @@ const PostCard = ({
   const mobileTouchStartYRef = useRef(0);
   const mobileSwipeOffsetRef = useRef(0);
   const lastMobileTapAtRef = useRef(0);
+  const commentLongPressTimerRef = useRef<number | null>(null);
+  const commentLongPressTriggeredRef = useRef(false);
+  const commentLastTapRef = useRef<{ id: string; at: number }>({
+    id: "",
+    at: 0,
+  });
+  const commentTouchMovedRef = useRef(false);
+  const commentTouchStartRef = useRef({ x: 0, y: 0 });
   const [editWindowOpen, setEditWindowOpen] = useState(
     Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000,
   );
@@ -1579,19 +3543,29 @@ const PostCard = ({
   );
 
   useEffect(() => {
-    const roomId = getComm360RoomId(displayBody);
-    if (!roomId || !post.communityId) return;
+    const communityId = post.communityId ?? discoveryCommunityId;
+    const roomIds = [
+      ...extractComm360RoomIds(displayBody),
+      ...comments.flatMap((comment) => extractComm360RoomIds(comment.body)),
+    ];
+    if (!communityId || roomIds.length === 0) return;
     let cancelled = false;
-    void getComm360Meeting(roomId)
-      .then((meeting) => {
+    for (const roomId of roomIds) {
+      void loadComm360Meeting(roomId).then((meeting) => {
         if (cancelled) return;
-        onMeetingDiscovered?.(meeting, post.communityId!);
-      })
-      .catch(() => undefined);
+        onMeetingDiscovered?.(meeting, communityId);
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [displayBody, onMeetingDiscovered, post.communityId]);
+  }, [
+    comments,
+    discoveryCommunityId,
+    displayBody,
+    onMeetingDiscovered,
+    post.communityId,
+  ]);
   // T: O(b) and S: O(1), where b is the post body length
 
   useEffect(() => {
@@ -1724,6 +3698,88 @@ const PostCard = ({
       );
     }
   };
+
+  const clearCommentLongPressTimer = () => {
+    if (commentLongPressTimerRef.current !== null) {
+      window.clearTimeout(commentLongPressTimerRef.current);
+      commentLongPressTimerRef.current = null;
+    }
+  };
+
+  const revealCommentActions = (commentId: string) => {
+    setActiveCommentActionsId(commentId);
+  };
+
+  const handleCommentRowPointerDown = (
+    event: React.PointerEvent<HTMLElement>,
+    commentId: string,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    commentTouchMovedRef.current = false;
+    commentTouchStartRef.current = { x: event.clientX, y: event.clientY };
+    commentLongPressTriggeredRef.current = false;
+    clearCommentLongPressTimer();
+    commentLongPressTimerRef.current = window.setTimeout(() => {
+      commentLongPressTriggeredRef.current = true;
+      revealCommentActions(commentId);
+    }, 420);
+  };
+
+  const handleCommentRowPointerMove = (
+    event: React.PointerEvent<HTMLElement>,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    const dx = event.clientX - commentTouchStartRef.current.x;
+    const dy = event.clientY - commentTouchStartRef.current.y;
+    if (Math.hypot(dx, dy) > 12) {
+      commentTouchMovedRef.current = true;
+      clearCommentLongPressTimer();
+    }
+  };
+
+  const handleCommentRowPointerUp = (
+    event: React.PointerEvent<HTMLElement>,
+    comment: ForumComment,
+  ) => {
+    if (event.pointerType === "mouse") return;
+    clearCommentLongPressTimer();
+    if (commentTouchMovedRef.current) return;
+    if (commentLongPressTriggeredRef.current) {
+      commentLongPressTriggeredRef.current = false;
+      return;
+    }
+    const now = Date.now();
+    const last = commentLastTapRef.current;
+    if (last.id === comment.id && now - last.at < 350) {
+      commentLastTapRef.current = { id: "", at: 0 };
+      revealCommentActions(comment.id);
+      void handleCommentLike(comment);
+      return;
+    }
+    commentLastTapRef.current = { id: comment.id, at: now };
+    revealCommentActions(comment.id);
+  };
+
+  useEffect(() => {
+    if (!showComments) setActiveCommentActionsId(null);
+  }, [showComments]);
+
+  useEffect(() => {
+    if (!activeCommentActionsId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(`[data-comment-row="${activeCommentActionsId}"]`)) {
+        return;
+      }
+      if (target.closest(".MuiMenu-root, .MuiPopover-root, .MuiDialog-root")) {
+        return;
+      }
+      setActiveCommentActionsId(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [activeCommentActionsId]);
 
   const updatePollSelectionOptimistically = (optionIds: string[]): void => {
     const currentPoll = pollRef.current;
@@ -1910,7 +3966,17 @@ const PostCard = ({
     Boolean(target.closest("button, a, input, textarea, select, [role='button']"));
 
   const isMobileTouchLayout = () =>
-    window.matchMedia("(max-width: 599.95px)").matches;
+    window.matchMedia("(max-width: 899.95px)").matches;
+
+  const closeOwnerMenu = () => {
+    setOwnerMenuAnchor(null);
+    setOwnerMenuPosition(null);
+  };
+
+  const openOwnerMenuAtPoint = (top: number, left: number) => {
+    setOwnerMenuAnchor(null);
+    setOwnerMenuPosition({ top, left });
+  };
 
   const handleMobileTouchStart = (event: React.TouchEvent) => {
     if (!isMobileTouchLayout() || isInteractiveTouchTarget(event.target)) return;
@@ -1925,9 +3991,9 @@ const PostCard = ({
     mobileLongPressTriggeredRef.current = false;
     mobileLongPressTimerRef.current = window.setTimeout(() => {
       mobileLongPressTriggeredRef.current = true;
-      setMobileMoreVisible(true);
-      navigator.vibrate?.(10);
-    }, 520);
+      openOwnerMenuAtPoint(touch.clientY, touch.clientX);
+      navigator.vibrate?.(12);
+    }, 480);
   };
 
   const handleMobileTouchMove = (event: React.TouchEvent) => {
@@ -2010,13 +4076,13 @@ const PostCard = ({
   // T: O(b) and S: O(b), where b is the post text length
 
   const handleMenuShare = async () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     await handleSharePost();
   };
   // T: O(b) and S: O(b), where b is the post text length
 
   const handleCopyPostText = async () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     const text = [post.title, post.body].filter(Boolean).join("\n\n").trim();
     try {
       await navigator.clipboard.writeText(text);
@@ -2028,7 +4094,7 @@ const PostCard = ({
   // T: O(b) and S: O(b), where b is the post text length
 
   const handleCopyPostLink = async () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     const url = `${window.location.origin}/community?post=${encodeURIComponent(
       post.id,
     )}`;
@@ -2043,18 +4109,18 @@ const PostCard = ({
 
   const handleUnfollow = async () => {
     if (friendActionPending) return;
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     setFriendActionPending(true);
     setActionMessage("");
     try {
       await removeFriend(post.authorId);
       setFriendshipStatus("none");
-      setActionMessage(`You are no longer following ${post.authorName}.`);
+      setActionMessage(`You are no longer friends with ${post.authorName}.`);
     } catch (caught) {
       setActionMessage(
         caught instanceof Error
           ? caught.message
-          : `Could not unfollow ${post.authorName}`,
+          : `Could not unfriend ${post.authorName}`,
       );
     } finally {
       setFriendActionPending(false);
@@ -2064,7 +4130,7 @@ const PostCard = ({
 
   const handleOpenEdit = () => {
     if (!editWindowOpen) return;
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     setEditBody(displayBody);
     setPostActionError("");
     setEditOpen(true);
@@ -2093,7 +4159,7 @@ const PostCard = ({
   // T: O(b) and S: O(b), where b is the post body length
 
   const handleOpenDelete = () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     setPostActionError("");
     setDeleteOpen(true);
   };
@@ -2147,12 +4213,9 @@ const PostCard = ({
         boxSizing: "border-box",
         py: { xs: 1.2, sm: 2 },
         bgcolor: C.cardBg,
-        border: showComments ? `1px solid ${C.accentBorder}` : 0,
-        borderBottom: showComments
-          ? `1px solid ${C.accentBorder}`
-          : `1px solid ${C.divider}`,
-        borderRadius: showComments ? 2 : 0,
-        px: showComments ? { xs: 1, sm: 1.5 } : 0,
+        border: 0,
+        borderRadius: 0,
+        px: 0,
         boxShadow: "none",
         overflow: "hidden",
         transition: "background-color 140ms ease",
@@ -2212,11 +4275,11 @@ const PostCard = ({
           transition: "opacity 140ms ease, transform 140ms ease",
           zIndex: 2,
           "& .MuiIconButton-root": {
-            width: { xs: 25, sm: 34 },
-            height: { xs: 25, sm: 34 },
+            width: { xs: 24, sm: 28 },
+            height: { xs: 24, sm: 28 },
           },
           "& .MuiSvgIcon-root": {
-            fontSize: { xs: 16, sm: 24 },
+            fontSize: { xs: 14, sm: 16 },
           },
         }}
       >
@@ -2278,38 +4341,16 @@ const PostCard = ({
           <IconButton
             size="small"
             aria-label="More message actions"
-            onClick={(event) => setOwnerMenuAnchor(event.currentTarget)}
+            onClick={(event) => {
+              setOwnerMenuPosition(null);
+              setOwnerMenuAnchor(event.currentTarget);
+            }}
             sx={{ color: C.textMuted }}
           >
             <MoreHorizRoundedIcon />
           </IconButton>
         </Tooltip>
       </Stack>
-      <IconButton
-        size="small"
-        aria-label="More message actions"
-        onClick={(event) => {
-          setMobileMoreVisible(false);
-          setOwnerMenuAnchor(event.currentTarget);
-        }}
-        sx={{
-          display: {
-            xs: mobileMoreVisible ? "inline-flex" : "none",
-            md: "none",
-          },
-          position: "absolute",
-          top: 6,
-          right: 0,
-          width: 32,
-          height: 32,
-          color: C.textMuted,
-          bgcolor: C.cardBg,
-          zIndex: 3,
-          "&:hover": { bgcolor: C.surface },
-        }}
-      >
-        <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
-      </IconButton>
       {/* Author row */}
       <Box
         sx={{
@@ -2380,11 +4421,10 @@ const PostCard = ({
         <Menu
           id={`post-menu-${post.id}`}
           anchorEl={ownerMenuAnchor}
-          open={Boolean(ownerMenuAnchor)}
-          onClose={() => {
-            setOwnerMenuAnchor(null);
-            setMobileMoreVisible(false);
-          }}
+          anchorReference={ownerMenuPosition ? "anchorPosition" : "anchorEl"}
+          anchorPosition={ownerMenuPosition ?? undefined}
+          open={Boolean(ownerMenuAnchor || ownerMenuPosition)}
+          onClose={closeOwnerMenu}
           MenuListProps={{ "aria-label": "Message options" }}
         >
               {friendshipStatus === "self" && (
@@ -2425,11 +4465,13 @@ const PostCard = ({
                   sx={{ gap: 1, color: C.red }}
                 >
                   <PersonRemoveOutlinedIcon fontSize="small" />
-                  Unfollow {post.authorName}
+                  Unfriend {post.authorName}
                 </MenuItem>
               )}
         </Menu>
       </Box>
+
+      <Box sx={{ ml: { xs: 5.5, sm: 6.15 }, minWidth: 0 }}>
 
       {communityName && !conversationStyle && (
         <Chip
@@ -2471,20 +4513,73 @@ const PostCard = ({
               <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
                 {post.replyTo.authorName}
               </Typography>
-              <Typography
-                sx={{
-                  color: C.textMuted,
-                  fontSize: { xs: "0.72rem", sm: "0.76rem" },
-                  lineHeight: 1.35,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  overflowWrap: "anywhere",
-                }}
-              >
-                {post.replyTo.body}
-              </Typography>
+              {post.replyTo.body && (
+                <Typography
+                  sx={{
+                    color: C.textMuted,
+                    fontSize: { xs: "0.72rem", sm: "0.76rem" },
+                    lineHeight: 1.35,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {post.replyTo.body}
+                </Typography>
+              )}
+              {post.replyTo.media?.[0] && (
+                post.replyTo.media[0].type === "file" ? (
+                  <Box
+                    component="a"
+                    href={post.replyTo.media[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      mt: 0.65,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      color: C.accentDark,
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <DownloadRoundedIcon sx={{ fontSize: 16 }} />
+                    Attached file
+                  </Box>
+                ) : (
+                  <Box
+                    component={
+                      post.replyTo.media[0].type === "image"
+                        ? "img"
+                        : post.replyTo.media[0].type === "audio"
+                          ? "audio"
+                          : "video"
+                    }
+                    src={post.replyTo.media[0].url}
+                    controls={post.replyTo.media[0].type === "audio"}
+                    muted={post.replyTo.media[0].type === "video"}
+                    playsInline={post.replyTo.media[0].type === "video"}
+                    sx={{
+                      display: "block",
+                      width:
+                        post.replyTo.media[0].type === "audio"
+                          ? { xs: 210, sm: 260 }
+                          : { xs: 64, sm: 76 },
+                      height:
+                        post.replyTo.media[0].type === "audio"
+                          ? 40
+                          : { xs: 46, sm: 54 },
+                      mt: 0.65,
+                      borderRadius: 1.25,
+                      objectFit: "cover",
+                      bgcolor: C.surface,
+                    }}
+                  />
+                )
+              )}
             </Box>
         </Box>
       )}
@@ -2579,6 +4674,84 @@ const PostCard = ({
               }}
             />
           </Box>
+        ) : item.type === "file" ? (
+          (() => {
+            const label = mediaFileLabel(item.url, item.originalFilename);
+            const pdf =
+              isPdfMediaUrl(item.url) ||
+              /\.pdf$/i.test(label) ||
+              /\.pdf$/i.test(item.originalFilename ?? "");
+            const imageLike = isImageLikeFileUrl(item.url);
+            if (imageLike) {
+              return (
+                <Box
+                  key={item.id}
+                  component="button"
+                  type="button"
+                  aria-label={`Open ${label}`}
+                  onClick={() =>
+                    setFileViewer({ url: item.url, label, kind: "image" })
+                  }
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    maxWidth: { xs: "100%", sm: 640 },
+                    mr: "auto",
+                    p: 0,
+                    border: 0,
+                    borderRadius: 2,
+                    bgcolor: C.surface,
+                    mb: 2,
+                    overflow: "hidden",
+                    cursor: "zoom-in",
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={item.url}
+                    alt={label}
+                    sx={{
+                      display: "block",
+                      width: "100%",
+                      maxHeight: { xs: 260, sm: 380 },
+                      objectFit: "contain",
+                    }}
+                  />
+                </Box>
+              );
+            }
+            return (
+              <CommunityFilePreviewCard
+                key={item.id}
+                url={item.url}
+                label={label}
+                kind={pdf ? "pdf" : "document"}
+                onOpen={() =>
+                  setFileViewer({
+                    url: item.url,
+                    label,
+                    kind: pdf ? "pdf" : "document",
+                  })
+                }
+              />
+            );
+          })()
+        ) : item.type === "audio" ? (
+          <Box
+            key={item.id}
+            component="audio"
+            src={item.url}
+            controls
+            preload="metadata"
+            sx={{
+              display: "block",
+              width: "100%",
+              maxWidth: 520,
+              height: 48,
+              mr: "auto",
+              mb: 2,
+            }}
+          />
         ) : (
           <Box
             key={item.id}
@@ -2702,12 +4875,14 @@ const PostCard = ({
         </Stack>
       )}
 
+      {(likeCount > 0 || commentCount > 0) && (
       <Stack
         direction="row"
         alignItems="center"
-        spacing={{ xs: 1, sm: 1.5 }}
-        sx={{ mt: 0.9, minHeight: 32 }}
+        spacing={{ xs: 1, sm: 1.25 }}
+        sx={{ mt: 0.75, minHeight: 24 }}
       >
+        {likeCount > 0 && (
         <Button
           size="small"
           onClick={() => void handleLike()}
@@ -2719,15 +4894,18 @@ const PostCard = ({
             minWidth: 0,
             px: 0.25,
             color: liked ? C.accentDark : C.textMuted,
-            fontSize: "0.95rem",
+            fontSize: "0.82rem",
             fontWeight: 600,
             textTransform: "none",
-            "& .MuiButton-startIcon": { mr: 0.5 },
-            "& .MuiSvgIcon-root": { fontSize: 24 },
+            lineHeight: 1.2,
+            "& .MuiButton-startIcon": { mr: 0.35 },
+            "& .MuiSvgIcon-root": { fontSize: "0.78rem" },
           }}
         >
           {likeCount}
         </Button>
+        )}
+        {commentCount > 0 && (
         <Button
           size="small"
           onClick={() => void handleToggleComments()}
@@ -2736,26 +4914,30 @@ const PostCard = ({
             minWidth: 0,
             px: 0.25,
             color: showComments ? C.accentDark : C.textMuted,
-            fontSize: "0.95rem",
+            fontSize: "0.82rem",
             fontWeight: 600,
             textTransform: "none",
-            "& .MuiButton-startIcon": { mr: 0.5 },
-            "& .MuiSvgIcon-root": { fontSize: 24 },
+            lineHeight: 1.2,
+            "& .MuiButton-startIcon": { mr: 0.35 },
+            "& .MuiSvgIcon-root": { fontSize: "0.78rem" },
           }}
         >
           {commentCount}
         </Button>
+        )}
       </Stack>
+      )}
 
       {actionMessage && (
         <Typography sx={{ mt: 1, color: C.textMuted, fontSize: "0.75rem" }}>
           {actionMessage}
         </Typography>
       )}
+      </Box>
 
       {/* Comments + reply box */}
       {showComments && (
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2, ml: { xs: 5.5, sm: 6.15 } }}>
           <Divider sx={{ borderColor: C.divider, mb: 1.5 }} />
 
           {comments.length === 0 ? (
@@ -2764,22 +4946,46 @@ const PostCard = ({
             </Typography>
           ) : (
             <Stack spacing={1.1} sx={{ mb: 2 }}>
-              {comments.map((comment) => (
+              {comments.map((comment) => {
+                const actionsVisible = activeCommentActionsId === comment.id;
+                return (
                 <Box
                   key={comment.id}
+                  data-comment-row={comment.id}
+                  onPointerDown={(event) =>
+                    handleCommentRowPointerDown(event, comment.id)
+                  }
+                  onPointerMove={handleCommentRowPointerMove}
+                  onPointerUp={(event) =>
+                    handleCommentRowPointerUp(event, comment)
+                  }
+                  onPointerCancel={clearCommentLongPressTimer}
+                  onDoubleClick={() => {
+                    revealCommentActions(comment.id);
+                    void handleCommentLike(comment);
+                  }}
                   sx={{
                     display: "flex",
                     alignItems: "flex-start",
                     gap: 1.2,
                     position: "relative",
                     pr: { xs: 0, md: 16 },
+                    borderRadius: 1.5,
+                    touchAction: "manipulation",
+                    WebkitUserSelect: "none",
+                    userSelect: "none",
+                    bgcolor: actionsVisible ? C.surface : "transparent",
                     "& .comment-actions": {
-                      opacity: { xs: 1, md: 0 },
-                      pointerEvents: { xs: "auto", md: "none" },
+                      opacity: actionsVisible ? 1 : 0,
+                      pointerEvents: actionsVisible ? "auto" : "none",
+                      transition: "opacity 140ms ease",
                     },
-                    "&:hover .comment-actions, &:focus-within .comment-actions": {
-                      opacity: 1,
-                      pointerEvents: "auto",
+                    "@media (hover: hover) and (min-width: 900px)": {
+                      "&:hover .comment-actions, &:focus-within .comment-actions":
+                        {
+                          opacity: 1,
+                          pointerEvents: "auto",
+                        },
                     },
                   }}
                 >
@@ -2833,6 +5039,8 @@ const PostCard = ({
                           lineHeight: 1.45,
                           flex: "0 1 auto",
                           fontFamily: "Inter, sans-serif",
+                          WebkitUserSelect: "text",
+                          userSelect: "text",
                         }}
                       >
                         {comment.body}
@@ -2844,6 +5052,8 @@ const PostCard = ({
                     direction="row"
                     alignItems="center"
                     spacing={0.25}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerUp={(event) => event.stopPropagation()}
                     sx={{
                       position: { xs: "static", md: "absolute" },
                       top: 0,
@@ -2854,12 +5064,14 @@ const PostCard = ({
                       border: `1px solid ${C.divider}`,
                       borderRadius: 2,
                       px: 0.25,
-                      transition: "opacity 140ms ease",
                     }}
                   >
                     <Button
                       size="small"
-                      onClick={() => void handleCommentLike(comment)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleCommentLike(comment);
+                      }}
                       startIcon={
                         comment.viewerLiked ? (
                           <FavoriteRoundedIcon />
@@ -2873,6 +5085,8 @@ const PostCard = ({
                         color: comment.viewerLiked ? C.accentDark : C.textMuted,
                         fontSize: "0.68rem",
                         textTransform: "none",
+                        "& .MuiButton-startIcon": { mr: 0.3 },
+                        "& .MuiSvgIcon-root": { fontSize: "0.75rem" },
                       }}
                     >
                       {comment.likeCount}
@@ -2881,20 +5095,22 @@ const PostCard = ({
                       <IconButton
                         size="small"
                         aria-label={`Comment options for ${comment.authorName}`}
-                        onClick={(event) =>
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setCommentMenu({
                             anchor: event.currentTarget,
                             comment,
-                          })
-                        }
+                          });
+                        }}
                         sx={{ color: C.textMuted }}
                       >
-                        <MoreHorizRoundedIcon sx={{ fontSize: 18 }} />
+                        <MoreHorizRoundedIcon sx={{ fontSize: 16 }} />
                       </IconButton>
                     )}
                   </Stack>
                 </Box>
-              ))}
+              );
+              })}
             </Stack>
           )}
 
@@ -3055,6 +5271,151 @@ const PostCard = ({
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(fileViewer)}
+        onClose={() => setFileViewer(null)}
+        fullScreen
+        PaperProps={{
+          sx: {
+            bgcolor: fileViewer?.kind === "image" ? "#111" : C.cardBg,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            position: "fixed",
+            top: 12,
+            left: 12,
+            right: 12,
+            zIndex: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <Typography
+            sx={{
+              color: fileViewer?.kind === "image" ? "#fff" : C.textPrimary,
+              fontWeight: 700,
+              fontSize: "0.92rem",
+              px: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "55%",
+              textShadow:
+                fileViewer?.kind === "image"
+                  ? "0 1px 4px rgba(0,0,0,0.65)"
+                  : "none",
+            }}
+          >
+            {fileViewer?.label}
+          </Typography>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            <IconButton
+              component="a"
+              href={fileViewer?.url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download file"
+              sx={{
+                color: fileViewer?.kind === "image" ? "#fff" : C.textPrimary,
+                bgcolor:
+                  fileViewer?.kind === "image"
+                    ? "rgba(0,0,0,0.48)"
+                    : C.surface,
+              }}
+            >
+              <DownloadRoundedIcon />
+            </IconButton>
+            <IconButton
+              aria-label="Close file viewer"
+              onClick={() => setFileViewer(null)}
+              sx={{
+                color: fileViewer?.kind === "image" ? "#fff" : C.textPrimary,
+                bgcolor:
+                  fileViewer?.kind === "image"
+                    ? "rgba(0,0,0,0.48)"
+                    : C.surface,
+              }}
+            >
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </Box>
+        <DialogContent
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            p: { xs: 1, sm: 2 },
+            pt: { xs: 8, sm: 9 },
+            overflow: "hidden",
+          }}
+        >
+          {fileViewer?.kind === "image" ? (
+            <Box
+              component="img"
+              src={fileViewer.url}
+              alt={fileViewer.label}
+              sx={{
+                display: "block",
+                maxWidth: "100%",
+                maxHeight: "calc(100vh - 96px)",
+                objectFit: "contain",
+              }}
+            />
+          ) : fileViewer?.kind === "pdf" ? (
+            <CommunityPdfBlobFrame
+              url={fileViewer.url}
+              title={fileViewer.label}
+              height="calc(100vh - 96px)"
+            />
+          ) : fileViewer ? (
+            <Stack
+              spacing={2}
+              alignItems="center"
+              sx={{
+                width: "min(100%, 420px)",
+                px: 2,
+                py: 4,
+                borderRadius: 3,
+                border: `1px solid ${C.divider}`,
+                bgcolor: C.surface,
+                textAlign: "center",
+              }}
+            >
+              <InsertDriveFileOutlinedIcon
+                sx={{ fontSize: 64, color: C.accentDark }}
+              />
+              <Typography sx={{ fontWeight: 800, color: C.textPrimary }}>
+                {fileViewer.label}
+              </Typography>
+              <Typography sx={{ color: C.textMuted, fontSize: "0.85rem" }}>
+                This file type opens in a new tab for full viewing or download.
+              </Typography>
+              <Button
+                component="a"
+                href={fileViewer.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="contained"
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  bgcolor: C.accent,
+                  "&:hover": { bgcolor: C.accentDark },
+                }}
+              >
+                Open file
+              </Button>
+            </Stack>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -3245,7 +5606,9 @@ const ScheduleMeetings = ({
     return () => window.clearInterval(timer);
   }, []);
   const scopedMeetings = meetings
-    .filter((meeting) => meeting.communityId === activeCommunityId)
+    .filter((meeting) =>
+      isAllView ? true : meeting.communityId === activeCommunityId,
+    )
     .sort((left, right) => {
       const leftStart = left.startAt
         ? new Date(left.startAt).getTime()
@@ -3287,7 +5650,7 @@ const ScheduleMeetings = ({
         {isAllView ? "Schedule a Discussion" : "Scheduled Discussions"}
       </Typography>
 
-      {isAllView ? (
+      {isAllView && (
         <>
           <Typography sx={{ fontSize: { xs: "16px", lg: "0.82rem" }, lineHeight: 1.5, color: C.textSub, mb: 2 }}>
             Schedule the meeting in Comm360, then{" "}
@@ -3331,9 +5694,10 @@ const ScheduleMeetings = ({
             Open Comm360 to schedule
           </Box>
         </>
-      ) : (
-        <>
-          <Stack spacing={compact ? 0.75 : 1.25} sx={{ mt: compact ? 0.75 : 1.75 }}>
+      )}
+
+      {(!isAllView || scopedMeetings.length > 0) && (
+        <Stack spacing={compact ? 0.75 : 1.25} sx={{ mt: compact ? 0.75 : 1.75 }}>
             {scopedMeetings.length === 0 ? (
               <Typography
                 sx={{
@@ -3354,9 +5718,9 @@ const ScheduleMeetings = ({
                   : Number.NaN;
                 const canJoin =
                   Boolean(meeting.joinUrl) &&
-                  Number.isFinite(startsAt) &&
-                  currentTime >= startsAt &&
-                  currentTime <= startsAt + 2 * 60 * 60_000;
+                  (!Number.isFinite(startsAt) ||
+                    (currentTime >= startsAt &&
+                      currentTime <= startsAt + 2 * 60 * 60_000));
                 const hasEnded =
                   Number.isFinite(startsAt) &&
                   currentTime > startsAt + 2 * 60 * 60_000;
@@ -3396,6 +5760,18 @@ const ScheduleMeetings = ({
                         >
                           {meeting.topic}
                         </Typography>
+                        {isAllView && meeting.communityName && (
+                          <Typography
+                            sx={{
+                              mt: 0.2,
+                              fontSize: "0.72rem",
+                              fontWeight: 600,
+                              color: C.accentDark,
+                            }}
+                          >
+                            {meeting.communityName}
+                          </Typography>
+                        )}
                         <Typography
                           sx={{
                             mt: 0.35,
@@ -3496,7 +5872,6 @@ const ScheduleMeetings = ({
               })
             )}
           </Stack>
-        </>
       )}
     </Card>
   );
@@ -3534,17 +5909,22 @@ const CommunityNavigation = ({
         onChange={handleChange}
         variant="fullWidth"
         sx={{
-          minHeight: 54,
+          minHeight: { xs: 40, sm: 54 },
+          "& .MuiTabs-flexContainer": {
+            minHeight: { xs: 40, sm: 54 },
+          },
           "& .MuiTabs-indicator": {
             height: 2,
             bgcolor: C.accent,
           },
           "& .MuiTab-root": {
-            minHeight: 54,
+            minHeight: { xs: 40, sm: 54 },
+            py: { xs: 0.5, sm: 1 },
             color: C.textPrimary,
             textTransform: "none",
-            fontSize: { xs: "0.85rem", sm: "0.95rem" },
+            fontSize: { xs: "0.82rem", sm: "0.95rem" },
             fontWeight: 500,
+            lineHeight: 1.2,
           },
           "& .Mui-selected": {
             color: `${C.textPrimary} !important`,
@@ -3667,6 +6047,11 @@ const CommunitiesView = ({
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState("");
   const [showAllCommunities, setShowAllCommunities] = useState(false);
+  const [showAllDiscoverable, setShowAllDiscoverable] = useState(false);
+  const [recentlyActiveOrder, setRecentlyActiveOrder] = useState<string[]>(
+    [],
+  );
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [manageAnchor, setManageAnchor] = useState<HTMLElement | null>(null);
   const [managedCommunity, setManagedCommunity] = useState<Community | null>(
     null,
@@ -3713,10 +6098,69 @@ const CommunitiesView = ({
     onPendingEditConsumed?.();
   }, [communities, onPendingEditConsumed, pendingEditCommunityId]);
 
-  const joinedCommunities = communities.filter((community) => community.joined);
+  useEffect(() => {
+    setRecentlyActiveOrder(readRecentlyActiveCommunityOrder());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let debounceTimer = 0;
+
+    const refreshUnreadCounts = async () => {
+      setRecentlyActiveOrder(readRecentlyActiveCommunityOrder());
+      const joined = communities.filter((community) => community.joined);
+      if (joined.length === 0) {
+        if (!cancelled) setUnreadCounts({});
+        return;
+      }
+      const priority = sortJoinedCommunities(
+        joined,
+        readRecentlyActiveCommunityOrder(),
+        {},
+      ).slice(0, 8);
+      const entries = await Promise.all(
+        priority.map(async (community) => {
+          const posts = await listCommunityFeed(community.id).catch(
+            () => [] as CommunityPostRecord[],
+          );
+          return [
+            community.id,
+            countUnreadCommunityMessages(posts, community.id),
+          ] as const;
+        }),
+      );
+      if (cancelled) return;
+      setUnreadCounts((current) => ({
+        ...current,
+        ...Object.fromEntries(entries),
+      }));
+    };
+
+    void refreshUnreadCounts();
+    const handleInboxChanged = () => {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        void refreshUnreadCounts();
+      }, 800);
+    };
+    window.addEventListener(INBOX_CHANGED_EVENT, handleInboxChanged);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(debounceTimer);
+      window.removeEventListener(INBOX_CHANGED_EVENT, handleInboxChanged);
+    };
+    // unreadCounts intentionally omitted to avoid refresh loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communities]);
+
+  const joinedCommunities = sortJoinedCommunities(
+    communities.filter((community) => community.joined),
+    recentlyActiveOrder,
+    unreadCounts,
+  );
   const visibleJoinedCommunities = showAllCommunities
     ? joinedCommunities
-    : joinedCommunities.slice(0, 5);
+    : joinedCommunities.slice(0, 4);
   const scheduleCommunity = joinedCommunities.find(
     (community) => community.id === scheduleCommunityId,
   );
@@ -3727,6 +6171,9 @@ const CommunitiesView = ({
       .toLowerCase()
       .includes(normalizedSearch);
   });
+  const visibleDiscoverableCommunities = showAllDiscoverable
+    ? discoverableCommunities
+    : discoverableCommunities.slice(0, 4);
   const communityEditChanges: Partial<{
     name: string;
     description: string;
@@ -3806,7 +6253,7 @@ const CommunitiesView = ({
     try {
       const result = await onCreate({
         name: normalizedTitle,
-        description: description.trim() || "A new Anchor community",
+        description: description.trim(),
         visibility,
         friendIds: selectedFriendIds,
         firstPost: communityPost.trim(),
@@ -4088,10 +6535,6 @@ const CommunitiesView = ({
         >
           Communities
         </Typography>
-        <Typography sx={{ color: C.textSub, fontSize: "0.9rem", mt: 0.5 }}>
-          Keep up with your groups, discover new people, or start a space of
-          your own.
-        </Typography>
       </Box>
 
       <Card
@@ -4179,11 +6622,6 @@ const CommunitiesView = ({
                     >
                       Your communities
                     </Typography>
-                    <Typography
-                      sx={{ color: C.textMuted, fontSize: "0.76rem", mt: 0.2 }}
-                    >
-                      Select one to schedule a discussion.
-                    </Typography>
                   </Box>
                   <CommunityLayoutToggle
                     layout={layout}
@@ -4197,32 +6635,43 @@ const CommunitiesView = ({
                     gridTemplateColumns:
                       layout === "grid"
                         ? {
-                            xs: "1fr",
-                            sm: "repeat(auto-fill, minmax(220px, 260px))",
+                            xs: "repeat(2, minmax(0, 1fr))",
+                            md: "repeat(3, minmax(0, 1fr))",
                           }
                         : "1fr",
-                    justifyContent: "start",
+                    justifyContent: "stretch",
+                    alignItems: "stretch",
                     gap:
                       layout === "grid" ? { xs: 1, sm: 1.5 } : 0,
+                    width: "100%",
                   }}
                 >
                   {visibleJoinedCommunities.map((community) => {
                     const isSelected = community.id === scheduleCommunityId;
+                    const unreadCount = unreadCounts[community.id] ?? 0;
+                    const openCommunity = () => {
+                      setScheduleCommunityId(community.id);
+                      setUnreadCounts((current) => ({
+                        ...current,
+                        [community.id]: 0,
+                      }));
+                      onOpen(community.id);
+                    };
                     return (
                       <Box
                         key={community.id}
                         role="button"
                         tabIndex={0}
-                        aria-label={`Open ${community.name}`}
-                        onClick={() => {
-                          setScheduleCommunityId(community.id);
-                          onOpen(community.id);
-                        }}
+                        aria-label={
+                          unreadCount > 0
+                            ? `Open ${community.name}, ${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`
+                            : `Open ${community.name}`
+                        }
+                        onClick={openCommunity}
                         onKeyDown={(event) => {
                           if (event.key !== "Enter" && event.key !== " ") return;
                           event.preventDefault();
-                          setScheduleCommunityId(community.id);
-                          onOpen(community.id);
+                          openCommunity();
                         }}
                         sx={{
                           width: "100%",
@@ -4236,7 +6685,7 @@ const CommunitiesView = ({
                           gap: { xs: 1, sm: 1.3 },
                           p:
                             layout === "grid"
-                              ? { xs: 1.25, sm: 2 }
+                              ? { xs: 1, sm: 2 }
                               : { xs: 1.1, sm: 1.5 },
                           border: 0,
                           borderBottom:
@@ -4252,7 +6701,7 @@ const CommunitiesView = ({
                                 }`
                               : "none",
                           color: C.textPrimary,
-                          overflow: "hidden",
+                          overflow: "visible",
                           font: "inherit",
                           textAlign: "left",
                           cursor: "pointer",
@@ -4271,50 +6720,64 @@ const CommunitiesView = ({
                           },
                         }}
                       >
-                        <Box
+                        <Badge
+                          badgeContent={unreadCount}
+                          color="error"
+                          overlap="circular"
+                          invisible={unreadCount < 1}
                           sx={{
-                            width: { xs: 36, sm: 40 },
-                            height: { xs: 36, sm: 40 },
-                            borderRadius: "50%",
-                            display: "grid",
-                            placeItems: "center",
-                            bgcolor: isSelected ? C.surface : C.accentFaint,
-                            color: C.accentDark,
                             flexShrink: 0,
+                            "& .MuiBadge-badge": {
+                              fontSize: "0.65rem",
+                              fontWeight: 700,
+                              minWidth: 18,
+                              height: 18,
+                            },
                           }}
                         >
-                          <GroupsRoundedIcon fontSize="small" />
-                        </Box>
+                          <Box
+                            sx={{
+                              width: { xs: 36, sm: 40 },
+                              height: { xs: 36, sm: 40 },
+                              borderRadius: "50%",
+                              display: "grid",
+                              placeItems: "center",
+                              bgcolor: isSelected ? C.surface : C.accentFaint,
+                              color: C.accentDark,
+                            }}
+                          >
+                            <GroupsRoundedIcon fontSize="small" />
+                          </Box>
+                        </Badge>
                         <Box sx={{ flex: 1, minWidth: 0, width: "100%", maxWidth: "100%" }}>
                           <Typography
                             sx={{
                               color: C.textPrimary,
-                              fontSize: "0.88rem",
+                              fontSize: { xs: "0.8rem", sm: "0.88rem" },
                               fontWeight: 700,
                               overflowWrap: "anywhere",
                             }}
                           >
                             {community.name}
                           </Typography>
-                          <Typography
-                            sx={{
-                              color: C.textMuted,
-                              fontSize: "0.74rem",
-                              lineHeight: 1.35,
-                              overflowWrap: "anywhere",
-                            }}
-                          >
-                            {community.description || "A new Anchor community"}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              color: C.textMuted,
-                              fontSize: "0.7rem",
-                              mt: 0.2,
-                            }}
-                          >
-                            {community.memberCount}
-                          </Typography>
+                          {community.description.trim() &&
+                          community.description.trim() !==
+                            "A new Anchor community" ? (
+                            <Typography
+                              sx={{
+                                color: C.textMuted,
+                                fontSize: { xs: "0.68rem", sm: "0.74rem" },
+                                lineHeight: 1.35,
+                                overflowWrap: "anywhere",
+                                display: "-webkit-box",
+                                WebkitLineClamp: layout === "grid" ? 2 : 3,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {community.description.trim()}
+                            </Typography>
+                          ) : null}
                           <Box
                             sx={{
                               display: "flex",
@@ -4339,6 +6802,18 @@ const CommunitiesView = ({
                                 ? "Private"
                                 : "Public"}
                             </Typography>
+                            {unreadCount > 0 && (
+                              <Typography
+                                sx={{
+                                  color: C.accentDark,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  ml: 0.5,
+                                }}
+                              >
+                                · {unreadCount} new
+                              </Typography>
+                            )}
                           </Box>
                         </Box>
                         {community.canManage && (
@@ -4366,7 +6841,7 @@ const CommunitiesView = ({
                   })}
                 </Box>
 
-                {joinedCommunities.length > 5 && (
+                {joinedCommunities.length > 4 && (
                   <Box
                     component="button"
                     type="button"
@@ -4443,13 +6918,22 @@ const CommunitiesView = ({
                     flex: 1,
                     minWidth: 0,
                     "& .MuiOutlinedInput-root": {
+                      width: "100%",
+                      boxSizing: "border-box",
                       borderRadius: 2.5,
                       bgcolor: C.surface,
                       "& fieldset": { borderColor: C.divider },
+                      "&:hover fieldset": { borderColor: C.textMuted },
+                      "&.Mui-focused fieldset": { borderColor: C.accent },
                     },
                     "& input::placeholder": {
+                      color: C.textMuted,
                       overflow: "visible",
                       opacity: 1,
+                    },
+                    "& input": {
+                      minWidth: 0,
+                      fontSize: "16px",
                     },
                   }}
                 />
@@ -4467,18 +6951,19 @@ const CommunitiesView = ({
                   gridTemplateColumns:
                     layout === "grid"
                       ? {
-                          xs: "1fr",
-                          sm: "repeat(auto-fill, minmax(220px, 260px))",
+                          xs: "repeat(2, minmax(0, 1fr))",
+                          md: "repeat(3, minmax(0, 1fr))",
                         }
                       : "1fr",
-                  justifyContent: "start",
+                  justifyContent: "stretch",
+                  alignItems: "stretch",
                   gap: layout === "grid" ? { xs: 1, sm: 1.5 } : 0,
                   width: "100%",
                   maxWidth: "100%",
                   minWidth: 0,
                 }}
               >
-                {discoverableCommunities.map((community) => (
+                {visibleDiscoverableCommunities.map((community) => (
                   <Box
                     key={community.id}
                     sx={{
@@ -4489,7 +6974,7 @@ const CommunitiesView = ({
                           ? "flex-start"
                           : { xs: "flex-start", sm: "center" },
                       gap: { xs: 0.8, sm: 1.5 },
-                      p: layout === "grid" ? { xs: 1.25, sm: 1.5 } : { xs: 1.1, sm: 1.5 },
+                      p: layout === "grid" ? { xs: 1, sm: 1.5 } : { xs: 1.1, sm: 1.5 },
                       py: layout === "list" ? 1.6 : undefined,
                       minWidth: 0,
                       maxWidth: "100%",
@@ -4529,25 +7014,20 @@ const CommunitiesView = ({
                       >
                         {community.name}
                       </Typography>
-                      <Typography
-                        sx={{
-                          color: C.textMuted,
-                          fontSize: "0.78rem",
-                          lineHeight: 1.35,
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {community.description || "A new Anchor community"}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          color: C.textMuted,
-                          fontSize: "0.72rem",
-                          mt: 0.2,
-                        }}
-                      >
-                        {community.memberCount}
-                      </Typography>
+                      {community.description.trim() &&
+                      community.description.trim() !==
+                        "A new Anchor community" ? (
+                        <Typography
+                          sx={{
+                            color: C.textMuted,
+                            fontSize: "0.78rem",
+                            lineHeight: 1.35,
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          {community.description.trim()}
+                        </Typography>
+                      ) : null}
                       <Typography
                         sx={{
                           color: C.textMuted,
@@ -4585,6 +7065,46 @@ const CommunitiesView = ({
                   </Box>
                 ))}
               </Box>
+              {discoverableCommunities.length > 4 && (
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setShowAllDiscoverable((current) => !current)
+                  }
+                  aria-expanded={showAllDiscoverable}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 0.5,
+                    mx: "auto",
+                    mt: 1.5,
+                    p: 0.5,
+                    border: 0,
+                    bgcolor: "transparent",
+                    color: C.accentDark,
+                    cursor: "pointer",
+                    font: "inherit",
+                    "&:hover": { color: C.textPrimary },
+                  }}
+                >
+                  <KeyboardArrowDownRoundedIcon
+                    sx={{
+                      fontSize: 20,
+                      transform: showAllDiscoverable
+                        ? "rotate(180deg)"
+                        : "rotate(0deg)",
+                      transition: "transform 160ms ease",
+                    }}
+                  />
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
+                    {showAllDiscoverable
+                      ? "Show fewer community groups"
+                      : "Open all community groups"}
+                  </Typography>
+                </Box>
+              )}
               {discoverableCommunities.length === 0 && (
                 <Typography
                   sx={{ color: C.textMuted, textAlign: "center", py: 4 }}
@@ -5243,12 +7763,14 @@ const FriendsView = ({
   friendRequests,
   sentFriendRequests,
   onAddFriend,
+  onRemoveFriend,
   onResolveRequest,
 }: {
   friends: Friend[];
   friendRequests: CommunityFriendRequest[];
   sentFriendRequests: CommunityFriendRequest[];
   onAddFriend: (friendId: string) => Promise<void>;
+  onRemoveFriend: (friendId: string) => Promise<void>;
   onResolveRequest: (
     requestId: string,
     status: "accepted" | "declined",
@@ -5263,8 +7785,13 @@ const FriendsView = ({
   const [searchError, setSearchError] = useState("");
   const [requestActionId, setRequestActionId] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [unfriendActionId, setUnfriendActionId] = useState("");
+  const [showAllFriends, setShowAllFriends] = useState(false);
   const normalizedSearch = search.trim().toLowerCase();
   const currentFriends = friends.filter((friend) => friend.isFriend);
+  const visibleFriends = showAllFriends
+    ? currentFriends
+    : currentFriends.slice(0, 4);
 
   useEffect(() => {
     if (normalizedSearch.length < 2) {
@@ -5292,7 +7819,7 @@ const FriendsView = ({
               handle: person.handle,
               role: person.role,
               avatarUrl: person.avatarUrl,
-              mutualFriends: 0,
+              mutualFriends: Number(person.mutualFriends) || 0,
               isFriend: person.friendshipStatus === "accepted",
               friendshipStatus: person.friendshipStatus,
             })),
@@ -5338,6 +7865,30 @@ const FriendsView = ({
     }
   };
   // T: O(r) and S: O(r), where r is the current search results
+
+  const handleUnfriend = async (friendId: string) => {
+    if (unfriendActionId) return;
+    setUnfriendActionId(friendId);
+    setSearchError("");
+    setRequestError("");
+    try {
+      await onRemoveFriend(friendId);
+      setSearchResults((current) =>
+        current.map((friend) =>
+          friend.id === friendId
+            ? { ...friend, isFriend: false, friendshipStatus: "none" }
+            : friend,
+        ),
+      );
+    } catch (caught) {
+      setRequestError(
+        caught instanceof Error ? caught.message : "Could not unfriend",
+      );
+    } finally {
+      setUnfriendActionId("");
+    }
+  };
+  // T: O(1) and S: O(1)
 
   const handleResolveRequest = async (
     requestId: string,
@@ -5429,6 +7980,8 @@ const FriendsView = ({
                 key={friend.id}
                 friend={friend}
                 onAddFriend={handleSearchResultAdd}
+                onRemoveFriend={handleUnfriend}
+                removePending={unfriendActionId === friend.id}
               />
             ))}
             {searching && (
@@ -5512,6 +8065,7 @@ const FriendsView = ({
               Your accepted friends will appear here.
             </Typography>
           ) : (
+            <>
             <Box
               sx={{
                 display: "grid",
@@ -5523,7 +8077,7 @@ const FriendsView = ({
                 gap: 2,
               }}
             >
-              {currentFriends.map((friend) => (
+              {visibleFriends.map((friend) => (
                 <Card
                   key={friend.id}
                   sx={{
@@ -5538,11 +8092,50 @@ const FriendsView = ({
                   <FriendRow
                     friend={friend}
                     onAddFriend={onAddFriend}
+                    onRemoveFriend={handleUnfriend}
+                    removePending={unfriendActionId === friend.id}
                     compact
                   />
                 </Card>
               ))}
             </Box>
+            {currentFriends.length > 4 && (
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setShowAllFriends((current) => !current)}
+                aria-expanded={showAllFriends}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.5,
+                  mx: "auto",
+                  mt: 1.5,
+                  p: 0.5,
+                  border: 0,
+                  bgcolor: "transparent",
+                  color: C.accentDark,
+                  cursor: "pointer",
+                  font: "inherit",
+                  "&:hover": { color: C.textPrimary },
+                }}
+              >
+                <KeyboardArrowDownRoundedIcon
+                  sx={{
+                    fontSize: 20,
+                    transform: showAllFriends
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 160ms ease",
+                  }}
+                />
+                <Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
+                  {showAllFriends ? "Show fewer friends" : "Show all friends"}
+                </Typography>
+              </Box>
+            )}
+            </>
           )
         ) : section === "requests" ? friendRequests.length === 0 ? (
           <Typography sx={{ color: C.textMuted, textAlign: "center", py: 4 }}>
@@ -5577,7 +8170,7 @@ const FriendsView = ({
                     {request.name}
                   </Typography>
                   <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                    {request.handle} · {request.role}
+                    {request.handle}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1}>
@@ -5647,7 +8240,7 @@ const FriendsView = ({
                     {request.name}
                   </Typography>
                   <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                    {request.handle} · {request.role}
+                    {request.handle}
                   </Typography>
                 </Box>
                 <Chip
@@ -5680,10 +8273,14 @@ const FriendsView = ({
 const FriendRow = ({
   friend,
   onAddFriend,
+  onRemoveFriend,
+  removePending = false,
   compact = false,
 }: {
   friend: Friend;
   onAddFriend: (friendId: string) => void | Promise<void>;
+  onRemoveFriend?: (friendId: string) => void | Promise<void>;
+  removePending?: boolean;
   compact?: boolean;
 }) => {
   return (
@@ -5721,23 +8318,43 @@ const FriendRow = ({
             whiteSpace: "nowrap",
           }}
         >
-          {friend.handle} · {friend.role}
+          {friend.handle}
         </Typography>
         <Typography sx={{ color: C.textSub, fontSize: "0.7rem", mt: 0.3 }}>
-          {friend.mutualFriends} mutual friends
+          {friend.mutualFriends}{" "}
+          {friend.mutualFriends === 1 ? "mutual friend" : "mutual friends"}
         </Typography>
       </Box>
       {friend.isFriend || friend.friendshipStatus === "accepted" ? (
-        <Chip
-          icon={<CheckRoundedIcon />}
-          label="Friend"
-          size="small"
-          sx={{
-            bgcolor: "rgba(63,125,79,0.10)",
-            color: C.green,
-            fontWeight: 600,
-          }}
-        />
+        onRemoveFriend ? (
+          <Button
+            size="small"
+            disabled={removePending}
+            startIcon={<PersonRemoveOutlinedIcon />}
+            onClick={() => void onRemoveFriend(friend.id)}
+            sx={{
+              color: C.red,
+              bgcolor: "rgba(211,47,47,0.08)",
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {removePending ? "Removing…" : "Unfriend"}
+          </Button>
+        ) : (
+          <Chip
+            icon={<CheckRoundedIcon />}
+            label="Friend"
+            size="small"
+            sx={{
+              bgcolor: "rgba(63,125,79,0.10)",
+              color: C.green,
+              fontWeight: 600,
+            }}
+          />
+        )
       ) : friend.friendshipStatus === "pending" ? (
         <Chip
           label="Pending"
@@ -5798,8 +8415,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
-  const [notificationNotice, setNotificationNotice] = useState("");
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [missedBehindCount, setMissedBehindCount] = useState(0);
   const [readTrackingReady, setReadTrackingReady] = useState(false);
@@ -5809,6 +8424,13 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [communityMenuAnchor, setCommunityMenuAnchor] =
     useState<HTMLElement | null>(null);
   const [communitySharePending, setCommunitySharePending] = useState(false);
+  const [groupDetailsOpen, setGroupDetailsOpen] = useState(false);
+  const [groupDetailsMembers, setGroupDetailsMembers] = useState<
+    CommunityMemberRecord[]
+  >([]);
+  const [groupDetailsLoading, setGroupDetailsLoading] = useState(false);
+  const [groupDetailsError, setGroupDetailsError] = useState("");
+  const [typingUsers, setTypingUsers] = useState<CommunityTypingUser[]>([]);
   const [discoveredMeetings, setDiscoveredMeetings] = useState<
     ScheduledMeeting[]
   >([]);
@@ -5816,7 +8438,11 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const communityInviteLinksRef = useRef<Record<string, string>>({});
   const activePostScopeRef = useRef<string>(ALL_ID);
   const conversationRequestRef = useRef(0);
+  const lastCommunityConversationIdRef = useRef<string | null>(null);
   const seenPostIdsRef = useRef<Set<string> | null>(null);
+  const localFeedPostSeenAtRef = useRef<Map<string, number>>(new Map());
+  const feedMarkerByScopeRef = useRef<Record<string, string | null>>({});
+  const feedForceRefreshRef = useRef<Record<string, number>>({});
   const knownFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const acknowledgedFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const pageRootRef = useRef<HTMLDivElement | null>(null);
@@ -5826,6 +8452,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const jumpingToLatestRef = useRef(false);
   const caughtUpThisVisitRef = useRef(false);
   const userReadingHistoryRef = useRef(false);
+  const stickToLatestRef = useRef(false);
   const scrolledToQueryPostRef = useRef("");
   const lastWindowScrollYRef = useRef(0);
   const lastMainScrollYRef = useRef(0);
@@ -5847,30 +8474,43 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     } else {
       setViewingScope(null);
     }
-    return () => setViewingScope(null);
   }, [communityConversationId, pageTab, setViewingScope]);
+
+  useEffect(
+    () => () => {
+      setViewingScope(null);
+    },
+    [setViewingScope],
+  );
 
   const handleMeetingDiscovered = useCallback(
     (meeting: Comm360Meeting, communityId: string) => {
-      const start = new Date(meeting.startTime);
+      const start = meeting.startTime ? new Date(meeting.startTime) : null;
+      const validStart = Boolean(start && !Number.isNaN(start.getTime()));
       setDiscoveredMeetings((current) => {
         const mapped: ScheduledMeeting = {
           id: meeting.id,
           communityId,
+          communityName: communities.find((item) => item.id === communityId)
+            ?.name,
           withName: meeting.organizerName,
           topic: meeting.title,
           description: meeting.description,
-          date: start.toLocaleDateString([], {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          }),
-          time: start.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
-          }),
+          date: validStart
+            ? start!.toLocaleDateString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })
+            : "Scheduled in Comm360",
+          time: validStart
+            ? start!.toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "Open to join",
           via: "Comm360",
-          startAt: meeting.startTime,
+          startAt: validStart ? meeting.startTime : undefined,
           joinUrl: meeting.joinUrl,
         };
         const existingIndex = current.findIndex(
@@ -5882,20 +8522,58 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         return next;
       });
     },
-    [],
+    [communities],
   );
   // T: O(m) and S: O(m), where m is discovered meetings
 
+  useEffect(() => {
+    const fallbackCommunityId = communityConversationId;
+    const requested = new Set<string>();
+    for (const post of posts) {
+      const communityId = post.communityId ?? fallbackCommunityId;
+      if (!communityId) continue;
+      for (const roomId of extractComm360RoomIds(post.body)) {
+        const key = `${communityId}:${roomId}`;
+        if (requested.has(key)) continue;
+        requested.add(key);
+        void loadComm360Meeting(roomId).then((meeting) =>
+          handleMeetingDiscovered(meeting, communityId),
+        );
+      }
+    }
+  }, [communityConversationId, handleMeetingDiscovered, posts]);
+  // T: O(p) and S: O(p), where p is loaded posts
+
   const refreshPosts = useCallback(async (communityId: string) => {
+    const previousScope = activePostScopeRef.current;
+    const scopeChanged = previousScope !== communityId;
     activePostScopeRef.current = communityId;
+    if (scopeChanged) {
+      localFeedPostSeenAtRef.current.clear();
+    }
     const records =
       communityId === ALL_ID
-        ? await listGlobalPosts()
-        : await listCommunityFeed(communityId);
+        ? await listGlobalPosts({ fresh: true })
+        : await listCommunityFeed(communityId, { fresh: true });
     const mapped = records.map(mapPost);
     if (activePostScopeRef.current === communityId) {
-      setPosts(mapped);
+      setPosts((current) => {
+        const merged = mergeFeedPosts(
+          scopeChanged ? [] : current,
+          mapped,
+          localFeedPostSeenAtRef.current,
+          { replaceScope: scopeChanged },
+        );
+        return sameFeedPosts(current, merged) ? current : merged;
+      });
       seenPostIdsRef.current = new Set(records.map((record) => record.id));
+      const latestPost = [...mapped].sort(
+        (left, right) =>
+          new Date(left.createdAt).getTime() -
+          new Date(right.createdAt).getTime(),
+      ).at(-1);
+      feedMarkerByScopeRef.current[communityId] = latestPost?.id ?? null;
+      feedForceRefreshRef.current[communityId] = Date.now();
     }
     return mapped;
   }, []);
@@ -6035,6 +8713,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
       setPageTab(restoredPageTab);
       setCommunityConversationId(restoredConversation);
+      lastCommunityConversationIdRef.current = restoredConversation;
       setActiveCommunityId(restoredConversation ?? nextCommunityId);
       if (restoredConversation) {
         await refreshPosts(restoredConversation);
@@ -6142,76 +8821,179 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   );
 
   useEffect(() => {
-    if (!("Notification" in window)) return;
-    setNotificationPermission(Notification.permission);
     void navigator.serviceWorker?.register("/community-sw.js").catch(() => undefined);
     void getCurrentCommunityProfile()
       .then((profile) => setCurrentProfileName(profile.name))
       .catch(() => undefined);
   }, []);
 
-  const enableNotifications = async () => {
-    if (!("Notification" in window)) {
-      setNotificationNotice("Notifications are not supported by this browser.");
-      return;
-    }
-    if (Notification.permission === "denied") {
-      setNotificationPermission("denied");
-      setNotificationNotice(
-        "Notifications are off. Allow them in your browser or phone settings.",
-      );
-      return;
-    }
-    try {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
-      setNotificationNotice(
-        permission === "denied"
-          ? "Notifications are off. Allow them in your browser or phone settings."
-          : "",
-      );
-    } catch {
-      setNotificationNotice(
-        "Notifications could not be enabled in this browser session.",
-      );
-    }
-  };
-
   useEffect(() => {
     if (!hydrated) return;
     let stopped = false;
-    const sync = async () => {
+    let inFlight = false;
+    let pendingKick = false;
+    let timer: number | undefined;
+
+    const applyRecords = (
+      target: string,
+      records: Awaited<ReturnType<typeof listCommunityFeed>>,
+    ) => {
+      const mapped = records.map(mapPost);
+      const previousMarker = feedMarkerByScopeRef.current[target];
+      const previousIds = seenPostIdsRef.current ?? new Set<string>();
+      const gainedMessages = mapped.some((post) => !previousIds.has(post.id));
+      const latestId =
+        [...mapped]
+          .sort(
+            (left, right) =>
+              new Date(left.createdAt).getTime() -
+              new Date(right.createdAt).getTime(),
+          )
+          .at(-1)?.id ?? null;
+      setPosts((current) => {
+        const merged = mergeFeedPosts(
+          current,
+          mapped,
+          localFeedPostSeenAtRef.current,
+        );
+        return sameFeedPosts(current, merged) ? current : merged;
+      });
+      if (
+        gainedMessages &&
+        !userReadingHistoryRef.current &&
+        (caughtUpThisVisitRef.current ||
+          (() => {
+            const scroller = pageRootRef.current?.closest(
+              "main",
+            ) as HTMLElement | null;
+            if (!scroller) return caughtUpThisVisitRef.current;
+            return (
+              scroller.scrollHeight -
+                scroller.scrollTop -
+                scroller.clientHeight <=
+              150
+            );
+          })())
+      ) {
+        stickToLatestRef.current = true;
+      }
+      seenPostIdsRef.current = new Set(records.map((record) => record.id));
+      // Prevent the notification watcher from re-alerting for posts already shown in-chat.
+      if (records.length > 0) {
+        const notified = readNotifiedPostIds();
+        let changed = false;
+        for (const record of records) {
+          if (!notified.has(record.id)) {
+            notified.add(record.id);
+            changed = true;
+          }
+        }
+        if (changed) saveNotifiedPostIds(notified);
+      }
+      if (
+        gainedMessages &&
+        target !== ALL_ID &&
+        previousMarker != null &&
+        latestId !== previousMarker
+      ) {
+        playCommunityMessageSound("in-chat");
+      }
+      // While watching this thread, mark it read so the top inbox stays quiet.
+      if (
+        latestId &&
+        target !== ALL_ID &&
+        caughtUpThisVisitRef.current &&
+        !userReadingHistoryRef.current
+      ) {
+        seedReadPosition(`community:${target}`, latestId, true);
+      }
+      feedMarkerByScopeRef.current[target] = latestId;
+      feedForceRefreshRef.current[target] = Date.now();
+    };
+
+    const runSync = async () => {
+      if (stopped) return;
+      if (inFlight) {
+        pendingKick = true;
+        return;
+      }
       const target = activePostScopeRef.current;
       if (target === "community-list") return;
+      inFlight = true;
       try {
-        const records = target === ALL_ID
-          ? await listGlobalPosts()
-          : await listCommunityFeed(target);
-        if (stopped) return;
-        const known = seenPostIdsRef.current;
-        if (known && activePostScopeRef.current === target) {
-          const mapped = records.map(mapPost);
-          setPosts((current) =>
-            sameFeedPosts(current, mapped) ? current : mapped,
-          );
-        }
-        seenPostIdsRef.current = new Set(records.map((record) => record.id));
+        do {
+          pendingKick = false;
+          const scope = activePostScopeRef.current;
+          if (scope === "community-list") break;
+          // Always pull a fresh page while a conversation is open — marker gating
+          // previously dropped updates under overlapping polls.
+          const records =
+            scope === ALL_ID
+              ? await listGlobalPosts({ fresh: true })
+              : await listCommunityFeed(scope, { fresh: true });
+          if (stopped || activePostScopeRef.current !== scope) break;
+          applyRecords(scope, records);
+        } while (pendingKick && !stopped);
       } catch {
         // Keep the current view intact during temporary background-sync failures.
+      } finally {
+        inFlight = false;
       }
     };
-    void sync();
-    const timer = window.setInterval(() => void sync(), 2_000);
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") void sync();
+
+    const scheduleNext = () => {
+      if (stopped) return;
+      if (timer != null) window.clearTimeout(timer);
+      const hidden = document.visibilityState === "hidden";
+      timer = window.setTimeout(() => {
+        void runSync().finally(scheduleNext);
+      }, hidden ? 1_200 : 350);
     };
-    document.addEventListener("visibilitychange", handleVisibility);
+
+    void runSync().finally(scheduleNext);
+
+    const kick = () => {
+      void runSync();
+    };
+    document.addEventListener("visibilitychange", kick);
+    window.addEventListener("focus", kick);
+    window.addEventListener("pageshow", kick);
+    window.addEventListener("online", kick);
+    window.addEventListener(INBOX_CHANGED_EVENT, kick);
+    return () => {
+      stopped = true;
+      if (timer != null) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", kick);
+      window.removeEventListener("focus", kick);
+      window.removeEventListener("pageshow", kick);
+      window.removeEventListener("online", kick);
+      window.removeEventListener(INBOX_CHANGED_EVENT, kick);
+    };
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!communityConversationId || pageTab !== "communities") {
+      setTypingUsers([]);
+      return;
+    }
+    let stopped = false;
+    const pollTyping = async () => {
+      try {
+        const users = await listCommunityTyping(communityConversationId);
+        if (!stopped) setTypingUsers(users);
+      } catch {
+        if (!stopped) setTypingUsers([]);
+      }
+    };
+    void pollTyping();
+    const timer = window.setInterval(() => {
+      void pollTyping();
+    }, 1_000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [hydrated]);
+  }, [communityConversationId, pageTab]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -6251,15 +9033,18 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           pageTab !== "friends" &&
           incoming.length > 0 &&
           "Notification" in window &&
-          Notification.permission === "granted"
+          Notification.permission === "granted" &&
+          readDeviceNotificationMode() !== "off"
         ) {
           const registration = await navigator.serviceWorker?.ready;
+          const silent = readDeviceNotificationMode() === "silent";
           for (const request of incoming.slice(0, 3)) {
             await registration?.showNotification("New friend request", {
               body: `${request.name} sent you a friend request.`,
-              icon: "/assets/logo.png",
-              badge: "/assets/logo.png",
+              icon: "/assets/Anchor_logo.png",
+              badge: "/assets/Anchor_logo.png",
               tag: `friend-request-${request.id}`,
+              silent,
               data: { url: "/community?tab=friends" },
             });
           }
@@ -6300,8 +9085,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         COMMUNITY_CONVERSATION_STORAGE_KEY,
         communityConversationId,
       );
-    } else {
-      window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
     }
   }, [communityConversationId, hydrated, pageTab]);
 
@@ -6326,6 +9109,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         body: input.firstPost,
         mode: "text",
       });
+      touchRecentlyActiveCommunities([record.id]);
     }
     const inviteLink = input.createShareLink
       ? await createInviteLink(record.id)
@@ -6358,6 +9142,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     }
     if (communityConversationId === communityId) {
       setCommunityConversationId(null);
+      lastCommunityConversationIdRef.current = null;
+      window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
       setPosts([]);
     }
     await refreshCommunities();
@@ -6385,10 +9171,11 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     async (communityId: string) => {
       const requestId = conversationRequestRef.current + 1;
       conversationRequestRef.current = requestId;
+      const previousConversationId = lastCommunityConversationIdRef.current;
       setConversationLoading(true);
-      setPosts([]);
       setActiveCommunityId(communityId);
       setCommunityConversationId(communityId);
+      lastCommunityConversationIdRef.current = communityId;
       setPageTab("communities");
       window.localStorage.setItem(
         COMMUNITY_CONVERSATION_STORAGE_KEY,
@@ -6400,8 +9187,26 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       );
       replaceCommunityUrl("communities", communityId);
       setPageError("");
+      activePostScopeRef.current = communityId;
+      if (previousConversationId && previousConversationId !== communityId) {
+        setPosts([]);
+        localFeedPostSeenAtRef.current.clear();
+      }
       try {
-        await refreshPosts(communityId);
+        const records = await listCommunityFeed(communityId, { fresh: true });
+        if (conversationRequestRef.current !== requestId) return;
+        const mapped = records.map(mapPost);
+        setPosts(mapped);
+        seenPostIdsRef.current = new Set(records.map((record) => record.id));
+        const latestPost = [...mapped].sort(
+          (left, right) =>
+            new Date(left.createdAt).getTime() -
+            new Date(right.createdAt).getTime(),
+        ).at(-1);
+        feedMarkerByScopeRef.current[communityId] = latestPost?.id ?? null;
+        feedForceRefreshRef.current[communityId] = Date.now();
+        // Do not seed read position here — landing scroll decides:
+        // caught up → latest; otherwise first missed message.
       } catch (caught) {
         if (conversationRequestRef.current === requestId) {
           setPageError(
@@ -6416,13 +9221,28 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         }
       }
     },
-    [refreshPosts, replaceCommunityUrl],
+    [replaceCommunityUrl],
   );
   // T: O(p) and S: O(p), where p is the returned community posts
 
   const handlePageTabChange = (nextTab: CommunityPageTab) => {
     if (nextTab === "friends") {
       acknowledgeFriendRequests(friendRequests);
+    }
+    if (nextTab === "communities") {
+      const previousCommunityId =
+        lastCommunityConversationIdRef.current ??
+        window.localStorage.getItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
+      if (
+        previousCommunityId &&
+        communities.some(
+          (community) =>
+            community.id === previousCommunityId && community.joined,
+        )
+      ) {
+        void handleOpenCommunity(previousCommunityId);
+        return;
+      }
     }
     setPageTab(nextTab);
     window.localStorage.setItem(COMMUNITY_PAGE_TAB_STORAGE_KEY, nextTab);
@@ -6459,6 +9279,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     setConversationLoading(false);
     setPageError("");
     setCommunityConversationId(null);
+    lastCommunityConversationIdRef.current = null;
     window.localStorage.removeItem(COMMUNITY_CONVERSATION_STORAGE_KEY);
     replaceCommunityUrl("communities");
     void refreshCommunities();
@@ -6473,6 +9294,25 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     window.open(scheduleUrl.toString(), "_blank", "noopener,noreferrer");
   };
   // T: O(n) and S: O(n), where n is the community name length
+
+  const handleOpenGroupDetails = async (community: Community) => {
+    setGroupDetailsOpen(true);
+    setGroupDetailsLoading(true);
+    setGroupDetailsError("");
+    setGroupDetailsMembers([]);
+    try {
+      setGroupDetailsMembers(await listCommunityMembers(community.id));
+    } catch (caught) {
+      setGroupDetailsError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not load group members",
+      );
+    } finally {
+      setGroupDetailsLoading(false);
+    }
+  };
+  // T: O(m) and S: O(m), where m is returned members
 
   const getCommunityInviteLink = async (communityId: string) => {
     const existingLink = communityInviteLinksRef.current[communityId];
@@ -6537,7 +9377,14 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           const mapped = records.map(mapPost);
           if (!mapped.some((item) => item.id === postId)) continue;
           if (activePostScopeRef.current === target) {
-            setPosts(mapped);
+            setPosts((current) => {
+              const merged = mergeFeedPosts(
+                current,
+                mapped,
+                localFeedPostSeenAtRef.current,
+              );
+              return sameFeedPosts(current, merged) ? current : merged;
+            });
           }
           return;
         } catch {
@@ -6554,16 +9401,30 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   ): Promise<void> => {
     setPageError("");
     const target = post.communityId ?? ALL_ID;
+    if (post.communityId) {
+      touchRecentlyActiveCommunities([post.communityId]);
+      window.dispatchEvent(new Event(INBOX_CHANGED_EVENT));
+    }
     const optimisticPost: ForumPost = {
       ...mapPost(post),
       friendshipStatus: "self",
     };
+    rememberLocalFeedPosts(localFeedPostSeenAtRef.current, [optimisticPost]);
     if (activePostScopeRef.current === target) {
-      setPosts((current) =>
-        current.some((item) => item.id === optimisticPost.id)
-          ? current
-          : [...current, optimisticPost],
-      );
+      // Sender is composing at the bottom — keep them on the newest message.
+      if (!userReadingHistoryRef.current || isNearLatestMessages()) {
+        queueStickToLatest();
+        caughtUpThisVisitRef.current = true;
+        userReadingHistoryRef.current = false;
+      }
+      setPosts((current) => {
+        if (current.some((item) => item.id === optimisticPost.id)) {
+          return current.map((item) =>
+            item.id === optimisticPost.id ? optimisticPost : item,
+          );
+        }
+        return [...current, optimisticPost];
+      });
     }
 
     if (post.status === "processing") {
@@ -6571,7 +9432,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       return;
     }
 
-    void refreshPosts(target).catch(() => undefined);
+    // Trust the create response; avoid an immediate list refresh that can
+    // race a stale cache and briefly wipe the new message.
   };
   // T: O(p) and S: O(p), where p is the number of displayed posts
 
@@ -6589,6 +9451,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
   const handleAddFriend = async (friendId: string): Promise<void> => {
     await sendFriendRequest(friendId);
+    await refreshFriendWorkspace();
+  };
+  // T: O(1) network request and S: O(1)
+
+  const handleRemoveFriend = async (friendId: string): Promise<void> => {
+    await removeFriend(friendId);
     await refreshFriendWorkspace();
   };
   // T: O(1) network request and S: O(1)
@@ -6616,6 +9484,14 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         ? `community:${communityConversationId}`
         : "";
   const latestVisiblePostId = visiblePosts.at(-1)?.id;
+  const typingLabel =
+    typingUsers.length === 0
+      ? null
+      : typingUsers.length === 1
+        ? `${typingUsers[0].name} is typing…`
+        : typingUsers.length === 2
+          ? `${typingUsers[0].name} and ${typingUsers[1].name} are typing…`
+          : `${typingUsers[0].name} and ${typingUsers.length - 1} others are typing…`;
 
   useEffect(() => {
     setMessages(
@@ -6698,17 +9574,84 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       ) ?? [],
     );
 
+  const threadScroller = () =>
+    pageRootRef.current?.closest("main") as HTMLElement | null;
+
+  /** Composer + safe-area take space at the bottom of the thread. */
+  const bottomChromeInset = () => {
+    if (typeof window === "undefined") return 140;
+    return window.matchMedia("(max-width: 600px)").matches ? 150 : 140;
+  };
+
+  const isNearLatestMessages = () => {
+    const scroller = threadScroller();
+    if (!scroller) {
+      const items = messageItems();
+      const latest = items.at(-1);
+      if (!latest) return caughtUpThisVisitRef.current;
+      return (
+        latest.getBoundingClientRect().bottom <=
+        window.innerHeight - bottomChromeInset() + 24
+      );
+    }
+    const remaining =
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    return remaining <= bottomChromeInset();
+  };
+
+  const scrollThreadToLatest = (behavior: ScrollBehavior = "auto") => {
+    const scroller = threadScroller();
+    if (scroller) {
+      if (behavior === "smooth") {
+        scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+      } else {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+      return;
+    }
+    messageItems()
+      .at(-1)
+      ?.scrollIntoView({ behavior, block: "end" });
+  };
+
+  const scrollThreadToPost = (
+    postId: string,
+    behavior: ScrollBehavior = "auto",
+  ) => {
+    const target = messageListRef.current?.querySelector<HTMLElement>(
+      `[data-community-post-id="${postId}"]`,
+    );
+    if (!target) return;
+    const scroller = threadScroller();
+    if (scroller) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const headerOffset = Math.max(communityHeaderHeight, 56) + 12;
+      const nextTop =
+        scroller.scrollTop + (targetRect.top - scrollerRect.top) - headerOffset;
+      if (behavior === "smooth") {
+        scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+      } else {
+        scroller.scrollTop = Math.max(0, nextTop);
+      }
+      return;
+    }
+    target.scrollIntoView({ behavior, block: "start" });
+  };
+
+  const queueStickToLatest = () => {
+    stickToLatestRef.current = true;
+  };
+
   const persistLatestRead = (items: HTMLElement[]) => {
     const latestId = items.at(-1)?.dataset.communityPostId;
     if (!latestId || !currentReadScope) return;
-    window.localStorage.setItem(
-      `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`,
-      latestId,
-    );
+    seedReadPosition(currentReadScope, latestId, true);
   };
 
   const markVisitCaughtUp = (items: HTMLElement[]) => {
     caughtUpThisVisitRef.current = true;
+    userReadingHistoryRef.current = false;
     setMissedBehindCount(0);
     persistLatestRead(items);
   };
@@ -6720,10 +9663,26 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       setShowJumpToLatest(false);
       return 0;
     }
-    const scroller = pageRootRef.current?.closest("main");
+    const scroller = threadScroller();
+    const inset = bottomChromeInset();
+    const nearBottom = scroller
+      ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <=
+        inset
+      : (() => {
+          const viewportBottom = window.innerHeight - inset;
+          const latest = items.at(-1);
+          return Boolean(
+            latest && latest.getBoundingClientRect().top < viewportBottom - 8,
+          );
+        })();
+    if (nearBottom) {
+      setShowJumpToLatest(false);
+      markVisitCaughtUp(items);
+      return 0;
+    }
     const viewportBottom = scroller
-      ? scroller.getBoundingClientRect().bottom - 88
-      : window.innerHeight - 88;
+      ? scroller.getBoundingClientRect().bottom - inset
+      : window.innerHeight - inset;
     let lastVisibleIndex = -1;
     items.forEach((item, index) => {
       if (item.getBoundingClientRect().top < viewportBottom - 8) {
@@ -6732,12 +9691,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     });
     const behind = Math.max(0, items.length - 1 - lastVisibleIndex);
     setShowJumpToLatest(behind > 0);
-    if (behind === 0) {
-      userReadingHistoryRef.current = false;
-      markVisitCaughtUp(items);
-    } else {
-      userReadingHistoryRef.current = true;
-    }
+    userReadingHistoryRef.current = true;
+    caughtUpThisVisitRef.current = false;
     return behind;
   };
   // T: O(p) and S: O(1), where p is the number of rendered posts
@@ -6764,38 +9719,63 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
 
     let secondFrame = 0;
     let readyTimer = 0;
+    let retryTimer = 0;
+    const restoreLanding = () => {
+      const items = messageItems();
+      if (items.length === 0) return false;
+      if (items.length < visiblePosts.length) return false;
+
+      const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
+      let savedPostId: string | null = null;
+      try {
+        savedPostId = window.localStorage.getItem(storageKey);
+      } catch {
+        savedPostId = null;
+      }
+      const savedIndex = savedPostId
+        ? items.findIndex(
+            (item) => item.dataset.communityPostId === savedPostId,
+          )
+        : -1;
+      const hasMissed =
+        savedIndex >= 0 && savedIndex < items.length - 1;
+
+      if (userReadingHistoryRef.current) {
+        setShowJumpToLatest(true);
+      } else if (!hasMissed) {
+        scrollThreadToLatest();
+        setShowJumpToLatest(false);
+        markVisitCaughtUp(items);
+      } else {
+        const firstMissedId =
+          items[savedIndex + 1]?.dataset.communityPostId ?? null;
+        if (firstMissedId) scrollThreadToPost(firstMissedId);
+        caughtUpThisVisitRef.current = false;
+        userReadingHistoryRef.current = true;
+        const behind = items.length - 1 - savedIndex;
+        setMissedBehindCount(behind);
+        setShowJumpToLatest(behind > 0);
+      }
+      restoredReadScopeRef.current = currentReadScope;
+      readyTimer = window.setTimeout(() => setReadTrackingReady(true), 350);
+      return true;
+    };
+
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
-        const items = messageItems();
-        if (items.length === 0) return;
-        const storageKey = `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`;
-        const savedPostId = window.localStorage.getItem(storageKey);
-        const savedIndex = items.findIndex(
-          (item) => item.dataset.communityPostId === savedPostId,
-        );
-        const caughtUp = savedIndex < 0 || savedIndex >= items.length - 1;
-        if (userReadingHistoryRef.current) {
-          setShowJumpToLatest(true);
-        } else if (caughtUp) {
-          items.at(-1)?.scrollIntoView({ block: "end" });
-          setShowJumpToLatest(false);
-          markVisitCaughtUp(items);
-        } else {
-          const firstMissed = items[savedIndex + 1];
-          firstMissed?.scrollIntoView({ block: "center" });
-          caughtUpThisVisitRef.current = false;
-          const behind = items.length - 1 - savedIndex;
-          setMissedBehindCount(behind);
-          setShowJumpToLatest(behind > 0);
-        }
-        restoredReadScopeRef.current = currentReadScope;
-        readyTimer = window.setTimeout(() => setReadTrackingReady(true), 350);
+        if (restoreLanding()) return;
+        // DOM may still be catching up after posts paint.
+        retryTimer = window.setTimeout(() => {
+          if (restoredReadScopeRef.current === currentReadScope) return;
+          restoreLanding();
+        }, 120);
       });
     });
     return () => {
       window.cancelAnimationFrame(firstFrame);
       window.cancelAnimationFrame(secondFrame);
       window.clearTimeout(readyTimer);
+      window.clearTimeout(retryTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore read position once the thread is painted
   }, [
@@ -6809,7 +9789,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     if (!currentReadScope || !readTrackingReady || visiblePosts.length === 0) {
       return;
     }
-    const scroller = pageRootRef.current?.closest("main");
+    const scroller = threadScroller();
     const handleScroll = () => syncCaughtUpState();
     syncCaughtUpState();
     scroller?.addEventListener("scroll", handleScroll, { passive: true });
@@ -6826,14 +9806,37 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     visiblePosts.length,
   ]);
 
+  // After new messages paint, pin to the bottom when the user was already on latest.
+  useEffect(() => {
+    if (!stickToLatestRef.current) return;
+    if (!latestVisiblePostId) return;
+    stickToLatestRef.current = false;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        scrollThreadToLatest();
+        caughtUpThisVisitRef.current = true;
+        userReadingHistoryRef.current = false;
+        setShowJumpToLatest(false);
+        const items = messageItems();
+        if (items.length > 0) markVisitCaughtUp(items);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stick after the newest post id changes
+  }, [latestVisiblePostId, posts.length]);
+
   const handleJumpToLatest = () => {
     const items = messageItems();
-    const latest = items.at(-1);
     jumpingToLatestRef.current = true;
     userReadingHistoryRef.current = false;
+    caughtUpThisVisitRef.current = true;
     setShowJumpToLatest(false);
     markVisitCaughtUp(items);
-    latest?.scrollIntoView({ behavior: "smooth", block: "end" });
+    scrollThreadToLatest("smooth");
     window.setTimeout(() => {
       jumpingToLatestRef.current = false;
       syncCaughtUpState();
@@ -6877,7 +9880,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
           right: 0,
           zIndex: 1150,
-          minHeight: { xs: 70, md: 56 },
+          minHeight: { xs: 44, sm: 56 },
           boxSizing: "border-box",
           bgcolor: { xs: "var(--anchor-header-bg)", md: "var(--anchor-header-bg)" },
           pl: COMMUNITY_GUTTER,
@@ -6886,8 +9889,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           pb: 0,
           borderBottom: `1px solid ${C.divider}`,
           boxShadow: { xs: "0 3px 14px rgba(17,17,17,0.08)", md: "none" },
-          transform: showCommunityChrome ? "translateY(0)" : "translateY(-110%)",
-          transition: "transform 180ms ease",
         }}
       >
         <Box sx={{ width: "100%" }}>
@@ -6900,46 +9901,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       </Box>
       <Box
         sx={{
-          height: { xs: communityConversationId ? 0 : 70, md: 56 },
+          height: {
+            xs: communityConversationId ? 0 : 44,
+            sm: 56,
+          },
         }}
       />
-
-      {notificationPermission === "default" && (
-        <Box
-          sx={{
-            width: "100%",
-            mt: 1,
-            display: {
-              xs: communityConversationId ? "none" : "flex",
-              md: "flex",
-            },
-            justifyContent: "flex-end",
-          }}
-        >
-          <Button
-            size="small"
-            startIcon={<NotificationsNoneRoundedIcon />}
-            onClick={() => void enableNotifications()}
-            sx={{ color: C.textPrimary, textTransform: "none", fontWeight: 600 }}
-          >
-            Enable notifications
-          </Button>
-        </Box>
-      )}
-
-      {notificationNotice && (
-        <Typography
-          role="status"
-          sx={{
-            mt: 1,
-            color: C.textMuted,
-            fontSize: { xs: "0.7rem", sm: "0.78rem" },
-            textAlign: "right",
-          }}
-        >
-          {notificationNotice}
-        </Typography>
-      )}
 
       <Stack
         spacing={{ xs: communityConversationId ? 1.25 : 3, sm: 3 }}
@@ -7019,6 +9986,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       onUpdated={handlePostUpdated}
                       onDeleted={handlePostDeleted}
                       onMeetingDiscovered={handleMeetingDiscovered}
+                      discoveryCommunityId={communityConversationId ?? undefined}
                     />
                   </Box>
                 ))}
@@ -7088,13 +10056,21 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         display: "inline-flex",
                         width: 34,
                         height: 34,
-                        ml: -0.75,
-                        mr: 0.25,
+                        ml: -0.35,
+                        mr: 0.75,
                         mt: 0,
-                        color: C.accentDark,
+                        p: 0,
+                        color: C.textPrimary,
+                        bgcolor: C.cardBg,
+                        border: `1px solid ${C.divider}`,
+                        boxShadow: "0 1px 2px rgba(44,26,10,0.04)",
+                        "&:hover": {
+                          bgcolor: C.surface,
+                          borderColor: C.divider,
+                        },
                       }}
                     >
-                      <ArrowBackRoundedIcon sx={{ fontSize: 22 }} />
+                      <ChevronLeftRoundedIcon sx={{ fontSize: 22 }} />
                     </IconButton>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
                       <Typography
@@ -7118,22 +10094,31 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       flexShrink: 0,
                     }}
                   >
-                    <Tooltip title="Members">
-                      <Box
+                    <Tooltip title="Group details">
+                      <IconButton
+                        aria-label={`Group details, ${
+                          Number.parseInt(conversationCommunity.memberCount, 10) ||
+                          0
+                        } members`}
+                        onClick={() =>
+                          void handleOpenGroupDetails(conversationCommunity)
+                        }
                         sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.4,
                           color: C.textMuted,
-                          px: 0.5,
+                          borderRadius: 2,
+                          px: 0.75,
+                          gap: 0.4,
                         }}
                       >
                         <GroupsRoundedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
-                        <Typography sx={{ fontSize: "0.86rem", fontWeight: 700 }}>
+                        <Typography
+                          component="span"
+                          sx={{ fontSize: "0.86rem", fontWeight: 700 }}
+                        >
                           {Number.parseInt(conversationCommunity.memberCount, 10) ||
                             0}
                         </Typography>
-                      </Box>
+                      </IconButton>
                     </Tooltip>
                     <Tooltip title="Schedule discussion">
                       <IconButton
@@ -7144,18 +10129,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         sx={{ color: C.textMuted }}
                       >
                         <VideocamRoundedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Community settings">
-                      <IconButton
-                        aria-label="Community settings"
-                        onClick={() => {
-                          setPendingEditCommunityId(conversationCommunity.id);
-                          handleCloseCommunityConversation();
-                        }}
-                        sx={{ color: C.textMuted }}
-                      >
-                        <SettingsOutlinedIcon sx={{ fontSize: { xs: 20, md: 22 } }} />
                       </IconButton>
                     </Tooltip>
                     <IconButton
@@ -7204,18 +10177,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     >
                       <ShareOutlinedIcon fontSize="small" />
                       Share invite
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        setCommunityMenuAnchor(null);
-                        handleScheduleCommunityDiscussion(
-                          conversationCommunity,
-                        );
-                      }}
-                      sx={{ gap: 1 }}
-                    >
-                      <CalendarMonthRoundedIcon fontSize="small" />
-                      Schedule discussion
                     </MenuItem>
                   </Menu>
                 </Box>
@@ -7269,6 +10230,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         onUpdated={handlePostUpdated}
                         onDeleted={handlePostDeleted}
                         onMeetingDiscovered={handleMeetingDiscovered}
+                        discoveryCommunityId={conversationCommunity.id}
                       />
                     </Box>
                     );
@@ -7286,16 +10248,25 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             <Box
               sx={{
                 position: "fixed",
-                left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
-                right: 0,
-                bottom: { xs: 14, md: 18 },
+                left: {
+                  xs: "12px",
+                  sm: "18px",
+                  md: "calc(var(--anchor-sidebar-width, 0px) + 32px)",
+                  lg: "calc(var(--anchor-sidebar-width, 0px) + 40px)",
+                },
+                right: { xs: "12px", sm: "18px", md: "32px", lg: "40px" },
+                bottom: {
+                  xs: "max(12px, env(safe-area-inset-bottom))",
+                  sm: 16,
+                  md: 18,
+                },
                 zIndex: 1100,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-end",
-                alignItems: "stretch",
+                alignItems: "center",
                 gap: 1,
-                px: COMMUNITY_GUTTER,
+                px: 0,
                 boxSizing: "border-box",
                 width: "auto",
                 pointerEvents: "none",
@@ -7347,12 +10318,30 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                 sx={{
                   ...communityColumnSx,
                   width: "100%",
+                  maxWidth: "100%",
                   pointerEvents: "auto",
                 }}
               >
+                {typingLabel && (
+                  <Typography
+                    sx={{
+                      mb: 0.75,
+                      px: 1.5,
+                      color: C.textMuted,
+                      fontSize: "0.78rem",
+                      fontStyle: "italic",
+                      lineHeight: 1.3,
+                      textAlign: "left",
+                    }}
+                    aria-live="polite"
+                  >
+                    {typingLabel}
+                  </Typography>
+                )}
                 <Composer
                   scope={pageTab === "posts" ? "global" : "community"}
                   communityId={communityConversationId ?? undefined}
+                  communityName={conversationCommunity?.name}
                   replyTo={replyingToPost}
                   onCancelReply={() => setReplyingToPost(null)}
                   onCreated={handlePostCreated}
@@ -7389,11 +10378,132 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
               friendRequests={friendRequests}
               sentFriendRequests={sentFriendRequests}
               onAddFriend={handleAddFriend}
+              onRemoveFriend={handleRemoveFriend}
               onResolveRequest={handleResolveFriendRequest}
             />
           </Box>
         )}
       </Stack>
+
+      <Dialog
+        open={groupDetailsOpen}
+        onClose={() => setGroupDetailsOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          {conversationCommunity?.name ?? "Group details"}
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: C.textSub, mb: 2 }}>
+            {groupDetailsLoading
+              ? "Loading members…"
+              : `${groupDetailsMembers.length} ${
+                  groupDetailsMembers.length === 1 ? "member" : "members"
+                } in this group`}
+          </Typography>
+          {conversationCommunity?.description?.trim() &&
+          conversationCommunity.description.trim() !==
+            "A new Anchor community" ? (
+            <Typography
+              sx={{
+                color: C.textMuted,
+                fontSize: "0.86rem",
+                mb: 2,
+                lineHeight: 1.45,
+              }}
+            >
+              {conversationCommunity.description.trim()}
+            </Typography>
+          ) : null}
+          {groupDetailsError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {groupDetailsError}
+            </Alert>
+          )}
+          {groupDetailsLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress size={28} sx={{ color: C.accent }} />
+            </Box>
+          ) : (
+            <Stack divider={<Divider flexItem sx={{ borderColor: C.divider }} />}>
+              {groupDetailsMembers.map((member) => (
+                <Box
+                  key={member.userId}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.25,
+                    py: 1.25,
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      bgcolor: C.accentFaint,
+                      color: C.accentDark,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    {member.name.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700, color: C.textPrimary }}>
+                      {member.name}
+                      {member.isCurrentUser ? " (you)" : ""}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: C.textMuted,
+                        fontSize: "0.78rem",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {member.email}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={
+                      member.role === "owner"
+                        ? "Owner"
+                        : member.role === "admin"
+                          ? "Admin"
+                          : member.role === "moderator"
+                            ? "Moderator"
+                            : "Member"
+                    }
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 600,
+                      borderColor: C.divider,
+                      color: C.textSub,
+                    }}
+                  />
+                </Box>
+              ))}
+              {!groupDetailsError && groupDetailsMembers.length === 0 && (
+                <Typography
+                  sx={{ color: C.textMuted, textAlign: "center", py: 3 }}
+                >
+                  No members found for this group.
+                </Typography>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setGroupDetailsOpen(false)}
+            sx={{ textTransform: "none", color: C.textSub }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-top: clamp(22px, 2vw, 32px);
 }
 
 /* ── Title row ─────────────────────────────────────────────────────────────── */
@@ -11,6 +12,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+  min-height: 40px;
 }
 
 .pageTitle {
@@ -168,50 +170,13 @@
 
 /* ── Kanban board ──────────────────────────────────────────────────────────── */
 
-/* Grid layout: 4 equal columns that always fill the available space.
-   Only shows a horizontal scrollbar on very small screens where 4 columns
-   truly cannot be rendered at a usable width. */
+/* Desktop board: four equal columns fill the available workspace. */
 .boardContainer {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: clamp(14px, 1vw, 24px);
   align-items: flex-start;
-  overflow-x: auto;
   padding-bottom: 4px;
-
-  /* Thin, barely-there scrollbar — only shows when actively scrolling */
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s;
-}
-
-.boardContainer:hover {
-  scrollbar-color: #e0d4c4 transparent;
-}
-
-.boardContainer::-webkit-scrollbar {
-  height: 4px;
-}
-
-.boardContainer::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.boardContainer::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 4px;
-  transition: background 0.3s;
-}
-
-.boardContainer:hover::-webkit-scrollbar-thumb {
-  background: #e0d4c4;
-}
-
-/* Below ~800px the 4 columns genuinely can't fit, allow horizontal scroll */
-@media (max-width: 800px) {
-  .boardContainer {
-    grid-template-columns: repeat(4, minmax(200px, 1fr));
-  }
 }
 
 .boardColumn {
@@ -303,6 +268,162 @@
   margin: 16px 0;
   color: var(--anchor-muted);
   font-size: 13px;
+  text-align: center;
+}
+
+/* ── Mobile/tablet stage view ─────────────────────────────────────────────── */
+.mobileBoard {
+  display: none;
+}
+
+.mobileSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--anchor-muted);
+  background-color: var(--anchor-surface);
+  border: 1px solid var(--anchor-divider);
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.mobileSummary strong {
+  color: var(--foreground);
+  font-size: 15px;
+}
+
+.mobileStageSelector {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mobileStageButton {
+  min-width: 0;
+  min-height: 92px;
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--anchor-divider);
+  border-top: 4px solid #e8ddd0;
+  border-radius: 12px;
+  background-color: var(--anchor-surface);
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    transform 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobileStageButton:active {
+  transform: scale(0.98);
+}
+
+.mobileStageButton:focus-visible {
+  outline: 3px solid rgba(184, 116, 68, 0.25);
+  outline-offset: 2px;
+}
+
+.mobileStageApplied {
+  border-top-color: #1a56db;
+}
+
+.mobileStageInterview {
+  border-top-color: #d97706;
+}
+
+.mobileStageOffer {
+  border-top-color: #16a34a;
+}
+
+.mobileStageRejected {
+  border-top-color: #dc2626;
+}
+
+.mobileStageActive {
+  border-color: #b87444;
+  background-color: color-mix(
+    in srgb,
+    var(--anchor-surface) 88%,
+    #b87444 12%
+  );
+}
+
+.mobileStageCount {
+  color: var(--foreground);
+  font-size: clamp(24px, 4vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.mobileStageLabel {
+  max-width: 100%;
+  color: var(--anchor-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.mobileStagePanel {
+  padding: 14px;
+  background-color: var(--anchor-surface-muted);
+  border: 1px solid var(--anchor-divider);
+  border-radius: 14px;
+}
+
+.mobileStageHeader {
+  min-height: 48px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobileStageEyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: #b87444;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobileStageTitle {
+  margin: 0;
+  color: var(--foreground);
+  font-family: "Playfair Display", serif;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.mobileJobsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mobileStageEmpty {
+  min-height: 140px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--anchor-muted);
+  font-size: 14px;
   text-align: center;
 }
 
@@ -658,8 +779,43 @@
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  .statsBar,
+  .desktopJobsView,
+  .viewToggle {
+    display: none;
+  }
+
+  .mobileBoard {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+
 @media (max-width: 480px) {
-  .jobsGrid { grid-template-columns: 1fr; }
+  .jobsGrid,
+  .mobileJobsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobileSummary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mobileStageSelector {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mobileStageButton {
+    min-height: 88px;
+  }
+
+  .mobileStagePanel {
+    padding: 12px;
+  }
 }
 
 @media (min-width: 481px) and (max-width: 767px) {

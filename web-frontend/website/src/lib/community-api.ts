@@ -234,8 +234,9 @@ export type CommunityMemberRecord = {
 
 export type CommunityMedia = {
   id: string;
-  resourceType: "image" | "video";
+  resourceType: "image" | "video" | "audio" | "file";
   url: string;
+  originalFilename?: string | null;
 };
 
 export type CommunityPoll = {
@@ -274,6 +275,7 @@ export type CommunityPostRecord = {
     id: string;
     body: string | null;
     kind: "text" | "media" | "poll";
+    media: CommunityMedia[];
     author: {
       id: string;
       name: string;
@@ -298,6 +300,7 @@ export type CommunityPersonSearchResult = {
   role: string;
   avatarUrl: string | null;
   friendshipStatus: "none" | "pending" | "accepted";
+  mutualFriends?: number;
 };
 
 export type CommunityFriendRequest = {
@@ -350,7 +353,7 @@ export type CreatePostInput = {
   communityId?: string | null;
   replyToPostId?: string | null;
   body: string;
-  mode: "text" | "image" | "video" | "poll";
+  mode: "text" | "image" | "video" | "audio" | "file" | "poll";
   file?: File | null;
   providerAssetId?: string | null;
   onUploadProgress?: (
@@ -402,11 +405,15 @@ export async function listCommunities(
 
 export async function listCommunityFeed(
   communityId?: string,
+  options?: { fresh?: boolean },
 ): Promise<CommunityPostRecord[]> {
   const url = communityId
     ? `${API_BASE_URL}/api/v1/communities/${communityId}/posts?limit=50`
     : `${API_BASE_URL}/api/v1/community-feed?limit=50`;
-  const response = await apiFetch(url);
+  const response = await apiFetch(url, {
+    cache: "no-store",
+    headers: options?.fresh ? { "X-Anchor-Fresh": "1" } : undefined,
+  });
   if (!response.ok) {
     throw await readError(response, "Could not load community posts");
   }
@@ -415,8 +422,86 @@ export async function listCommunityFeed(
 }
 // T: O(p) and S: O(p), where p is the returned posts
 
-export async function listGlobalPosts(): Promise<CommunityPostRecord[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/posts?limit=50`);
+export async function getLatestPostMarker(
+  communityId?: string | null,
+): Promise<{ id: string | null; createdAt: string | null }> {
+  const url = communityId
+    ? `${API_BASE_URL}/api/v1/communities/${communityId}/posts/latest`
+    : `${API_BASE_URL}/api/v1/posts/latest`;
+  const response = await apiFetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw await readError(response, "Could not check for new posts");
+  }
+  return response.json() as Promise<{ id: string | null; createdAt: string | null }>;
+}
+// T: O(1) and S: O(1)
+
+export async function transcribeSpeech(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/speech/transcribe`, {
+    method: "POST",
+    body,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw await readError(response, "Could not convert speech to text");
+  }
+  const payload = (await response.json()) as { text?: string };
+  const text = typeof payload.text === "string" ? payload.text.trim() : "";
+  if (!text) {
+    throw new Error("No speech detected. Try again and speak clearly.");
+  }
+  return text;
+}
+// T: O(a) and S: O(a), where a is the audio payload size
+
+export type CommunityTypingUser = {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+};
+
+export async function setCommunityTyping(
+  communityId: string,
+  typing: boolean,
+): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/typing`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ typing }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not update typing status");
+  }
+}
+// T: O(1) and S: O(1)
+
+export async function listCommunityTyping(
+  communityId: string,
+): Promise<CommunityTypingUser[]> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/v1/communities/${communityId}/typing`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    throw await readError(response, "Could not load typing status");
+  }
+  return response.json() as Promise<CommunityTypingUser[]>;
+}
+// T: O(t) and S: O(t), where t is active typers
+
+export async function listGlobalPosts(
+  options?: { fresh?: boolean },
+): Promise<CommunityPostRecord[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/posts?limit=50`, {
+    cache: "no-store",
+    headers: options?.fresh ? { "X-Anchor-Fresh": "1" } : undefined,
+  });
   if (!response.ok) {
     throw await readError(response, "Could not load posts");
   }
@@ -650,7 +735,7 @@ export async function acceptCommunityInvite(token: string): Promise<void> {
 
 export async function uploadCommunityMedia(
   file: File,
-  resourceType: "image" | "video",
+  resourceType: "image" | "video" | "audio" | "file",
   onProgress?: (
     percentage: number,
     loadedBytes: number,
@@ -662,19 +747,49 @@ export async function uploadCommunityMedia(
   const acceptedExtensions =
     resourceType === "video"
       ? new Set(["mp4", "mov", "m4v", "webm"])
-      : new Set(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif"]);
-  const hasAcceptedMimeType = file.type.startsWith(`${resourceType}/`);
+      : resourceType === "audio"
+        ? new Set(["mp3", "m4a", "aac", "wav", "ogg", "webm"])
+        : resourceType === "file"
+          ? new Set([
+              "pdf",
+              "doc",
+              "docx",
+              "xls",
+              "xlsx",
+              "ppt",
+              "pptx",
+              "txt",
+              "csv",
+              "rtf",
+              "zip",
+            ])
+          : new Set(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif"]);
+  const hasAcceptedMimeType =
+    resourceType === "file"
+      ? acceptedExtensions.has(extension)
+      : file.type.startsWith(`${resourceType}/`);
   if (!hasAcceptedMimeType && !acceptedExtensions.has(extension)) {
     throw new Error(
       resourceType === "video"
         ? "Choose a valid MP4, MOV, M4V, or WebM video"
-        : "Choose a valid image file",
+        : resourceType === "audio"
+          ? "Choose a valid MP3, M4A, AAC, WAV, OGG, or WebM audio file"
+          : resourceType === "file"
+            ? "Choose a PDF, Office document, text, CSV, RTF, or ZIP file"
+            : "Choose a valid image file",
     );
   }
-  const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
+  const maxBytes =
+    resourceType === "video"
+      ? 50_000_000
+      : resourceType === "audio"
+        ? 20_000_000
+        : resourceType === "file"
+          ? 25_000_000
+          : 10_000_000;
   if (file.size > maxBytes) {
     throw new Error(
-      `${resourceType === "video" ? "Video" : "Image"} must be smaller than ${
+      `${resourceType === "video" ? "Video" : resourceType === "audio" ? "Audio" : resourceType === "file" ? "File" : "Image"} must be smaller than ${
         maxBytes / 1_000_000
       } MB`,
     );
@@ -705,7 +820,13 @@ export async function uploadCommunityMedia(
   form.append("folder", signature.folder);
   form.append("type", signature.type);
   form.append("signature", signature.signature);
-  const uploadUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/${resourceType}/upload`;
+  const providerResourceType =
+    resourceType === "audio"
+      ? "video"
+      : resourceType === "file"
+        ? "raw"
+        : resourceType;
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/${providerResourceType}/upload`;
 
   if (resourceType === "video") {
     return uploadVideoInChunks(
@@ -746,7 +867,8 @@ export async function uploadCommunityMedia(
       if (request.status < 200 || request.status >= 300) {
         reject(
           new Error(
-            payload?.error?.message || "Image upload failed",
+            payload?.error?.message ||
+              `${resourceType === "file" ? "File" : resourceType === "audio" ? "Audio" : "Image"} upload failed`,
           ),
         );
         return;
@@ -792,7 +914,10 @@ export async function createPost(
   let providerAssetId = input.providerAssetId ?? null;
   if (
     !providerAssetId &&
-    (input.mode === "image" || input.mode === "video") &&
+    (input.mode === "image" ||
+      input.mode === "video" ||
+      input.mode === "audio" ||
+      input.mode === "file") &&
     input.file
   ) {
     providerAssetId = await uploadCommunityMedia(
@@ -818,7 +943,13 @@ export async function createPost(
         replyToPostId: input.replyToPostId ?? undefined,
         body: input.body.trim() || undefined,
         media: providerAssetId
-          ? [{ providerAssetId, resourceType: input.mode }]
+          ? [
+              {
+                providerAssetId,
+                resourceType: input.mode,
+                originalFilename: input.file?.name || undefined,
+              },
+            ]
           : undefined,
         poll:
           input.mode === "poll"

@@ -247,10 +247,13 @@ export class PostMedia {
   providerAssetId: string;
 
   @Column({ type: 'varchar', length: 12 })
-  resourceType: 'image' | 'video';
+  resourceType: 'image' | 'video' | 'audio' | 'file';
 
   @Column({ type: 'varchar', length: 100 })
   mimeType: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  originalFilename: string | null;
 
   @Column({ type: 'bigint' })
   bytes: string;
