@@ -1066,13 +1066,16 @@ export async function createComment(
 
 export async function listComments(
   postId: string,
-): Promise<CommunityComment[]> {
+  options?: { limit?: number; cursor?: string | null },
+): Promise<Page<CommunityComment>> {
+  const params = new URLSearchParams();
+  params.set("limit", String(options?.limit ?? 10));
+  if (options?.cursor) params.set("cursor", options.cursor);
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/posts/${postId}/comments?limit=50`,
+    `${API_BASE_URL}/api/v1/posts/${postId}/comments?${params.toString()}`,
   );
   if (!response.ok) throw await readError(response, "Could not load replies");
-  const page = (await response.json()) as Page<CommunityComment>;
-  return page.items;
+  return (await response.json()) as Page<CommunityComment>;
 }
 // T: O(c) and S: O(c), where c is the returned comments
 

@@ -126,6 +126,9 @@ import {
 import {
   INBOX_CHANGED_EVENT,
   OPEN_POST_EVENT,
+  consumePendingPostHighlight,
+  markPendingPostHighlight,
+  peekPendingPostHighlight,
   playCommunityMessageSound,
   readDeviceNotificationMode,
   readNotifiedPostIds,
@@ -347,77 +350,134 @@ const RecordingWaveform = ({ accent }: { accent: string }) => (
   </Box>
 );
 
-const RECENT_MEDIA_STORAGE_KEY = "anchor:communityRecentLibrary";
-const MAX_RECENT_MEDIA = 12;
+const MAX_DEVICE_RECENTS = 5;
+const DEVICE_MEDIA_DB = "anchor-community-device-media";
+const DEVICE_MEDIA_STORE = "handles";
+const DEVICE_PICTURES_KEY = "picturesDirectory";
 
-type RecentMediaEntry = {
+type DeviceRecentEntry = {
   id: string;
   kind: "image" | "video";
   name: string;
   previewUrl: string;
+  lastModified: number;
+  handle: FileSystemFileHandle;
 };
 
-const recentMediaFileCache = new Map<string, File>();
+type FileSystemPermissionMode = "read" | "readwrite";
 
-function readRecentMediaLibrary(): RecentMediaEntry[] {
-  if (typeof window === "undefined") return [];
+type FileSystemHandleWithPermission = FileSystemHandle & {
+  queryPermission?: (descriptor?: {
+    mode?: FileSystemPermissionMode;
+  }) => Promise<PermissionState>;
+  requestPermission?: (descriptor?: {
+    mode?: FileSystemPermissionMode;
+  }) => Promise<PermissionState>;
+};
+
+type FileSystemDirectoryHandleWithEntries = FileSystemDirectoryHandle & {
+  entries?: () => AsyncIterableIterator<
+    [string, FileSystemHandle]
+  >;
+  values?: () => AsyncIterableIterator<FileSystemHandle>;
+};
+
+type WindowWithFilePicker = Window & {
+  showDirectoryPicker?: (options?: {
+    id?: string;
+    mode?: FileSystemPermissionMode;
+    startIn?:
+      | "desktop"
+      | "documents"
+      | "downloads"
+      | "music"
+      | "pictures"
+      | "videos"
+      | FileSystemHandle;
+  }) => Promise<FileSystemDirectoryHandle>;
+};
+
+function supportsDeviceMediaLibrary(): boolean {
+  return typeof window !== "undefined" &&
+    typeof (window as WindowWithFilePicker).showDirectoryPicker === "function";
+}
+
+function openDeviceMediaDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(DEVICE_MEDIA_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DEVICE_MEDIA_STORE)) {
+        db.createObjectStore(DEVICE_MEDIA_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () =>
+      reject(request.error ?? new Error("Could not open media library"));
+  });
+}
+
+async function storeDeviceDirectoryHandle(
+  handle: FileSystemDirectoryHandle,
+): Promise<void> {
+  const db = await openDeviceMediaDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(DEVICE_MEDIA_STORE, "readwrite");
+    tx.objectStore(DEVICE_MEDIA_STORE).put(handle, DEVICE_PICTURES_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () =>
+      reject(tx.error ?? new Error("Could not save media folder access"));
+  });
+  db.close();
+}
+
+async function loadDeviceDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
   try {
-    const raw = window.localStorage.getItem(RECENT_MEDIA_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as RecentMediaEntry[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (entry) =>
-        entry &&
-        typeof entry.id === "string" &&
-        (entry.kind === "image" || entry.kind === "video") &&
-        typeof entry.previewUrl === "string",
+    const db = await openDeviceMediaDb();
+    const handle = await new Promise<FileSystemDirectoryHandle | null>(
+      (resolve, reject) => {
+        const tx = db.transaction(DEVICE_MEDIA_STORE, "readonly");
+        const request = tx.objectStore(DEVICE_MEDIA_STORE).get(DEVICE_PICTURES_KEY);
+        request.onsuccess = () =>
+          resolve((request.result as FileSystemDirectoryHandle | undefined) ?? null);
+        request.onerror = () =>
+          reject(request.error ?? new Error("Could not read media folder access"));
+      },
     );
+    db.close();
+    return handle;
   } catch {
-    return [];
+    return null;
   }
 }
 
-function writeRecentMediaLibrary(entries: RecentMediaEntry[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    RECENT_MEDIA_STORAGE_KEY,
-    JSON.stringify(entries.slice(0, MAX_RECENT_MEDIA)),
-  );
+async function ensureDirectoryPermission(
+  handle: FileSystemDirectoryHandle,
+): Promise<boolean> {
+  const permissionHandle = handle as FileSystemHandleWithPermission;
+  if (typeof permissionHandle.queryPermission !== "function") return true;
+  const current = await permissionHandle.queryPermission({ mode: "read" });
+  if (current === "granted") return true;
+  if (typeof permissionHandle.requestPermission !== "function") return false;
+  const next = await permissionHandle.requestPermission({ mode: "read" });
+  return next === "granted";
 }
 
-async function createRecentMediaPreview(
+function mediaKindFromFile(file: File): "image" | "video" | null {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (/\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(file.name)) return "image";
+  if (/\.(mp4|mov|m4v|webm|avi)$/i.test(file.name)) return "video";
+  return null;
+}
+
+async function createDeviceMediaPreview(
   file: File,
   kind: "image" | "video",
 ): Promise<string> {
   if (kind === "image") {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(new Error("Could not read image"));
-      reader.readAsDataURL(file);
-    });
-    return await new Promise<string>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxEdge = 220;
-        const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        const context = canvas.getContext("2d");
-        if (!context) {
-          resolve(dataUrl);
-          return;
-        }
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.72));
-      };
-      image.onerror = () => reject(new Error("Could not preview image"));
-      image.src = dataUrl;
-    });
+    return URL.createObjectURL(file);
   }
-
   const objectUrl = URL.createObjectURL(file);
   try {
     return await new Promise<string>((resolve, reject) => {
@@ -458,34 +518,85 @@ async function createRecentMediaPreview(
   }
 }
 
-async function rememberRecentMediaFiles(files: File[]) {
-  if (!files.length) return;
-  const existing = readRecentMediaLibrary();
-  const next = [...existing];
-  for (const file of files) {
-    const kind = file.type.startsWith("video/")
-      ? ("video" as const)
-      : file.type.startsWith("image/")
-        ? ("image" as const)
-        : null;
-    if (!kind) continue;
-    const id = `${file.name}-${file.size}-${file.lastModified}-${kind}`;
-    recentMediaFileCache.set(id, file);
-    try {
-      const previewUrl = await createRecentMediaPreview(file, kind);
-      const entry: RecentMediaEntry = {
-        id,
-        kind,
-        name: file.name,
-        previewUrl,
-      };
-      const withoutDup = next.filter((item) => item.id !== id);
-      next.splice(0, next.length, entry, ...withoutDup);
-    } catch {
-      // Skip unreadable media; the picker selection still works.
+function revokeDeviceRecentPreviews(entries: DeviceRecentEntry[]) {
+  for (const entry of entries) {
+    if (entry.previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(entry.previewUrl);
     }
   }
-  writeRecentMediaLibrary(next.slice(0, MAX_RECENT_MEDIA));
+}
+
+async function listDeviceRecentMedia(
+  directory: FileSystemDirectoryHandle,
+): Promise<DeviceRecentEntry[]> {
+  const candidates: Array<{
+    handle: FileSystemFileHandle;
+    file: File;
+    kind: "image" | "video";
+  }> = [];
+
+  const walk = async (
+    dir: FileSystemDirectoryHandle,
+    depth: number,
+  ): Promise<void> => {
+    // Keep the walk shallow so opening the panel stays snappy.
+    if (depth > 2 || candidates.length >= 80) return;
+    const directory = dir as FileSystemDirectoryHandleWithEntries;
+    const iterator =
+      typeof directory.entries === "function"
+        ? directory.entries()
+        : typeof directory.values === "function"
+          ? (async function* () {
+              for await (const value of directory.values!()) {
+                yield [value.name, value] as [string, FileSystemHandle];
+              }
+            })()
+          : null;
+    if (!iterator) return;
+    for await (const [, handle] of iterator) {
+      if (candidates.length >= 80) break;
+      if (handle.kind === "directory") {
+        await walk(handle as FileSystemDirectoryHandle, depth + 1);
+        continue;
+      }
+      try {
+        const file = await (handle as FileSystemFileHandle).getFile();
+        const kind = mediaKindFromFile(file);
+        if (!kind) continue;
+        candidates.push({
+          handle: handle as FileSystemFileHandle,
+          file,
+          kind,
+        });
+      } catch {
+        // Skip unreadable entries.
+      }
+    }
+  };
+
+  await walk(directory, 0);
+  candidates.sort((left, right) => right.file.lastModified - left.file.lastModified);
+
+  const entries: DeviceRecentEntry[] = [];
+  for (const candidate of candidates.slice(0, MAX_DEVICE_RECENTS)) {
+    try {
+      const previewUrl = await createDeviceMediaPreview(
+        candidate.file,
+        candidate.kind,
+      );
+      entries.push({
+        id: `${candidate.file.name}-${candidate.file.size}-${candidate.file.lastModified}`,
+        kind: candidate.kind,
+        name: candidate.file.name,
+        previewUrl,
+        lastModified: candidate.file.lastModified,
+        handle: candidate.handle,
+      });
+    } catch {
+      // Skip files we cannot preview.
+    }
+  }
+  return entries;
 }
 
 function mediaFileLabel(
@@ -1317,9 +1428,10 @@ const Composer = ({
   const [error, setError] = useState("");
   const [attachmentMenuAnchor, setAttachmentMenuAnchor] =
     useState<HTMLElement | null>(null);
-  const [recentMediaLibrary, setRecentMediaLibrary] = useState<
-    RecentMediaEntry[]
+  const [deviceRecentMedia, setDeviceRecentMedia] = useState<
+    DeviceRecentEntry[]
   >([]);
+  const [deviceMediaLoading, setDeviceMediaLoading] = useState(false);
   const [formattingOpen, setFormattingOpen] = useState(false);
   const [composerFont, setComposerFont] = useState<
     "standard" | "emphasis" | "monospace"
@@ -1335,6 +1447,7 @@ const Composer = ({
   const photoCaptureInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  const composerOpenedAtRef = useRef(0);
   const pendingCaretRef = useRef<number | null>(null);
   const mediaUploadAbortRef = useRef<AbortController | null>(null);
   const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
@@ -1438,19 +1551,81 @@ const Composer = ({
 
   useEffect(() => {
     if (!replyTo) return;
+    composerOpenedAtRef.current = Date.now();
     setOpen(true);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   }, [replyTo]);
 
   useEffect(() => {
     if (!attachmentMenuAnchor) return;
-    setRecentMediaLibrary(readRecentMediaLibrary());
+    let cancelled = false;
+    const load = async () => {
+      if (!supportsDeviceMediaLibrary()) {
+        setDeviceRecentMedia((current) => {
+          revokeDeviceRecentPreviews(current);
+          return [];
+        });
+        return;
+      }
+      setDeviceMediaLoading(true);
+      try {
+        // Only reuse a previously granted folder. Never prompt for directory
+        // access just because "+" was opened — that should show options first.
+        const directory = await loadDeviceDirectoryHandle();
+        if (!directory) {
+          if (!cancelled) {
+            setDeviceRecentMedia((current) => {
+              revokeDeviceRecentPreviews(current);
+              return [];
+            });
+          }
+          return;
+        }
+        const allowed = await ensureDirectoryPermission(directory);
+        if (!allowed) {
+          if (!cancelled) {
+            setDeviceRecentMedia((current) => {
+              revokeDeviceRecentPreviews(current);
+              return [];
+            });
+          }
+          return;
+        }
+        const entries = await listDeviceRecentMedia(directory);
+        if (cancelled) {
+          revokeDeviceRecentPreviews(entries);
+          return;
+        }
+        setDeviceRecentMedia((current) => {
+          revokeDeviceRecentPreviews(current);
+          return entries;
+        });
+      } catch {
+        if (!cancelled) {
+          setDeviceRecentMedia((current) => {
+            revokeDeviceRecentPreviews(current);
+            return [];
+          });
+        }
+      } finally {
+        if (!cancelled) setDeviceMediaLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [attachmentMenuAnchor]);
 
-  const refreshRecentMediaLibrary = async (files: File[]) => {
-    await rememberRecentMediaFiles(files);
-    setRecentMediaLibrary(readRecentMediaLibrary());
-  };
+  useEffect(
+    () => () => {
+      setDeviceRecentMedia((current) => {
+        revokeDeviceRecentPreviews(current);
+        return [];
+      });
+    },
+    [],
+  );
 
   const insertMention = (member: CommunityMemberRecord) => {
     const next = `${content.replace(/@[^\s@]*$/, "")}@${member.name} `;
@@ -1549,7 +1724,6 @@ const Composer = ({
 
   const handleAnyMediaSelected = (selectedFile: File | null) => {
     if (!selectedFile) return;
-    void refreshRecentMediaLibrary([selectedFile]);
     handleMediaSelected(
       selectedFile.type.startsWith("video/") ? "video" : "image",
       selectedFile,
@@ -1557,20 +1731,30 @@ const Composer = ({
   };
   // T: O(1) and S: O(1)
 
-  const handleRecentMediaSelect = (entry: RecentMediaEntry) => {
-    const cached = recentMediaFileCache.get(entry.id);
+  const openPhotosAndVideosPicker = () => {
     setAttachmentMenuAnchor(null);
-    if (cached) {
-      handleMediaSelected(entry.kind, cached);
-      return;
-    }
-    setOpen(true);
     window.requestAnimationFrame(() => {
       if (mediaInputRef.current) {
         mediaInputRef.current.value = "";
         mediaInputRef.current.click();
       }
     });
+  };
+  // T: O(1) and S: O(1)
+
+  const handleRecentMediaSelect = async (entry: DeviceRecentEntry) => {
+    setError("");
+    try {
+      const file = await entry.handle.getFile();
+      setAttachmentMenuAnchor(null);
+      handleMediaSelected(entry.kind, file);
+    } catch {
+      setAttachmentMenuAnchor(null);
+      setOpen(true);
+      setError(
+        "Could not open that photo or video. Choose it again from Photos & Videos.",
+      );
+    }
   };
   // T: O(1) and S: O(1)
 
@@ -1900,6 +2084,7 @@ const Composer = ({
             ? 25_000_000
             : 10_000_000;
     if (selectedFile && selectedFile.size > maxBytes) {
+      setOpen(true);
       setError(
         `${resourceType === "video" ? "Video" : resourceType === "audio" ? "Audio" : resourceType === "file" ? "File" : "Image"} must be smaller than ${
           maxBytes / 1_000_000
@@ -1919,9 +2104,7 @@ const Composer = ({
       setUploadStage("idle");
       return;
     }
-    if (resourceType === "image" || resourceType === "video") {
-      void refreshRecentMediaLibrary([selectedFile]);
-    }
+    setOpen(true);
 
     const requestId = mediaUploadRequestRef.current;
     const abortController = new AbortController();
@@ -1973,6 +2156,7 @@ const Composer = ({
 
   const handleOpen = () => {
     setError("");
+    composerOpenedAtRef.current = Date.now();
     setOpen(true);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   };
@@ -2026,10 +2210,24 @@ const Composer = ({
   };
   // T: O(1) and S: O(1)
 
+  const hasPendingDraft =
+    Boolean(file) ||
+    isRecordingAudio ||
+    isDictating ||
+    uploadStage === "uploading" ||
+    uploadStage === "uploaded" ||
+    uploadStage === "publishing";
+  const composerExpanded = open || hasPendingDraft;
+
   useEffect(() => {
-    if (!open) return;
+    if (!hasPendingDraft) return;
+    setOpen(true);
+  }, [hasPendingDraft]);
+
+  useEffect(() => {
+    if (!composerExpanded) return;
     const handleDocumentPointerDown = (event: PointerEvent) => {
-      if (submitting || isRecordingAudio || isDictating) return;
+      if (submitting || hasPendingDraft) return;
       if (
         event.target instanceof Element &&
         event.target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
@@ -2047,7 +2245,72 @@ const Composer = ({
     document.addEventListener("pointerdown", handleDocumentPointerDown);
     return () =>
       document.removeEventListener("pointerdown", handleDocumentPointerDown);
-  }, [isDictating, isRecordingAudio, open, submitting]);
+  }, [composerExpanded, hasPendingDraft, submitting]);
+
+  // Mobile/tablet: scrolling the feed collapses the expanded composer back to
+  // the compact pill. Keep it expanded while a draft/upload is pending.
+  useEffect(() => {
+    if (!open || hasPendingDraft || submitting) return;
+
+    const isInsideComposerOrOverlay = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false;
+      if (composerRef.current?.contains(target)) return true;
+      return Boolean(
+        target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root"),
+      );
+    };
+
+    const collapseComposer = () => {
+      if (Date.now() - composerOpenedAtRef.current < 450) return;
+      setOpen(false);
+      setAttachmentMenuAnchor(null);
+      composerInputRef.current?.blur();
+    };
+
+    const handleScroll = (event: Event) => {
+      if (isInsideComposerOrOverlay(event.target)) return;
+      collapseComposer();
+    };
+
+    let touchStartY: number | null = null;
+    const handleTouchStart = (event: TouchEvent) => {
+      if (isInsideComposerOrOverlay(event.target)) {
+        touchStartY = null;
+        return;
+      }
+      touchStartY = event.touches[0]?.clientY ?? null;
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (touchStartY == null) return;
+      const currentY = event.touches[0]?.clientY;
+      if (currentY == null) return;
+      // Finger drag on the feed = scroll; collapse the large message box.
+      if (Math.abs(currentY - touchStartY) > 12) {
+        collapseComposer();
+      }
+    };
+
+    document.addEventListener("scroll", handleScroll, {
+      passive: true,
+      capture: true,
+    });
+    document.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+      capture: true,
+    });
+    document.addEventListener("touchmove", handleTouchMove, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener("wheel", collapseComposer, { passive: true });
+
+    return () => {
+      document.removeEventListener("scroll", handleScroll, true);
+      document.removeEventListener("touchstart", handleTouchStart, true);
+      document.removeEventListener("touchmove", handleTouchMove, true);
+      window.removeEventListener("wheel", collapseComposer);
+    };
+  }, [open, hasPendingDraft, submitting]);
 
   useEffect(
     () => () => {
@@ -2179,24 +2442,24 @@ const Composer = ({
         position: "relative",
         width: "100%",
         boxSizing: "border-box",
-        maxHeight: open
+        maxHeight: composerExpanded
           ? "min(48dvh, 460px)"
           : { xs: 58, sm: 60, md: 62 },
-        minHeight: open ? 0 : { xs: 58, sm: 60, md: 62 },
-        p: open ? { xs: 1, sm: 1.25 } : 0,
-        borderRadius: open ? { xs: 3, sm: 3.5 } : 999,
+        minHeight: composerExpanded ? 0 : { xs: 58, sm: 60, md: 62 },
+        p: composerExpanded ? { xs: 1, sm: 1.25 } : 0,
+        borderRadius: composerExpanded ? { xs: 3, sm: 3.5 } : 999,
         bgcolor: C.cardBg,
         touchAction: "manipulation",
-        border: `1px solid ${open ? C.accentBorder : C.divider}`,
-        boxShadow: open
+        border: `1px solid ${composerExpanded ? C.accentBorder : C.divider}`,
+        boxShadow: composerExpanded
           ? "0 10px 30px rgba(44,26,10,0.12)"
           : "0 3px 14px rgba(44,26,10,0.06)",
-        overflow: open ? "auto" : "hidden",
+        overflow: composerExpanded ? "auto" : "hidden",
         transition:
           "max-height 320ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease",
       }}
     >
-      {open && !replyTo && (
+      {composerExpanded && !replyTo && (
         <IconButton
           aria-label="Cancel message"
           size="small"
@@ -2217,7 +2480,7 @@ const Composer = ({
           <CloseRoundedIcon sx={{ fontSize: 17 }} />
         </IconButton>
       )}
-      {open && replyTo && (
+      {composerExpanded && replyTo && (
         <Box
           onClick={(event) => event.stopPropagation()}
           sx={{
@@ -2311,13 +2574,13 @@ const Composer = ({
       <Box
         sx={{
           display: "flex",
-          alignItems: open ? "flex-start" : "center",
-          gap: open ? 0 : 0.5,
-          minHeight: open ? 0 : { xs: 56, sm: 58, md: 60 },
-          pr: open && !replyTo ? 3.5 : 0,
+          alignItems: composerExpanded ? "flex-start" : "center",
+          gap: composerExpanded ? 0 : 0.5,
+          minHeight: composerExpanded ? 0 : { xs: 56, sm: 58, md: 60 },
+          pr: composerExpanded && !replyTo ? 3.5 : 0,
         }}
       >
-        {!open && (
+        {!composerExpanded && (
           <IconButton
             aria-label="Add an image, video, or file"
             onClick={(event) => {
@@ -2342,8 +2605,8 @@ const Composer = ({
           inputRef={composerInputRef}
           fullWidth
           multiline
-          minRows={open ? 2 : 1}
-          maxRows={open ? 6 : 1}
+          minRows={composerExpanded ? 2 : 1}
+          maxRows={composerExpanded ? 6 : 1}
           value={content}
           disabled={submitting}
           onFocus={handleOpen}
@@ -2353,7 +2616,9 @@ const Composer = ({
             if (isDictating) dictationBaseRef.current = next;
           }}
           inputProps={{ maxLength: mode === "poll" ? 150 : 10_000 }}
-          helperText={open && mode === "poll" ? `${content.length}/150` : ""}
+          helperText={
+            composerExpanded && mode === "poll" ? `${content.length}/150` : ""
+          }
           FormHelperTextProps={{
             sx: {
               m: 0,
@@ -2363,22 +2628,28 @@ const Composer = ({
               fontSize: "0.7rem",
             },
           }}
-          placeholder={open && mode === "poll" ? "What is the question?" : messagePlaceholder}
+          placeholder={
+            composerExpanded && mode === "poll"
+              ? "What is the question?"
+              : messagePlaceholder
+          }
           variant="standard"
           InputProps={{ disableUnderline: true }}
           sx={{
             minWidth: 0,
-            py: open ? 0.3 : 0.25,
+            py: composerExpanded ? 0.3 : 0.25,
             "& .MuiInputBase-root": {
-              alignItems: open ? "flex-start" : "center",
+              alignItems: composerExpanded ? "flex-start" : "center",
               color: C.textPrimary,
               fontSize: { xs: "18px", sm: "17px" },
               lineHeight: 1.55,
               border: 0,
               borderRadius: 0,
               bgcolor: "transparent",
-              px: open ? { xs: 0.75, sm: 1 } : { xs: 1, sm: 1.25, md: 1.5 },
-              py: open ? 0.8 : 0,
+              px: composerExpanded
+                ? { xs: 0.75, sm: 1 }
+                : { xs: 1, sm: 1.25, md: 1.5 },
+              py: composerExpanded ? 0.8 : 0,
             },
             "& .MuiInputBase-input": {
               fontSize: { xs: "18px", sm: "17px" },
@@ -2402,7 +2673,7 @@ const Composer = ({
           }}
         />
 
-        {open && mentionSuggestions.length > 0 && (
+        {composerExpanded && mentionSuggestions.length > 0 && (
           <Box
             role="listbox"
             aria-label="Mention a community member"
@@ -2453,7 +2724,7 @@ const Composer = ({
         )}
         </Box>
 
-        {(!open || isDictating) && (
+        {(!composerExpanded || isDictating) && (
           <IconButton
             aria-label={isDictating ? "Listening" : "Dictate message"}
             aria-pressed={isDictating}
@@ -2501,7 +2772,7 @@ const Composer = ({
           onClick={(event) => event.stopPropagation()}
           sx={{
             px: 1.5,
-            pb: open ? 0 : 0.25,
+            pb: composerExpanded ? 0 : 0.25,
             color: C.red,
             fontSize: "0.75rem",
             fontWeight: 600,
@@ -2512,12 +2783,12 @@ const Composer = ({
       )}
 
       <Box
-        aria-hidden={!open}
+        aria-hidden={!composerExpanded}
         sx={{
           pl: 0,
-          opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(10px)",
-          pointerEvents: open ? "auto" : "none",
+          opacity: composerExpanded ? 1 : 0,
+          transform: composerExpanded ? "translateY(0)" : "translateY(10px)",
+          pointerEvents: composerExpanded ? "auto" : "none",
           transition:
             "opacity 180ms ease 80ms, transform 240ms cubic-bezier(0.4, 0, 0.2, 1)",
         }}
@@ -3212,7 +3483,7 @@ const Composer = ({
             fontWeight: 800,
           }}
         >
-          <Box component="span">Camera</Box>
+          <Box component="span">Add</Box>
           <Button
             size="small"
             onClick={() => setAttachmentMenuAnchor(null)}
@@ -3242,14 +3513,17 @@ const Composer = ({
               component="button"
               type="button"
               aria-label="Take a picture"
-              onClick={async () => {
-                setAttachmentMenuAnchor(null);
-                if (await requestRecordingPermission("camera")) {
-                  if (photoCaptureInputRef.current) {
-                    photoCaptureInputRef.current.value = "";
-                    photoCaptureInputRef.current.click();
-                  }
+              onClick={() => {
+                // Click the capture input first (same user gesture). Awaiting
+                // getUserMedia first breaks camera on mobile/tablet browsers.
+                const input = photoCaptureInputRef.current;
+                if (input) {
+                  input.value = "";
+                  input.click();
                 }
+                setAttachmentMenuAnchor(null);
+                setOpen(true);
+                setError("");
               }}
               sx={{
                 flex: "0 0 auto",
@@ -3268,13 +3542,33 @@ const Composer = ({
             >
               <PhotoCameraOutlinedIcon sx={{ fontSize: 30 }} />
             </Box>
-            {recentMediaLibrary.slice(0, 12).map((entry) => (
+            {deviceMediaLoading && deviceRecentMedia.length === 0 && (
+              <Box
+                sx={{
+                  flex: "0 0 auto",
+                  width: 84,
+                  height: 84,
+                  borderRadius: 2.5,
+                  border: `1px solid ${C.divider}`,
+                  display: "grid",
+                  placeItems: "center",
+                  bgcolor: C.cardBg,
+                }}
+              >
+                <CircularProgress size={20} sx={{ color: C.accent }} />
+              </Box>
+            )}
+            {deviceRecentMedia.map((entry) => (
               <Box
                 key={entry.id}
                 component="button"
                 type="button"
                 aria-label={`Use recent ${entry.kind}: ${entry.name}`}
-                onClick={() => handleRecentMediaSelect(entry)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void handleRecentMediaSelect(entry);
+                }}
                 sx={{
                   position: "relative",
                   flex: "0 0 auto",
@@ -3328,20 +3622,45 @@ const Composer = ({
                 />
               </Box>
             ))}
+            <Box
+              component="button"
+              type="button"
+              aria-label="More photos and videos"
+              onClick={openPhotosAndVideosPicker}
+              sx={{
+                flex: "0 0 auto",
+                width: 84,
+                height: 84,
+                borderRadius: 2.5,
+                border: `1px solid ${C.divider}`,
+                bgcolor: C.cardBg,
+                color: C.textSub,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 0.4,
+                cursor: "pointer",
+                p: 0,
+              }}
+            >
+              <PhotoLibraryOutlinedIcon sx={{ fontSize: 28 }} />
+              <Typography
+                sx={{
+                  fontSize: "0.68rem",
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
+              >
+                More
+              </Typography>
+            </Box>
           </Box>
 
           <Divider sx={{ borderColor: C.divider }} />
 
           <MenuItem
-            onClick={() => {
-              setAttachmentMenuAnchor(null);
-              window.requestAnimationFrame(() => {
-                if (mediaInputRef.current) {
-                  mediaInputRef.current.value = "";
-                  mediaInputRef.current.click();
-                }
-              });
-            }}
+            onClick={openPhotosAndVideosPicker}
             sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
           >
             <PhotoLibraryOutlinedIcon sx={{ color: C.textSub }} />
@@ -3397,7 +3716,6 @@ const Composer = ({
         accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm"
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
-          if (files.length > 1) void refreshRecentMediaLibrary(files);
           handleAnyMediaSelected(files[0] ?? null);
         }}
       />
@@ -3416,9 +3734,11 @@ const Composer = ({
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={(event) =>
-          handleMediaSelected("image", event.target.files?.[0] ?? null)
-        }
+        onChange={(event) => {
+          const selected = event.target.files?.[0] ?? null;
+          if (!selected) return;
+          handleMediaSelected("image", selected);
+        }}
       />
     </Card>
   );
@@ -3432,6 +3752,7 @@ const PostCard = ({
   conversationStyle = false,
   dateLabel,
   viewerName,
+  searchHighlighted = false,
   onUpdated,
   onDeleted,
   onReply,
@@ -3443,6 +3764,7 @@ const PostCard = ({
   conversationStyle?: boolean;
   dateLabel?: string;
   viewerName: string;
+  searchHighlighted?: boolean;
   onUpdated: (postId: string, body: string) => void;
   onDeleted: (postId: string) => void;
   onReply: (post: ForumPost) => void;
@@ -3460,6 +3782,11 @@ const PostCard = ({
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState("");
   const [commentCount, setCommentCount] = useState(post.replyCount ?? 0);
+  const [commentsNextCursor, setCommentsNextCursor] = useState<string | null>(
+    null,
+  );
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsLoadingMore, setCommentsLoadingMore] = useState(false);
   const [deletingComment, setDeletingComment] =
     useState<ForumComment | null>(null);
   const [commentDeletePending, setCommentDeletePending] = useState(false);
@@ -3509,6 +3836,7 @@ const PostCard = ({
   const [postActionPending, setPostActionPending] = useState(false);
   const [postActionError, setPostActionError] = useState("");
   const [mobileSwipeOffset, setMobileSwipeOffset] = useState(0);
+  const [messageActionsVisible, setMessageActionsVisible] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const [imageZoomed, setImageZoomed] = useState(false);
   const [fileViewer, setFileViewer] = useState<{
@@ -3887,31 +4215,67 @@ const PostCard = ({
   };
   // T: O(o) and S: O(o), where o is the number of selected poll options
 
+  const mapCommentRecords = (
+    records: Awaited<ReturnType<typeof listComments>>["items"],
+  ): ForumComment[] =>
+    records.map((comment) => ({
+      id: comment.id,
+      authorName: comment.author?.name ?? "Anchor member",
+      body: comment.body,
+      timeAgo: formatTimeAgo(comment.createdAt),
+      canDelete: comment.canDelete,
+      canEdit: comment.canEdit,
+      likeCount: comment.likeCount,
+      viewerLiked: comment.viewerLiked,
+    }));
+
   const handleToggleComments = async () => {
     const nextVisible = !showComments;
     setShowComments(nextVisible);
     if (!nextVisible || commentsLoaded) return;
     setReplyError("");
+    setCommentsLoading(true);
     try {
-      const records = await listComments(post.id);
-      setComments(
-        records.map((comment) => ({
-          id: comment.id,
-          authorName: comment.author?.name ?? "Anchor member",
-          body: comment.body,
-          timeAgo: formatTimeAgo(comment.createdAt),
-          canDelete: comment.canDelete,
-          canEdit: comment.canEdit,
-          likeCount: comment.likeCount,
-          viewerLiked: comment.viewerLiked,
-        })),
+      const page = await listComments(post.id, { limit: 10 });
+      setComments(mapCommentRecords(page.items));
+      setCommentsNextCursor(page.nextCursor);
+      setCommentCount(
+        Math.max(post.replyCount ?? 0, page.items.length),
       );
-      setCommentCount(Math.max(post.replyCount ?? 0, records.length));
       setCommentsLoaded(true);
     } catch (caught) {
       setReplyError(
         caught instanceof Error ? caught.message : "Could not load replies",
       );
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+  // T: O(c) and S: O(c), where c is returned comments
+
+  const handleLoadMoreComments = async () => {
+    if (!commentsNextCursor || commentsLoadingMore) return;
+    setCommentsLoadingMore(true);
+    setReplyError("");
+    try {
+      const page = await listComments(post.id, {
+        limit: 10,
+        cursor: commentsNextCursor,
+      });
+      setComments((current) => {
+        const existingIds = new Set(current.map((comment) => comment.id));
+        const next = mapCommentRecords(page.items).filter(
+          (comment) => !existingIds.has(comment.id),
+        );
+        return [...current, ...next];
+      });
+      setCommentsNextCursor(page.nextCursor);
+    } catch (caught) {
+      setReplyError(
+        caught instanceof Error ? caught.message : "Could not load more replies",
+      );
+    } finally {
+      setCommentsLoadingMore(false);
     }
   };
   // T: O(c) and S: O(c), where c is returned comments
@@ -4004,6 +4368,10 @@ const PostCard = ({
       mobileTouchMovedRef.current = true;
       clearMobileLongPressTimer();
     }
+    // Scrolling while actions are open restores the compact message look.
+    if (messageActionsVisible && Math.abs(deltaY) > 10) {
+      setMessageActionsVisible(false);
+    }
     if (deltaX < 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
       const nextOffset = Math.max(-68, deltaX);
       mobileSwipeOffsetRef.current = nextOffset;
@@ -4034,11 +4402,68 @@ const PostCard = ({
     const tappedAt = Date.now();
     if (tappedAt - lastMobileTapAtRef.current <= 320) {
       lastMobileTapAtRef.current = 0;
+      setMessageActionsVisible(true);
       if (!liked) void handleLike();
       return;
     }
     lastMobileTapAtRef.current = tappedAt;
+    // Single tap on mobile/tablet: reveal like / comment / reply / forward / more.
+    setMessageActionsVisible(true);
   };
+
+  useEffect(() => {
+    if (!messageActionsVisible) return;
+
+    const dismissActions = () => setMessageActionsVisible(false);
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest(`[data-message-row="${post.id}"]`)) return;
+      if (
+        event.target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
+      ) {
+        return;
+      }
+      dismissActions();
+    };
+
+    let touchStartY: number | null = null;
+    const handleTouchStart = (event: TouchEvent) => {
+      touchStartY = event.touches[0]?.clientY ?? null;
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (touchStartY == null) return;
+      const currentY = event.touches[0]?.clientY;
+      if (currentY == null) return;
+      // Any intentional vertical drag (scroll up/down) restores the compact row.
+      if (Math.abs(currentY - touchStartY) > 10) {
+        dismissActions();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+      capture: true,
+    });
+    document.addEventListener("touchmove", handleTouchMove, {
+      passive: true,
+      capture: true,
+    });
+    // Capture scrolls from window, main, and nested overflow containers.
+    document.addEventListener("scroll", dismissActions, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener("wheel", dismissActions, { passive: true });
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("touchstart", handleTouchStart, true);
+      document.removeEventListener("touchmove", handleTouchMove, true);
+      document.removeEventListener("scroll", dismissActions, true);
+      window.removeEventListener("wheel", dismissActions);
+    };
+  }, [messageActionsVisible, post.id]);
 
   useEffect(
     () => () => {
@@ -4192,6 +4617,16 @@ const PostCard = ({
       </Divider>
     )}
     <Card
+      data-message-row={post.id}
+      onClick={(event) => {
+        // Mouse / stylus on tablet widths: click reveals the action bar.
+        // Touch devices already reveal it from handleMobileTouchEnd.
+        if (!isMobileTouchLayout() || isInteractiveTouchTarget(event.target)) {
+          return;
+        }
+        if (window.matchMedia("(pointer: coarse)").matches) return;
+        setMessageActionsVisible(true);
+      }}
       onTouchStart={handleMobileTouchStart}
       onTouchMove={handleMobileTouchMove}
       onTouchEnd={handleMobileTouchEnd}
@@ -4210,13 +4645,13 @@ const PostCard = ({
         mx: "auto",
         boxSizing: "border-box",
         py: { xs: 1.2, sm: 2 },
-        bgcolor: C.cardBg,
+        bgcolor: searchHighlighted || messageActionsVisible ? C.surface : C.cardBg,
         border: 0,
         borderRadius: 0,
         px: 0,
         boxShadow: "none",
         overflow: "hidden",
-        transition: "background-color 140ms ease",
+        transition: "background-color 280ms ease",
         transform: { xs: `translateX(${mobileSwipeOffset}px)`, md: "none" },
         touchAction: "pan-y",
         transitionProperty: "background-color, transform",
@@ -4240,15 +4675,18 @@ const PostCard = ({
           opacity: mobileSwipeOffset < -12 ? 1 : 0,
           transition: "opacity 120ms ease",
         },
-        "& .message-actions": {
-          opacity: { md: 0 },
-          transform: { md: "translateY(4px)" },
-          pointerEvents: { md: "none" },
-        },
-        "&:hover .message-actions, &:focus-within .message-actions": {
-          opacity: 1,
-          transform: "translateY(0)",
-          pointerEvents: "auto",
+        // Desktop: fade actions in on hover. Mobile/tablet uses tap + scroll dismiss.
+        "@media (hover: hover) and (min-width: 900px)": {
+          "& .message-actions": {
+            opacity: 0,
+            transform: "translateY(4px)",
+            pointerEvents: "none",
+          },
+          "&:hover .message-actions, &:focus-within .message-actions": {
+            opacity: 1,
+            transform: "translateY(0)",
+            pointerEvents: "auto",
+          },
         },
       }}
     >
@@ -4258,13 +4696,19 @@ const PostCard = ({
         alignItems="center"
         spacing={0.25}
         sx={{
-          display: { xs: "none", md: "flex" },
-          position: "absolute",
+          // Mobile/tablet: in-flow row so the message box grows while selected;
+          // scrolling dismisses this and restores the compact height.
+          display: {
+            xs: messageActionsVisible ? "flex" : "none",
+            md: "flex",
+          },
+          position: { xs: "relative", md: "absolute" },
           top: { md: 8 },
           right: { md: 8 },
+          alignSelf: { xs: "flex-end", md: "auto" },
           width: "fit-content",
           ml: "auto",
-          mb: 0,
+          mb: { xs: messageActionsVisible ? 0.85 : 0, md: 0 },
           p: 0.35,
           border: `1px solid ${C.divider}`,
           borderRadius: 2,
@@ -4938,7 +5382,11 @@ const PostCard = ({
         <Box sx={{ mt: 2, ml: { xs: 5.5, sm: 6.15 } }}>
           <Divider sx={{ borderColor: C.divider, mb: 1.5 }} />
 
-          {comments.length === 0 ? (
+          {commentsLoading && comments.length === 0 ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+              <CircularProgress size={22} sx={{ color: C.accent }} />
+            </Box>
+          ) : comments.length === 0 ? (
             <Typography sx={{ fontSize: "0.88rem", color: C.textMuted, mb: 2 }}>
               No replies yet — be the first to help.
             </Typography>
@@ -5109,6 +5557,37 @@ const PostCard = ({
                 </Box>
               );
               })}
+              {commentsNextCursor && (
+                <Box sx={{ display: "flex", justifyContent: "center", pt: 0.5 }}>
+                  <Button
+                    size="small"
+                    onClick={() => void handleLoadMoreComments()}
+                    disabled={commentsLoadingMore}
+                    endIcon={
+                      commentsLoadingMore ? (
+                        <CircularProgress size={14} sx={{ color: C.accent }} />
+                      ) : (
+                        <KeyboardArrowDownRoundedIcon sx={{ fontSize: 18 }} />
+                      )
+                    }
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      fontSize: "0.8rem",
+                      color: C.accentDark,
+                      px: 1.5,
+                      py: 0.4,
+                      borderRadius: 999,
+                      bgcolor: C.accentFaint,
+                      "&:hover": { bgcolor: C.surface },
+                    }}
+                  >
+                    {commentsLoadingMore
+                      ? "Loading…"
+                      : "Scroll down · next 10"}
+                  </Button>
+                </Box>
+              )}
             </Stack>
           )}
 
@@ -8451,6 +8930,10 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const userReadingHistoryRef = useRef(false);
   const stickToLatestRef = useRef(false);
   const scrolledToQueryPostRef = useRef("");
+  const highlightPostTimerRef = useRef<number | null>(null);
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(
+    null,
+  );
   const lastWindowScrollYRef = useRef(0);
   const lastMainScrollYRef = useRef(0);
   const chromeVisibleRef = useRef(true);
@@ -9509,29 +9992,92 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     return () => setMessages([]);
   }, [setMessages]);
 
-  useEffect(() => {
-    const postId = new URLSearchParams(window.location.search).get("post");
-    if (!postId || posts.length === 0) return;
-    if (scrolledToQueryPostRef.current === `${pageTab}:${postId}`) return;
-    if (!posts.some((post) => post.id === postId)) return;
-    scrolledToQueryPostRef.current = `${pageTab}:${postId}`;
-    const timer = window.setTimeout(() => {
-      document
-        .querySelector(`[data-community-post-id="${postId}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-      const url = new URL(window.location.href);
-      if (url.searchParams.has("post")) {
-        url.searchParams.delete("post");
-        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  const flashPostHighlight = useCallback((postId: string) => {
+    if (highlightPostTimerRef.current !== null) {
+      window.clearTimeout(highlightPostTimerRef.current);
+      highlightPostTimerRef.current = null;
+    }
+    setHighlightedPostId(postId);
+    highlightPostTimerRef.current = window.setTimeout(() => {
+      setHighlightedPostId((current) => (current === postId ? null : current));
+      highlightPostTimerRef.current = null;
+    }, 2000);
+  }, []);
+
+  const scrollToPostAndHighlight = useCallback(
+    async (postId: string) => {
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        const target = document.querySelector(
+          `[data-community-post-id="${CSS.escape(postId)}"]`,
+        ) as HTMLElement | null;
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Apply shade immediately so it is visible during/after scroll.
+          flashPostHighlight(postId);
+          consumePendingPostHighlight();
+          const url = new URL(window.location.href);
+          if (url.searchParams.get("post") === postId) {
+            url.searchParams.delete("post");
+            window.history.replaceState(
+              {},
+              "",
+              `${url.pathname}${url.search}`,
+            );
+          }
+          return true;
+        }
+        await delay(120);
       }
-    }, 280);
-    return () => window.clearTimeout(timer);
-  }, [communityConversationId, pageTab, posts]);
+      return false;
+    },
+    [flashPostHighlight],
+  );
+
+  useEffect(
+    () => () => {
+      if (highlightPostTimerRef.current !== null) {
+        window.clearTimeout(highlightPostTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  // Deep-link / search: wait until the message row exists, then scroll + shade.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("post");
+    const fromPending = peekPendingPostHighlight();
+    const postId = fromUrl || fromPending;
+    if (!postId || posts.length === 0) return;
+    if (!posts.some((post) => post.id === postId)) return;
+    const focusKey = `${pageTab}:${communityConversationId ?? "feed"}:${postId}`;
+    if (scrolledToQueryPostRef.current === focusKey) return;
+
+    let cancelled = false;
+    void (async () => {
+      const focused = await scrollToPostAndHighlight(postId);
+      if (cancelled) return;
+      if (focused) {
+        scrolledToQueryPostRef.current = focusKey;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    communityConversationId,
+    pageTab,
+    posts,
+    scrollToPostAndHighlight,
+  ]);
 
   useEffect(() => {
     const openFromInbox = (event: Event) => {
       const detail = (event as CustomEvent<OpenPostDetail>).detail;
       if (!detail?.postId) return;
+      markPendingPostHighlight(detail.postId);
+      // Force a fresh focus attempt for this selection.
+      scrolledToQueryPostRef.current = "";
       const open = async () => {
         if (detail.communityId) {
           await handleOpenCommunity(detail.communityId);
@@ -9541,17 +10087,18 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           replaceCommunityUrl("posts");
           await refreshPosts(ALL_ID);
         }
-        window.setTimeout(() => {
-          document
-            .querySelector(`[data-community-post-id="${detail.postId}"]`)
-            ?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 350);
+        await scrollToPostAndHighlight(detail.postId);
       };
       void open();
     };
     window.addEventListener(OPEN_POST_EVENT, openFromInbox);
     return () => window.removeEventListener(OPEN_POST_EVENT, openFromInbox);
-  }, [handleOpenCommunity, refreshPosts, replaceCommunityUrl]);
+  }, [
+    handleOpenCommunity,
+    refreshPosts,
+    replaceCommunityUrl,
+    scrollToPostAndHighlight,
+  ]);
 
   useEffect(() => {
     const header = communityHeaderRef.current;
@@ -9979,6 +10526,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                     <PostCard
                       post={post}
                       viewerName={currentProfileName}
+                      searchHighlighted={highlightedPostId === post.id}
                       onReply={setReplyingToPost}
                       onUpdated={handlePostUpdated}
                       onDeleted={handlePostDeleted}
@@ -10220,6 +10768,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       <PostCard
                         post={post}
                         viewerName={currentProfileName}
+                        searchHighlighted={highlightedPostId === post.id}
                         onReply={setReplyingToPost}
                         communityName={conversationCommunity.name}
                         conversationStyle

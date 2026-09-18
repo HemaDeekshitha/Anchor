@@ -74,6 +74,7 @@ export function useAppChrome() {
 
 export const OPEN_POST_EVENT = "anchor:open-post";
 export const INBOX_CHANGED_EVENT = "anchor:inbox-changed";
+export const PENDING_POST_HIGHLIGHT_KEY = "anchor.community.pendingPostHighlight";
 const DISMISSED_POSTS_KEY = "anchor.inbox.dismissedPostIds";
 const SEEN_REQUESTS_KEY = "anchor.community.seenFriendRequestIds";
 const NOTIFIED_POSTS_KEY = "anchor.community.notifiedPostIds";
@@ -81,6 +82,32 @@ const NOTIFIED_POSTS_KEY = "anchor.community.notifiedPostIds";
 export type OpenPostDetail = {
   postId: string;
   communityId: string | null;
+};
+
+export const markPendingPostHighlight = (postId: string) => {
+  try {
+    window.sessionStorage.setItem(PENDING_POST_HIGHLIGHT_KEY, postId);
+  } catch {
+    // Session storage may be unavailable in private modes.
+  }
+};
+
+export const consumePendingPostHighlight = (): string | null => {
+  try {
+    const postId = window.sessionStorage.getItem(PENDING_POST_HIGHLIGHT_KEY);
+    if (postId) window.sessionStorage.removeItem(PENDING_POST_HIGHLIGHT_KEY);
+    return postId;
+  } catch {
+    return null;
+  }
+};
+
+export const peekPendingPostHighlight = (): string | null => {
+  try {
+    return window.sessionStorage.getItem(PENDING_POST_HIGHLIGHT_KEY);
+  } catch {
+    return null;
+  }
 };
 
 const readIdSet = (key: string) => {
@@ -246,6 +273,7 @@ export const seedReadPosition = (
 };
 
 export const openInboxPost = (detail: OpenPostDetail) => {
+  markPendingPostHighlight(detail.postId);
   window.dispatchEvent(new CustomEvent(OPEN_POST_EVENT, { detail }));
 };
 
@@ -289,7 +317,7 @@ export const playCommunityMessageSound = (
     const gain = context.createGain();
     oscillator.type = "sine";
     oscillator.frequency.value = kind === "in-chat" ? 880 : 660;
-    const peak = kind === "in-chat" ? 0.045 : 0.08;
+    const peak = kind === "in-chat" ? 0.07 : 0.12;
     const start = context.currentTime;
     const end = start + (kind === "in-chat" ? 0.12 : 0.18);
     gain.gain.setValueAtTime(0.0001, start);
@@ -308,7 +336,7 @@ export const playCommunityMessageSound = (
       const secondStart = start + 0.08;
       const secondEnd = secondStart + 0.12;
       secondGain.gain.setValueAtTime(0.0001, secondStart);
-      secondGain.gain.exponentialRampToValueAtTime(0.06, secondStart + 0.012);
+      secondGain.gain.exponentialRampToValueAtTime(0.09, secondStart + 0.012);
       secondGain.gain.exponentialRampToValueAtTime(0.0001, secondEnd);
       second.connect(secondGain);
       secondGain.connect(context.destination);
