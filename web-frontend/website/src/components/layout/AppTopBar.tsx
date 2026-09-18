@@ -40,6 +40,7 @@ import {
   INBOX_CHANGED_EVENT,
   markFriendRequestsSeen,
   openInboxPost,
+  markPendingPostHighlight,
   readDeviceNotificationMode,
   readDismissedPostIds,
   readSeenFriendRequestIds,
@@ -474,7 +475,10 @@ export default function AppTopBar({ onOpenNavigation }: AppTopBarProps) {
       tab: "communities",
       community: communityId,
     });
-    if (postId) params.set("post", postId);
+    if (postId) {
+      params.set("post", postId);
+      markPendingPostHighlight(postId);
+    }
     router.push(`/community?${params.toString()}`);
   };
 
