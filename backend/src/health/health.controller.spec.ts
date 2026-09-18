@@ -43,4 +43,20 @@ describe('HealthController readiness', () => {
       );
     },
   );
+
+  it('reports degraded in production when Redis is disabled', async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    (dataSource.query as jest.Mock).mockResolvedValue([
+      { communitySchemaReady: true },
+    ]);
+    (cache.readiness as jest.Mock).mockResolvedValue('disabled');
+
+    await expect(controller.readiness()).resolves.toMatchObject({
+      status: 'degraded',
+      redis: 'disabled',
+      warning: expect.stringContaining('REDIS_URL'),
+    });
+    process.env.NODE_ENV = previous;
+  });
 });

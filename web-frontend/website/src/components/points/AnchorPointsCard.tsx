@@ -94,9 +94,9 @@ export default function AnchorPointsCard({
     );
   }
 
-  const anchorPoints = data?.anchorPoints ?? 0;
-  const points360 = data?.points360 ?? 0;
-  const progressPercent = data?.progressPercent ?? 0;
+  const anchorPoints = Math.max(0, data?.anchorPoints ?? 0);
+  const points360 = Math.max(0, data?.points360 ?? 0);
+  const progressPercent = Math.max(0, data?.progressPercent ?? 0);
   const pointsToNext = data?.pointsToNextConversion ?? 100;
   const canConvert = data?.canConvert ?? false;
 
