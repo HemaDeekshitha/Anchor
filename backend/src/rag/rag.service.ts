@@ -560,12 +560,28 @@ export class RagService {
       }
 
       await manager.getRepository(UserDailyTask).save(overdueTasks);
-      await manager.getRepository(UserPointsLedger).save({
-        user_id: userId,
-        task_id: null,
-        amount: -this.PENDING_OVERFLOW_PENALTY,
-        type: 'pending_overflow_penalty',
-      });
+      const balanceRow = await manager
+        .getRepository(UserPointsLedger)
+        .createQueryBuilder('ledger')
+        .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+        .where('ledger.user_id = :userId', { userId })
+        .getRawOne<{ total: string }>();
+      const currentBalance = Math.max(
+        0,
+        Number.parseInt(balanceRow?.total ?? '0', 10) || 0,
+      );
+      const penalty = Math.min(
+        currentBalance,
+        this.PENDING_OVERFLOW_PENALTY,
+      );
+      if (penalty > 0) {
+        await manager.getRepository(UserPointsLedger).save({
+          user_id: userId,
+          task_id: null,
+          amount: -penalty,
+          type: 'pending_overflow_penalty',
+        });
+      }
     });
   }
   // T: O(p + f log f) and S: O(p + f), where p is overdue and f is future days

@@ -81,7 +81,7 @@ export class PointsService {
    * Return the current Anchor Points balance + 360 Points count for a user.
    */
   async getBalance(userId: string): Promise<PointsBalanceDto> {
-    const anchorPoints = await this.sumLedger(userId);
+    const anchorPoints = Math.max(0, await this.sumLedger(userId));
     const user = await this.userRepo.findOne({ where: { id: userId } });
     const points360 = user?.points_360 ?? 0;
 
@@ -91,7 +91,7 @@ export class PointsService {
     );
     const progressPercent = Math.min(
       100,
-      Math.round((anchorPoints / CONVERSION_THRESHOLD) * 100),
+      Math.max(0, Math.round((anchorPoints / CONVERSION_THRESHOLD) * 100)),
     );
 
     return {
@@ -142,7 +142,10 @@ export class PointsService {
         .where('l.user_id = :userId', { userId })
         .getRawOne<{ total: string }>();
 
-      const currentBalance = parseInt(rows?.total ?? '0', 10);
+      const currentBalance = Math.max(
+        0,
+        parseInt(rows?.total ?? '0', 10) || 0,
+      );
 
       if (currentBalance < CONVERSION_THRESHOLD) {
         throw new BadRequestException(
@@ -151,7 +154,7 @@ export class PointsService {
         );
       }
 
-      // 1. Debit 500 Anchor Points
+      // Debit only up to the conversion threshold; balance never goes below 0.
       await manager.getRepository(UserPointsLedger).save({
         user_id: userId,
         task_id: null,

@@ -291,9 +291,13 @@ export default function RewardsPage() {
   }
 
   const history = data?.history ?? [];
-  const anchorPoints = data?.anchorPoints ?? 0;
-  const points360 = data?.points360 ?? history.filter((e) => e.type === "converted_to_360").length;
-  const progressPercent = data?.progressPercent ?? 0;
+  const anchorPoints = Math.max(0, data?.anchorPoints ?? 0);
+  const points360 = Math.max(
+    0,
+    data?.points360 ??
+      history.filter((e) => e.type === "converted_to_360").length,
+  );
+  const progressPercent = Math.max(0, data?.progressPercent ?? 0);
   const pointsToNext = data?.pointsToNextConversion ?? 100;
   const conversionThreshold = anchorPoints + pointsToNext;
   const canConvert = data?.canConvert ?? false;

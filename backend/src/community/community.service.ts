@@ -1038,8 +1038,20 @@ export class CommunityService {
         createdAt: new Date(result.post.createdAt).toISOString(),
       });
     }
-    const [createdPost] = await this.hydratePosts([result.post], userId);
-    return createdPost;
+    try {
+      const [createdPost] = await this.hydratePosts([result.post], userId);
+      return createdPost;
+    } catch {
+      // Post is already persisted — return a minimal payload instead of 500.
+      return {
+        ...result.post,
+        author: null,
+        viewerVote: 0,
+        replyTo: null,
+        media: [],
+        poll: null,
+      };
+    }
   }
   // T: O(m + o + f) and S: O(m + o + f), where m is media, o is poll options, and f is friendship hydration
 
@@ -1141,31 +1153,48 @@ export class CommunityService {
     const mediaPostIds = [...new Set([...postIds, ...replyTargetIds])];
     const [authors, media, polls, profiles, friendships, viewerVotes] =
       await Promise.all([
-        this.userRepository.find({
-          select: { id: true, name: true, email: true },
-          where: { id: In(authorIds) },
-        }),
-        this.postMediaRepository.find({
-          where: {
-            postId: In(mediaPostIds),
-            status: In(['pending', 'ready']),
-          },
-          order: { sortOrder: 'ASC' },
-        }),
-        this.pollRepository.find({ where: { postId: In(postIds) } }),
-        this.onboardingRepository.find({
-          where: { userId: In(authorIds) },
-        }),
-        this.friendshipRepository
-          .createQueryBuilder('friendship')
-          .where(
-            '(friendship."userLowId" = :viewerId AND friendship."userHighId" IN (:...authorIds)) OR (friendship."userHighId" = :viewerId AND friendship."userLowId" IN (:...authorIds))',
-            { viewerId, authorIds },
-          )
-          .getMany(),
-        this.postVoteRepository.find({
-          where: { postId: In(postIds), userId: viewerId },
-        }),
+        authorIds.length
+          ? this.userRepository.find({
+              select: { id: true, name: true, email: true },
+              where: { id: In(authorIds) },
+            })
+          : Promise.resolve([]),
+        mediaPostIds.length
+          ? this.postMediaRepository
+              .find({
+                where: {
+                  postId: In(mediaPostIds),
+                  status: In(['pending', 'ready']),
+                },
+                order: { sortOrder: 'ASC' },
+              })
+              .catch(() => [] as PostMedia[])
+          : Promise.resolve([] as PostMedia[]),
+        this.pollRepository
+          .find({ where: { postId: In(postIds) } })
+          .catch(() => [] as Poll[]),
+        authorIds.length
+          ? this.onboardingRepository
+              .find({
+                where: { userId: In(authorIds) },
+              })
+              .catch(() => [] as OnboardingResponse[])
+          : Promise.resolve([] as OnboardingResponse[]),
+        authorIds.length
+          ? this.friendshipRepository
+              .createQueryBuilder('friendship')
+              .where(
+                '(friendship."userLowId" = :viewerId AND friendship."userHighId" IN (:...authorIds)) OR (friendship."userHighId" = :viewerId AND friendship."userLowId" IN (:...authorIds))',
+                { viewerId, authorIds },
+              )
+              .getMany()
+              .catch(() => [] as Friendship[])
+          : Promise.resolve([] as Friendship[]),
+        this.postVoteRepository
+          .find({
+            where: { postId: In(postIds), userId: viewerId },
+          })
+          .catch(() => [] as PostVote[]),
       ]);
     const pollIds = polls.map((poll) => poll.id);
     const [options, viewerPollVotes] = pollIds.length
@@ -1240,8 +1269,12 @@ export class CommunityService {
               avatarUrl: profile?.profileImageUrl ?? null,
               profession:
                 profile?.dedicatedRole ??
-                profile?.preferredRole?.[0] ??
-                profile?.currentStatus?.[0] ??
+                (Array.isArray(profile?.preferredRole)
+                  ? profile.preferredRole[0]
+                  : null) ??
+                (Array.isArray(profile?.currentStatus)
+                  ? profile.currentStatus[0]
+                  : null) ??
                 'Anchor member',
               friendshipStatus:
                 post.authorId === viewerId
@@ -1260,15 +1293,9 @@ export class CommunityService {
                 id: replyTarget.id,
                 body: replyTarget.body,
                 kind: replyTarget.kind,
-                media: (mediaByPost.get(replyTarget.id) ?? []).map((item) => ({
-                  id: item.id,
-                  resourceType: item.resourceType,
-                  originalFilename: item.originalFilename ?? null,
-                  url: this.mediaService.createDeliveryUrl(
-                    item.providerAssetId,
-                    item.resourceType,
-                  ),
-                })),
+                media: this.mapMediaForClient(
+                  mediaByPost.get(replyTarget.id) ?? [],
+                ),
                 author: {
                   id: replyAuthor.id,
                   name: replyAuthor.name,
@@ -1276,15 +1303,7 @@ export class CommunityService {
                 },
               }
             : null,
-        media: (mediaByPost.get(post.id) ?? []).map((item) => ({
-          id: item.id,
-          resourceType: item.resourceType,
-          originalFilename: item.originalFilename ?? null,
-          url: this.mediaService.createDeliveryUrl(
-            item.providerAssetId,
-            item.resourceType,
-          ),
-        })),
+        media: this.mapMediaForClient(mediaByPost.get(post.id) ?? []),
         poll: poll
           ? {
               ...poll,
@@ -1292,6 +1311,31 @@ export class CommunityService {
               viewerOptionIds: viewerOptionsByPoll.get(poll.id) ?? [],
             }
           : null,
+      };
+    });
+  }
+
+  private mapMediaForClient(media: PostMedia[]): Array<{
+    id: string;
+    resourceType: PostMedia['resourceType'];
+    originalFilename: string | null;
+    url: string | null;
+  }> {
+    return media.map((item) => {
+      let url: string | null = null;
+      try {
+        url = this.mediaService.createDeliveryUrl(
+          item.providerAssetId,
+          item.resourceType,
+        );
+      } catch {
+        url = null;
+      }
+      return {
+        id: item.id,
+        resourceType: item.resourceType,
+        originalFilename: item.originalFilename ?? null,
+        url,
       };
     });
   }

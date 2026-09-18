@@ -30,6 +30,7 @@ export default function Profile() {
   );
   const [submissions, setSubmissions] = useState<RecentSubmissionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [period, setPeriod] = React.useState("this_week");
   const [emailOtp, setEmailOtp] = useState("");
   const [emailOtpError, setEmailOtpError] = useState("");
@@ -46,6 +47,7 @@ export default function Profile() {
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
   const loadDashboardData = useCallback(async () => {
+    setLoadError("");
     try {
       const [profileRes, activityRes, submissionsRes] = await Promise.all([
         apiFetch(`${API}/momentum/profile`),
@@ -61,7 +63,11 @@ export default function Profile() {
       setActivity(await activityRes.json());
       setSubmissions(await submissionsRes.json());
     } catch (err) {
-      console.error("Failed to load dashboard data", err);
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Could not load profile. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -225,6 +231,39 @@ export default function Profile() {
           }}
         >
           <CircularProgress sx={{ color: "#b87444" }} />
+        </Box>
+      </LayoutWithSidebar>
+    );
+  }
+
+  if (loadError && !profile) {
+    return (
+      <LayoutWithSidebar>
+        <Box
+          sx={{
+            minHeight: "60vh",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 1.5,
+            px: 3,
+            background: C.cardBg,
+          }}
+        >
+          <Typography sx={{ color: C.textPrimary, fontWeight: 700 }}>
+            {loadError}
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setLoading(true);
+              void loadDashboardData();
+            }}
+            sx={{ textTransform: "none", bgcolor: "#b87444" }}
+          >
+            Retry
+          </Button>
         </Box>
       </LayoutWithSidebar>
     );
