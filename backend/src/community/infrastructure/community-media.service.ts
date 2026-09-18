@@ -129,7 +129,12 @@ export class CommunityMediaService {
       secure: true,
       // Long enough for an open chat session without mid-scroll broken media.
       expires_at: Math.floor(Date.now() / 1000) + 2 * 60 * 60,
-      format: resourceType === 'video' ? 'mp4' : undefined,
+      format:
+        resourceType === 'video'
+          ? 'mp4'
+          : resourceType === 'audio'
+            ? 'mp3'
+            : undefined,
       transformation:
         resourceType === 'image'
           ? [
@@ -140,7 +145,7 @@ export class CommunityMediaService {
                 crop: 'limit',
               },
             ]
-          : resourceType === 'video'
+          : resourceType === 'video' || resourceType === 'audio'
             ? [{ quality: 'auto' }]
             : undefined,
     });
