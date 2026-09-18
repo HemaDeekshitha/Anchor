@@ -159,8 +159,13 @@ export class MediaReferenceDto {
   @Length(3, 255)
   providerAssetId: string;
 
-  @IsIn(['image', 'video'])
-  resourceType: 'image' | 'video';
+  @IsIn(['image', 'video', 'audio', 'file'])
+  resourceType: 'image' | 'video' | 'audio' | 'file';
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  originalFilename?: string;
 }
 
 export class CreatePostDto {
@@ -192,6 +197,12 @@ export class CreatePostDto {
   @ValidateNested()
   @Type(() => CreatePollDto)
   poll?: CreatePollDto;
+}
+
+export class SetTypingDto {
+  @IsOptional()
+  @IsBoolean()
+  typing = true;
 }
 
 export class UpdatePostDto {
@@ -249,8 +260,8 @@ export class SearchPeopleQueryDto {
 }
 
 export class MediaSignatureDto {
-  @IsIn(['image', 'video'])
-  resourceType: 'image' | 'video';
+  @IsIn(['image', 'video', 'audio', 'file'])
+  resourceType: 'image' | 'video' | 'audio' | 'file';
 }
 
 export class SendFriendRequestDto {

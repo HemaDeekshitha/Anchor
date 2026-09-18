@@ -91,6 +91,70 @@ export class CommunityCacheService
   }
   // T: O(v) and S: O(v), where v is the serialized value size
 
+  async getVersion(namespace: string): Promise<number> {
+    if (!this.redis || !this.available) return 0;
+    try {
+      const value = await this.redis.get(`community:ver:${namespace}`);
+      return value ? Number(value) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  async bumpVersion(namespace: string): Promise<number> {
+    if (!this.redis || !this.available) return 0;
+    try {
+      return Number(await this.redis.incr(`community:ver:${namespace}`)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  /**
+   * Writes a cached value only if the namespace version is unchanged.
+   * Prevents a slow list request started before invalidation from
+   * re-populating Redis with a stale page after a create/update.
+   */
+  async setJsonIfVersion(
+    key: string,
+    value: unknown,
+    ttlSeconds: number,
+    namespace: string,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    if (!this.redis || !this.available) return false;
+    const script = `
+      local current = redis.call('GET', KEYS[1])
+      if (not current and tonumber(ARGV[1]) ~= 0) then
+        return 0
+      end
+      if (current and tonumber(current) ~= tonumber(ARGV[1])) then
+        return 0
+      end
+      redis.call('SET', KEYS[2], ARGV[2], 'EX', tonumber(ARGV[3]))
+      return 1
+    `;
+    try {
+      const written = Number(
+        await this.redis.eval(
+          script,
+          2,
+          `community:ver:${namespace}`,
+          key,
+          String(expectedVersion),
+          JSON.stringify(value),
+          String(ttlSeconds),
+        ),
+      );
+      return written === 1;
+    } catch {
+      return false;
+    }
+  }
+  // T: O(v) and S: O(v), where v is the serialized value size
+
   async deleteKeys(...keys: string[]): Promise<void> {
     if (!this.redis || !this.available || keys.length === 0) return;
     try {
@@ -145,6 +209,141 @@ export class CommunityCacheService
       };
     } catch {
       return { allowed: true, remaining: limit };
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  async setCommunityTyping(
+    communityId: string,
+    userId: string,
+    payload: { name: string; avatarUrl?: string | null },
+  ): Promise<void> {
+    if (!this.redis || !this.available) return;
+    const key = `community:typing:${communityId}`;
+    try {
+      await this.redis.hset(
+        key,
+        userId,
+        JSON.stringify({
+          name: payload.name,
+          avatarUrl: payload.avatarUrl ?? null,
+          at: Date.now(),
+        }),
+      );
+      await this.redis.expire(key, 6);
+    } catch {
+      // Typing presence is best-effort.
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  async clearCommunityTyping(
+    communityId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!this.redis || !this.available) return;
+    try {
+      await this.redis.hdel(`community:typing:${communityId}`, userId);
+    } catch {
+      // Typing presence is best-effort.
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  async listCommunityTyping(
+    communityId: string,
+    excludeUserId?: string,
+  ): Promise<
+    Array<{ userId: string; name: string; avatarUrl: string | null }>
+  > {
+    if (!this.redis || !this.available) return [];
+    try {
+      const rows = await this.redis.hgetall(`community:typing:${communityId}`);
+      const cutoff = Date.now() - 4_500;
+      const active: Array<{
+        userId: string;
+        name: string;
+        avatarUrl: string | null;
+      }> = [];
+      for (const [userId, raw] of Object.entries(rows)) {
+        if (excludeUserId && userId === excludeUserId) continue;
+        try {
+          const parsed = JSON.parse(raw) as {
+            name?: string;
+            avatarUrl?: string | null;
+            at?: number;
+          };
+          if (!parsed?.name || typeof parsed.at !== 'number') continue;
+          if (parsed.at < cutoff) {
+            void this.redis.hdel(`community:typing:${communityId}`, userId);
+            continue;
+          }
+          active.push({
+            userId,
+            name: parsed.name,
+            avatarUrl: parsed.avatarUrl ?? null,
+          });
+        } catch {
+          // Skip malformed presence rows.
+        }
+      }
+      return active;
+    } catch {
+      return [];
+    }
+  }
+  // T: O(t) and S: O(t), where t is typing users
+
+  private latestMarkerKey(communityId: string | null): string {
+    return communityId
+      ? `community:latest-post:${communityId}`
+      : 'community:latest-post:global';
+  }
+  // T: O(1) and S: O(1)
+
+  async setLatestPostMarker(
+    communityId: string | null,
+    marker: { id: string; createdAt: string },
+  ): Promise<void> {
+    if (!this.redis || !this.available) return;
+    try {
+      await this.redis.set(
+        this.latestMarkerKey(communityId),
+        JSON.stringify(marker),
+        'EX',
+        60 * 60 * 24,
+      );
+    } catch {
+      // Marker cache is best-effort.
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  async getLatestPostMarker(
+    communityId: string | null,
+  ): Promise<{ id: string; createdAt: string } | null> {
+    if (!this.redis || !this.available) return null;
+    try {
+      const raw = await this.redis.get(this.latestMarkerKey(communityId));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as {
+        id?: string;
+        createdAt?: string;
+      };
+      if (!parsed?.id || !parsed?.createdAt) return null;
+      return { id: parsed.id, createdAt: parsed.createdAt };
+    } catch {
+      return null;
+    }
+  }
+  // T: O(1) and S: O(1)
+
+  async clearLatestPostMarker(communityId: string | null): Promise<void> {
+    if (!this.redis || !this.available) return;
+    try {
+      await this.redis.del(this.latestMarkerKey(communityId));
+    } catch {
+      // Marker cache is best-effort.
     }
   }
   // T: O(1) and S: O(1)

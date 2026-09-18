@@ -11,7 +11,7 @@ type RecoverableMedia = {
   postId: string;
   userId: string;
   providerAssetId: string;
-  resourceType: 'image' | 'video';
+  resourceType: 'image' | 'video' | 'audio' | 'file';
 };
 
 const recoveryIntervalMs = Number(

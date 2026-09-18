@@ -48,7 +48,7 @@ async function bootstrap() {
   const allowedOrigins = new Set(
     (
       process.env.CORS_ORIGINS ??
-      'http://localhost:3000,http://localhost:3002,http://localhost:3003,http://localhost:3013,http://localhost:3014,https://anchor.feeltiptop.com,https://anchorapp.feeltiptop.com'
+      'http://localhost:3000,http://localhost:3002,http://localhost:3003,http://localhost:3013,http://localhost:3014,http://127.0.0.1:3000,http://127.0.0.1:3002,http://127.0.0.1:3003,http://127.0.0.1:3013,http://127.0.0.1:3014,https://anchor.feeltiptop.com,https://anchorapp.feeltiptop.com'
     )
       .split(',')
       .map((origin) => origin.trim())
@@ -58,7 +58,13 @@ async function bootstrap() {
   app.enableCors({
     origin: [...allowedOrigins],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Anchor-Fresh',
+      'Accept',
+      'Origin',
+    ],
     credentials: true,
   });
 

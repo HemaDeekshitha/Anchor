@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -29,6 +30,7 @@ import {
   UpdateCommunityMemberDto,
   UpdateCommentDto,
   UpdatePostDto,
+  SetTypingDto,
   VoteCommentDto,
   VotePollDto,
   VotePostDto,
@@ -224,9 +226,15 @@ export class CommunityController {
   // T: O(log I + log M) and S: O(1)
 
   @Get('community-feed')
-  @DistributedRateLimit(120, 60)
-  listFeed(@Req() request: Request, @Query() query: ListQueryDto) {
-    return this.communityService.listFeed(this.userId(request), query);
+  @DistributedRateLimit(1200, 60)
+  listFeed(
+    @Req() request: Request,
+    @Query() query: ListQueryDto,
+    @Headers('x-anchor-fresh') fresh?: string,
+  ) {
+    return this.communityService.listFeed(this.userId(request), query, {
+      fresh: fresh === '1',
+    });
   }
   // T: O(l + m + o) and S: O(l + m + o), where l is posts, m is media, and o is poll options
 
@@ -238,11 +246,24 @@ export class CommunityController {
   // T: O(m + o) and S: O(m + o), where m is media and o is poll options
 
   @Get('posts')
-  @DistributedRateLimit(120, 60)
-  listGlobalPosts(@Req() request: Request, @Query() query: ListQueryDto) {
-    return this.communityService.listGlobalPosts(this.userId(request), query);
+  @DistributedRateLimit(1200, 60)
+  listGlobalPosts(
+    @Req() request: Request,
+    @Query() query: ListQueryDto,
+    @Headers('x-anchor-fresh') fresh?: string,
+  ) {
+    return this.communityService.listGlobalPosts(this.userId(request), query, {
+      fresh: fresh === '1',
+    });
   }
   // T: O(l + m + o) and S: O(l + m + o), where l is posts, m is media, and o is poll options
+
+  @Get('posts/latest')
+  @DistributedRateLimit(900, 60)
+  getGlobalLatestPost(@Req() request: Request) {
+    return this.communityService.getLatestPostMarker(this.userId(request), null);
+  }
+  // T: O(log P) and S: O(1), where P is posts
 
   @Post('communities/:communityId/posts')
   @DistributedRateLimit(30, 60)
@@ -259,17 +280,60 @@ export class CommunityController {
   }
   // T: O(m + o) and S: O(m + o), where m is media and o is poll options
 
+  @Get('communities/:communityId/posts/latest')
+  @DistributedRateLimit(900, 60)
+  getCommunityLatestPost(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+  ) {
+    return this.communityService.getLatestPostMarker(
+      this.userId(request),
+      communityId,
+    );
+  }
+  // T: O(log P) and S: O(1), where P is posts
+
+  @Post('communities/:communityId/typing')
+  @DistributedRateLimit(240, 60)
+  setCommunityTyping(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+    @Body() dto: SetTypingDto,
+  ) {
+    return this.communityService.setCommunityTyping(
+      this.userId(request),
+      communityId,
+      dto.typing !== false,
+    );
+  }
+  // T: O(log M) and S: O(1)
+
+  @Get('communities/:communityId/typing')
+  @DistributedRateLimit(600, 60)
+  listCommunityTyping(
+    @Req() request: Request,
+    @Param('communityId') communityId: string,
+  ) {
+    return this.communityService.listCommunityTyping(
+      this.userId(request),
+      communityId,
+    );
+  }
+  // T: O(t) and S: O(t), where t is active typers
+
   @Get('communities/:communityId/posts')
-  @DistributedRateLimit(120, 60)
+  @DistributedRateLimit(1800, 60)
   listPosts(
     @Req() request: Request,
     @Param('communityId') communityId: string,
     @Query() query: ListQueryDto,
+    @Headers('x-anchor-fresh') fresh?: string,
   ) {
     return this.communityService.listPosts(
       this.userId(request),
       communityId,
       query,
+      { fresh: fresh === '1' },
     );
   }
   // T: O(l + m) and S: O(l + m), where l is posts and m is media

@@ -46,6 +46,19 @@ export async function keepSessionAlive(): Promise<boolean> {
   return (await refreshAccessToken()) === "ok";
 }
 
+async function fetchWithNetworkError(
+  input: RequestInfo | URL,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new Error(
+      "Cannot reach the Anchor API. Make sure the backend is running on port 3001, then refresh.",
+    );
+  }
+}
+
 export async function apiFetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
@@ -55,12 +68,12 @@ export async function apiFetch(
     credentials: "include",
   };
 
-  let response = await fetch(input, requestInit);
+  let response = await fetchWithNetworkError(input, requestInit);
   if (response.status !== 401) return response;
 
   const outcome = await refreshAccessToken();
   if (outcome === "ok") {
-    response = await fetch(input, requestInit);
+    response = await fetchWithNetworkError(input, requestInit);
     if (response.status === 401) await logoutSession("expired");
     return response;
   }

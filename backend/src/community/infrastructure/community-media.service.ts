@@ -2,6 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 
+type CommunityMediaResourceType = 'image' | 'video' | 'audio' | 'file';
+
 @Injectable()
 export class CommunityMediaService {
   private readonly folder: string;
@@ -22,7 +24,7 @@ export class CommunityMediaService {
 
   createUploadSignature(
     userId: string,
-    resourceType: 'image' | 'video',
+    resourceType: CommunityMediaResourceType,
   ): Record<string, string | number> {
     const timestamp = Math.floor(Date.now() / 1000);
     const publicIdPrefix = `${this.folder}/${userId}/`;
@@ -48,16 +50,50 @@ export class CommunityMediaService {
   async verifyAsset(
     userId: string,
     providerAssetId: string,
-    resourceType: 'image' | 'video',
+    resourceType: CommunityMediaResourceType,
   ): Promise<UploadApiResponse> {
     if (!providerAssetId.startsWith(`${this.folder}/${userId}/`)) {
       throw new BadRequestException('Media asset ownership is invalid');
     }
+    const providerResourceType =
+      resourceType === 'audio'
+        ? 'video'
+        : resourceType === 'file'
+          ? 'raw'
+          : resourceType;
     const result = (await cloudinary.api.resource(providerAssetId, {
-      resource_type: resourceType,
+      resource_type: providerResourceType,
       type: 'authenticated',
     })) as UploadApiResponse;
-    const maxBytes = resourceType === 'video' ? 50_000_000 : 10_000_000;
+    if (resourceType === 'file') {
+      const allowedFormats = new Set([
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'ppt',
+        'pptx',
+        'txt',
+        'csv',
+        'rtf',
+        'zip',
+      ]);
+      const format = String(
+        result.format ?? providerAssetId.split('.').pop() ?? '',
+      ).toLowerCase();
+      if (!allowedFormats.has(format)) {
+        throw new BadRequestException('Document format is not supported');
+      }
+    }
+    const maxBytes =
+      resourceType === 'video'
+        ? 50_000_000
+        : resourceType === 'audio'
+          ? 20_000_000
+          : resourceType === 'file'
+            ? 25_000_000
+            : 10_000_000;
     if (Number(result.bytes ?? 0) > maxBytes) {
       throw new BadRequestException('Media file is too large');
     }
@@ -67,10 +103,16 @@ export class CommunityMediaService {
 
   createDeliveryUrl(
     providerAssetId: string,
-    resourceType: 'image' | 'video',
+    resourceType: CommunityMediaResourceType,
   ): string {
+    const providerResourceType =
+      resourceType === 'audio'
+        ? 'video'
+        : resourceType === 'file'
+          ? 'raw'
+          : resourceType;
     return cloudinary.url(providerAssetId, {
-      resource_type: resourceType,
+      resource_type: providerResourceType,
       type: 'authenticated',
       sign_url: true,
       secure: true,
@@ -86,7 +128,9 @@ export class CommunityMediaService {
                 crop: 'limit',
               },
             ]
-          : [{ quality: 'auto' }],
+          : resourceType === 'video'
+            ? [{ quality: 'auto' }]
+            : undefined,
     });
   }
   // T: O(1) and S: O(1)

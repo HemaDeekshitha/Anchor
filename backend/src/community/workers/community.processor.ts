@@ -46,7 +46,7 @@ export class CommunityProcessor extends WorkerHost {
       const result = await this.mediaService.verifyAsset(
         data.userId,
         data.providerAssetId,
-        data.resourceType as 'image' | 'video',
+        data.resourceType as 'image' | 'video' | 'audio' | 'file',
       );
       media.mimeType = String(result.format ?? data.resourceType);
       media.bytes = String(result.bytes ?? 0);
@@ -69,7 +69,12 @@ export class CommunityProcessor extends WorkerHost {
               lock: { mode: 'pessimistic_write' },
             });
             if (!post || post.status !== 'processing') {
-              return { published: false, communityId: null as string | null };
+              return {
+                published: false,
+                communityId: null as string | null,
+                postId: null as string | null,
+                createdAt: null as string | null,
+              };
             }
             post.status = 'published';
             await manager.save(post);
@@ -81,19 +86,35 @@ export class CommunityProcessor extends WorkerHost {
                 1,
               );
             }
-            return { published: true, communityId: post.communityId };
+            return {
+              published: true,
+              communityId: post.communityId,
+              postId: post.id,
+              createdAt: new Date(post.createdAt).toISOString(),
+            };
           },
         );
 
         if (publication.published) {
+          await this.cacheService.bumpVersion('global-posts');
           await this.cacheService.deleteByPrefix('community:global-posts:');
           if (publication.communityId) {
             await Promise.all([
+              this.cacheService.bumpVersion(
+                `posts:${publication.communityId}`,
+              ),
+              this.cacheService.bumpVersion('feed'),
               this.cacheService.deleteByPrefix(
                 `community:posts:${publication.communityId}:`,
               ),
               this.cacheService.deleteByPrefix('community:feed:'),
             ]);
+          }
+          if (publication.postId && publication.createdAt) {
+            await this.cacheService.setLatestPostMarker(publication.communityId, {
+              id: publication.postId,
+              createdAt: publication.createdAt,
+            });
           }
         }
       }

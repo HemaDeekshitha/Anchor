@@ -12,7 +12,7 @@ export type CommunityJob =
         postId: string;
         userId: string;
         providerAssetId: string;
-        resourceType: 'image' | 'video';
+        resourceType: 'image' | 'video' | 'audio' | 'file';
       };
     }
   | {
@@ -35,7 +35,9 @@ export class CommunityQueueService {
 
   async enqueue(job: CommunityJob): Promise<void> {
     if (!this.queue) {
-      this.logger.warn(`Queue unavailable for ${job.name}: REDIS_URL is not set`);
+      this.logger.warn(
+        `Queue unavailable for ${job.name}: REDIS_URL is not set`,
+      );
       return;
     }
     let timeout: NodeJS.Timeout | undefined;

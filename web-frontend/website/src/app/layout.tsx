@@ -39,7 +39,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#ffffff" />
-        <link rel="apple-touch-icon" href="/assets/logo.png" />
+        <link rel="apple-touch-icon" href="/assets/Anchor_logo.png" />
         <script
           dangerouslySetInnerHTML={{
             __html:

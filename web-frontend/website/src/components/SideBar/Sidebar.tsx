@@ -11,6 +11,7 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  IconButton,
 } from "@mui/material";
 import {
   BriefcaseBusiness,
@@ -19,6 +20,7 @@ import {
   Trophy,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { logoutSession } from "@/lib/auth-client";
@@ -108,7 +110,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
   // T: O(1) and S: O(1)
 
-  const renderContent = (expanded: boolean, allowHover: boolean) => (
+  const renderContent = (
+    expanded: boolean,
+    allowHover: boolean,
+    options?: { showCloseButton?: boolean },
+  ) => (
     <Box
       onMouseEnter={allowHover ? handleExpand : undefined}
       onMouseLeave={allowHover ? handleCollapse : undefined}
@@ -131,61 +137,92 @@ const Sidebar: React.FC<SidebarProps> = ({
       <Box>
         {/* Brand */}
         <Box
-          component={Link}
-          href="/dashboard"
           sx={{
             display: "flex",
             alignItems: "center",
-            justifyContent: expanded ? "flex-start" : "center",
-            gap: expanded ? 1.5 : 0,
-            px: expanded ? 2.5 : 0,
-            py: 2,
-            fontSize: {
-              xs: "1.4rem",
-              md: "1.5rem",
-              lg: "1.6rem",
-              xl: "1.7rem",
-            },
-            fontWeight: 700,
-            color: "var(--anchor-header-text)",
-            textDecoration: "none",
-            fontFamily: "'Playfair Display', serif",
-            "&:hover": { color: "var(--anchor-header-accent)" },
+            justifyContent: "space-between",
+            gap: 1,
+            px: expanded || options?.showCloseButton ? 2 : 0,
+            py: options?.showCloseButton ? 1.5 : 2,
+            minHeight: options?.showCloseButton ? 64 : undefined,
           }}
         >
           <Box
-            component="img"
-            src="/assets/logo.png"
-            alt="Anchor Logo"
+            component={Link}
+            href="/dashboard"
+            onClick={options?.showCloseButton ? onClose : undefined}
             sx={{
-              width: {
-                xs: 40,
-                md: 46,
-                lg: 52,
-                xl: 58,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: expanded ? "flex-start" : "center",
+              gap: expanded ? 1.5 : 0,
+              minWidth: 0,
+              flex: 1,
+              fontSize: {
+                xs: "1.35rem",
+                md: "1.5rem",
+                lg: "1.6rem",
+                xl: "1.7rem",
               },
-              height: {
-                xs: 40,
-                md: 46,
-                lg: 52,
-                xl: 58,
-              },
-            }}
-          />
-          <Typography
-            component="span"
-            sx={{
-              color: "inherit",
-              font: "inherit",
-              whiteSpace: "nowrap",
-              opacity: expanded ? 1 : 0,
-              width: expanded ? "auto" : 0,
-              overflow: "hidden",
-              transition: "opacity 140ms ease",
+              fontWeight: 700,
+              color: "var(--anchor-header-text)",
+              textDecoration: "none",
+              fontFamily: "'Playfair Display', serif",
+              "&:hover": { color: "var(--anchor-header-accent)" },
             }}
           >
-            Anchor
-          </Typography>
+            <Box
+              component="img"
+              src="/assets/Anchor_logo.png"
+              alt="Anchor Logo"
+              sx={{
+                width: {
+                  xs: 40,
+                  md: 46,
+                  lg: 52,
+                  xl: 58,
+                },
+                height: {
+                  xs: 40,
+                  md: 46,
+                  lg: 52,
+                  xl: 58,
+                },
+                flexShrink: 0,
+              }}
+            />
+            <Typography
+              component="span"
+              sx={{
+                color: "inherit",
+                font: "inherit",
+                whiteSpace: "nowrap",
+                opacity: expanded ? 1 : 0,
+                width: expanded ? "auto" : 0,
+                overflow: "hidden",
+                transition: "opacity 140ms ease",
+              }}
+            >
+              Anchor
+            </Typography>
+          </Box>
+          {options?.showCloseButton && (
+            <IconButton
+              aria-label="Close navigation"
+              onClick={onClose}
+              size="small"
+              sx={{
+                color: "var(--anchor-header-muted)",
+                flexShrink: 0,
+                "&:hover": {
+                  color: "var(--anchor-header-text)",
+                  bgcolor: "var(--anchor-search-bg)",
+                },
+              }}
+            >
+              <X size={22} />
+            </IconButton>
+          )}
         </Box>
 
         <Divider sx={{ borderColor: "var(--anchor-header-border)" }} />
@@ -193,7 +230,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation */}
         <List
           sx={{
-            px: 0,
+            px: options?.showCloseButton ? 1.25 : 0,
             mt: 1,
             display: "flex",
             flexDirection: "column",
@@ -201,17 +238,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           }}
         >
           {navItems.map(({ href, label, icon }) => {
+            const pathOnly = href.split("?")[0] || href;
             const active =
-              pathname === href ||
-              (href !== "/dashboard" && pathname.startsWith(href));
+              pathOnly === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname === pathOnly ||
+                  pathname.startsWith(`${pathOnly}/`);
             return (
               <ListItemButton
                 key={href}
                 component={Link}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 onClick={handleNavigation}
                 sx={{
-                  borderRadius: 0,
+                  borderRadius: options?.showCloseButton ? 2 : 0,
                   justifyContent: "flex-start",
                   px: 0,
                   py: {
@@ -222,32 +263,43 @@ const Sidebar: React.FC<SidebarProps> = ({
                   color: active
                     ? "var(--anchor-header-accent)"
                     : "var(--anchor-header-muted)",
-                  bgcolor: active ? "var(--anchor-search-bg)" : "transparent",
+                  bgcolor: active
+                    ? "color-mix(in srgb, var(--anchor-header-accent) 14%, transparent)"
+                    : "transparent",
                   position: "relative",
                   transition:
                     "background-color 150ms ease, color 150ms ease, padding 220ms ease",
-                  "&::before": {
-                    content: '""',
-                    position: "absolute",
-                    inset: "0 auto 0 0",
-                    width: 3,
-                    bgcolor: active
-                      ? "var(--anchor-header-accent)"
-                      : "transparent",
-                  },
+                  "&::before": options?.showCloseButton
+                    ? { display: "none" }
+                    : {
+                        content: '""',
+                        position: "absolute",
+                        inset: "0 auto 0 0",
+                        width: active ? 4 : 3,
+                        bgcolor: active
+                          ? "var(--anchor-header-accent)"
+                          : "transparent",
+                      },
                   "&:hover": {
-                    bgcolor: "var(--anchor-search-bg)",
+                    bgcolor: active
+                      ? "color-mix(in srgb, var(--anchor-header-accent) 18%, transparent)"
+                      : "var(--anchor-search-bg)",
                     color: "var(--anchor-header-accent)",
                   },
                 }}
               >
                 <ListItemIcon
                   sx={{
-                    width: collapsedDrawerWidth,
-                    minWidth: collapsedDrawerWidth,
+                    width: options?.showCloseButton ? 52 : collapsedDrawerWidth,
+                    minWidth: options?.showCloseButton
+                      ? 52
+                      : collapsedDrawerWidth,
                     justifyContent: "center",
                     color: "inherit",
                     flexShrink: 0,
+                    "& svg": {
+                      strokeWidth: active ? 2.5 : 2,
+                    },
                   }}
                 >
                   {icon}
@@ -300,8 +352,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <Box
             sx={{
-              width: collapsedDrawerWidth,
-              minWidth: collapsedDrawerWidth,
+              width: options?.showCloseButton ? 52 : collapsedDrawerWidth,
+              minWidth: options?.showCloseButton ? 52 : collapsedDrawerWidth,
               display: "flex",
               justifyContent: "center",
             }}
@@ -364,7 +416,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         onClose={onClose}
         ModalProps={{
           keepMounted: true,
-          sx: { display: { xs: "block", md: "none" } },
+          sx: {
+            display: { xs: "block", md: "none" },
+            zIndex: 1500,
+          },
         }}
         sx={{
           display: { xs: "block", md: "none" },
@@ -372,17 +427,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           minWidth: 0,
           flexBasis: 0,
           overflow: "visible",
+          zIndex: 1500,
           "& .MuiDrawer-paper": {
-            width: expandedDrawerWidth,
+            width: { xs: "min(280px, 86vw)", sm: expandedDrawerWidth },
             boxSizing: "border-box",
             borderRight: "1px solid var(--anchor-sidebar-border)",
             bgcolor: "var(--anchor-sidebar-bg)",
             boxShadow: "4px 0 12px rgba(44,26,10,0.08)",
             overflowX: "hidden",
+            top: 0,
+            height: "100dvh",
+            pt: "env(safe-area-inset-top)",
+            zIndex: 1501,
           },
         }}
       >
-        {renderContent(true, false)}
+        {renderContent(true, false, { showCloseButton: true })}
       </Drawer>
     </>
   );

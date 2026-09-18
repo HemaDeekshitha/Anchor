@@ -63,12 +63,15 @@ import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
-import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
 import AlternateEmailRoundedIcon from "@mui/icons-material/AlternateEmailRounded";
 import MicNoneRoundedIcon from "@mui/icons-material/MicNoneRounded";
 import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
+import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
 import VideoCameraFrontOutlinedIcon from "@mui/icons-material/VideoCameraFrontOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
+import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
 import FormatBoldRoundedIcon from "@mui/icons-material/FormatBoldRounded";
 import FormatItalicRoundedIcon from "@mui/icons-material/FormatItalicRounded";
 import FormatUnderlinedRoundedIcon from "@mui/icons-material/FormatUnderlinedRounded";
@@ -76,9 +79,11 @@ import StrikethroughSRoundedIcon from "@mui/icons-material/StrikethroughSRounded
 import InsertLinkRoundedIcon from "@mui/icons-material/InsertLinkRounded";
 import FormatListNumberedRoundedIcon from "@mui/icons-material/FormatListNumberedRounded";
 import FormatListBulletedRoundedIcon from "@mui/icons-material/FormatListBulletedRounded";
+import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import {
   CommunityPostRecord,
   CommunityFriendRequest,
+  CommunityTypingUser,
   Comm360Meeting,
   CommunityMemberRecord,
   CommunityPersonSearchResult,
@@ -101,6 +106,7 @@ import {
   listComments,
   listCommunities,
   listCommunityFeed,
+  listCommunityTyping,
   listFriendRequests,
   listSentFriendRequests,
   listFriends,
@@ -110,6 +116,7 @@ import {
   removeCommunityMember,
   sendFriendRequest,
   searchPeople,
+  setCommunityTyping,
   resolveFriendRequest,
   votePoll,
   votePost,
@@ -118,7 +125,19 @@ import {
   updateCommunityMemberRole,
   uploadCommunityMedia,
 } from "@/lib/community-api";
-import { OPEN_POST_EVENT, useAppChrome, type OpenPostDetail } from "@/lib/app-chrome";
+import {
+  INBOX_CHANGED_EVENT,
+  OPEN_POST_EVENT,
+  playCommunityMessageSound,
+  readDeviceNotificationMode,
+  readNotifiedPostIds,
+  readRecentlyActiveCommunityOrder,
+  saveNotifiedPostIds,
+  seedReadPosition,
+  touchRecentlyActiveCommunities,
+  useAppChrome,
+  type OpenPostDetail,
+} from "@/lib/app-chrome";
 
 // ── Anchor palette tokens ────────────────────────────────────────────────────
 const C = {
@@ -189,9 +208,19 @@ export type ForumPost = {
     authorAvatar?: string;
     body: string;
     kind: "text" | "media" | "poll";
-    media: Array<{ id: string; type: "image" | "video"; url: string }>;
+    media: Array<{
+      id: string;
+      type: "image" | "video" | "audio" | "file";
+      url: string;
+      originalFilename?: string | null;
+    }>;
   } | null;
-  media?: Array<{ id: string; type: "image" | "video"; url: string }>;
+  media?: Array<{
+    id: string;
+    type: "image" | "video" | "audio" | "file";
+    url: string;
+    originalFilename?: string | null;
+  }>;
   poll?: {
     id: string;
     allowsMultiple: boolean;
@@ -236,7 +265,435 @@ export type Community = {
 type CommunityPageTab = "posts" | "communities" | "friends";
 type CommunitySectionTab = "current" | "join" | "create";
 type CommunityLayout = "grid" | "list";
-type ComposerMode = "text" | "emoji" | "image" | "video" | "poll";
+type ComposerMode =
+  | "text"
+  | "emoji"
+  | "image"
+  | "video"
+  | "audio"
+  | "file"
+  | "poll";
+
+const RECENT_MEDIA_STORAGE_KEY = "anchor:communityRecentLibrary";
+const MAX_RECENT_MEDIA = 12;
+
+type RecentMediaEntry = {
+  id: string;
+  kind: "image" | "video";
+  name: string;
+  previewUrl: string;
+};
+
+const recentMediaFileCache = new Map<string, File>();
+
+function readRecentMediaLibrary(): RecentMediaEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_MEDIA_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RecentMediaEntry[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry) =>
+        entry &&
+        typeof entry.id === "string" &&
+        (entry.kind === "image" || entry.kind === "video") &&
+        typeof entry.previewUrl === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentMediaLibrary(entries: RecentMediaEntry[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    RECENT_MEDIA_STORAGE_KEY,
+    JSON.stringify(entries.slice(0, MAX_RECENT_MEDIA)),
+  );
+}
+
+async function createRecentMediaPreview(
+  file: File,
+  kind: "image" | "video",
+): Promise<string> {
+  if (kind === "image") {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Could not read image"));
+      reader.readAsDataURL(file);
+    });
+    return await new Promise<string>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxEdge = 220;
+        const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) {
+          resolve(dataUrl);
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+      image.onerror = () => reject(new Error("Could not preview image"));
+      image.src = dataUrl;
+    });
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      video.onloadeddata = () => {
+        const seekTo = Math.min(0.2, (video.duration || 1) / 4);
+        const capture = () => {
+          const canvas = document.createElement("canvas");
+          const maxEdge = 220;
+          const width = video.videoWidth || 220;
+          const height = video.videoHeight || 220;
+          const scale = Math.min(1, maxEdge / Math.max(width, height));
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          const context = canvas.getContext("2d");
+          if (!context) {
+            reject(new Error("Could not preview video"));
+            return;
+          }
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        if (seekTo > 0) {
+          video.onseeked = capture;
+          video.currentTime = seekTo;
+        } else {
+          capture();
+        }
+      };
+      video.onerror = () => reject(new Error("Could not preview video"));
+      video.src = objectUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function rememberRecentMediaFiles(files: File[]) {
+  if (!files.length) return;
+  const existing = readRecentMediaLibrary();
+  const next = [...existing];
+  for (const file of files) {
+    const kind = file.type.startsWith("video/")
+      ? ("video" as const)
+      : file.type.startsWith("image/")
+        ? ("image" as const)
+        : null;
+    if (!kind) continue;
+    const id = `${file.name}-${file.size}-${file.lastModified}-${kind}`;
+    recentMediaFileCache.set(id, file);
+    try {
+      const previewUrl = await createRecentMediaPreview(file, kind);
+      const entry: RecentMediaEntry = {
+        id,
+        kind,
+        name: file.name,
+        previewUrl,
+      };
+      const withoutDup = next.filter((item) => item.id !== id);
+      next.splice(0, next.length, entry, ...withoutDup);
+    } catch {
+      // Skip unreadable media; the picker selection still works.
+    }
+  }
+  writeRecentMediaLibrary(next.slice(0, MAX_RECENT_MEDIA));
+}
+
+function mediaFileLabel(
+  url: string,
+  originalFilename?: string | null,
+) {
+  const named = originalFilename?.trim();
+  if (named) return named;
+  try {
+    const path = decodeURIComponent(new URL(url).pathname);
+    const name = path.split("/").pop() ?? "";
+    return name.split("?")[0] || "Attached document";
+  } catch {
+    return "Attached document";
+  }
+}
+
+function isPdfMediaUrl(url: string) {
+  return /\.pdf($|\?)/i.test(url) || /\/[^/?]*pdf($|\?)/i.test(url);
+}
+
+function isImageLikeFileUrl(url: string) {
+  return /\.(png|jpe?g|gif|webp|bmp|svg)($|\?)/i.test(url);
+}
+
+function CommunityPdfBlobFrame({
+  url,
+  title,
+  height,
+}: {
+  url: string;
+  title: string;
+  height: string | number;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setBlobUrl(null);
+    setFailed(false);
+    void (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Could not load PDF");
+        const bytes = await response.blob();
+        const pdfBlob =
+          bytes.type === "application/pdf" || bytes.type === "application/octet-stream"
+            ? new Blob([bytes], { type: "application/pdf" })
+            : bytes.type
+              ? bytes
+              : new Blob([bytes], { type: "application/pdf" });
+        objectUrl = URL.createObjectURL(pdfBlob);
+        if (!cancelled) setBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  if (failed) {
+    return (
+      <Stack spacing={2} alignItems="center" sx={{ px: 2, py: 4 }}>
+        <PictureAsPdfOutlinedIcon sx={{ fontSize: 56, color: C.accentDark }} />
+        <Typography sx={{ color: C.textMuted, textAlign: "center" }}>
+          Preview unavailable. Open the file to view it.
+        </Typography>
+        <Button
+          component="a"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="contained"
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            bgcolor: C.accent,
+            "&:hover": { bgcolor: C.accentDark },
+          }}
+        >
+          Open file
+        </Button>
+      </Stack>
+    );
+  }
+
+  if (!blobUrl) {
+    return <CircularProgress size={28} sx={{ color: C.accent }} />;
+  }
+
+  return (
+    <Box
+      component="iframe"
+      src={`${blobUrl}#toolbar=1&navpanes=0&scrollbar=0&view=FitH`}
+      title={title}
+      sx={{
+        width: "100%",
+        height,
+        border: 0,
+        borderRadius: 2,
+        bgcolor: "#fff",
+      }}
+    />
+  );
+}
+
+function CommunityFilePreviewCard({
+  url,
+  label,
+  kind,
+  onOpen,
+}: {
+  url: string;
+  label: string;
+  kind: "pdf" | "document";
+  onOpen: () => void;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (kind !== "pdf") return;
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setBlobUrl(null);
+    setFailed(false);
+    void (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Could not load PDF");
+        const bytes = await response.blob();
+        objectUrl = URL.createObjectURL(
+          new Blob([bytes], { type: "application/pdf" }),
+        );
+        if (!cancelled) setBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [kind, url]);
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      aria-label={`Open ${label}`}
+      onClick={onOpen}
+      sx={{
+        display: "block",
+        width: "100%",
+        maxWidth: { xs: "100%", sm: 560 },
+        mr: "auto",
+        p: 0,
+        border: `1px solid ${C.divider}`,
+        borderRadius: 2.5,
+        bgcolor: C.cardBg,
+        mb: 2,
+        overflow: "hidden",
+        cursor: "zoom-in",
+        textAlign: "left",
+        boxShadow: "0 1px 2px rgba(17,17,17,0.04)",
+      }}
+    >
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          height: { xs: 220, sm: 300 },
+          bgcolor: kind === "pdf" ? "#f3eee6" : C.surface,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        {kind === "pdf" && blobUrl ? (
+          <Box
+            component="iframe"
+            src={`${blobUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+            title={label}
+            sx={{
+              width: "100%",
+              height: "130%",
+              border: 0,
+              pointerEvents: "none",
+              bgcolor: "#fff",
+              transform: "scale(1)",
+              transformOrigin: "top center",
+            }}
+          />
+        ) : kind === "pdf" && !failed ? (
+          <CircularProgress size={28} sx={{ color: C.accent }} />
+        ) : (
+          <Stack alignItems="center" spacing={1} sx={{ px: 2 }}>
+            {kind === "pdf" ? (
+              <PictureAsPdfOutlinedIcon sx={{ fontSize: 64, color: "#b42318" }} />
+            ) : (
+              <InsertDriveFileOutlinedIcon
+                sx={{ fontSize: 64, color: C.accentDark }}
+              />
+            )}
+            <Typography
+              sx={{
+                fontSize: { xs: "0.92rem", sm: "1rem" },
+                fontWeight: 800,
+                color: C.textPrimary,
+                textAlign: "center",
+                wordBreak: "break-word",
+                maxWidth: "100%",
+              }}
+            >
+              {label}
+            </Typography>
+            <Typography sx={{ fontSize: "0.78rem", color: C.textMuted }}>
+              Tap to open
+            </Typography>
+          </Stack>
+        )}
+        <Box
+          sx={{
+            position: "absolute",
+            left: 10,
+            bottom: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.5,
+            px: 1,
+            py: 0.35,
+            borderRadius: 999,
+            bgcolor: "rgba(0,0,0,0.55)",
+            color: "#fff",
+          }}
+        >
+          {kind === "pdf" ? (
+            <PictureAsPdfOutlinedIcon sx={{ fontSize: 16 }} />
+          ) : (
+            <InsertDriveFileOutlinedIcon sx={{ fontSize: 16 }} />
+          )}
+          <Typography sx={{ fontSize: "0.72rem", fontWeight: 700 }}>
+            {kind === "pdf" ? "PDF" : "FILE"}
+          </Typography>
+        </Box>
+      </Box>
+      <Box
+        sx={{
+          px: 1.35,
+          py: 1.05,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          borderTop: `1px solid ${C.divider}`,
+          bgcolor: C.cardBg,
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: "0.86rem",
+            fontWeight: 700,
+            color: C.textPrimary,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </Typography>
+        <DownloadRoundedIcon sx={{ color: C.textMuted, fontSize: 20 }} />
+      </Box>
+    </Box>
+  );
+}
 
 function CommunityLayoutToggle({
   layout,
@@ -304,6 +761,67 @@ const COMMUNITY_CONVERSATION_STORAGE_KEY =
 const COMMUNITY_READ_POSITION_PREFIX = "anchor.community.readPosition";
 const FRIEND_REQUEST_SEEN_STORAGE_KEY =
   "anchor.community.seenFriendRequestIds";
+
+const countUnreadCommunityMessages = (
+  posts: CommunityPostRecord[],
+  communityId: string,
+): number => {
+  const scope = `community:${communityId}`;
+  const sorted = [...posts]
+    .filter((post) => post.status === "published")
+    .sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    );
+  if (sorted.length === 0) return 0;
+  const latestId = sorted.at(-1)?.id;
+  let lastReadId: string | null = null;
+  try {
+    lastReadId = window.localStorage.getItem(
+      `${COMMUNITY_READ_POSITION_PREFIX}.${scope}`,
+    );
+  } catch {
+    lastReadId = null;
+  }
+  if (!lastReadId) {
+    if (latestId) seedReadPosition(scope, latestId);
+    return 0;
+  }
+  const index = sorted.findIndex((post) => post.id === lastReadId);
+  if (index === -1) {
+    if (latestId) seedReadPosition(scope, latestId);
+    return 0;
+  }
+  return sorted.length - index - 1;
+};
+
+const sortJoinedCommunities = (
+  communities: Community[],
+  recentlyActiveOrder: string[],
+  unreadCounts: Record<string, number>,
+): Community[] => {
+  const orderIndex = new Map(
+    recentlyActiveOrder.map((id, index) => [id, index]),
+  );
+  return [...communities].sort((left, right) => {
+    const unreadLeft = unreadCounts[left.id] ?? 0;
+    const unreadRight = unreadCounts[right.id] ?? 0;
+    const leftHasUnread = unreadLeft > 0;
+    const rightHasUnread = unreadRight > 0;
+    if (leftHasUnread !== rightHasUnread) {
+      return leftHasUnread ? -1 : 1;
+    }
+    if (leftHasUnread && rightHasUnread && unreadLeft !== unreadRight) {
+      return unreadRight - unreadLeft;
+    }
+    const leftOrder = orderIndex.get(left.id);
+    const rightOrder = orderIndex.get(right.id);
+    if (leftOrder == null && rightOrder == null) return 0;
+    if (leftOrder == null) return 1;
+    if (rightOrder == null) return -1;
+    return leftOrder - rightOrder;
+  });
+};
 const COMM360_URL =
   process.env.NEXT_PUBLIC_COMM360_URL || "https://comm360.feeltiptop.com/";
 const MESSAGE_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
@@ -411,44 +929,80 @@ const renderMessageWithLinks = (message: string) =>
     );
   });
 
-const COMPOSER_EMOJIS = [
-  "😀",
-  "😃",
-  "😄",
-  "😁",
-  "😊",
-  "😍",
-  "🤩",
-  "😂",
-  "🤔",
-  "😎",
-  "😢",
-  "😭",
-  "😡",
-  "👍",
-  "👎",
-  "👏",
-  "🙌",
-  "💪",
-  "🙏",
-  "🎉",
-  "✨",
-  "💡",
-  "❤️",
-  "🧡",
-  "💛",
-  "💚",
-  "💙",
-  "💜",
-  "🔥",
-  "🚀",
-  "✅",
-  "💯",
-  "🎯",
-  "📚",
-  "💻",
-  "🛠️",
-];
+const COMPOSER_EMOJI_GROUPS = [
+  {
+    label: "Smileys",
+    icon: "😀",
+    emojis:
+      "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🫣 🤭 🫢 🫡 🤫 🫠 🤥 😶 🫥 😐 🫤 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕".split(
+        " ",
+      ),
+  },
+  {
+    label: "People",
+    icon: "👋",
+    emojis:
+      "👋 🤚 🖐️ ✋ 🖖 🫱 🫲 🫳 🫴 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ 🫵 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 🫶 👐 🤲 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 👃 🧠 🫀 🫁 🦷 🦴 👀 👁️ 👅 👄 🫦 👶 🧒 👦 👧 🧑 👱 👨 🧔 👩 🧓 👴 👵 🙍 🙎 🙅 🙆 💁 🙋 🧏 🙇 🤦 🤷 👮 👷 💂 🕵️ 👩‍⚕️ 👩‍🎓 👩‍🏫 👩‍💻 👩‍🔧 👩‍🔬 👩‍🎨 👩‍🚒 👩‍✈️ 👩‍🚀 👩‍⚖️".split(
+        " ",
+      ),
+  },
+  {
+    label: "Nature",
+    icon: "🐶",
+    emojis:
+      "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐻‍❄️ 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐒 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🪱 🐛 🦋 🐌 🐞 🐜 🪰 🪲 🪳 🦟 🦗 🕷️ 🦂 🐢 🐍 🦎 🐙 🦑 🦐 🦞 🦀 🐠 🐟 🐡 🐬 🐳 🐋 🦈 🐊 🐅 🐆 🦓 🦍 🦧 🐘 🦛 🦏 🐪 🐫 🦒 🦘 🦬 🐃 🐂 🐄 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐩 🦮 🐈 🐓 🦃 🦚 🦜 🦢 🦩 🕊️ 🐇 🦝 🦨 🦡 🦫 🦦 🦥 🌵 🎄 🌲 🌳 🌴 🪴 🌱 🌿 ☘️ 🍀 🎍 🪷 🌺 🌸 🌼 🌻 🌞 🌝 🌛 ⭐ 🌟 ✨ ⚡ 🔥 🌈".split(
+        " ",
+      ),
+  },
+  {
+    label: "Food",
+    icon: "🍕",
+    emojis:
+      "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🍆 🥑 🥦 🥬 🥒 🌶️ 🫑 🌽 🥕 🫒 🧄 🧅 🥔 🍠 🥐 🥯 🍞 🥖 🥨 🧀 🥚 🍳 🧈 🥞 🧇 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🫓 🥪 🥙 🧆 🌮 🌯 🫔 🥗 🥘 🫕 🥫 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍙 🍚 🍘 🍥 🥠 🥮 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 🌰 🥜 🍯 🥛 ☕ 🫖 🍵 🧃 🥤 🧋 🍺 🍻 🥂 🍷 🍸 🍹".split(
+        " ",
+      ),
+  },
+  {
+    label: "Activities",
+    icon: "⚽",
+    emojis:
+      "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🪀 🏓 🏸 🏒 🏑 🥍 🏏 🪃 🥅 ⛳ 🪁 🏹 🎣 🤿 🥊 🥋 🎽 🛹 🛼 🛷 ⛸️ 🥌 🎿 ⛷️ 🏂 🪂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🤽 🚣 🧗 🚵 🚴 🏆 🥇 🥈 🥉 🏅 🎖️ 🏵️ 🎗️ 🎫 🎟️ 🎪 🤹 🎭 🩰 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🪘 🎷 🎺 🪗 🎸 🪕 🎻 🎲 ♟️ 🎯 🎳 🎮 🎰 🧩".split(
+        " ",
+      ),
+  },
+  {
+    label: "Travel",
+    icon: "🚀",
+    emojis:
+      "🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🦯 🦽 🦼 🛴 🚲 🛵 🏍️ 🛺 🚨 🚔 🚍 🚘 🚖 🚡 🚠 🚟 🚃 🚋 🚞 🚝 🚄 🚅 🚈 🚂 🚆 🚇 🚊 🚉 ✈️ 🛫 🛬 🛩️ 💺 🛰️ 🚀 🛸 🚁 🛶 ⛵ 🚤 🛥️ 🛳️ ⛴️ 🚢 ⚓ 🛟 ⛽ 🚧 🚦 🗺️ 🗿 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🎠 ⛲ ⛱️ 🏖️ 🏝️ 🏜️ 🌋 ⛰️ 🏕️ ⛺ 🛖 🏠 🏡 🏢 🏥 🏦 🏨 🏪 🏫 🏛️ ⛪ 🕌 🛕 🕍 ⛩️ 🕋 🌅 🌄 🌠 🎇 🎆 🌇 🌆 🏙️ 🌃 🌉".split(
+        " ",
+      ),
+  },
+  {
+    label: "Objects",
+    icon: "💡",
+    emojis:
+      "⌚ 📱 💻 ⌨️ 🖥️ 🖨️ 🖱️ 🖲️ 🕹️ 🗜️ 💽 💾 💿 📀 📼 📷 📸 📹 🎥 📽️ 🎞️ 📞 ☎️ 📟 📠 📺 📻 🎙️ 🎚️ 🎛️ 🧭 ⏱️ ⏲️ ⏰ 🕰️ ⌛ ⏳ 📡 🔋 🪫 🔌 💡 🔦 🕯️ 🪔 🧯 🛢️ 💸 💵 💴 💶 💷 🪙 💰 💳 💎 ⚖️ 🪜 🧰 🪛 🔧 🔨 ⚒️ 🛠️ ⛏️ 🪚 🔩 ⚙️ 🪤 🧱 ⛓️ 🧲 🔫 💣 🧨 🪓 🔪 🗡️ ⚔️ 🛡️ 🚬 ⚰️ 🪦 ⚱️ 🏺 🔮 📿 🧿 🪬 💈 ⚗️ 🔭 🔬 🩹 🩺 💊 💉 🩸 🧬 🦠 🧹 🪠 🧺 🧻 🚽 🚿 🛁 🧼 🪥 🪒 🧽 🪣 🧴 🔑 🗝️ 🚪 🪑 🛋️ 🛏️ 🧸 🪆 🖼️ 🪞 🪟 🛍️ 🎁 🎈 🎏 🎀 🪄 🪅 🎊 🎉 ✉️ 📩 📨 📧 💌 📥 📤 📦 🏷️ 📪 📫 📬 📭 📮 📯 📜 📃 📄 📑 🧾 📊 📈 📉 🗒️ 🗓️ 📆 📅 🗑️ 📇 🗃️ 🗳️ 🗄️ 📋 📁 📂 🗂️ 🗞️ 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🧷 🔗 📎 🖇️ 📐 📏 🧮 📌 📍 ✂️ 🖊️ 🖋️ ✒️ 🖌️ 🖍️ 📝 ✏️ 🔍 🔎 🔏 🔐 🔒 🔓".split(
+        " ",
+      ),
+  },
+  {
+    label: "Symbols",
+    icon: "❤️",
+    emojis:
+      "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❤️‍🔥 ❤️‍🩹 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ☮️ ✝️ ☪️ 🕉️ ☸️ ✡️ 🔯 🕎 ☯️ ☦️ 🛐 ⛎ ♈ ♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓ 🆔 ⚛️ ☢️ ☣️ 📴 📳 🈶 🈚 🈸 🈺 🈷️ ✴️ 🆚 💮 🉐 ㊙️ ㊗️ 🈴 🈵 🈹 🈲 🅰️ 🅱️ 🆎 🆑 🅾️ 🆘 ❌ ⭕ 🛑 ⛔ 📛 🚫 💯 💢 ♨️ 🚷 🚯 🚳 🚱 🔞 📵 🚭 ❗ ❕ ❓ ❔ ‼️ ⁉️ 🔅 🔆 〽️ ⚠️ 🚸 🔱 ⚜️ 🔰 ♻️ ✅ 🈯 💹 ❇️ ✳️ ❎ 🌐 💠 Ⓜ️ 🌀 💤 🏧 🚾 ♿ 🅿️ 🛗 🛂 🛃 🛄 🛅 🚹 🚺 🚼 ⚧️ 🚻 🚮 🎦 📶 🈁 🔣 ℹ️ 🔤 🔡 🔠 🆖 🆗 🆙 🆒 🆕 🆓 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟 🔢 ▶️ ⏸️ ⏯️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ 🔀 🔁 🔂 ◀️ 🔼 🔽 ⏫ ⏬ ➡️ ⬅️ ⬆️ ⬇️ ↗️ ↘️ ↙️ ↖️ ↕️ ↔️ 🔄 ↪️ ↩️ 🔃 🔚 🔙 🔛 🔝 🔜 ☑️ 🔘 ⚪ ⚫ 🔴 🔵 🟤 🟣 🟢 🟡 🟠 🔺 🔻 🔸 🔹 🔶 🔷 🔳 🔲".split(
+        " ",
+      ),
+  },
+  {
+    label: "Flags",
+    icon: "🏳️",
+    emojis:
+      "🏁 🚩 🎌 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ 🇺🇳 🇺🇸 🇨🇦 🇲🇽 🇧🇷 🇦🇷 🇬🇧 🇮🇪 🇫🇷 🇩🇪 🇪🇸 🇮🇹 🇵🇹 🇳🇱 🇧🇪 🇨🇭 🇦🇹 🇸🇪 🇳🇴 🇩🇰 🇫🇮 🇵🇱 🇺🇦 🇬🇷 🇹🇷 🇮🇳 🇵🇰 🇧🇩 🇱🇰 🇳🇵 🇨🇳 🇯🇵 🇰🇷 🇸🇬 🇲🇾 🇮🇩 🇵🇭 🇹🇭 🇻🇳 🇦🇺 🇳🇿 🇿🇦 🇳🇬 🇰🇪 🇪🇬 🇸🇦 🇦🇪 🇮🇱".split(
+        " ",
+      ),
+  },
+] as const;
 
 type CreateCommunityFormInput = {
   name: string;
@@ -545,6 +1099,7 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
           id: item.id,
           type: item.resourceType,
           url: item.url,
+          originalFilename: item.originalFilename ?? null,
         })),
       }
     : null,
@@ -552,6 +1107,7 @@ const mapPost = (post: CommunityPostRecord): ForumPost => ({
     id: item.id,
     type: item.resourceType,
     url: item.url,
+    originalFilename: item.originalFilename ?? null,
   })),
   poll: post.poll
     ? {
@@ -582,6 +1138,64 @@ const sameFeedPosts = (current: ForumPost[], next: ForumPost[]) =>
   });
 // T: O(p) and S: O(1), where p is the number of posts
 
+/** Keep freshly created local posts when a stale list response omits them. */
+const LOCAL_FEED_GRACE_MS = 60_000;
+
+const mergeFeedPosts = (
+  current: ForumPost[],
+  incoming: ForumPost[],
+  localSeenAt: Map<string, number>,
+  options?: { replaceScope?: boolean },
+): ForumPost[] => {
+  const now = Date.now();
+  const incomingById = new Map(incoming.map((post) => [post.id, post]));
+
+  for (const post of incoming) {
+    localSeenAt.delete(post.id);
+  }
+
+  const mergedById = new Map<string, ForumPost>();
+  if (!options?.replaceScope) {
+    for (const post of current) {
+      if (incomingById.has(post.id)) continue;
+      if (post.status === "deleted" || post.status === "removed") continue;
+      const seenAt = localSeenAt.get(post.id);
+      const isFreshLocal =
+        post.status === "processing" ||
+        (typeof seenAt === "number" && now - seenAt < LOCAL_FEED_GRACE_MS);
+      if (isFreshLocal) {
+        mergedById.set(post.id, post);
+      }
+    }
+  }
+  for (const post of incoming) {
+    mergedById.set(post.id, post);
+  }
+
+  return [...mergedById.values()].sort(
+    (left, right) =>
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+  );
+};
+// T: O((c + i) log (c + i)) and S: O(c + i), where c is current posts and i is incoming
+
+const rememberLocalFeedPosts = (
+  localSeenAt: Map<string, number>,
+  posts: ForumPost[],
+) => {
+  const now = Date.now();
+  for (const post of posts) {
+    if (!localSeenAt.has(post.id)) localSeenAt.set(post.id, now);
+  }
+  if (localSeenAt.size > 200) {
+    const cutoff = now - LOCAL_FEED_GRACE_MS;
+    for (const [id, seenAt] of localSeenAt) {
+      if (seenAt < cutoff) localSeenAt.delete(id);
+    }
+  }
+};
+// T: O(p) and S: O(1), where p is remembered posts
+
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 // T: O(1) scheduled work and S: O(1)
@@ -610,6 +1224,7 @@ const Composer = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ComposerMode>("text");
+  const [emojiCategory, setEmojiCategory] = useState(0);
   const [content, setContent] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [pollDurationDays, setPollDurationDays] = useState(7);
@@ -621,12 +1236,17 @@ const Composer = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalUploadBytes, setTotalUploadBytes] = useState(0);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [uploadStage, setUploadStage] = useState<
     "idle" | "uploading" | "uploaded" | "publishing"
   >("idle");
   const [error, setError] = useState("");
   const [attachmentMenuAnchor, setAttachmentMenuAnchor] =
     useState<HTMLElement | null>(null);
+  const [cameraChoiceOpen, setCameraChoiceOpen] = useState(false);
+  const [recentMediaLibrary, setRecentMediaLibrary] = useState<
+    RecentMediaEntry[]
+  >([]);
   const [formattingOpen, setFormattingOpen] = useState(false);
   const [composerFont, setComposerFont] = useState<
     "standard" | "emphasis" | "monospace"
@@ -638,12 +1258,20 @@ const Composer = ({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoCaptureInputRef = useRef<HTMLInputElement>(null);
   const videoCaptureInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  const pendingCaretRef = useRef<number | null>(null);
   const mediaUploadAbortRef = useRef<AbortController | null>(null);
   const mediaUploadPromiseRef = useRef<Promise<string> | null>(null);
   const mediaUploadRequestRef = useRef(0);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const typingActiveRef = useRef(false);
+  const lastTypingPulseRef = useRef(0);
   const validPollOptions = pollOptions.filter((option) => option.trim());
   const mentionQuery =
     scope === "community" ? content.match(/(?:^|\s)@([^\s@]*)$/)?.[1] : undefined;
@@ -657,7 +1285,10 @@ const Composer = ({
           .slice(0, 6);
   const canSubmit =
     (scope === "global" || Boolean(communityId)) &&
-    (mode === "image" || mode === "video"
+    (mode === "image" ||
+    mode === "video" ||
+    mode === "audio" ||
+    mode === "file"
       ? Boolean(file)
       : Boolean(content.trim())) &&
     (mode !== "poll" || validPollOptions.length >= 2) &&
@@ -688,16 +1319,74 @@ const Composer = ({
   }, [communityId, scope]);
 
   useEffect(() => {
+    if (scope !== "community" || !communityId) return;
+    const isTyping =
+      Boolean(content.trim()) || Boolean(file) || isRecordingAudio;
+    const clearTyping = () => {
+      if (!typingActiveRef.current) return;
+      typingActiveRef.current = false;
+      void setCommunityTyping(communityId, false).catch(() => undefined);
+    };
+    if (!isTyping) {
+      clearTyping();
+      return;
+    }
+    typingActiveRef.current = true;
+    const now = Date.now();
+    if (now - lastTypingPulseRef.current > 1_800) {
+      lastTypingPulseRef.current = now;
+      void setCommunityTyping(communityId, true).catch(() => undefined);
+    }
+    const timer = window.setInterval(() => {
+      lastTypingPulseRef.current = Date.now();
+      void setCommunityTyping(communityId, true).catch(() => undefined);
+    }, 2_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [communityId, content, file, isRecordingAudio, scope]);
+
+  useEffect(
+    () => () => {
+      if (typingActiveRef.current && communityId) {
+        typingActiveRef.current = false;
+        void setCommunityTyping(communityId, false).catch(() => undefined);
+      }
+    },
+    [communityId],
+  );
+
+  useEffect(() => {
     if (!replyTo) return;
     setOpen(true);
     window.requestAnimationFrame(() => composerInputRef.current?.focus());
   }, [replyTo]);
 
-  const insertMention = (member: CommunityMemberRecord) => {
-    setContent((current) =>
-      `${current.replace(/@[^\s@]*$/, "")}@${member.name} `,
-    );
+  useEffect(() => {
+    if (!attachmentMenuAnchor) return;
+    setRecentMediaLibrary(readRecentMediaLibrary());
+  }, [attachmentMenuAnchor]);
+
+  const refreshRecentMediaLibrary = async (files: File[]) => {
+    await rememberRecentMediaFiles(files);
+    setRecentMediaLibrary(readRecentMediaLibrary());
   };
+
+  const insertMention = (member: CommunityMemberRecord) => {
+    const next = `${content.replace(/@[^\s@]*$/, "")}@${member.name} `;
+    pendingCaretRef.current = next.length;
+    setContent(next);
+  };
+
+  useEffect(() => {
+    if (pendingCaretRef.current == null) return;
+    const caret = pendingCaretRef.current;
+    pendingCaretRef.current = null;
+    const input = composerInputRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(caret, caret);
+  }, [content]);
 
   const cancelMediaUpload = () => {
     mediaUploadRequestRef.current += 1;
@@ -708,8 +1397,23 @@ const Composer = ({
   };
   // T: O(1) and S: O(1)
 
+  const discardAudioRecording = () => {
+    const recorder = audioRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.stop();
+    }
+    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    audioRecorderRef.current = null;
+    audioStreamRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecordingAudio(false);
+  };
+  // T: O(t) and S: O(1), where t is the number of media tracks
+
   const handleModeChange = (nextMode: ComposerMode) => {
     if (nextMode !== mode) {
+      if (mode === "audio") discardAudioRecording();
       cancelMediaUpload();
       setFile(null);
       setUploadStage("idle");
@@ -738,6 +1442,7 @@ const Composer = ({
 
   const handleAnyMediaSelected = (selectedFile: File | null) => {
     if (!selectedFile) return;
+    void refreshRecentMediaLibrary([selectedFile]);
     handleMediaSelected(
       selectedFile.type.startsWith("video/") ? "video" : "image",
       selectedFile,
@@ -745,29 +1450,138 @@ const Composer = ({
   };
   // T: O(1) and S: O(1)
 
+  const handleRecentMediaSelect = (entry: RecentMediaEntry) => {
+    const cached = recentMediaFileCache.get(entry.id);
+    setAttachmentMenuAnchor(null);
+    if (cached) {
+      handleMediaSelected(entry.kind, cached);
+      return;
+    }
+    setOpen(true);
+    window.requestAnimationFrame(() => {
+      if (mediaInputRef.current) {
+        mediaInputRef.current.value = "";
+        mediaInputRef.current.click();
+      }
+    });
+  };
+  // T: O(1) and S: O(1)
+
+  const requestRecordingPermission = async (
+    kind: "camera" | "microphone",
+  ): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setOpen(true);
+      setError(
+        `${kind === "camera" ? "Camera" : "Microphone"} access is not supported by this browser.`,
+      );
+      return false;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: kind === "camera",
+        audio: kind === "microphone" || kind === "camera",
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (caught) {
+      setOpen(true);
+      setError(
+        caught instanceof DOMException && caught.name === "NotAllowedError"
+          ? `${kind === "camera" ? "Camera" : "Microphone"} permission was denied. Enable it in your browser or device settings to continue.`
+          : `Could not access the ${kind}. Please check your device settings.`,
+      );
+      return false;
+    }
+  };
+  // T: O(1) and S: O(1)
+
+  const handleStartAudioRecording = async () => {
+    setAttachmentMenuAnchor(null);
+    setOpen(true);
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError("Audio recording is not supported by this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredMimeType = [
+        "audio/webm;codecs=opus",
+        "audio/mp4",
+        "audio/webm",
+      ].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(
+        stream,
+        preferredMimeType ? { mimeType: preferredMimeType } : undefined,
+      );
+      audioStreamRef.current = stream;
+      audioRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || preferredMimeType || "audio/webm";
+        const extension = mimeType.includes("mp4") ? "m4a" : "webm";
+        const recording = new File(
+          audioChunksRef.current,
+          `voice-message-${Date.now()}.${extension}`,
+          { type: mimeType },
+        );
+        stream.getTracks().forEach((track) => track.stop());
+        audioRecorderRef.current = null;
+        audioStreamRef.current = null;
+        audioChunksRef.current = [];
+        setIsRecordingAudio(false);
+        if (recording.size > 0) handleMediaSelected("audio", recording);
+      };
+      setMode("audio");
+      setFile(null);
+      setIsRecordingAudio(true);
+      recorder.start(250);
+    } catch (caught) {
+      setError(
+        caught instanceof DOMException && caught.name === "NotAllowedError"
+          ? "Microphone permission was denied. Enable it in your browser or device settings to continue."
+          : "Could not start audio recording. Please check your microphone.",
+      );
+    }
+  };
+  // T: O(1) setup and S: O(a), where a is the recorded audio size
+
+  const handleStopAudioRecording = () => {
+    const recorder = audioRecorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+  };
+  // T: O(1) and S: O(1)
+
   const insertComposerText = (value: string) => {
     const input = composerInputRef.current;
     const start = input?.selectionStart ?? content.length;
     const end = input?.selectionEnd ?? start;
-    setContent(
-      (current) => `${current.slice(0, start)}${value}${current.slice(end)}`,
-    );
-    window.requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(start + value.length, start + value.length);
-    });
+    const next = `${content.slice(0, start)}${value}${content.slice(end)}`;
+    pendingCaretRef.current = start + value.length;
+    setContent(next);
   };
   // T: O(c) and S: O(c), where c is the current message length
 
   const handleMediaSelected = (
-    resourceType: "image" | "video",
+    resourceType: "image" | "video" | "audio" | "file",
     selectedFile: File | null,
   ) => {
     cancelMediaUpload();
-    const maxBytes = resourceType === "video" ? 50_000_000 : 10_000_000;
+    const maxBytes =
+      resourceType === "video"
+        ? 50_000_000
+        : resourceType === "audio"
+          ? 20_000_000
+          : resourceType === "file"
+            ? 25_000_000
+            : 10_000_000;
     if (selectedFile && selectedFile.size > maxBytes) {
       setError(
-        `${resourceType === "video" ? "Video" : "Image"} must be smaller than ${
+        `${resourceType === "video" ? "Video" : resourceType === "audio" ? "Audio" : resourceType === "file" ? "File" : "Image"} must be smaller than ${
           maxBytes / 1_000_000
         } MB`,
       );
@@ -784,6 +1598,9 @@ const Composer = ({
     if (!selectedFile) {
       setUploadStage("idle");
       return;
+    }
+    if (resourceType === "image" || resourceType === "video") {
+      void refreshRecentMediaLibrary([selectedFile]);
     }
 
     const requestId = mediaUploadRequestRef.current;
@@ -825,7 +1642,7 @@ const Composer = ({
   // T: O(1) and S: O(1)
 
   const handleEmojiSelect = (emoji: string) => {
-    setContent((current) => `${current}${current ? " " : ""}${emoji}`);
+    insertComposerText(emoji);
   };
   // T: O(c) and S: O(c), where c is the current post length
 
@@ -843,15 +1660,21 @@ const Composer = ({
   const handleMentionClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     setMode("text");
-    setContent(
-      (current) =>
-        `${current}${current && !current.endsWith(" ") ? " " : ""}@`,
-    );
-    window.requestAnimationFrame(() => composerInputRef.current?.focus());
+    const input = composerInputRef.current;
+    const start = input?.selectionStart ?? content.length;
+    const end = input?.selectionEnd ?? start;
+    const prefix =
+      start > 0 && content[start - 1] && !/\s/.test(content[start - 1]!)
+        ? " @"
+        : "@";
+    const next = `${content.slice(0, start)}${prefix}${content.slice(end)}`;
+    pendingCaretRef.current = start + prefix.length;
+    setContent(next);
   };
   // T: O(1) and S: O(1)
 
   const resetComposer = () => {
+    discardAudioRecording();
     cancelMediaUpload();
     setContent("");
     setPollOptions(["", ""]);
@@ -884,7 +1707,7 @@ const Composer = ({
   useEffect(() => {
     if (!open) return;
     const handleDocumentPointerDown = (event: PointerEvent) => {
-      if (submitting) return;
+      if (submitting || isRecordingAudio) return;
       if (
         event.target instanceof Element &&
         event.target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
@@ -902,7 +1725,19 @@ const Composer = ({
     document.addEventListener("pointerdown", handleDocumentPointerDown);
     return () =>
       document.removeEventListener("pointerdown", handleDocumentPointerDown);
-  }, [open, submitting]);
+  }, [isRecordingAudio, open, submitting]);
+
+  useEffect(
+    () => () => {
+      const recorder = audioRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    },
+    [],
+  );
 
   const handlePollOptionChange = (index: number, value: string) => {
     setPollOptions((current) =>
@@ -935,7 +1770,11 @@ const Composer = ({
           ? "Choose a community before posting."
           : mode === "poll" && validPollOptions.length < 2
             ? "A poll needs at least two options."
-            : (mode === "image" || mode === "video") && !file
+          : (mode === "image" ||
+                mode === "video" ||
+                mode === "audio" ||
+                mode === "file") &&
+              !file
               ? `Choose a ${mode} to upload.`
               : "Write something before posting.",
       );
@@ -943,12 +1782,22 @@ const Composer = ({
     }
     setSubmitting(true);
     setUploadProgress(0);
+    if (typingActiveRef.current && communityId) {
+      typingActiveRef.current = false;
+      void setCommunityTyping(communityId, false).catch(() => undefined);
+    }
     setUploadedBytes(uploadedAssetId ? file?.size ?? 0 : 0);
     setTotalUploadBytes(file?.size ?? 0);
     setError("");
     try {
       let providerAssetId = uploadedAssetId;
-      if ((mode === "image" || mode === "video") && !providerAssetId) {
+      if (
+        (mode === "image" ||
+          mode === "video" ||
+          mode === "audio" ||
+          mode === "file") &&
+        !providerAssetId
+      ) {
         const pendingUpload = mediaUploadPromiseRef.current;
         if (!pendingUpload) {
           throw new Error(`Choose a ${mode} to upload.`);
@@ -956,7 +1805,12 @@ const Composer = ({
         setUploadStage("uploading");
         providerAssetId = await pendingUpload;
       }
-      if (mode === "image" || mode === "video") {
+      if (
+        mode === "image" ||
+        mode === "video" ||
+        mode === "audio" ||
+        mode === "file"
+      ) {
         setUploadStage("publishing");
       }
       const post = await createPost({
@@ -964,6 +1818,7 @@ const Composer = ({
         replyToPostId: replyTo?.id,
         body: content,
         mode: mode === "emoji" ? "text" : mode,
+        file,
         providerAssetId,
         pollOptions,
         pollAllowsMultiple,
@@ -1066,23 +1921,49 @@ const Composer = ({
               </Typography>
             )}
             {replyTo.media?.[0] && (
-              <Box
-                component={
-                  replyTo.media[0].type === "image" ? "img" : "video"
-                }
-                src={replyTo.media[0].url}
-                muted={replyTo.media[0].type === "video"}
-                playsInline={replyTo.media[0].type === "video"}
-                sx={{
-                  display: "block",
-                  width: 52,
-                  height: 38,
-                  mt: 0.6,
-                  borderRadius: 1,
-                  objectFit: "cover",
-                  bgcolor: C.surface,
-                }}
-              />
+              replyTo.media[0].type === "file" ? (
+                <Box
+                  component="a"
+                  href={replyTo.media[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    mt: 0.6,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    color: C.accentDark,
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  <DownloadRoundedIcon sx={{ fontSize: 16 }} />
+                  Attached file
+                </Box>
+              ) : (
+                <Box
+                  component={
+                    replyTo.media[0].type === "image"
+                      ? "img"
+                      : replyTo.media[0].type === "audio"
+                        ? "audio"
+                        : "video"
+                  }
+                  src={replyTo.media[0].url}
+                  controls={replyTo.media[0].type === "audio"}
+                  muted={replyTo.media[0].type === "video"}
+                  playsInline={replyTo.media[0].type === "video"}
+                  sx={{
+                    display: "block",
+                    width: replyTo.media[0].type === "audio" ? 220 : 52,
+                    height: replyTo.media[0].type === "audio" ? 40 : 38,
+                    mt: 0.6,
+                    borderRadius: 1,
+                    objectFit: "cover",
+                    bgcolor: C.surface,
+                  }}
+                />
+              )
             )}
           </Box>
           <IconButton
@@ -1126,6 +2007,7 @@ const Composer = ({
             <AddRoundedIcon sx={{ fontSize: { xs: 30, sm: 32 } }} />
           </IconButton>
         )}
+        <Box sx={{ position: "relative", flex: 1, minWidth: 0 }}>
         <TextField
           inputRef={composerInputRef}
           fullWidth
@@ -1192,15 +2074,16 @@ const Composer = ({
             aria-label="Mention a community member"
             sx={{
               position: "absolute",
-              top: 62,
-              left: { xs: 12, sm: 16 },
-              width: { xs: "calc(100% - 56px)", sm: 320 },
-              zIndex: 5,
+              bottom: "calc(100% + 8px)",
+              left: 0,
+              width: { xs: "100%", sm: 320 },
+              maxHeight: 220,
+              zIndex: 8,
               bgcolor: C.cardBg,
               border: `1px solid ${C.divider}`,
               borderRadius: 2,
               boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-              overflow: "hidden",
+              overflowY: "auto",
             }}
           >
             {mentionSuggestions.map((member) => (
@@ -1234,6 +2117,7 @@ const Composer = ({
             ))}
           </Box>
         )}
+        </Box>
 
         {!open && (
           <IconButton
@@ -1375,7 +2259,10 @@ const Composer = ({
           </Stack>
         )}
 
-        {(mode === "image" || mode === "video") && (
+        {(mode === "image" ||
+          mode === "video" ||
+          mode === "audio" ||
+          mode === "file") && (
           <Box
             sx={{
               mt: 1.5,
@@ -1386,23 +2273,118 @@ const Composer = ({
               border: `1px solid ${C.divider}`,
             }}
           >
-            {mediaPreviewUrl && (
+            {mode === "audio" && isRecordingAudio && (
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<StopCircleRoundedIcon />}
+                onClick={handleStopAudioRecording}
+                sx={{
+                  mb: 1,
+                  py: 1.25,
+                  color: C.red,
+                  borderColor: C.red,
+                  textTransform: "none",
+                  fontWeight: 700,
+                }}
+              >
+                Recording… tap to stop
+              </Button>
+            )}
+            {mediaPreviewUrl && mode !== "file" && (
               <Box
-                component={mode === "image" ? "img" : "video"}
+                component={
+                  mode === "image"
+                    ? "img"
+                    : mode === "audio"
+                      ? "audio"
+                      : "video"
+                }
                 src={mediaPreviewUrl}
-                controls={mode === "video"}
+                controls={mode === "video" || mode === "audio"}
                 muted={mode === "video"}
                 playsInline={mode === "video"}
                 sx={{
                   display: "block",
                   width: "100%",
-                  maxHeight: 360,
+                  maxHeight:
+                    mode === "audio"
+                      ? 54
+                      : { xs: 200, sm: 260, md: 320 },
                   objectFit: "contain",
                   borderRadius: 1.5,
                   bgcolor: mode === "video" ? "#111" : C.surface,
                   mb: 1,
                 }}
               />
+            )}
+            {mediaPreviewUrl && mode === "file" && file && (
+              <Box
+                sx={{
+                  mb: 1,
+                  borderRadius: 1.5,
+                  overflow: "hidden",
+                  border: `1px solid ${C.divider}`,
+                  bgcolor: C.cardBg,
+                }}
+              >
+                {file.type === "application/pdf" ||
+                /\.pdf$/i.test(file.name) ? (
+                  <Stack
+                    alignItems="center"
+                    spacing={0.75}
+                    sx={{ py: 3.5, px: 2, bgcolor: "#f3eee6" }}
+                  >
+                    <PictureAsPdfOutlinedIcon
+                      sx={{ fontSize: 56, color: "#b42318" }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: "0.9rem",
+                        fontWeight: 800,
+                        color: C.textPrimary,
+                        textAlign: "center",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {file.name}
+                    </Typography>
+                  </Stack>
+                ) : file.type.startsWith("image/") ? (
+                  <Box
+                    component="img"
+                    src={mediaPreviewUrl}
+                    alt={file.name}
+                    sx={{
+                      display: "block",
+                      width: "100%",
+                      maxHeight: 280,
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <Stack
+                    alignItems="center"
+                    spacing={0.75}
+                    sx={{ py: 3, px: 2 }}
+                  >
+                    <InsertDriveFileOutlinedIcon
+                      sx={{ fontSize: 48, color: C.accentDark }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: "0.86rem",
+                        fontWeight: 700,
+                        color: C.textPrimary,
+                        textAlign: "center",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {file.name}
+                    </Typography>
+                  </Stack>
+                )}
+              </Box>
             )}
             <Box
               sx={{
@@ -1415,9 +2397,13 @@ const Composer = ({
               <Typography sx={{ color: C.textSub, fontSize: "0.8rem" }}>
                 {file
                   ? file.name
-                  : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
-                      mode === "video" ? " · max 50 MB" : ""
-                    }`}
+                  : mode === "audio"
+                    ? "Record a voice message · max 20 MB"
+                    : mode === "file"
+                      ? "Choose a document · max 25 MB"
+                    : `Choose ${mode === "image" ? "an image" : "a video"} from your device${
+                        mode === "video" ? " · max 50 MB" : ""
+                      }`}
               </Typography>
               <Button
                 size="small"
@@ -1426,7 +2412,11 @@ const Composer = ({
                 onClick={() =>
                   file && uploadStage === "idle"
                     ? handleMediaSelected(mode, file)
-                    : handleMediaPicker(mode)
+                    : mode === "audio"
+                      ? void handleStartAudioRecording()
+                      : mode === "file"
+                        ? fileInputRef.current?.click()
+                        : handleMediaPicker(mode)
                 }
                 sx={{
                   color: C.accentDark,
@@ -1438,7 +2428,9 @@ const Composer = ({
                   ? "Retry"
                   : file
                     ? "Change"
-                    : "Browse"}
+                    : mode === "audio"
+                      ? "Record"
+                      : "Browse"}
               </Button>
             </Box>
 
@@ -1479,36 +2471,89 @@ const Composer = ({
           <Box
             sx={{
               mt: 1,
-              p: 0.6,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 0.25,
-              width: "min(100%, 460px)",
-              maxHeight: 142,
-              overflowY: "auto",
+              width: "min(100%, 420px)",
               border: `1px solid ${C.divider}`,
               borderRadius: 2,
-              bgcolor: C.surface,
+              overflow: "hidden",
+              bgcolor: C.cardBg,
             }}
           >
-            {COMPOSER_EMOJIS.map((emoji) => (
-              <IconButton
-                key={emoji}
-                aria-label={`Add ${emoji}`}
-                onClick={() => handleEmojiSelect(emoji)}
-                size="small"
-                sx={{
-                  fontSize: "1.2rem",
-                  opacity: 1,
-                  filter: "none",
-                  color: "initial",
-                  fontFamily:
-                    '"Apple Color Emoji", "Segoe UI Emoji", sans-serif',
-                }}
-              >
-                {emoji}
-              </IconButton>
-            ))}
+            <Stack
+              direction="row"
+              role="tablist"
+              aria-label="Emoji categories"
+              sx={{
+                px: 0.5,
+                py: 0.4,
+                overflowX: "auto",
+                borderBottom: `1px solid ${C.divider}`,
+              }}
+            >
+              {COMPOSER_EMOJI_GROUPS.map((group, index) => (
+                <IconButton
+                  key={group.label}
+                  role="tab"
+                  aria-label={group.label}
+                  aria-selected={emojiCategory === index}
+                  title={group.label}
+                  size="small"
+                  onClick={() => setEmojiCategory(index)}
+                  sx={{
+                    flexShrink: 0,
+                    fontSize: "1.25rem",
+                    color: "inherit",
+                    opacity: 1,
+                    WebkitTextFillColor: "initial",
+                    bgcolor:
+                      emojiCategory === index ? C.accentFaint : "transparent",
+                  }}
+                >
+                  {group.icon}
+                </IconButton>
+              ))}
+            </Stack>
+            <Box
+              role="tabpanel"
+              aria-label={`${COMPOSER_EMOJI_GROUPS[emojiCategory]?.label ?? "Smileys"} emojis`}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(8, minmax(34px, 1fr))",
+                gap: 0.2,
+                p: 0.6,
+                maxHeight: 250,
+                overflowY: "auto",
+              }}
+            >
+              {(COMPOSER_EMOJI_GROUPS[emojiCategory]?.emojis ??
+                COMPOSER_EMOJI_GROUPS[0].emojis
+              ).map((emoji, index) => (
+                <Box
+                  key={`${emoji}-${index}`}
+                  component="button"
+                  type="button"
+                  aria-label={`Add ${emoji}`}
+                  title={emoji}
+                  onClick={() => handleEmojiSelect(emoji)}
+                  sx={{
+                    width: "100%",
+                    minHeight: 40,
+                    border: 0,
+                    borderRadius: 1.5,
+                    bgcolor: "transparent",
+                    cursor: "pointer",
+                    fontSize: "1.55rem",
+                    lineHeight: 1.2,
+                    color: "inherit",
+                    opacity: 1,
+                    WebkitTextFillColor: "initial",
+                    filter: "none",
+                    "&:hover": { bgcolor: C.accentFaint },
+                  }}
+                >
+                  {emoji}
+                </Box>
+              ))}
+            </Box>
           </Box>
         )}
 
@@ -1729,73 +2774,274 @@ const Composer = ({
           sx: {
             position: { xs: "fixed", sm: "relative" },
             bottom: { xs: 0, sm: "auto" },
-            width: { xs: "calc(100% - 16px)", sm: "100%" },
-            m: { xs: 1, sm: 4 },
-            borderRadius: { xs: "28px 28px 22px 22px", sm: 3 },
+            left: { xs: 0, sm: "auto" },
+            right: { xs: 0, sm: "auto" },
+            width: { xs: "100%", sm: "100%" },
+            m: { xs: 0, sm: 4 },
+            borderRadius: { xs: "22px 22px 0 0", sm: 3 },
             overflow: "hidden",
           },
         }}
       >
-        <DialogTitle id="attachment-panel-title" sx={{ pb: 1, fontWeight: 800 }}>
-          Add to your message
+        <Box
+          sx={{
+            display: { xs: "flex", sm: "none" },
+            justifyContent: "center",
+            pt: 1,
+            pb: 0.25,
+          }}
+        >
+          <Box
+            sx={{
+              width: 42,
+              height: 4,
+              borderRadius: 999,
+              bgcolor: C.divider,
+            }}
+          />
+        </Box>
+        <DialogTitle
+          id="attachment-panel-title"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            px: 2,
+            pt: { xs: 0.5, sm: 2 },
+            pb: 1,
+            fontWeight: 800,
+          }}
+        >
+          <Box component="span">Camera</Box>
+          <Button
+            size="small"
+            onClick={() => {
+              setAttachmentMenuAnchor(null);
+              window.requestAnimationFrame(() => {
+                if (mediaInputRef.current) {
+                  mediaInputRef.current.value = "";
+                  mediaInputRef.current.click();
+                }
+              });
+            }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              color: C.accent,
+              minWidth: 0,
+              px: 0.5,
+            }}
+          >
+            View Library
+          </Button>
+        </DialogTitle>
+        <DialogContent sx={{ px: 0, pb: 1.5 }}>
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              px: 2,
+              pb: 1.5,
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <Box
+              component="button"
+              type="button"
+              aria-label="Open camera"
+              onClick={() => setCameraChoiceOpen(true)}
+              sx={{
+                flex: "0 0 auto",
+                width: 84,
+                height: 84,
+                borderRadius: 2.5,
+                border: `1px solid ${C.divider}`,
+                bgcolor: C.cardBg,
+                color: C.textSub,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                p: 0,
+              }}
+            >
+              <PhotoCameraOutlinedIcon sx={{ fontSize: 30 }} />
+            </Box>
+            {recentMediaLibrary.slice(0, 12).map((entry) => (
+              <Box
+                key={entry.id}
+                component="button"
+                type="button"
+                aria-label={`Use recent ${entry.kind}: ${entry.name}`}
+                onClick={() => handleRecentMediaSelect(entry)}
+                sx={{
+                  position: "relative",
+                  flex: "0 0 auto",
+                  width: 84,
+                  height: 84,
+                  p: 0,
+                  border: `1px solid ${C.divider}`,
+                  borderRadius: 2.5,
+                  overflow: "hidden",
+                  bgcolor: C.cardBg,
+                  cursor: "pointer",
+                }}
+              >
+                <Box
+                  component="img"
+                  src={entry.previewUrl}
+                  alt=""
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+                {entry.kind === "video" && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      bgcolor: "rgba(0,0,0,0.28)",
+                    }}
+                  >
+                    <PlayArrowRoundedIcon sx={{ color: "#fff", fontSize: 26 }} />
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 6,
+                    right: 6,
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    border: "2px solid #fff",
+                    bgcolor: "rgba(0,0,0,0.18)",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.15)",
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+
+          <Divider sx={{ borderColor: C.divider }} />
+
+          <MenuItem
+            onClick={() => {
+              setAttachmentMenuAnchor(null);
+              window.requestAnimationFrame(() => {
+                if (mediaInputRef.current) {
+                  mediaInputRef.current.value = "";
+                  mediaInputRef.current.click();
+                }
+              });
+            }}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <PhotoLibraryOutlinedIcon sx={{ color: C.textSub }} />
+            Photos &amp; Videos
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setAttachmentMenuAnchor(null);
+              window.requestAnimationFrame(() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                  fileInputRef.current.click();
+                }
+              });
+            }}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <UploadFileOutlinedIcon sx={{ color: C.textSub }} />
+            Upload a File
+          </MenuItem>
+          <MenuItem
+            onClick={() => void handleStartAudioRecording()}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <MicNoneRoundedIcon sx={{ color: C.textSub }} />
+            Record an Audio Clip
+          </MenuItem>
+          <MenuItem
+            onClick={async () => {
+              setAttachmentMenuAnchor(null);
+              if (await requestRecordingPermission("camera")) {
+                if (videoCaptureInputRef.current) {
+                  videoCaptureInputRef.current.value = "";
+                  videoCaptureInputRef.current.click();
+                }
+              }
+            }}
+            sx={{ gap: 1.5, minHeight: 54, px: 2, borderRadius: 0 }}
+          >
+            <VideoCameraFrontOutlinedIcon sx={{ color: C.textSub }} />
+            Record a Video Clip
+          </MenuItem>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={cameraChoiceOpen}
+        onClose={() => setCameraChoiceOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby="camera-choice-title"
+        PaperProps={{
+          sx: {
+            position: { xs: "fixed", sm: "relative" },
+            bottom: { xs: 0, sm: "auto" },
+            left: { xs: 0, sm: "auto" },
+            right: { xs: 0, sm: "auto" },
+            width: { xs: "100%", sm: "100%" },
+            m: { xs: 0, sm: 4 },
+            borderRadius: { xs: "22px 22px 0 0", sm: 3 },
+            overflow: "hidden",
+          },
+        }}
+      >
+        <DialogTitle id="camera-choice-title" sx={{ fontWeight: 800, pb: 1 }}>
+          Camera
         </DialogTitle>
         <DialogContent sx={{ px: 1.25, pb: 2 }}>
-        <MenuItem
-          onClick={() => {
-            setAttachmentMenuAnchor(null);
-            window.requestAnimationFrame(() => {
-              if (mediaInputRef.current) {
-                mediaInputRef.current.value = "";
-                mediaInputRef.current.click();
+          <MenuItem
+            onClick={async () => {
+              setCameraChoiceOpen(false);
+              setAttachmentMenuAnchor(null);
+              if (await requestRecordingPermission("camera")) {
+                if (photoCaptureInputRef.current) {
+                  photoCaptureInputRef.current.value = "";
+                  photoCaptureInputRef.current.click();
+                }
               }
-            });
-          }}
-          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
-        >
-          <PhotoLibraryOutlinedIcon />
-          Photos &amp; videos
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setAttachmentMenuAnchor(null);
-            setOpen(true);
-            setError("Audio clips are not supported yet.");
-          }}
-          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
-        >
-          <MicNoneRoundedIcon />
-          Record an audio clip
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setAttachmentMenuAnchor(null);
-            window.requestAnimationFrame(() => {
-              if (videoCaptureInputRef.current) {
-                videoCaptureInputRef.current.value = "";
-                videoCaptureInputRef.current.click();
+            }}
+            sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
+          >
+            <PhotoCameraOutlinedIcon />
+            Take a picture
+          </MenuItem>
+          <MenuItem
+            onClick={async () => {
+              setCameraChoiceOpen(false);
+              setAttachmentMenuAnchor(null);
+              if (await requestRecordingPermission("camera")) {
+                if (videoCaptureInputRef.current) {
+                  videoCaptureInputRef.current.value = "";
+                  videoCaptureInputRef.current.click();
+                }
               }
-            });
-          }}
-          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
-        >
-          <VideoCameraFrontOutlinedIcon />
-          Record a video clip
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setAttachmentMenuAnchor(null);
-            window.requestAnimationFrame(() => {
-              if (mediaInputRef.current) {
-                mediaInputRef.current.value = "";
-                mediaInputRef.current.click();
-              }
-            });
-          }}
-          sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
-        >
-          <UploadFileOutlinedIcon />
-          Upload a file
-        </MenuItem>
+            }}
+            sx={{ gap: 1.5, minHeight: 54, borderRadius: 2 }}
+          >
+            <VideoCameraFrontOutlinedIcon />
+            Record a video
+          </MenuItem>
         </DialogContent>
       </Dialog>
       <input
@@ -1820,9 +3066,31 @@ const Composer = ({
         ref={mediaInputRef}
         hidden
         type="file"
+        multiple
         accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm,.mp4,.mov,.m4v,.webm"
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length > 1) void refreshRecentMediaLibrary(files);
+          handleAnyMediaSelected(files[0] ?? null);
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        hidden
+        type="file"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.zip,application/pdf"
         onChange={(event) =>
-          handleAnyMediaSelected(event.target.files?.[0] ?? null)
+          handleMediaSelected("file", event.target.files?.[0] ?? null)
+        }
+      />
+      <input
+        ref={photoCaptureInputRef}
+        hidden
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(event) =>
+          handleMediaSelected("image", event.target.files?.[0] ?? null)
         }
       />
       <input
@@ -1830,7 +3098,7 @@ const Composer = ({
         hidden
         type="file"
         accept="video/*"
-        capture="user"
+        capture="environment"
         onChange={(event) =>
           handleMediaSelected("video", event.target.files?.[0] ?? null)
         }
@@ -1911,15 +3179,23 @@ const PostCard = ({
   const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(
     null,
   );
+  const [ownerMenuPosition, setOwnerMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editBody, setEditBody] = useState(post.body);
   const [postActionPending, setPostActionPending] = useState(false);
   const [postActionError, setPostActionError] = useState("");
-  const [mobileMoreVisible, setMobileMoreVisible] = useState(false);
   const [mobileSwipeOffset, setMobileSwipeOffset] = useState(0);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const [imageZoomed, setImageZoomed] = useState(false);
+  const [fileViewer, setFileViewer] = useState<{
+    url: string;
+    label: string;
+    kind: "pdf" | "image" | "document";
+  } | null>(null);
   const mobileLongPressTimerRef = useRef<number | null>(null);
   const mobileLongPressTriggeredRef = useRef(false);
   const mobileTouchMovedRef = useRef(false);
@@ -2278,7 +3554,17 @@ const PostCard = ({
     Boolean(target.closest("button, a, input, textarea, select, [role='button']"));
 
   const isMobileTouchLayout = () =>
-    window.matchMedia("(max-width: 599.95px)").matches;
+    window.matchMedia("(max-width: 899.95px)").matches;
+
+  const closeOwnerMenu = () => {
+    setOwnerMenuAnchor(null);
+    setOwnerMenuPosition(null);
+  };
+
+  const openOwnerMenuAtPoint = (top: number, left: number) => {
+    setOwnerMenuAnchor(null);
+    setOwnerMenuPosition({ top, left });
+  };
 
   const handleMobileTouchStart = (event: React.TouchEvent) => {
     if (!isMobileTouchLayout() || isInteractiveTouchTarget(event.target)) return;
@@ -2293,9 +3579,9 @@ const PostCard = ({
     mobileLongPressTriggeredRef.current = false;
     mobileLongPressTimerRef.current = window.setTimeout(() => {
       mobileLongPressTriggeredRef.current = true;
-      setMobileMoreVisible(true);
-      navigator.vibrate?.(10);
-    }, 520);
+      openOwnerMenuAtPoint(touch.clientY, touch.clientX);
+      navigator.vibrate?.(12);
+    }, 480);
   };
 
   const handleMobileTouchMove = (event: React.TouchEvent) => {
@@ -2378,13 +3664,13 @@ const PostCard = ({
   // T: O(b) and S: O(b), where b is the post text length
 
   const handleMenuShare = async () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     await handleSharePost();
   };
   // T: O(b) and S: O(b), where b is the post text length
 
   const handleCopyPostText = async () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     const text = [post.title, post.body].filter(Boolean).join("\n\n").trim();
     try {
       await navigator.clipboard.writeText(text);
@@ -2396,7 +3682,7 @@ const PostCard = ({
   // T: O(b) and S: O(b), where b is the post text length
 
   const handleCopyPostLink = async () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     const url = `${window.location.origin}/community?post=${encodeURIComponent(
       post.id,
     )}`;
@@ -2411,7 +3697,7 @@ const PostCard = ({
 
   const handleUnfollow = async () => {
     if (friendActionPending) return;
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     setFriendActionPending(true);
     setActionMessage("");
     try {
@@ -2432,7 +3718,7 @@ const PostCard = ({
 
   const handleOpenEdit = () => {
     if (!editWindowOpen) return;
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     setEditBody(displayBody);
     setPostActionError("");
     setEditOpen(true);
@@ -2461,7 +3747,7 @@ const PostCard = ({
   // T: O(b) and S: O(b), where b is the post body length
 
   const handleOpenDelete = () => {
-    setOwnerMenuAnchor(null);
+    closeOwnerMenu();
     setPostActionError("");
     setDeleteOpen(true);
   };
@@ -2643,38 +3929,16 @@ const PostCard = ({
           <IconButton
             size="small"
             aria-label="More message actions"
-            onClick={(event) => setOwnerMenuAnchor(event.currentTarget)}
+            onClick={(event) => {
+              setOwnerMenuPosition(null);
+              setOwnerMenuAnchor(event.currentTarget);
+            }}
             sx={{ color: C.textMuted }}
           >
             <MoreHorizRoundedIcon />
           </IconButton>
         </Tooltip>
       </Stack>
-      <IconButton
-        size="small"
-        aria-label="More message actions"
-        onClick={(event) => {
-          setMobileMoreVisible(false);
-          setOwnerMenuAnchor(event.currentTarget);
-        }}
-        sx={{
-          display: {
-            xs: mobileMoreVisible ? "inline-flex" : "none",
-            md: "none",
-          },
-          position: "absolute",
-          top: 6,
-          right: 0,
-          width: 32,
-          height: 32,
-          color: C.textMuted,
-          bgcolor: C.cardBg,
-          zIndex: 3,
-          "&:hover": { bgcolor: C.surface },
-        }}
-      >
-        <MoreHorizRoundedIcon sx={{ fontSize: 22 }} />
-      </IconButton>
       {/* Author row */}
       <Box
         sx={{
@@ -2745,11 +4009,10 @@ const PostCard = ({
         <Menu
           id={`post-menu-${post.id}`}
           anchorEl={ownerMenuAnchor}
-          open={Boolean(ownerMenuAnchor)}
-          onClose={() => {
-            setOwnerMenuAnchor(null);
-            setMobileMoreVisible(false);
-          }}
+          anchorReference={ownerMenuPosition ? "anchorPosition" : "anchorEl"}
+          anchorPosition={ownerMenuPosition ?? undefined}
+          open={Boolean(ownerMenuAnchor || ownerMenuPosition)}
+          onClose={closeOwnerMenu}
           MenuListProps={{ "aria-label": "Message options" }}
         >
               {friendshipStatus === "self" && (
@@ -2855,23 +4118,55 @@ const PostCard = ({
                 </Typography>
               )}
               {post.replyTo.media?.[0] && (
-                <Box
-                  component={
-                    post.replyTo.media[0].type === "image" ? "img" : "video"
-                  }
-                  src={post.replyTo.media[0].url}
-                  muted={post.replyTo.media[0].type === "video"}
-                  playsInline={post.replyTo.media[0].type === "video"}
-                  sx={{
-                    display: "block",
-                    width: { xs: 64, sm: 76 },
-                    height: { xs: 46, sm: 54 },
-                    mt: 0.65,
-                    borderRadius: 1.25,
-                    objectFit: "cover",
-                    bgcolor: C.surface,
-                  }}
-                />
+                post.replyTo.media[0].type === "file" ? (
+                  <Box
+                    component="a"
+                    href={post.replyTo.media[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      mt: 0.65,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      color: C.accentDark,
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <DownloadRoundedIcon sx={{ fontSize: 16 }} />
+                    Attached file
+                  </Box>
+                ) : (
+                  <Box
+                    component={
+                      post.replyTo.media[0].type === "image"
+                        ? "img"
+                        : post.replyTo.media[0].type === "audio"
+                          ? "audio"
+                          : "video"
+                    }
+                    src={post.replyTo.media[0].url}
+                    controls={post.replyTo.media[0].type === "audio"}
+                    muted={post.replyTo.media[0].type === "video"}
+                    playsInline={post.replyTo.media[0].type === "video"}
+                    sx={{
+                      display: "block",
+                      width:
+                        post.replyTo.media[0].type === "audio"
+                          ? { xs: 210, sm: 260 }
+                          : { xs: 64, sm: 76 },
+                      height:
+                        post.replyTo.media[0].type === "audio"
+                          ? 40
+                          : { xs: 46, sm: 54 },
+                      mt: 0.65,
+                      borderRadius: 1.25,
+                      objectFit: "cover",
+                      bgcolor: C.surface,
+                    }}
+                  />
+                )
               )}
             </Box>
         </Box>
@@ -2967,6 +4262,84 @@ const PostCard = ({
               }}
             />
           </Box>
+        ) : item.type === "file" ? (
+          (() => {
+            const label = mediaFileLabel(item.url, item.originalFilename);
+            const pdf =
+              isPdfMediaUrl(item.url) ||
+              /\.pdf$/i.test(label) ||
+              /\.pdf$/i.test(item.originalFilename ?? "");
+            const imageLike = isImageLikeFileUrl(item.url);
+            if (imageLike) {
+              return (
+                <Box
+                  key={item.id}
+                  component="button"
+                  type="button"
+                  aria-label={`Open ${label}`}
+                  onClick={() =>
+                    setFileViewer({ url: item.url, label, kind: "image" })
+                  }
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    maxWidth: { xs: "100%", sm: 640 },
+                    mr: "auto",
+                    p: 0,
+                    border: 0,
+                    borderRadius: 2,
+                    bgcolor: C.surface,
+                    mb: 2,
+                    overflow: "hidden",
+                    cursor: "zoom-in",
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={item.url}
+                    alt={label}
+                    sx={{
+                      display: "block",
+                      width: "100%",
+                      maxHeight: { xs: 260, sm: 380 },
+                      objectFit: "contain",
+                    }}
+                  />
+                </Box>
+              );
+            }
+            return (
+              <CommunityFilePreviewCard
+                key={item.id}
+                url={item.url}
+                label={label}
+                kind={pdf ? "pdf" : "document"}
+                onOpen={() =>
+                  setFileViewer({
+                    url: item.url,
+                    label,
+                    kind: pdf ? "pdf" : "document",
+                  })
+                }
+              />
+            );
+          })()
+        ) : item.type === "audio" ? (
+          <Box
+            key={item.id}
+            component="audio"
+            src={item.url}
+            controls
+            preload="metadata"
+            sx={{
+              display: "block",
+              width: "100%",
+              maxWidth: 520,
+              height: 48,
+              mr: "auto",
+              mb: 2,
+            }}
+          />
         ) : (
           <Box
             key={item.id}
@@ -3450,6 +4823,151 @@ const PostCard = ({
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(fileViewer)}
+        onClose={() => setFileViewer(null)}
+        fullScreen
+        PaperProps={{
+          sx: {
+            bgcolor: fileViewer?.kind === "image" ? "#111" : C.cardBg,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            position: "fixed",
+            top: 12,
+            left: 12,
+            right: 12,
+            zIndex: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <Typography
+            sx={{
+              color: fileViewer?.kind === "image" ? "#fff" : C.textPrimary,
+              fontWeight: 700,
+              fontSize: "0.92rem",
+              px: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "55%",
+              textShadow:
+                fileViewer?.kind === "image"
+                  ? "0 1px 4px rgba(0,0,0,0.65)"
+                  : "none",
+            }}
+          >
+            {fileViewer?.label}
+          </Typography>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            <IconButton
+              component="a"
+              href={fileViewer?.url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download file"
+              sx={{
+                color: fileViewer?.kind === "image" ? "#fff" : C.textPrimary,
+                bgcolor:
+                  fileViewer?.kind === "image"
+                    ? "rgba(0,0,0,0.48)"
+                    : C.surface,
+              }}
+            >
+              <DownloadRoundedIcon />
+            </IconButton>
+            <IconButton
+              aria-label="Close file viewer"
+              onClick={() => setFileViewer(null)}
+              sx={{
+                color: fileViewer?.kind === "image" ? "#fff" : C.textPrimary,
+                bgcolor:
+                  fileViewer?.kind === "image"
+                    ? "rgba(0,0,0,0.48)"
+                    : C.surface,
+              }}
+            >
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </Box>
+        <DialogContent
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            p: { xs: 1, sm: 2 },
+            pt: { xs: 8, sm: 9 },
+            overflow: "hidden",
+          }}
+        >
+          {fileViewer?.kind === "image" ? (
+            <Box
+              component="img"
+              src={fileViewer.url}
+              alt={fileViewer.label}
+              sx={{
+                display: "block",
+                maxWidth: "100%",
+                maxHeight: "calc(100vh - 96px)",
+                objectFit: "contain",
+              }}
+            />
+          ) : fileViewer?.kind === "pdf" ? (
+            <CommunityPdfBlobFrame
+              url={fileViewer.url}
+              title={fileViewer.label}
+              height="calc(100vh - 96px)"
+            />
+          ) : fileViewer ? (
+            <Stack
+              spacing={2}
+              alignItems="center"
+              sx={{
+                width: "min(100%, 420px)",
+                px: 2,
+                py: 4,
+                borderRadius: 3,
+                border: `1px solid ${C.divider}`,
+                bgcolor: C.surface,
+                textAlign: "center",
+              }}
+            >
+              <InsertDriveFileOutlinedIcon
+                sx={{ fontSize: 64, color: C.accentDark }}
+              />
+              <Typography sx={{ fontWeight: 800, color: C.textPrimary }}>
+                {fileViewer.label}
+              </Typography>
+              <Typography sx={{ color: C.textMuted, fontSize: "0.85rem" }}>
+                This file type opens in a new tab for full viewing or download.
+              </Typography>
+              <Button
+                component="a"
+                href={fileViewer.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="contained"
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  bgcolor: C.accent,
+                  "&:hover": { bgcolor: C.accentDark },
+                }}
+              >
+                Open file
+              </Button>
+            </Stack>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -3943,17 +5461,22 @@ const CommunityNavigation = ({
         onChange={handleChange}
         variant="fullWidth"
         sx={{
-          minHeight: 54,
+          minHeight: { xs: 40, sm: 54 },
+          "& .MuiTabs-flexContainer": {
+            minHeight: { xs: 40, sm: 54 },
+          },
           "& .MuiTabs-indicator": {
             height: 2,
             bgcolor: C.accent,
           },
           "& .MuiTab-root": {
-            minHeight: 54,
+            minHeight: { xs: 40, sm: 54 },
+            py: { xs: 0.5, sm: 1 },
             color: C.textPrimary,
             textTransform: "none",
-            fontSize: { xs: "0.85rem", sm: "0.95rem" },
+            fontSize: { xs: "0.82rem", sm: "0.95rem" },
             fontWeight: 500,
+            lineHeight: 1.2,
           },
           "& .Mui-selected": {
             color: `${C.textPrimary} !important`,
@@ -4076,6 +5599,11 @@ const CommunitiesView = ({
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState("");
   const [showAllCommunities, setShowAllCommunities] = useState(false);
+  const [showAllDiscoverable, setShowAllDiscoverable] = useState(false);
+  const [recentlyActiveOrder, setRecentlyActiveOrder] = useState<string[]>(
+    [],
+  );
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [manageAnchor, setManageAnchor] = useState<HTMLElement | null>(null);
   const [managedCommunity, setManagedCommunity] = useState<Community | null>(
     null,
@@ -4122,7 +5650,66 @@ const CommunitiesView = ({
     onPendingEditConsumed?.();
   }, [communities, onPendingEditConsumed, pendingEditCommunityId]);
 
-  const joinedCommunities = communities.filter((community) => community.joined);
+  useEffect(() => {
+    setRecentlyActiveOrder(readRecentlyActiveCommunityOrder());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let debounceTimer = 0;
+
+    const refreshUnreadCounts = async () => {
+      setRecentlyActiveOrder(readRecentlyActiveCommunityOrder());
+      const joined = communities.filter((community) => community.joined);
+      if (joined.length === 0) {
+        if (!cancelled) setUnreadCounts({});
+        return;
+      }
+      const priority = sortJoinedCommunities(
+        joined,
+        readRecentlyActiveCommunityOrder(),
+        {},
+      ).slice(0, 8);
+      const entries = await Promise.all(
+        priority.map(async (community) => {
+          const posts = await listCommunityFeed(community.id).catch(
+            () => [] as CommunityPostRecord[],
+          );
+          return [
+            community.id,
+            countUnreadCommunityMessages(posts, community.id),
+          ] as const;
+        }),
+      );
+      if (cancelled) return;
+      setUnreadCounts((current) => ({
+        ...current,
+        ...Object.fromEntries(entries),
+      }));
+    };
+
+    void refreshUnreadCounts();
+    const handleInboxChanged = () => {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        void refreshUnreadCounts();
+      }, 800);
+    };
+    window.addEventListener(INBOX_CHANGED_EVENT, handleInboxChanged);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(debounceTimer);
+      window.removeEventListener(INBOX_CHANGED_EVENT, handleInboxChanged);
+    };
+    // unreadCounts intentionally omitted to avoid refresh loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communities]);
+
+  const joinedCommunities = sortJoinedCommunities(
+    communities.filter((community) => community.joined),
+    recentlyActiveOrder,
+    unreadCounts,
+  );
   const visibleJoinedCommunities = showAllCommunities
     ? joinedCommunities
     : joinedCommunities.slice(0, 4);
@@ -4136,6 +5723,9 @@ const CommunitiesView = ({
       .toLowerCase()
       .includes(normalizedSearch);
   });
+  const visibleDiscoverableCommunities = showAllDiscoverable
+    ? discoverableCommunities
+    : discoverableCommunities.slice(0, 4);
   const communityEditChanges: Partial<{
     name: string;
     description: string;
@@ -4606,32 +6196,43 @@ const CommunitiesView = ({
                     gridTemplateColumns:
                       layout === "grid"
                         ? {
-                            xs: "1fr",
-                            sm: "repeat(auto-fill, minmax(220px, 260px))",
+                            xs: "repeat(2, minmax(0, 1fr))",
+                            md: "repeat(3, minmax(0, 1fr))",
                           }
                         : "1fr",
-                    justifyContent: "start",
+                    justifyContent: "stretch",
+                    alignItems: "stretch",
                     gap:
                       layout === "grid" ? { xs: 1, sm: 1.5 } : 0,
+                    width: "100%",
                   }}
                 >
                   {visibleJoinedCommunities.map((community) => {
                     const isSelected = community.id === scheduleCommunityId;
+                    const unreadCount = unreadCounts[community.id] ?? 0;
+                    const openCommunity = () => {
+                      setScheduleCommunityId(community.id);
+                      setUnreadCounts((current) => ({
+                        ...current,
+                        [community.id]: 0,
+                      }));
+                      onOpen(community.id);
+                    };
                     return (
                       <Box
                         key={community.id}
                         role="button"
                         tabIndex={0}
-                        aria-label={`Open ${community.name}`}
-                        onClick={() => {
-                          setScheduleCommunityId(community.id);
-                          onOpen(community.id);
-                        }}
+                        aria-label={
+                          unreadCount > 0
+                            ? `Open ${community.name}, ${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`
+                            : `Open ${community.name}`
+                        }
+                        onClick={openCommunity}
                         onKeyDown={(event) => {
                           if (event.key !== "Enter" && event.key !== " ") return;
                           event.preventDefault();
-                          setScheduleCommunityId(community.id);
-                          onOpen(community.id);
+                          openCommunity();
                         }}
                         sx={{
                           width: "100%",
@@ -4645,7 +6246,7 @@ const CommunitiesView = ({
                           gap: { xs: 1, sm: 1.3 },
                           p:
                             layout === "grid"
-                              ? { xs: 1.25, sm: 2 }
+                              ? { xs: 1, sm: 2 }
                               : { xs: 1.1, sm: 1.5 },
                           border: 0,
                           borderBottom:
@@ -4661,7 +6262,7 @@ const CommunitiesView = ({
                                 }`
                               : "none",
                           color: C.textPrimary,
-                          overflow: "hidden",
+                          overflow: "visible",
                           font: "inherit",
                           textAlign: "left",
                           cursor: "pointer",
@@ -4680,25 +6281,40 @@ const CommunitiesView = ({
                           },
                         }}
                       >
-                        <Box
+                        <Badge
+                          badgeContent={unreadCount}
+                          color="error"
+                          overlap="circular"
+                          invisible={unreadCount < 1}
                           sx={{
-                            width: { xs: 36, sm: 40 },
-                            height: { xs: 36, sm: 40 },
-                            borderRadius: "50%",
-                            display: "grid",
-                            placeItems: "center",
-                            bgcolor: isSelected ? C.surface : C.accentFaint,
-                            color: C.accentDark,
                             flexShrink: 0,
+                            "& .MuiBadge-badge": {
+                              fontSize: "0.65rem",
+                              fontWeight: 700,
+                              minWidth: 18,
+                              height: 18,
+                            },
                           }}
                         >
-                          <GroupsRoundedIcon fontSize="small" />
-                        </Box>
+                          <Box
+                            sx={{
+                              width: { xs: 36, sm: 40 },
+                              height: { xs: 36, sm: 40 },
+                              borderRadius: "50%",
+                              display: "grid",
+                              placeItems: "center",
+                              bgcolor: isSelected ? C.surface : C.accentFaint,
+                              color: C.accentDark,
+                            }}
+                          >
+                            <GroupsRoundedIcon fontSize="small" />
+                          </Box>
+                        </Badge>
                         <Box sx={{ flex: 1, minWidth: 0, width: "100%", maxWidth: "100%" }}>
                           <Typography
                             sx={{
                               color: C.textPrimary,
-                              fontSize: "0.88rem",
+                              fontSize: { xs: "0.8rem", sm: "0.88rem" },
                               fontWeight: 700,
                               overflowWrap: "anywhere",
                             }}
@@ -4708,9 +6324,13 @@ const CommunitiesView = ({
                           <Typography
                             sx={{
                               color: C.textMuted,
-                              fontSize: "0.74rem",
+                              fontSize: { xs: "0.68rem", sm: "0.74rem" },
                               lineHeight: 1.35,
                               overflowWrap: "anywhere",
+                              display: "-webkit-box",
+                              WebkitLineClamp: layout === "grid" ? 2 : 3,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
                             }}
                           >
                             {community.description || "A new Anchor community"}
@@ -4739,6 +6359,18 @@ const CommunitiesView = ({
                                 ? "Private"
                                 : "Public"}
                             </Typography>
+                            {unreadCount > 0 && (
+                              <Typography
+                                sx={{
+                                  color: C.accentDark,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  ml: 0.5,
+                                }}
+                              >
+                                · {unreadCount} new
+                              </Typography>
+                            )}
                           </Box>
                         </Box>
                         {community.canManage && (
@@ -4843,13 +6475,22 @@ const CommunitiesView = ({
                     flex: 1,
                     minWidth: 0,
                     "& .MuiOutlinedInput-root": {
+                      width: "100%",
+                      boxSizing: "border-box",
                       borderRadius: 2.5,
                       bgcolor: C.surface,
                       "& fieldset": { borderColor: C.divider },
+                      "&:hover fieldset": { borderColor: C.textMuted },
+                      "&.Mui-focused fieldset": { borderColor: C.accent },
                     },
                     "& input::placeholder": {
+                      color: C.textMuted,
                       overflow: "visible",
                       opacity: 1,
+                    },
+                    "& input": {
+                      minWidth: 0,
+                      fontSize: "16px",
                     },
                   }}
                 />
@@ -4867,18 +6508,19 @@ const CommunitiesView = ({
                   gridTemplateColumns:
                     layout === "grid"
                       ? {
-                          xs: "1fr",
-                          sm: "repeat(auto-fill, minmax(220px, 260px))",
+                          xs: "repeat(2, minmax(0, 1fr))",
+                          md: "repeat(3, minmax(0, 1fr))",
                         }
                       : "1fr",
-                  justifyContent: "start",
+                  justifyContent: "stretch",
+                  alignItems: "stretch",
                   gap: layout === "grid" ? { xs: 1, sm: 1.5 } : 0,
                   width: "100%",
                   maxWidth: "100%",
                   minWidth: 0,
                 }}
               >
-                {discoverableCommunities.map((community) => (
+                {visibleDiscoverableCommunities.map((community) => (
                   <Box
                     key={community.id}
                     sx={{
@@ -4889,7 +6531,7 @@ const CommunitiesView = ({
                           ? "flex-start"
                           : { xs: "flex-start", sm: "center" },
                       gap: { xs: 0.8, sm: 1.5 },
-                      p: layout === "grid" ? { xs: 1.25, sm: 1.5 } : { xs: 1.1, sm: 1.5 },
+                      p: layout === "grid" ? { xs: 1, sm: 1.5 } : { xs: 1.1, sm: 1.5 },
                       py: layout === "list" ? 1.6 : undefined,
                       minWidth: 0,
                       maxWidth: "100%",
@@ -4976,6 +6618,46 @@ const CommunitiesView = ({
                   </Box>
                 ))}
               </Box>
+              {discoverableCommunities.length > 4 && (
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setShowAllDiscoverable((current) => !current)
+                  }
+                  aria-expanded={showAllDiscoverable}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 0.5,
+                    mx: "auto",
+                    mt: 1.5,
+                    p: 0.5,
+                    border: 0,
+                    bgcolor: "transparent",
+                    color: C.accentDark,
+                    cursor: "pointer",
+                    font: "inherit",
+                    "&:hover": { color: C.textPrimary },
+                  }}
+                >
+                  <KeyboardArrowDownRoundedIcon
+                    sx={{
+                      fontSize: 20,
+                      transform: showAllDiscoverable
+                        ? "rotate(180deg)"
+                        : "rotate(0deg)",
+                      transition: "transform 160ms ease",
+                    }}
+                  />
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
+                    {showAllDiscoverable
+                      ? "Show fewer community groups"
+                      : "Open all community groups"}
+                  </Typography>
+                </Box>
+              )}
               {discoverableCommunities.length === 0 && (
                 <Typography
                   sx={{ color: C.textMuted, textAlign: "center", py: 4 }}
@@ -5687,7 +7369,7 @@ const FriendsView = ({
               handle: person.handle,
               role: person.role,
               avatarUrl: person.avatarUrl,
-              mutualFriends: 0,
+              mutualFriends: Number(person.mutualFriends) || 0,
               isFriend: person.friendshipStatus === "accepted",
               friendshipStatus: person.friendshipStatus,
             })),
@@ -6010,7 +7692,7 @@ const FriendsView = ({
                     {request.name}
                   </Typography>
                   <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                    {request.handle} · {request.role}
+                    {request.handle}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1}>
@@ -6080,7 +7762,7 @@ const FriendsView = ({
                     {request.name}
                   </Typography>
                   <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                    {request.handle} · {request.role}
+                    {request.handle}
                   </Typography>
                 </Box>
                 <Chip
@@ -6154,10 +7836,11 @@ const FriendRow = ({
             whiteSpace: "nowrap",
           }}
         >
-          {friend.handle} · {friend.role}
+          {friend.handle}
         </Typography>
         <Typography sx={{ color: C.textSub, fontSize: "0.7rem", mt: 0.3 }}>
-          {friend.mutualFriends} mutual friends
+          {friend.mutualFriends}{" "}
+          {friend.mutualFriends === 1 ? "mutual friend" : "mutual friends"}
         </Typography>
       </Box>
       {friend.isFriend || friend.friendshipStatus === "accepted" ? (
@@ -6231,8 +7914,6 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
-  const [notificationNotice, setNotificationNotice] = useState("");
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [missedBehindCount, setMissedBehindCount] = useState(0);
   const [readTrackingReady, setReadTrackingReady] = useState(false);
@@ -6242,6 +7923,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const [communityMenuAnchor, setCommunityMenuAnchor] =
     useState<HTMLElement | null>(null);
   const [communitySharePending, setCommunitySharePending] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<CommunityTypingUser[]>([]);
   const [discoveredMeetings, setDiscoveredMeetings] = useState<
     ScheduledMeeting[]
   >([]);
@@ -6251,6 +7933,9 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const conversationRequestRef = useRef(0);
   const lastCommunityConversationIdRef = useRef<string | null>(null);
   const seenPostIdsRef = useRef<Set<string> | null>(null);
+  const localFeedPostSeenAtRef = useRef<Map<string, number>>(new Map());
+  const feedMarkerByScopeRef = useRef<Record<string, string | null>>({});
+  const feedForceRefreshRef = useRef<Record<string, number>>({});
   const knownFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const acknowledgedFriendRequestIdsRef = useRef<Set<string> | null>(null);
   const pageRootRef = useRef<HTMLDivElement | null>(null);
@@ -6260,6 +7945,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   const jumpingToLatestRef = useRef(false);
   const caughtUpThisVisitRef = useRef(false);
   const userReadingHistoryRef = useRef(false);
+  const stickToLatestRef = useRef(false);
   const scrolledToQueryPostRef = useRef("");
   const lastWindowScrollYRef = useRef(0);
   const lastMainScrollYRef = useRef(0);
@@ -6281,8 +7967,14 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     } else {
       setViewingScope(null);
     }
-    return () => setViewingScope(null);
   }, [communityConversationId, pageTab, setViewingScope]);
+
+  useEffect(
+    () => () => {
+      setViewingScope(null);
+    },
+    [setViewingScope],
+  );
 
   const handleMeetingDiscovered = useCallback(
     (meeting: Comm360Meeting, communityId: string) => {
@@ -6346,15 +8038,35 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   // T: O(p) and S: O(p), where p is loaded posts
 
   const refreshPosts = useCallback(async (communityId: string) => {
+    const previousScope = activePostScopeRef.current;
+    const scopeChanged = previousScope !== communityId;
     activePostScopeRef.current = communityId;
+    if (scopeChanged) {
+      localFeedPostSeenAtRef.current.clear();
+    }
     const records =
       communityId === ALL_ID
-        ? await listGlobalPosts()
-        : await listCommunityFeed(communityId);
+        ? await listGlobalPosts({ fresh: true })
+        : await listCommunityFeed(communityId, { fresh: true });
     const mapped = records.map(mapPost);
     if (activePostScopeRef.current === communityId) {
-      setPosts(mapped);
+      setPosts((current) => {
+        const merged = mergeFeedPosts(
+          scopeChanged ? [] : current,
+          mapped,
+          localFeedPostSeenAtRef.current,
+          { replaceScope: scopeChanged },
+        );
+        return sameFeedPosts(current, merged) ? current : merged;
+      });
       seenPostIdsRef.current = new Set(records.map((record) => record.id));
+      const latestPost = [...mapped].sort(
+        (left, right) =>
+          new Date(left.createdAt).getTime() -
+          new Date(right.createdAt).getTime(),
+      ).at(-1);
+      feedMarkerByScopeRef.current[communityId] = latestPost?.id ?? null;
+      feedForceRefreshRef.current[communityId] = Date.now();
     }
     return mapped;
   }, []);
@@ -6602,76 +8314,179 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   );
 
   useEffect(() => {
-    if (!("Notification" in window)) return;
-    setNotificationPermission(Notification.permission);
     void navigator.serviceWorker?.register("/community-sw.js").catch(() => undefined);
     void getCurrentCommunityProfile()
       .then((profile) => setCurrentProfileName(profile.name))
       .catch(() => undefined);
   }, []);
 
-  const enableNotifications = async () => {
-    if (!("Notification" in window)) {
-      setNotificationNotice("Notifications are not supported by this browser.");
-      return;
-    }
-    if (Notification.permission === "denied") {
-      setNotificationPermission("denied");
-      setNotificationNotice(
-        "Notifications are off. Allow them in your browser or phone settings.",
-      );
-      return;
-    }
-    try {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
-      setNotificationNotice(
-        permission === "denied"
-          ? "Notifications are off. Allow them in your browser or phone settings."
-          : "",
-      );
-    } catch {
-      setNotificationNotice(
-        "Notifications could not be enabled in this browser session.",
-      );
-    }
-  };
-
   useEffect(() => {
     if (!hydrated) return;
     let stopped = false;
-    const sync = async () => {
+    let inFlight = false;
+    let pendingKick = false;
+    let timer: number | undefined;
+
+    const applyRecords = (
+      target: string,
+      records: Awaited<ReturnType<typeof listCommunityFeed>>,
+    ) => {
+      const mapped = records.map(mapPost);
+      const previousMarker = feedMarkerByScopeRef.current[target];
+      const previousIds = seenPostIdsRef.current ?? new Set<string>();
+      const gainedMessages = mapped.some((post) => !previousIds.has(post.id));
+      const latestId =
+        [...mapped]
+          .sort(
+            (left, right) =>
+              new Date(left.createdAt).getTime() -
+              new Date(right.createdAt).getTime(),
+          )
+          .at(-1)?.id ?? null;
+      setPosts((current) => {
+        const merged = mergeFeedPosts(
+          current,
+          mapped,
+          localFeedPostSeenAtRef.current,
+        );
+        return sameFeedPosts(current, merged) ? current : merged;
+      });
+      if (
+        gainedMessages &&
+        !userReadingHistoryRef.current &&
+        (caughtUpThisVisitRef.current ||
+          (() => {
+            const scroller = pageRootRef.current?.closest(
+              "main",
+            ) as HTMLElement | null;
+            if (!scroller) return caughtUpThisVisitRef.current;
+            return (
+              scroller.scrollHeight -
+                scroller.scrollTop -
+                scroller.clientHeight <=
+              150
+            );
+          })())
+      ) {
+        stickToLatestRef.current = true;
+      }
+      seenPostIdsRef.current = new Set(records.map((record) => record.id));
+      // Prevent the notification watcher from re-alerting for posts already shown in-chat.
+      if (records.length > 0) {
+        const notified = readNotifiedPostIds();
+        let changed = false;
+        for (const record of records) {
+          if (!notified.has(record.id)) {
+            notified.add(record.id);
+            changed = true;
+          }
+        }
+        if (changed) saveNotifiedPostIds(notified);
+      }
+      if (
+        gainedMessages &&
+        target !== ALL_ID &&
+        previousMarker != null &&
+        latestId !== previousMarker
+      ) {
+        playCommunityMessageSound("in-chat");
+      }
+      // While watching this thread, mark it read so the top inbox stays quiet.
+      if (
+        latestId &&
+        target !== ALL_ID &&
+        caughtUpThisVisitRef.current &&
+        !userReadingHistoryRef.current
+      ) {
+        seedReadPosition(`community:${target}`, latestId, true);
+      }
+      feedMarkerByScopeRef.current[target] = latestId;
+      feedForceRefreshRef.current[target] = Date.now();
+    };
+
+    const runSync = async () => {
+      if (stopped) return;
+      if (inFlight) {
+        pendingKick = true;
+        return;
+      }
       const target = activePostScopeRef.current;
       if (target === "community-list") return;
+      inFlight = true;
       try {
-        const records = target === ALL_ID
-          ? await listGlobalPosts()
-          : await listCommunityFeed(target);
-        if (stopped) return;
-        const known = seenPostIdsRef.current;
-        if (known && activePostScopeRef.current === target) {
-          const mapped = records.map(mapPost);
-          setPosts((current) =>
-            sameFeedPosts(current, mapped) ? current : mapped,
-          );
-        }
-        seenPostIdsRef.current = new Set(records.map((record) => record.id));
+        do {
+          pendingKick = false;
+          const scope = activePostScopeRef.current;
+          if (scope === "community-list") break;
+          // Always pull a fresh page while a conversation is open — marker gating
+          // previously dropped updates under overlapping polls.
+          const records =
+            scope === ALL_ID
+              ? await listGlobalPosts({ fresh: true })
+              : await listCommunityFeed(scope, { fresh: true });
+          if (stopped || activePostScopeRef.current !== scope) break;
+          applyRecords(scope, records);
+        } while (pendingKick && !stopped);
       } catch {
         // Keep the current view intact during temporary background-sync failures.
+      } finally {
+        inFlight = false;
       }
     };
-    void sync();
-    const timer = window.setInterval(() => void sync(), 2_000);
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") void sync();
+
+    const scheduleNext = () => {
+      if (stopped) return;
+      if (timer != null) window.clearTimeout(timer);
+      const hidden = document.visibilityState === "hidden";
+      timer = window.setTimeout(() => {
+        void runSync().finally(scheduleNext);
+      }, hidden ? 1_200 : 350);
     };
-    document.addEventListener("visibilitychange", handleVisibility);
+
+    void runSync().finally(scheduleNext);
+
+    const kick = () => {
+      void runSync();
+    };
+    document.addEventListener("visibilitychange", kick);
+    window.addEventListener("focus", kick);
+    window.addEventListener("pageshow", kick);
+    window.addEventListener("online", kick);
+    window.addEventListener(INBOX_CHANGED_EVENT, kick);
+    return () => {
+      stopped = true;
+      if (timer != null) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", kick);
+      window.removeEventListener("focus", kick);
+      window.removeEventListener("pageshow", kick);
+      window.removeEventListener("online", kick);
+      window.removeEventListener(INBOX_CHANGED_EVENT, kick);
+    };
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!communityConversationId || pageTab !== "communities") {
+      setTypingUsers([]);
+      return;
+    }
+    let stopped = false;
+    const pollTyping = async () => {
+      try {
+        const users = await listCommunityTyping(communityConversationId);
+        if (!stopped) setTypingUsers(users);
+      } catch {
+        if (!stopped) setTypingUsers([]);
+      }
+    };
+    void pollTyping();
+    const timer = window.setInterval(() => {
+      void pollTyping();
+    }, 1_000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [hydrated]);
+  }, [communityConversationId, pageTab]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -6711,15 +8526,18 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           pageTab !== "friends" &&
           incoming.length > 0 &&
           "Notification" in window &&
-          Notification.permission === "granted"
+          Notification.permission === "granted" &&
+          readDeviceNotificationMode() !== "off"
         ) {
           const registration = await navigator.serviceWorker?.ready;
+          const silent = readDeviceNotificationMode() === "silent";
           for (const request of incoming.slice(0, 3)) {
             await registration?.showNotification("New friend request", {
               body: `${request.name} sent you a friend request.`,
-              icon: "/assets/logo.png",
-              badge: "/assets/logo.png",
+              icon: "/assets/Anchor_logo.png",
+              badge: "/assets/Anchor_logo.png",
               tag: `friend-request-${request.id}`,
+              silent,
               data: { url: "/community?tab=friends" },
             });
           }
@@ -6784,6 +8602,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         body: input.firstPost,
         mode: "text",
       });
+      touchRecentlyActiveCommunities([record.id]);
     }
     const inviteLink = input.createShareLink
       ? await createInviteLink(record.id)
@@ -6845,8 +8664,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     async (communityId: string) => {
       const requestId = conversationRequestRef.current + 1;
       conversationRequestRef.current = requestId;
+      const previousConversationId = lastCommunityConversationIdRef.current;
       setConversationLoading(true);
-      setPosts([]);
       setActiveCommunityId(communityId);
       setCommunityConversationId(communityId);
       lastCommunityConversationIdRef.current = communityId;
@@ -6861,8 +8680,27 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       );
       replaceCommunityUrl("communities", communityId);
       setPageError("");
+      activePostScopeRef.current = communityId;
+      if (previousConversationId && previousConversationId !== communityId) {
+        setPosts([]);
+        localFeedPostSeenAtRef.current.clear();
+      }
       try {
-        await refreshPosts(communityId);
+        const records = await listCommunityFeed(communityId, { fresh: true });
+        if (conversationRequestRef.current !== requestId) return;
+        const mapped = records.map(mapPost);
+        setPosts(mapped);
+        seenPostIdsRef.current = new Set(records.map((record) => record.id));
+        const latestPost = [...mapped].sort(
+          (left, right) =>
+            new Date(left.createdAt).getTime() -
+            new Date(right.createdAt).getTime(),
+        ).at(-1);
+        feedMarkerByScopeRef.current[communityId] = latestPost?.id ?? null;
+        feedForceRefreshRef.current[communityId] = Date.now();
+        if (latestPost) {
+          seedReadPosition(`community:${communityId}`, latestPost.id, true);
+        }
       } catch (caught) {
         if (conversationRequestRef.current === requestId) {
           setPageError(
@@ -6877,7 +8715,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         }
       }
     },
-    [refreshPosts, replaceCommunityUrl],
+    [replaceCommunityUrl],
   );
   // T: O(p) and S: O(p), where p is the returned community posts
 
@@ -7014,7 +8852,14 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           const mapped = records.map(mapPost);
           if (!mapped.some((item) => item.id === postId)) continue;
           if (activePostScopeRef.current === target) {
-            setPosts(mapped);
+            setPosts((current) => {
+              const merged = mergeFeedPosts(
+                current,
+                mapped,
+                localFeedPostSeenAtRef.current,
+              );
+              return sameFeedPosts(current, merged) ? current : merged;
+            });
           }
           return;
         } catch {
@@ -7031,16 +8876,30 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
   ): Promise<void> => {
     setPageError("");
     const target = post.communityId ?? ALL_ID;
+    if (post.communityId) {
+      touchRecentlyActiveCommunities([post.communityId]);
+      window.dispatchEvent(new Event(INBOX_CHANGED_EVENT));
+    }
     const optimisticPost: ForumPost = {
       ...mapPost(post),
       friendshipStatus: "self",
     };
+    rememberLocalFeedPosts(localFeedPostSeenAtRef.current, [optimisticPost]);
     if (activePostScopeRef.current === target) {
-      setPosts((current) =>
-        current.some((item) => item.id === optimisticPost.id)
-          ? current
-          : [...current, optimisticPost],
-      );
+      // Sender is composing at the bottom — keep them on the newest message.
+      if (!userReadingHistoryRef.current || isNearLatestMessages()) {
+        queueStickToLatest();
+        caughtUpThisVisitRef.current = true;
+        userReadingHistoryRef.current = false;
+      }
+      setPosts((current) => {
+        if (current.some((item) => item.id === optimisticPost.id)) {
+          return current.map((item) =>
+            item.id === optimisticPost.id ? optimisticPost : item,
+          );
+        }
+        return [...current, optimisticPost];
+      });
     }
 
     if (post.status === "processing") {
@@ -7048,7 +8907,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       return;
     }
 
-    void refreshPosts(target).catch(() => undefined);
+    // Trust the create response; avoid an immediate list refresh that can
+    // race a stale cache and briefly wipe the new message.
   };
   // T: O(p) and S: O(p), where p is the number of displayed posts
 
@@ -7093,6 +8953,14 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         ? `community:${communityConversationId}`
         : "";
   const latestVisiblePostId = visiblePosts.at(-1)?.id;
+  const typingLabel =
+    typingUsers.length === 0
+      ? null
+      : typingUsers.length === 1
+        ? `${typingUsers[0].name} is typing…`
+        : typingUsers.length === 2
+          ? `${typingUsers[0].name} and ${typingUsers[1].name} are typing…`
+          : `${typingUsers[0].name} and ${typingUsers.length - 1} others are typing…`;
 
   useEffect(() => {
     setMessages(
@@ -7175,17 +9043,59 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       ) ?? [],
     );
 
+  const threadScroller = () =>
+    pageRootRef.current?.closest("main") as HTMLElement | null;
+
+  /** Composer + safe-area take space at the bottom of the thread. */
+  const bottomChromeInset = () => {
+    if (typeof window === "undefined") return 140;
+    return window.matchMedia("(max-width: 600px)").matches ? 150 : 140;
+  };
+
+  const isNearLatestMessages = () => {
+    const scroller = threadScroller();
+    if (!scroller) {
+      const items = messageItems();
+      const latest = items.at(-1);
+      if (!latest) return caughtUpThisVisitRef.current;
+      return (
+        latest.getBoundingClientRect().bottom <=
+        window.innerHeight - bottomChromeInset() + 24
+      );
+    }
+    const remaining =
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    return remaining <= bottomChromeInset();
+  };
+
+  const scrollThreadToLatest = (behavior: ScrollBehavior = "auto") => {
+    const scroller = threadScroller();
+    if (scroller) {
+      if (behavior === "smooth") {
+        scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+      } else {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+      return;
+    }
+    messageItems()
+      .at(-1)
+      ?.scrollIntoView({ behavior, block: "end" });
+  };
+
+  const queueStickToLatest = () => {
+    stickToLatestRef.current = true;
+  };
+
   const persistLatestRead = (items: HTMLElement[]) => {
     const latestId = items.at(-1)?.dataset.communityPostId;
     if (!latestId || !currentReadScope) return;
-    window.localStorage.setItem(
-      `${COMMUNITY_READ_POSITION_PREFIX}.${currentReadScope}`,
-      latestId,
-    );
+    seedReadPosition(currentReadScope, latestId, true);
   };
 
   const markVisitCaughtUp = (items: HTMLElement[]) => {
     caughtUpThisVisitRef.current = true;
+    userReadingHistoryRef.current = false;
     setMissedBehindCount(0);
     persistLatestRead(items);
   };
@@ -7197,10 +9107,26 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       setShowJumpToLatest(false);
       return 0;
     }
-    const scroller = pageRootRef.current?.closest("main");
+    const scroller = threadScroller();
+    const inset = bottomChromeInset();
+    const nearBottom = scroller
+      ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <=
+        inset
+      : (() => {
+          const viewportBottom = window.innerHeight - inset;
+          const latest = items.at(-1);
+          return Boolean(
+            latest && latest.getBoundingClientRect().top < viewportBottom - 8,
+          );
+        })();
+    if (nearBottom) {
+      setShowJumpToLatest(false);
+      markVisitCaughtUp(items);
+      return 0;
+    }
     const viewportBottom = scroller
-      ? scroller.getBoundingClientRect().bottom - 88
-      : window.innerHeight - 88;
+      ? scroller.getBoundingClientRect().bottom - inset
+      : window.innerHeight - inset;
     let lastVisibleIndex = -1;
     items.forEach((item, index) => {
       if (item.getBoundingClientRect().top < viewportBottom - 8) {
@@ -7209,12 +9135,8 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     });
     const behind = Math.max(0, items.length - 1 - lastVisibleIndex);
     setShowJumpToLatest(behind > 0);
-    if (behind === 0) {
-      userReadingHistoryRef.current = false;
-      markVisitCaughtUp(items);
-    } else {
-      userReadingHistoryRef.current = true;
-    }
+    userReadingHistoryRef.current = true;
+    caughtUpThisVisitRef.current = false;
     return behind;
   };
   // T: O(p) and S: O(1), where p is the number of rendered posts
@@ -7254,7 +9176,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
         if (userReadingHistoryRef.current) {
           setShowJumpToLatest(true);
         } else if (caughtUp) {
-          items.at(-1)?.scrollIntoView({ block: "end" });
+          scrollThreadToLatest();
           setShowJumpToLatest(false);
           markVisitCaughtUp(items);
         } else {
@@ -7286,7 +9208,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     if (!currentReadScope || !readTrackingReady || visiblePosts.length === 0) {
       return;
     }
-    const scroller = pageRootRef.current?.closest("main");
+    const scroller = threadScroller();
     const handleScroll = () => syncCaughtUpState();
     syncCaughtUpState();
     scroller?.addEventListener("scroll", handleScroll, { passive: true });
@@ -7303,14 +9225,37 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     visiblePosts.length,
   ]);
 
+  // After new messages paint, pin to the bottom when the user was already on latest.
+  useEffect(() => {
+    if (!stickToLatestRef.current) return;
+    if (!latestVisiblePostId) return;
+    stickToLatestRef.current = false;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        scrollThreadToLatest();
+        caughtUpThisVisitRef.current = true;
+        userReadingHistoryRef.current = false;
+        setShowJumpToLatest(false);
+        const items = messageItems();
+        if (items.length > 0) markVisitCaughtUp(items);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stick after the newest post id changes
+  }, [latestVisiblePostId, posts.length]);
+
   const handleJumpToLatest = () => {
     const items = messageItems();
-    const latest = items.at(-1);
     jumpingToLatestRef.current = true;
     userReadingHistoryRef.current = false;
+    caughtUpThisVisitRef.current = true;
     setShowJumpToLatest(false);
     markVisitCaughtUp(items);
-    latest?.scrollIntoView({ behavior: "smooth", block: "end" });
+    scrollThreadToLatest("smooth");
     window.setTimeout(() => {
       jumpingToLatestRef.current = false;
       syncCaughtUpState();
@@ -7354,7 +9299,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
           left: { xs: 0, md: "var(--anchor-sidebar-width, 0px)" },
           right: 0,
           zIndex: 1150,
-          minHeight: { xs: 70, md: 56 },
+          minHeight: { xs: 44, sm: 56 },
           boxSizing: "border-box",
           bgcolor: { xs: "var(--anchor-header-bg)", md: "var(--anchor-header-bg)" },
           pl: COMMUNITY_GUTTER,
@@ -7375,46 +9320,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
       </Box>
       <Box
         sx={{
-          height: { xs: communityConversationId ? 0 : 70, md: 56 },
+          height: {
+            xs: communityConversationId ? 0 : 44,
+            sm: 56,
+          },
         }}
       />
-
-      {notificationPermission === "default" && (
-        <Box
-          sx={{
-            width: "100%",
-            mt: 1,
-            display: {
-              xs: communityConversationId ? "none" : "flex",
-              md: "flex",
-            },
-            justifyContent: "flex-end",
-          }}
-        >
-          <Button
-            size="small"
-            startIcon={<NotificationsNoneRoundedIcon />}
-            onClick={() => void enableNotifications()}
-            sx={{ color: C.textPrimary, textTransform: "none", fontWeight: 600 }}
-          >
-            Enable notifications
-          </Button>
-        </Box>
-      )}
-
-      {notificationNotice && (
-        <Typography
-          role="status"
-          sx={{
-            mt: 1,
-            color: C.textMuted,
-            fontSize: { xs: "0.7rem", sm: "0.78rem" },
-            textAlign: "right",
-          }}
-        >
-          {notificationNotice}
-        </Typography>
-      )}
 
       <Stack
         spacing={{ xs: communityConversationId ? 1.25 : 3, sm: 3 }}
@@ -7825,6 +9736,22 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                   pointerEvents: "auto",
                 }}
               >
+                {typingLabel && (
+                  <Typography
+                    sx={{
+                      mb: 0.75,
+                      px: 1.5,
+                      color: C.textMuted,
+                      fontSize: "0.78rem",
+                      fontStyle: "italic",
+                      lineHeight: 1.3,
+                      textAlign: "left",
+                    }}
+                    aria-live="polite"
+                  >
+                    {typingLabel}
+                  </Typography>
+                )}
                 <Composer
                   scope={pageTab === "posts" ? "global" : "community"}
                   communityId={communityConversationId ?? undefined}
