@@ -61,10 +61,21 @@ export class CommunityMediaService {
         : resourceType === 'file'
           ? 'raw'
           : resourceType;
-    const result = (await cloudinary.api.resource(providerAssetId, {
-      resource_type: providerResourceType,
-      type: 'authenticated',
-    })) as UploadApiResponse;
+    let result: UploadApiResponse;
+    try {
+      result = (await cloudinary.api.resource(providerAssetId, {
+        resource_type: providerResourceType,
+        type: 'authenticated',
+      })) as UploadApiResponse;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Media asset is unavailable';
+      throw new BadRequestException(
+        message.includes('not found') || message.includes('404')
+          ? 'Uploaded media was not found. Please try uploading again.'
+          : 'Could not verify uploaded media. Please try again.',
+      );
+    }
     if (resourceType === 'file') {
       const allowedFormats = new Set([
         'pdf',
