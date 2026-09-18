@@ -69,6 +69,7 @@ import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import PauseRoundedIcon from "@mui/icons-material/PauseRounded";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
 import FormatBoldRoundedIcon from "@mui/icons-material/FormatBoldRounded";
@@ -321,36 +322,190 @@ const getSpeechRecognitionConstructor = ():
   );
 };
 
-const RecordingWaveform = ({ accent }: { accent: string }) => (
-  <Box
-    aria-hidden
-    sx={{
-      display: "flex",
-      alignItems: "flex-end",
-      gap: "3px",
-      height: 36,
-      px: 0.5,
-      "@keyframes anchorVoiceWave": {
-        "0%": { transform: "scaleY(0.35)" },
-        "100%": { transform: "scaleY(1)" },
-      },
-    }}
-  >
-    {Array.from({ length: 18 }, (_, index) => (
-      <Box
-        key={index}
-        sx={{
-          width: 3,
-          height: 10 + ((index * 7) % 22),
-          borderRadius: 999,
-          bgcolor: accent,
-          transformOrigin: "center bottom",
-          animation: `anchorVoiceWave ${0.55 + (index % 5) * 0.08}s ease-in-out ${index * 0.04}s infinite alternate`,
-        }}
-      />
-    ))}
-  </Box>
-);
+const AUDIO_WAVE_BAR_COUNT = 36;
+
+function formatAudioClock(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.floor(seconds);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
+/** Idle “planned” wave shape — always visible before/after playback. */
+function plannedWaveHeights(barCount: number): number[] {
+  return Array.from({ length: barCount }, (_, index) => {
+    const wave =
+      0.34 +
+      0.28 * Math.sin(index * 0.48) +
+      0.16 * Math.sin(index * 1.15 + 0.8) +
+      0.1 * Math.sin(index * 2.1 + 1.6);
+    return Math.min(0.95, Math.max(0.16, wave));
+  });
+}
+
+function getAudioContextConstructor(): typeof AudioContext | null {
+  if (typeof window === "undefined") return null;
+  return (
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext ||
+    null
+  );
+}
+
+/**
+ * Live bars from analyser data: strength (volume) + pitch (dominant freq).
+ * Base planned shape is multiplied so the wave stays readable while reacting.
+ */
+function liveWaveFromAnalyser(
+  frequency: Uint8Array,
+  timeDomain: Uint8Array,
+  planned: number[],
+  sampleRate: number,
+  fftSize: number,
+): number[] {
+  let strengthSum = 0;
+  for (let i = 0; i < timeDomain.length; i += 1) {
+    strengthSum += Math.abs((timeDomain[i] ?? 128) - 128);
+  }
+  const strength = Math.min(1, (strengthSum / timeDomain.length / 128) * 2.4);
+
+  // Dominant bin in speech-ish range (~80Hz–1.2kHz) as a pitch proxy.
+  const binHz = sampleRate / fftSize;
+  const minBin = Math.max(1, Math.floor(80 / binHz));
+  const maxBin = Math.min(frequency.length - 1, Math.floor(1200 / binHz));
+  let peakBin = minBin;
+  let peakValue = 0;
+  for (let bin = minBin; bin <= maxBin; bin += 1) {
+    const value = frequency[bin] ?? 0;
+    if (value > peakValue) {
+      peakValue = value;
+      peakBin = bin;
+    }
+  }
+  const pitchHz = peakBin * binHz;
+  const pitchNorm = Math.min(1, Math.max(0, (pitchHz - 80) / 700));
+
+  const barCount = planned.length;
+  const usableBins = Math.max(8, Math.floor(frequency.length * 0.45));
+
+  return planned.map((base, index) => {
+    const bin = Math.min(
+      usableBins - 1,
+      Math.floor((index / barCount) * usableBins),
+    );
+    const freqLevel = (frequency[bin] ?? 0) / 255;
+    // Higher pitch lifts the right side of the wave a bit more.
+    const side = index / Math.max(1, barCount - 1);
+    const pitchShape =
+      0.7 + 0.3 * (pitchNorm * side + (1 - pitchNorm) * (1 - side));
+    const live = freqLevel * (0.45 + 0.55 * strength) * pitchShape;
+    // Mix planned shape with live energy so bars always look like a wave.
+    return Math.min(
+      1,
+      Math.max(0.12, base * 0.35 + live * 0.9 + strength * 0.12),
+    );
+  });
+}
+
+/** Live mic waveform — same planned + pitch/strength style as posted voice notes. */
+const RecordingWaveform = ({
+  accent,
+  stream,
+}: {
+  accent: string;
+  stream: MediaStream | null;
+}) => {
+  const plannedBars = useRef(plannedWaveHeights(AUDIO_WAVE_BAR_COUNT)).current;
+  const [bars, setBars] = useState<number[]>(() => [...plannedBars]);
+
+  useEffect(() => {
+    if (!stream) {
+      setBars([...plannedBars]);
+      return;
+    }
+
+    const AudioCtx = getAudioContextConstructor();
+    if (!AudioCtx) return;
+
+    const ctx = new AudioCtx();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.55;
+    const source = ctx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    // Do not connect to destination — monitoring would cause echo.
+
+    let raf = 0;
+    let active = true;
+
+    const tick = () => {
+      if (!active) return;
+      const frequency = new Uint8Array(analyser.frequencyBinCount);
+      const timeDomain = new Uint8Array(analyser.fftSize);
+      analyser.getByteFrequencyData(frequency);
+      analyser.getByteTimeDomainData(timeDomain);
+      setBars(
+        liveWaveFromAnalyser(
+          frequency,
+          timeDomain,
+          plannedBars,
+          ctx.sampleRate,
+          analyser.fftSize,
+        ),
+      );
+      raf = requestAnimationFrame(tick);
+    };
+
+    void ctx.resume().then(() => {
+      if (active) raf = requestAnimationFrame(tick);
+    });
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(raf);
+      try {
+        source.disconnect();
+        analyser.disconnect();
+      } catch {
+        // already disconnected
+      }
+      void ctx.close().catch(() => undefined);
+      setBars([...plannedBars]);
+    };
+  }, [stream, plannedBars]);
+
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: "3px",
+        height: 40,
+      }}
+    >
+      {bars.map((height, index) => (
+        <Box
+          key={`rec-wave-${index}`}
+          sx={{
+            flex: 1,
+            maxWidth: 5,
+            minWidth: 2.5,
+            height: `${Math.round(height * 100)}%`,
+            borderRadius: 999,
+            bgcolor: accent,
+            opacity: 0.5 + height * 0.5,
+            transition: "height 50ms linear, opacity 50ms linear",
+          }}
+        />
+      ))}
+    </Box>
+  );
+};
 
 const MAX_DEVICE_RECENTS = 5;
 const DEVICE_MEDIA_DB = "anchor-community-device-media";
@@ -805,6 +960,457 @@ function CommunityFeedVideo({
           verticalAlign: "middle",
         }}
       />
+    </Box>
+  );
+}
+
+/** Voice-note player: planned waves at rest, live pitch/strength waves while playing. */
+function CommunityFeedAudio({ url }: { url: string }) {
+  const plannedBars = useRef(plannedWaveHeights(AUDIO_WAVE_BAR_COUNT)).current;
+  const [bars, setBars] = useState<number[]>(() => [...plannedBars]);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [current, setCurrent] = useState(0);
+
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const htmlAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const startedAtRef = useRef(0);
+  const offsetRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const playingRef = useRef(false);
+  const modeRef = useRef<"buffer" | "element">("buffer");
+
+  const stopAnimation = () => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  };
+
+  const resetToPlanned = () => {
+    setBars([...plannedBars]);
+  };
+
+  const ensureContext = async () => {
+    const AudioCtx = getAudioContextConstructor();
+    if (!AudioCtx) return null;
+    if (!audioContextRef.current) {
+      const ctx = new AudioCtx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.55;
+      analyser.connect(ctx.destination);
+      audioContextRef.current = ctx;
+      analyserRef.current = analyser;
+    }
+    if (audioContextRef.current.state === "suspended") {
+      await audioContextRef.current.resume();
+    }
+    return audioContextRef.current;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    audioBufferRef.current = null;
+    offsetRef.current = 0;
+    setProgress(0);
+    setCurrent(0);
+    setDuration(0);
+    setPlaying(false);
+    playingRef.current = false;
+    modeRef.current = "buffer";
+    resetToPlanned();
+
+    const load = async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Could not load audio");
+        const bytes = await response.arrayBuffer();
+        if (cancelled) return;
+
+        const OfflineCtor =
+          window.OfflineAudioContext ||
+          (
+            window as unknown as {
+              webkitOfflineAudioContext?: typeof OfflineAudioContext;
+            }
+          ).webkitOfflineAudioContext;
+        let decoded: AudioBuffer | null = null;
+        if (OfflineCtor) {
+          const offline = new OfflineCtor(1, 1, 44100);
+          decoded = await offline.decodeAudioData(bytes.slice(0));
+        } else {
+          const AudioCtx = getAudioContextConstructor();
+          if (AudioCtx) {
+            const temp = new AudioCtx();
+            decoded = await temp.decodeAudioData(bytes.slice(0));
+            void temp.close().catch(() => undefined);
+          }
+        }
+        if (cancelled || !decoded) return;
+        audioBufferRef.current = decoded;
+        setDuration(decoded.duration);
+      } catch {
+        // Fall back to <audio> element playback + analyser if possible.
+        modeRef.current = "element";
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+      stopAnimation();
+      try {
+        sourceRef.current?.stop();
+      } catch {
+        // already stopped
+      }
+      sourceRef.current = null;
+      playingRef.current = false;
+      htmlAudioRef.current?.pause();
+    };
+  }, [url]);
+
+  const readLiveBars = () => {
+    const ctx = audioContextRef.current;
+    const analyser = analyserRef.current;
+    if (!ctx || !analyser) return null;
+    const frequency = new Uint8Array(analyser.frequencyBinCount);
+    const timeDomain = new Uint8Array(analyser.fftSize);
+    analyser.getByteFrequencyData(frequency);
+    analyser.getByteTimeDomainData(timeDomain);
+    return liveWaveFromAnalyser(
+      frequency,
+      timeDomain,
+      plannedBars,
+      ctx.sampleRate,
+      analyser.fftSize,
+    );
+  };
+
+  const tickBuffer = () => {
+    const ctx = audioContextRef.current;
+    const buffer = audioBufferRef.current;
+    if (!ctx || !buffer || !playingRef.current) return;
+
+    const elapsed = ctx.currentTime - startedAtRef.current + offsetRef.current;
+    const nextCurrent = Math.min(buffer.duration, Math.max(0, elapsed));
+    setCurrent(nextCurrent);
+    setProgress(buffer.duration > 0 ? nextCurrent / buffer.duration : 0);
+
+    if (nextCurrent >= buffer.duration - 0.02) {
+      playingRef.current = false;
+      setPlaying(false);
+      offsetRef.current = 0;
+      setProgress(0);
+      setCurrent(0);
+      sourceRef.current = null;
+      stopAnimation();
+      resetToPlanned();
+      return;
+    }
+
+    const live = readLiveBars();
+    if (live) setBars(live);
+    rafRef.current = requestAnimationFrame(tickBuffer);
+  };
+
+  const tickElement = () => {
+    const audio = htmlAudioRef.current;
+    if (!audio || !playingRef.current) return;
+
+    const nextDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+    const nextCurrent = audio.currentTime;
+    if (nextDuration > 0) {
+      setDuration(nextDuration);
+      setProgress(nextCurrent / nextDuration);
+    }
+    setCurrent(nextCurrent);
+
+    if (audio.ended) {
+      playingRef.current = false;
+      setPlaying(false);
+      setProgress(0);
+      setCurrent(0);
+      stopAnimation();
+      resetToPlanned();
+      return;
+    }
+
+    const live = readLiveBars();
+    if (live) {
+      setBars(live);
+    } else {
+      // No analyser (CORS) — still animate planned waves with a strength pulse.
+      const pulse =
+        0.55 +
+        0.45 * Math.abs(Math.sin(nextCurrent * 8.2)) *
+          (0.35 + 0.65 * Math.abs(Math.sin(nextCurrent * 2.1)));
+      setBars(
+        plannedBars.map((base, index) => {
+          const ripple = 0.75 + 0.25 * Math.sin(nextCurrent * 10 + index * 0.45);
+          return Math.min(1, Math.max(0.14, base * pulse * ripple));
+        }),
+      );
+    }
+    rafRef.current = requestAnimationFrame(tickElement);
+  };
+
+  const stopSource = () => {
+    try {
+      sourceRef.current?.stop();
+    } catch {
+      // already stopped
+    }
+    sourceRef.current = null;
+  };
+
+  const startBufferFromOffset = async (offsetSeconds: number) => {
+    const buffer = audioBufferRef.current;
+    const ctx = await ensureContext();
+    const analyser = analyserRef.current;
+    if (!buffer || !ctx || !analyser) return false;
+
+    stopSource();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(analyser);
+    const startAt = Math.min(
+      Math.max(0, offsetSeconds),
+      Math.max(0, buffer.duration - 0.05),
+    );
+    offsetRef.current = startAt;
+    startedAtRef.current = ctx.currentTime;
+    source.start(0, startAt);
+    sourceRef.current = source;
+    playingRef.current = true;
+    setPlaying(true);
+    stopAnimation();
+    rafRef.current = requestAnimationFrame(tickBuffer);
+    return true;
+  };
+
+  const startElementPlayback = async () => {
+    const audio = htmlAudioRef.current;
+    if (!audio) return false;
+    const ctx = await ensureContext();
+    const analyser = analyserRef.current;
+    if (ctx && analyser && !mediaSourceRef.current) {
+      try {
+        audio.crossOrigin = "anonymous";
+        const mediaSource = ctx.createMediaElementSource(audio);
+        mediaSource.connect(analyser);
+        mediaSourceRef.current = mediaSource;
+      } catch {
+        // Element already hooked or CORS — waves may use pulse fallback.
+      }
+    }
+    try {
+      await audio.play();
+    } catch {
+      return false;
+    }
+    playingRef.current = true;
+    setPlaying(true);
+    stopAnimation();
+    rafRef.current = requestAnimationFrame(tickElement);
+    return true;
+  };
+
+  const togglePlayback = async () => {
+    if (playingRef.current) {
+      if (modeRef.current === "buffer" && audioBufferRef.current) {
+        const ctx = audioContextRef.current;
+        if (ctx) {
+          offsetRef.current = Math.min(
+            audioBufferRef.current.duration,
+            ctx.currentTime - startedAtRef.current + offsetRef.current,
+          );
+          setCurrent(offsetRef.current);
+          setProgress(
+            audioBufferRef.current.duration > 0
+              ? offsetRef.current / audioBufferRef.current.duration
+              : 0,
+          );
+        }
+        stopSource();
+      } else {
+        htmlAudioRef.current?.pause();
+      }
+      playingRef.current = false;
+      setPlaying(false);
+      stopAnimation();
+      resetToPlanned();
+      return;
+    }
+
+    if (audioBufferRef.current) {
+      modeRef.current = "buffer";
+      await startBufferFromOffset(offsetRef.current);
+      return;
+    }
+
+    modeRef.current = "element";
+    await startElementPlayback();
+  };
+
+  const seekToRatio = async (ratio: number) => {
+    const clamped = Math.min(1, Math.max(0, ratio));
+    if (audioBufferRef.current && audioBufferRef.current.duration > 0) {
+      const next = clamped * audioBufferRef.current.duration;
+      offsetRef.current = next;
+      setCurrent(next);
+      setProgress(clamped);
+      if (playingRef.current) {
+        await startBufferFromOffset(next);
+      }
+      return;
+    }
+    const audio = htmlAudioRef.current;
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+      return;
+    }
+    audio.currentTime = clamped * audio.duration;
+    setCurrent(audio.currentTime);
+    setProgress(clamped);
+  };
+
+  const seekFromPointer = (
+    event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clientX =
+      "touches" in event
+        ? (event.touches[0]?.clientX ?? event.changedTouches[0]?.clientX ?? 0)
+        : event.clientX;
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    void seekToRatio(ratio);
+  };
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.15,
+        width: "100%",
+        maxWidth: 520,
+        mr: "auto",
+        mb: 2,
+        px: 1.25,
+        py: 1.15,
+        minHeight: { xs: 68, sm: 72 },
+        borderRadius: 3,
+        bgcolor: C.surface,
+        border: `1px solid ${C.divider}`,
+        boxSizing: "border-box",
+      }}
+    >
+      <Box
+        component="audio"
+        ref={htmlAudioRef}
+        src={url}
+        preload="metadata"
+        crossOrigin="anonymous"
+        onLoadedMetadata={(event) => {
+          const media = event.currentTarget;
+          if (!audioBufferRef.current && Number.isFinite(media.duration)) {
+            setDuration(media.duration);
+          }
+        }}
+        sx={{ display: "none" }}
+      />
+      <IconButton
+        aria-label={playing ? "Pause voice note" : "Play voice note"}
+        onClick={() => {
+          void togglePlayback();
+        }}
+        sx={{
+          width: 42,
+          height: 42,
+          flexShrink: 0,
+          color: "#fff",
+          bgcolor: C.accent,
+          "&:hover": { bgcolor: C.accentDark },
+        }}
+      >
+        {playing ? (
+          <PauseRoundedIcon sx={{ fontSize: 22 }} />
+        ) : (
+          <PlayArrowRoundedIcon sx={{ fontSize: 24 }} />
+        )}
+      </IconButton>
+
+      <Box
+        role="slider"
+        aria-label="Voice note waveform"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+        tabIndex={0}
+        onClick={seekFromPointer}
+        onTouchEnd={seekFromPointer}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            void seekToRatio(Math.min(1, progress + 0.05));
+          } else if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            void seekToRatio(Math.max(0, progress - 0.05));
+          }
+        }}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: "3px",
+          height: 40,
+          cursor: "pointer",
+          touchAction: "none",
+        }}
+      >
+        {bars.map((height, index) => {
+          const played = index / bars.length <= progress;
+          return (
+            <Box
+              key={`wave-${index}`}
+              aria-hidden
+              sx={{
+                flex: 1,
+                maxWidth: 5,
+                minWidth: 2.5,
+                height: `${Math.round(height * 100)}%`,
+                borderRadius: 999,
+                bgcolor: playing || played ? C.accent : C.textMuted,
+                opacity: playing ? 0.5 + height * 0.5 : played ? 1 : 0.4,
+                transition: playing
+                  ? "height 50ms linear, opacity 50ms linear"
+                  : "height 180ms ease, background-color 120ms ease, opacity 120ms ease",
+              }}
+            />
+          );
+        })}
+      </Box>
+
+      <Typography
+        sx={{
+          flexShrink: 0,
+          minWidth: 36,
+          textAlign: "right",
+          fontSize: "0.72rem",
+          fontWeight: 600,
+          color: C.textMuted,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {formatAudioClock(playing || current > 0 ? current : duration)}
+      </Typography>
     </Box>
   );
 }
@@ -1616,6 +2222,9 @@ const Composer = ({
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalUploadBytes, setTotalUploadBytes] = useState(0);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingStream, setRecordingStream] = useState<MediaStream | null>(
+    null,
+  );
   const [isDictating, setIsDictating] = useState(false);
   const [uploadStage, setUploadStage] = useState<
     "idle" | "uploading" | "uploaded" | "publishing"
@@ -1858,6 +2467,7 @@ const Composer = ({
     audioRecorderRef.current = null;
     audioStreamRef.current = null;
     audioChunksRef.current = [];
+    setRecordingStream(null);
     setIsRecordingAudio(false);
   };
   // T: O(t) and S: O(1), where t is the number of media tracks
@@ -2022,6 +2632,7 @@ const Composer = ({
       audioStreamRef.current = stream;
       audioRecorderRef.current = recorder;
       audioChunksRef.current = [];
+      setRecordingStream(stream);
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
@@ -2041,6 +2652,7 @@ const Composer = ({
         audioRecorderRef.current = null;
         audioStreamRef.current = null;
         audioChunksRef.current = [];
+        setRecordingStream(null);
         setIsRecordingAudio(false);
         const shouldSend = pendingAudioSendRef.current;
         pendingAudioSendRef.current = false;
@@ -2061,6 +2673,7 @@ const Composer = ({
       recorder.start(250);
     } catch (caught) {
       setIsRecordingAudio(false);
+      setRecordingStream(null);
       pendingAudioSendRef.current = false;
       setError(
         caught instanceof DOMException && caught.name === "NotAllowedError"
@@ -2426,6 +3039,108 @@ const Composer = ({
   useEffect(() => {
     if (!hasPendingDraft) return;
     setOpen(true);
+  }, [hasPendingDraft]);
+
+  // After attaching media on mobile/tablet, lock the feed scroll and pin the
+  // composer dock to the visual viewport so iOS cannot rubber-band into white space.
+  useEffect(() => {
+    if (!hasPendingDraft) return;
+    const main = composerRef.current?.closest("main");
+    if (!(main instanceof HTMLElement)) return;
+
+    const lockedScrollTop = main.scrollTop;
+    const previousOverflowY = main.style.overflowY;
+    const previousOverscroll = main.style.overscrollBehavior;
+    const previousTouchAction = main.style.touchAction;
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousHtmlOverscroll = html.style.overscrollBehavior;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+
+    main.style.overflowY = "hidden";
+    main.style.overscrollBehavior = "none";
+    main.style.touchAction = "none";
+    main.scrollTop = lockedScrollTop;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    window.scrollTo(0, 0);
+
+    const dock = composerRef.current?.closest(
+      "[data-composer-dock]",
+    ) as HTMLElement | null;
+    const previousDockBottom = dock?.style.bottom ?? "";
+    const visualViewport = window.visualViewport;
+
+    const pinDock = () => {
+      if (!dock) return;
+      const vv = window.visualViewport;
+      if (!vv) {
+        dock.style.bottom = "";
+        return;
+      }
+      // Stick the dock to the visible bottom (layout viewport can diverge on iOS).
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      dock.style.bottom = `calc(${inset}px + max(12px, env(safe-area-inset-bottom, 0px)))`;
+    };
+
+    const freezeScroll = () => {
+      if (main.scrollTop !== lockedScrollTop) {
+        main.scrollTop = lockedScrollTop;
+      }
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    const blockFeedTouchScroll = (event: TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        event.preventDefault();
+        return;
+      }
+      if (target.closest("[data-composer-scroll]")) return;
+      if (
+        target.closest(".MuiPopover-root, .MuiMenu-root, .MuiDialog-root")
+      ) {
+        return;
+      }
+      event.preventDefault();
+    };
+
+    pinDock();
+    const pinTimers = [50, 250, 600].map((ms) =>
+      window.setTimeout(pinDock, ms),
+    );
+    visualViewport?.addEventListener("resize", pinDock);
+    visualViewport?.addEventListener("scroll", pinDock);
+    main.addEventListener("scroll", freezeScroll);
+    window.addEventListener("scroll", freezeScroll, { passive: true });
+    document.addEventListener("touchmove", blockFeedTouchScroll, {
+      passive: false,
+    });
+
+    return () => {
+      main.style.overflowY = previousOverflowY;
+      main.style.overscrollBehavior = previousOverscroll;
+      main.style.touchAction = previousTouchAction;
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+      html.style.overscrollBehavior = previousHtmlOverscroll;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+      pinTimers.forEach((timer) => window.clearTimeout(timer));
+      visualViewport?.removeEventListener("resize", pinDock);
+      visualViewport?.removeEventListener("scroll", pinDock);
+      main.removeEventListener("scroll", freezeScroll);
+      window.removeEventListener("scroll", freezeScroll);
+      document.removeEventListener("touchmove", blockFeedTouchScroll);
+      if (dock) {
+        dock.style.bottom = previousDockBottom;
+      }
+    };
   }, [hasPendingDraft]);
 
   useEffect(() => {
@@ -2997,12 +3712,14 @@ const Composer = ({
 
       <Box
         aria-hidden={!composerExpanded}
+        data-composer-scroll={composerExpanded ? "true" : undefined}
         sx={{
           pl: 0,
           flex: composerExpanded ? 1 : "none",
           minHeight: 0,
           overflowY: composerExpanded ? "auto" : "visible",
           overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
           opacity: composerExpanded ? 1 : 0,
           transform: composerExpanded ? "translateY(0)" : "translateY(10px)",
           pointerEvents: composerExpanded ? "auto" : "none",
@@ -3141,45 +3858,60 @@ const Composer = ({
                 sx={{
                   mb: 1,
                   px: 1.25,
-                  py: 1.1,
-                  borderRadius: 2,
+                  py: 1.15,
+                  minHeight: { xs: 68, sm: 72 },
+                  borderRadius: 3,
                   border: `1px solid color-mix(in srgb, ${C.red} 35%, ${C.divider})`,
                   bgcolor: "color-mix(in srgb, #d32f2f 8%, transparent)",
                   display: "flex",
                   alignItems: "center",
-                  gap: 1.25,
+                  gap: 1.15,
+                  boxSizing: "border-box",
                 }}
               >
                 <Box
                   sx={{
-                    width: 10,
-                    height: 10,
+                    width: 42,
+                    height: 42,
                     borderRadius: "50%",
-                    bgcolor: C.red,
                     flexShrink: 0,
-                    "@keyframes anchorRecBlink": {
-                      "0%": { opacity: 1 },
-                      "100%": { opacity: 0.35 },
-                    },
-                    animation: "anchorRecBlink 0.9s ease-in-out infinite alternate",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: C.red,
                   }}
-                />
-                <Box sx={{ minWidth: 0, flex: 1 }}>
+                >
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      bgcolor: "#fff",
+                      "@keyframes anchorRecBlink": {
+                        "0%": { opacity: 1 },
+                        "100%": { opacity: 0.35 },
+                      },
+                      animation:
+                        "anchorRecBlink 0.9s ease-in-out infinite alternate",
+                    }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <RecordingWaveform
+                    accent={C.red}
+                    stream={recordingStream}
+                  />
                   <Typography
                     sx={{
-                      color: C.red,
-                      fontSize: "0.78rem",
-                      fontWeight: 700,
-                      lineHeight: 1.2,
+                      mt: 0.35,
+                      color: C.textMuted,
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
                     }}
                   >
-                    Recording…
-                  </Typography>
-                  <Typography sx={{ color: C.textMuted, fontSize: "0.7rem" }}>
-                    Tap send to post this voice note
+                    Recording… tap send to post
                   </Typography>
                 </Box>
-                <RecordingWaveform accent={C.red} />
               </Box>
             )}
             {mediaPreviewUrl && mode !== "file" && mode !== "audio" && (
@@ -5446,21 +6178,7 @@ const PostCard = ({
             );
           })()
         ) : item.type === "audio" ? (
-          <Box
-            key={item.id}
-            component="audio"
-            src={item.url}
-            controls
-            preload="metadata"
-            sx={{
-              display: "block",
-              width: "100%",
-              maxWidth: 520,
-              height: 48,
-              mr: "auto",
-              mb: 2,
-            }}
-          />
+          <CommunityFeedAudio key={item.id} url={item.url} />
         ) : (
           <CommunityFeedVideo
             key={item.id}
@@ -11122,6 +11840,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
             (pageTab === "communities" &&
               Boolean(communityConversationId))) && (
             <Box
+              data-composer-dock
               sx={{
                 position: "fixed",
                 left: {

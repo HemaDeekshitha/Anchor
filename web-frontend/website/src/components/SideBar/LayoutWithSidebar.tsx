@@ -95,6 +95,7 @@ const LayoutWithSidebar = ({ children }: { children: React.ReactNode }) => {
                 pb: 2,
                 overflowX: "hidden",
                 overflowY: "auto",
+                overscrollBehavior: "none",
                 bgcolor: "var(--background)",
               }}
             >
