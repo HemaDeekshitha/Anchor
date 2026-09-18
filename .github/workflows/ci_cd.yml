@@ -26,11 +26,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            web-frontend/website/package-lock.json
-            web-frontend/anchor-web/package-lock.json
+
+      # Monorepo: one shared ~/.npm cache keyed by all lockfiles.
+      # restore-keys lets CI reuse a prior npm cache when only one lockfile changed.
+      - name: Cache npm packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-20-npm-${{ hashFiles('backend/package-lock.json', 'web-frontend/website/package-lock.json', 'web-frontend/anchor-web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-20-npm-
 
       - name: Check website
         working-directory: web-frontend/website
