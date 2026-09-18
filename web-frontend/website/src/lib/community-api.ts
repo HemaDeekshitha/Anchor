@@ -768,7 +768,11 @@ export async function uploadCommunityMedia(
   const hasAcceptedMimeType =
     resourceType === "file"
       ? acceptedExtensions.has(extension)
-      : file.type.startsWith(`${resourceType}/`);
+      : file.type.startsWith(`${resourceType}/`) ||
+        (resourceType === "audio" &&
+          (file.type.startsWith("audio/") ||
+            file.type === "video/webm" ||
+            acceptedExtensions.has(extension)));
   if (!hasAcceptedMimeType && !acceptedExtensions.has(extension)) {
     throw new Error(
       resourceType === "video"

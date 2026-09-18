@@ -2006,9 +2006,13 @@ const Composer = ({
     setUploadedAssetId(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Prefer MP4/AAC first — iOS Safari cannot play WebM voice notes.
       const preferredMimeType = [
-        "audio/webm;codecs=opus",
         "audio/mp4",
+        "audio/mp4;codecs=mp4a.40.2",
+        "audio/aac",
+        "audio/mpeg",
+        "audio/webm;codecs=opus",
         "audio/webm",
       ].find((type) => MediaRecorder.isTypeSupported(type));
       const recorder = new MediaRecorder(
@@ -2022,12 +2026,16 @@ const Composer = ({
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
       recorder.onstop = () => {
-        const mimeType = recorder.mimeType || preferredMimeType || "audio/webm";
-        const extension = mimeType.includes("mp4") ? "m4a" : "webm";
+        const mimeType = recorder.mimeType || preferredMimeType || "audio/mp4";
+        const extension = /mp4|mpeg|aac|m4a/i.test(mimeType)
+          ? "m4a"
+          : /ogg/i.test(mimeType)
+            ? "ogg"
+            : "webm";
         const recording = new File(
           audioChunksRef.current,
           `voice-message-${Date.now()}.${extension}`,
-          { type: mimeType },
+          { type: mimeType.split(";")[0] || mimeType },
         );
         stream.getTracks().forEach((track) => track.stop());
         audioRecorderRef.current = null;
@@ -3174,32 +3182,75 @@ const Composer = ({
                 <RecordingWaveform accent={C.red} />
               </Box>
             )}
-            {mediaPreviewUrl && mode !== "file" && (
+            {mediaPreviewUrl && mode !== "file" && mode !== "audio" && (
               <Box
-                component={
-                  mode === "image"
-                    ? "img"
-                    : mode === "audio"
-                      ? "audio"
-                      : "video"
-                }
+                component={mode === "image" ? "img" : "video"}
                 src={mediaPreviewUrl}
-                controls={mode === "video" || mode === "audio"}
+                controls={mode === "video"}
                 muted={mode === "video"}
                 playsInline={mode === "video"}
                 sx={{
                   display: "block",
                   width: "100%",
-                  maxHeight:
-                    mode === "audio"
-                      ? 54
-                      : { xs: 140, sm: 200, md: 280 },
+                  maxHeight: { xs: 140, sm: 200, md: 280 },
                   objectFit: "contain",
                   borderRadius: 1.5,
                   bgcolor: mode === "video" ? "#111" : C.surface,
                   mb: 1,
                 }}
               />
+            )}
+            {mediaPreviewUrl && mode === "audio" && file && (
+              <Box sx={{ mb: 1 }}>
+                {/webm/i.test(file.type || file.name) &&
+                typeof navigator !== "undefined" &&
+                /iPhone|iPad|iPod/i.test(navigator.userAgent) ? (
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{
+                      px: 1.25,
+                      py: 1.1,
+                      borderRadius: 2,
+                      bgcolor: C.cardBg,
+                      border: `1px solid ${C.divider}`,
+                    }}
+                  >
+                    <MicNoneRoundedIcon sx={{ color: C.accentDark }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
+                        sx={{
+                          fontSize: "0.82rem",
+                          fontWeight: 700,
+                          color: C.textPrimary,
+                        }}
+                      >
+                        Voice note ready
+                      </Typography>
+                      <Typography
+                        noWrap
+                        sx={{ fontSize: "0.7rem", color: C.textMuted }}
+                      >
+                        {file.name} · tap send to post
+                      </Typography>
+                    </Box>
+                  </Stack>
+                ) : (
+                  <Box
+                    component="audio"
+                    src={mediaPreviewUrl}
+                    controls
+                    preload="metadata"
+                    sx={{
+                      display: "block",
+                      width: "100%",
+                      height: 54,
+                      borderRadius: 1.5,
+                    }}
+                  />
+                )}
+              </Box>
             )}
             {mediaPreviewUrl && mode === "file" && file && (
               <Box
@@ -3965,6 +4016,7 @@ const PostCard = ({
   dateLabel,
   viewerName,
   searchHighlighted = false,
+  forwardCommunities = [],
   onUpdated,
   onDeleted,
   onReply,
@@ -3977,6 +4029,7 @@ const PostCard = ({
   dateLabel?: string;
   viewerName: string;
   searchHighlighted?: boolean;
+  forwardCommunities?: Array<{ id: string; name: string }>;
   onUpdated: (postId: string, body: string) => void;
   onDeleted: (postId: string) => void;
   onReply: (post: ForumPost) => void;
@@ -4042,6 +4095,10 @@ const PostCard = ({
     top: number;
     left: number;
   } | null>(null);
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const [forwardPending, setForwardPending] = useState(false);
+  const [forwardError, setForwardError] = useState("");
+  const [forwardTargetId, setForwardTargetId] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editBody, setEditBody] = useState(post.body);
@@ -4547,11 +4604,6 @@ const PostCard = ({
     setOwnerMenuPosition(null);
   };
 
-  const openOwnerMenuAtPoint = (top: number, left: number) => {
-    setOwnerMenuAnchor(null);
-    setOwnerMenuPosition({ top, left });
-  };
-
   const handleMobileTouchStart = (event: React.TouchEvent) => {
     if (!isMobileTouchLayout() || isInteractiveTouchTarget(event.target)) return;
     const touch = event.touches[0];
@@ -4563,11 +4615,6 @@ const PostCard = ({
     setMobileSwipeOffset(0);
     mobileTouchMovedRef.current = false;
     mobileLongPressTriggeredRef.current = false;
-    mobileLongPressTimerRef.current = window.setTimeout(() => {
-      mobileLongPressTriggeredRef.current = true;
-      openOwnerMenuAtPoint(touch.clientY, touch.clientX);
-      navigator.vibrate?.(12);
-    }, 480);
   };
 
   const handleMobileTouchMove = (event: React.TouchEvent) => {
@@ -4619,8 +4666,8 @@ const PostCard = ({
       return;
     }
     lastMobileTapAtRef.current = tappedAt;
-    // Single tap on mobile/tablet: reveal like / comment / reply / forward / more.
-    setMessageActionsVisible(true);
+    // Tap toggles the action bar on mobile/tablet.
+    setMessageActionsVisible((current) => !current);
   };
 
   useEffect(() => {
@@ -4709,6 +4756,66 @@ const PostCard = ({
     }
   };
   // T: O(b) and S: O(b), where b is the post text length
+
+  const handleOpenForward = () => {
+    setForwardError("");
+    setForwardTargetId(forwardCommunities[0]?.id ?? "");
+    setForwardOpen(true);
+  };
+  // T: O(1) and S: O(1)
+
+  const handleForwardToCommunity = async () => {
+    if (!forwardTargetId || forwardPending) return;
+    setForwardPending(true);
+    setForwardError("");
+    try {
+      const media = post.media?.[0];
+      let file: File | null = null;
+      let mode: "text" | "image" | "video" | "audio" | "file" = "text";
+      if (media?.url) {
+        mode = media.type;
+        const response = await fetch(media.url);
+        if (!response.ok) {
+          throw new Error("Could not copy the attached media to forward.");
+        }
+        const blob = await response.blob();
+        const fallbackName =
+          media.originalFilename?.trim() ||
+          `forwarded-${media.type}-${Date.now()}`;
+        file = new File([blob], fallbackName, {
+          type: blob.type || undefined,
+        });
+      }
+      const preface = `Forwarded from ${post.authorName}`;
+      const body = [preface, displayBody.trim()].filter(Boolean).join("\n\n");
+      await createPost({
+        communityId: forwardTargetId,
+        body:
+          body ||
+          (media
+            ? `${preface}\n\nShared a ${media.type}.`
+            : preface),
+        mode: media ? mode : "text",
+        file,
+      });
+      setForwardOpen(false);
+      setActionMessage(
+        `Forwarded to ${
+          forwardCommunities.find((item) => item.id === forwardTargetId)
+            ?.name ?? "community"
+        }.`,
+      );
+    } catch (caught) {
+      setForwardError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not forward this message",
+      );
+    } finally {
+      setForwardPending(false);
+    }
+  };
+  // T: O(b + m) and S: O(b + m), where b is body length and m is media bytes
 
   const handleMenuShare = async () => {
     closeOwnerMenu();
@@ -4831,13 +4938,13 @@ const PostCard = ({
     <Card
       data-message-row={post.id}
       onClick={(event) => {
-        // Mouse / stylus on tablet widths: click reveals the action bar.
-        // Touch devices already reveal it from handleMobileTouchEnd.
+        // Mouse / stylus on tablet widths: click toggles the action bar.
+        // Touch devices already toggle it from handleMobileTouchEnd.
         if (!isMobileTouchLayout() || isInteractiveTouchTarget(event.target)) {
           return;
         }
         if (window.matchMedia("(pointer: coarse)").matches) return;
-        setMessageActionsVisible(true);
+        setMessageActionsVisible((current) => !current);
       }}
       onTouchStart={handleMobileTouchStart}
       onTouchMove={handleMobileTouchMove}
@@ -4968,11 +5075,11 @@ const PostCard = ({
             <ReplyRoundedIcon />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Forward">
+        <Tooltip title="Forward to a community">
           <IconButton
             size="small"
-            aria-label="Forward message"
-            onClick={() => void handleSharePost()}
+            aria-label="Forward message to another community"
+            onClick={() => handleOpenForward()}
             sx={{ color: C.textMuted }}
           >
             <ReplyRoundedIcon sx={{ transform: "scaleX(-1)" }} />
@@ -6123,6 +6230,72 @@ const PostCard = ({
             }}
           >
             {postActionPending ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={forwardOpen}
+        onClose={() => !forwardPending && setForwardOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ color: C.textPrimary, fontWeight: 700 }}>
+          Forward to a community
+        </DialogTitle>
+        <DialogContent>
+          {forwardCommunities.length === 0 ? (
+            <Typography sx={{ color: C.textSub, fontSize: "0.9rem" }}>
+              Join another community first to forward this message.
+            </Typography>
+          ) : (
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Community"
+              value={forwardTargetId}
+              onChange={(event) => setForwardTargetId(event.target.value)}
+              sx={{ mt: 0.5 }}
+            >
+              {forwardCommunities.map((community) => (
+                <MenuItem key={community.id} value={community.id}>
+                  {community.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+          {forwardError && (
+            <Typography sx={{ color: C.red, fontSize: "0.78rem", mt: 1.5 }}>
+              {forwardError}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setForwardOpen(false)}
+            disabled={forwardPending}
+            sx={{ color: C.textSub, textTransform: "none" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleForwardToCommunity()}
+            disabled={
+              forwardPending ||
+              !forwardTargetId ||
+              forwardCommunities.length === 0
+            }
+            sx={{
+              bgcolor: C.accent,
+              textTransform: "none",
+              boxShadow: "none",
+              "&:hover": { bgcolor: C.accentDark, boxShadow: "none" },
+            }}
+          >
+            {forwardPending ? "Forwarding…" : "Forward"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -10106,6 +10279,12 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
     (left, right) =>
       new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
   );
+  const forwardCommunities = communities
+    .filter(
+      (community) =>
+        community.joined && community.id !== communityConversationId,
+    )
+    .map((community) => ({ id: community.id, name: community.name }));
   const currentReadScope =
     pageTab === "posts"
       ? "feed"
@@ -10676,6 +10855,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                       post={post}
                       viewerName={currentProfileName}
                       searchHighlighted={highlightedPostId === post.id}
+                      forwardCommunities={forwardCommunities}
                       onReply={setReplyingToPost}
                       onUpdated={handlePostUpdated}
                       onDeleted={handlePostDeleted}
@@ -10918,6 +11098,7 @@ const CommunityFeed = ({ meetings = [] }: Props) => {
                         post={post}
                         viewerName={currentProfileName}
                         searchHighlighted={highlightedPostId === post.id}
+                        forwardCommunities={forwardCommunities}
                         onReply={setReplyingToPost}
                         communityName={conversationCommunity.name}
                         conversationStyle
